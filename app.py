@@ -17,8 +17,6 @@ CORS(app, supports_credentials=True)
 
 from routes.auth import auth_bp
 from routes.api import api_bp
-app.register_blueprint(auth_bp)
-app.register_blueprint(api_bp)
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
@@ -26,6 +24,9 @@ def serve(path):
     if path and os.path.exists(os.path.join(app.static_folder, path)):
         return send_from_directory(app.static_folder, path)
     return send_from_directory(app.static_folder, 'index.html')
+
+app.register_blueprint(auth_bp)
+app.register_blueprint(api_bp)
 
 @app.route('/health')
 def health():
