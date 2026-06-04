@@ -273,7 +273,7 @@ def init_db():
         (1, 'S. Ahmed',    'teacher',     'Maths',   '07700 900001'),
         (1, 'Luaay H.',    'teacher',     'English', '07700 900002'),
         (1, 'Ruwayda M.',  'teacher',     'Science', '07700 900003'),
-        (1, 'F. Omar',     'receptionist','-',       '07700 900004'),
+        (1, 'F. Omar',     'receptionist','—',       '07700 900004'),
         (2, 'T. Hussain',  'teacher',     'Maths',   '07700 900005'),
         (2, 'N. Rahman',   'teacher',     'English', '07700 900006'),
         (3, 'B. Osei',     'teacher',     'Maths',   '07700 900007'),
