@@ -1,5 +1,5 @@
 import os
-from flask import Flask, send_from_directory
+from flask import Flask, send_from_directory, request
 from flask_cors import CORS
 from dotenv import load_dotenv
 from datetime import timedelta
@@ -9,14 +9,16 @@ load_dotenv()
 app = Flask(__name__, static_folder='static')
 app.secret_key = os.environ.get('SECRET_KEY', 'fth-secret-2026')
 app.permanent_session_lifetime = timedelta(hours=8)
-app.config['SESSION_COOKIE_SECURE'] = True
+app.config['SESSION_COOKIE_SECURE'] = False
 app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SAMESITE'] = 'None'
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
-CORS(app, supports_credentials=True)
+CORS(app, supports_credentials=True, origins='*')
 
 from routes.auth import auth_bp
 from routes.api import api_bp
+app.register_blueprint(auth_bp)
+app.register_blueprint(api_bp)
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
@@ -24,9 +26,6 @@ def serve(path):
     if path and os.path.exists(os.path.join(app.static_folder, path)):
         return send_from_directory(app.static_folder, path)
     return send_from_directory(app.static_folder, 'index.html')
-
-app.register_blueprint(auth_bp)
-app.register_blueprint(api_bp)
 
 @app.route('/health')
 def health():
