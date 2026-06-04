@@ -1,0 +1,1862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FT Harlesden — Management System</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f7f6f3;
+  --surface: #ffffff;
+  --surface2: #f0efe9;
+  --border: #e2e0d8;
+  --border2: #d0cec4;
+  --text: #1a1917;
+  --text2: #6b6960;
+  --text3: #9e9c94;
+  --accent: #2d5be3;
+  --accent-bg: #eef2fd;
+  --accent-text: #1a3a9e;
+  --success: #1a7a4a;
+  --success-bg: #e8f5ed;
+  --warning: #8a5a00;
+  --warning-bg: #fef3d8;
+  --danger: #b92020;
+  --danger-bg: #fdeaea;
+  --purple: #5c3db5;
+  --purple-bg: #eeebfb;
+  --teal: #0d7a62;
+  --teal-bg: #e2f5f0;
+  --amber: #8a5a00;
+  --amber-bg: #fef3d8;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --font: 'DM Sans', sans-serif;
+  --mono: 'DM Mono', monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; min-height: 100vh; }
+
+/* ── LAYOUT ── */
+.app { display: flex; min-height: 100vh; }
+.sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; position: fixed; top: 0; bottom: 0; left: 0; overflow-y: auto; }
+.main { margin-left: 220px; flex: 1; min-height: 100vh; display: flex; flex-direction: column; }
+.topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+.content { padding: 24px; flex: 1; }
+
+/* ── SIDEBAR ── */
+.sidebar-brand { padding: 20px 16px 16px; border-bottom: 1px solid var(--border); }
+.brand-name { font-size: 15px; font-weight: 600; color: var(--text); }
+.brand-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.branch-switcher { padding: 10px 12px; margin: 10px 10px 0; background: var(--accent-bg); border-radius: var(--radius); border: 1px solid #c5d3f8; }
+.branch-switcher label { font-size: 10px; color: var(--accent-text); font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; display: block; margin-bottom: 4px; }
+.branch-switcher select { width: 100%; background: transparent; border: none; font-family: var(--font); font-size: 13px; font-weight: 500; color: var(--accent-text); cursor: pointer; outline: none; }
+.nav-section { padding: 10px 10px 0; }
+.nav-label { font-size: 10px; color: var(--text3); font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; padding: 0 6px; margin-bottom: 4px; margin-top: 8px; }
+.nav-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: var(--radius); cursor: pointer; color: var(--text2); font-size: 13px; font-weight: 400; transition: all 0.15s; margin-bottom: 2px; }
+.nav-item:hover { background: var(--surface2); color: var(--text); }
+.nav-item.active { background: var(--accent-bg); color: var(--accent-text); font-weight: 500; }
+.nav-item svg { flex-shrink: 0; opacity: 0.7; }
+.nav-item.active svg { opacity: 1; }
+.sidebar-footer { margin-top: auto; padding: 12px 10px; border-top: 1px solid var(--border); }
+.user-chip { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: var(--radius); }
+.avatar { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+.av-purple { background: var(--purple-bg); color: var(--purple); }
+.av-blue { background: var(--accent-bg); color: var(--accent-text); }
+.av-teal { background: var(--teal-bg); color: var(--teal); }
+.av-amber { background: var(--amber-bg); color: var(--amber); }
+
+/* ── TOPBAR ── */
+.page-title { font-size: 16px; font-weight: 600; }
+.topbar-right { display: flex; align-items: center; gap: 12px; }
+.badge { display: inline-flex; align-items: center; font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: 20px; }
+.badge-purple { background: var(--purple-bg); color: var(--purple); }
+.badge-blue { background: var(--accent-bg); color: var(--accent-text); }
+.badge-teal { background: var(--teal-bg); color: var(--teal); }
+.badge-amber { background: var(--amber-bg); color: var(--amber); }
+.badge-gray { background: var(--surface2); color: var(--text2); }
+.badge-success { background: var(--success-bg); color: var(--success); }
+.badge-amber { background: var(--amber-bg); color: var(--amber); }
+.badge-danger { background: var(--danger-bg); color: var(--danger); }
+
+/* ── CARDS / METRICS ── */
+.metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+.metric-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 18px; }
+.metric-label { font-size: 12px; color: var(--text3); font-weight: 500; margin-bottom: 6px; }
+.metric-value { font-size: 26px; font-weight: 600; color: var(--text); line-height: 1; }
+.metric-sub { font-size: 11px; color: var(--text3); margin-top: 5px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; }
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.card-title { font-size: 14px; font-weight: 600; }
+.two-col { display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; margin-bottom: 20px; }
+
+/* ── TABLES ── */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; font-size: 11px; font-weight: 500; color: var(--text3); padding: 8px 12px; border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--surface2); }
+.id-code { font-family: var(--mono); font-size: 12px; background: var(--surface2); padding: 2px 7px; border-radius: 4px; color: var(--text2); }
+
+/* ── BUTTONS ── */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: var(--font); font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+.btn:hover { background: var(--surface2); border-color: var(--border2); }
+.btn-primary { background: var(--text); color: var(--surface); border-color: var(--text); }
+.btn-primary:hover { background: #333; }
+.btn-danger { background: var(--danger-bg); color: var(--danger); border-color: #f0b0b0; }
+.btn-danger:hover { background: #fbd5d5; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-icon { padding: 5px; width: 28px; height: 28px; justify-content: center; }
+
+/* ── FORMS ── */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label { font-size: 12px; font-weight: 500; color: var(--text2); }
+.field input, .field select, .field textarea { border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 10px; font-family: var(--font); font-size: 13px; background: var(--surface); color: var(--text); outline: none; transition: border 0.15s; }
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(45,91,227,0.1); }
+.field .hint { font-size: 11px; color: var(--text3); }
+.form-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 16px; border-top: 1px solid var(--border); margin-top: 16px; }
+
+/* ── MODALS ── */
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.modal { background: var(--surface); border-radius: var(--radius-lg); width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
+.modal-lg { max-width: 720px; }
+.modal-header { padding: 18px 20px 14px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.modal-title { font-size: 15px; font-weight: 600; }
+.modal-body { padding: 20px; }
+.modal-footer { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ── TOAST ── */
+.toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
+.toast { padding: 12px 16px; border-radius: var(--radius); font-size: 13px; font-weight: 500; animation: slideIn 0.2s ease; display: flex; align-items: center; gap: 8px; min-width: 240px; }
+.toast-success { background: var(--success-bg); color: var(--success); border: 1px solid #a3d9bc; }
+.toast-error { background: var(--danger-bg); color: var(--danger); border: 1px solid #f0b0b0; }
+@keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* ── SEARCH / FILTERS ── */
+.toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.search-wrap { position: relative; flex: 1; min-width: 200px; }
+.search-wrap input { width: 100%; padding-left: 32px; }
+.search-icon { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--text3); pointer-events: none; }
+
+/* ── MISC ── */
+.section-title { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+.section-sub { font-size: 13px; color: var(--text2); margin-bottom: 20px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.dot-green { background: var(--success); }
+.dot-red { background: var(--danger); }
+.dot-amber { background: #e09400; }
+.empty-state { text-align: center; padding: 48px 24px; color: var(--text3); }
+.empty-state p { margin-top: 8px; font-size: 13px; }
+.divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+.row-actions { display: flex; gap: 4px; }
+.notice-item { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.notice-item:last-child { border-bottom: none; }
+.notice-dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+.bar-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; font-size: 13px; border-bottom: 1px solid var(--border); }
+.bar-row:last-child { border-bottom: none; }
+.bar-bg { flex: 1; height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+.sibling-badge { font-size: 10px; background: var(--teal-bg); color: var(--teal); padding: 1px 6px; border-radius: 10px; font-weight: 500; }
+
+/* ── LOGIN ── */
+.login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--bg); }
+.login-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 36px 40px; width: 100%; max-width: 380px; }
+.login-logo { font-size: 22px; font-weight: 700; color: var(--text); margin-bottom: 4px; letter-spacing: -0.5px; }
+.login-sub { font-size: 13px; color: var(--text2); margin-bottom: 28px; }
+.login-field { margin-bottom: 14px; }
+.login-field label { display: block; font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 5px; }
+.login-field input, .login-field select { width: 100%; border: 1px solid var(--border); border-radius: var(--radius); padding: 9px 12px; font-family: var(--font); font-size: 14px; color: var(--text); background: var(--surface); outline: none; transition: border 0.15s; }
+.login-field input:focus, .login-field select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(45,91,227,0.1); }
+.login-btn { width: 100%; padding: 10px; background: var(--text); color: #fff; border: none; border-radius: var(--radius); font-family: var(--font); font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 6px; transition: background 0.15s; }
+.login-btn:hover { background: #2a2a2a; }
+.login-error { color: var(--danger); font-size: 12px; margin-top: 10px; text-align: center; min-height: 18px; }
+
+/* ── ATTENDANCE GRID ── */
+.att-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+.att-cell { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px; cursor: pointer; transition: all 0.15s; }
+.att-cell.present { background: var(--success-bg); border-color: #a3d9bc; }
+.att-cell.absent { background: var(--danger-bg); border-color: #f0b0b0; }
+.att-cell:hover { border-color: var(--accent); }
+.att-name { font-size: 12px; font-weight: 500; }
+.att-id { font-size: 10px; color: var(--text3); font-family: var(--mono); }
+
+/* ── REPORTS ── */
+.report-stat { background: var(--surface2); border-radius: var(--radius); padding: 14px; text-align: center; }
+.report-stat-num { font-size: 28px; font-weight: 700; }
+.report-stat-lbl { font-size: 11px; color: var(--text3); margin-top: 3px; }
+
+/* ── TABS ── */
+.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+.tab { padding: 10px 16px; font-size: 13px; font-weight: 500; color: var(--text2); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; }
+.tab.active { color: var(--accent-text); border-bottom-color: var(--accent); }
+.tab:hover { color: var(--text); }
+
+/* ── PROGRESS BAR ── */
+.progress { height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 4px; background: var(--accent); transition: width 0.3s; }
+
+@media (max-width: 900px) {
+  .metrics-grid { grid-template-columns: repeat(2,1fr); }
+  .two-col { grid-template-columns: 1fr; }
+  .form-grid { grid-template-columns: 1fr; }
+  .form-grid-3 { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+<div class="toast-container" id="toasts"></div>
+
+<script>
+// ═══════════════════════════════════════════
+//  DATA STORE
+// ═══════════════════════════════════════════
+const DB_KEY = 'fth_v3';
+
+function loadDB() {
+  try { return JSON.parse(localStorage.getItem(DB_KEY)) || null; } catch { return null; }
+}
+function saveDB() { localStorage.setItem(DB_KEY, JSON.stringify(db)); }
+
+function seedDB() {
+  return {
+    branches: [
+      { id:1, name:'Harlesden', prefix:'H', address:'Station Road, Harlesden, NW10', phone:'020 8000 0001', email:'harlesden@ftharlesden.co.uk', status:'active' },
+      { id:2, name:'Wembley',   prefix:'W', address:'High Road, Wembley, HA9',       phone:'020 8000 0002', email:'wembley@ftharlesden.co.uk',   status:'active' },
+      { id:3, name:'Brent',     prefix:'B', address:'Brent Cross, NW2',              phone:'020 8000 0003', email:'brent@ftharlesden.co.uk',     status:'active' },
+    ],
+    users: [
+      { id:1, branch_id:null, name:'M. Rahman',  email:'m.rahman@ftharlesden.co.uk',  password:'admin123',   role:'super_admin',     status:'active' },
+      { id:2, branch_id:1,    name:'A. Khan',    email:'a.khan@ftharlesden.co.uk',    password:'manager123', role:'branch_manager',  status:'active' },
+      { id:3, branch_id:2,    name:'R. Patel',   email:'r.patel@ftharlesden.co.uk',   password:'manager123', role:'branch_manager',  status:'active' },
+      { id:4, branch_id:1,    name:'S. Ahmed',   email:'s.ahmed@ftharlesden.co.uk',   password:'teacher123', role:'teacher',         status:'active' },
+      { id:5, branch_id:1,    name:'Luaay H.',   email:'luaay@ftharlesden.co.uk',     password:'teacher123', role:'teacher',         status:'active' },
+      { id:6, branch_id:1,    name:'Ruwayda M.', email:'ruwayda@ftharlesden.co.uk',   password:'teacher123', role:'teacher',         status:'active' },
+      { id:7, branch_id:2,    name:'T. Hussain', email:'t.hussain@ftharlesden.co.uk', password:'teacher123', role:'teacher',         status:'active' },
+      { id:8, branch_id:1,    name:'F. Omar',    email:'f.omar@ftharlesden.co.uk',    password:'recep123',   role:'receptionist',    status:'active' },
+    ],
+    students: [
+      { id:1,  branch_id:1, admission_id:'H100', name:'Omed Masjidi',    year:'Year 11', parent:'07700 000100', status:'active', notes:'1-to-1 student' },
+      { id:2,  branch_id:1, admission_id:'H101', name:'Zara Hussain',    year:'Year 9',  parent:'07700 000101', status:'active', notes:'' },
+      { id:3,  branch_id:1, admission_id:'H102', name:'Adam Malik',      year:'Year 8',  parent:'07700 000102', status:'active', notes:'' },
+      { id:4,  branch_id:1, admission_id:'H103', name:'Fatima Noor',     year:'Year 10', parent:'07700 000103', status:'active', notes:'' },
+      { id:5,  branch_id:1, admission_id:'H104', name:'Yusuf Ali',       year:'Year 7',  parent:'07700 000104', status:'active', notes:'' },
+      { id:6,  branch_id:1, admission_id:'H110', name:'Sara Ahmed',      year:'Year 9',  parent:'07700 000110', status:'active', notes:'Sibling' },
+      { id:7,  branch_id:1, admission_id:'H110a',name:'Omar Ahmed',      year:'Year 7',  parent:'07700 000110', status:'active', notes:'Sibling' },
+      { id:8,  branch_id:1, admission_id:'H110b',name:'Leila Ahmed',     year:'Year 6',  parent:'07700 000110', status:'active', notes:'Sibling' },
+      { id:9,  branch_id:2, admission_id:'W100', name:'James Okonkwo',   year:'Year 10', parent:'07700 000200', status:'active', notes:'' },
+      { id:10, branch_id:2, admission_id:'W101', name:'Priya Sharma',    year:'Year 8',  parent:'07700 000201', status:'active', notes:'' },
+      { id:11, branch_id:2, admission_id:'W102', name:'Daniel Foster',   year:'Year 9',  parent:'07700 000202', status:'active', notes:'' },
+      { id:12, branch_id:3, admission_id:'B100', name:'Amara Diallo',    year:'Year 11', parent:'07700 000300', status:'active', notes:'' },
+      { id:13, branch_id:3, admission_id:'B101', name:'Chen Wei',        year:'Year 10', parent:'07700 000301', status:'active', notes:'' },
+    ],
+    staff: [
+      { id:1, branch_id:1, name:'S. Ahmed',    role:'teacher',     subject:'Maths',    contact:'07700 900001', status:'active' },
+      { id:2, branch_id:1, name:'Luaay H.',    role:'teacher',     subject:'English',  contact:'07700 900002', status:'active' },
+      { id:3, branch_id:1, name:'Ruwayda M.',  role:'teacher',     subject:'Science',  contact:'07700 900003', status:'active' },
+      { id:4, branch_id:1, name:'F. Omar',     role:'receptionist',subject:'—',        contact:'07700 900004', status:'active' },
+      { id:5, branch_id:2, name:'T. Hussain',  role:'teacher',     subject:'Maths',    contact:'07700 900005', status:'active' },
+      { id:6, branch_id:2, name:'N. Rahman',   role:'teacher',     subject:'English',  contact:'07700 900006', status:'active' },
+      { id:7, branch_id:3, name:'B. Osei',     role:'teacher',     subject:'Maths',    contact:'07700 900007', status:'active' },
+    ],
+    sessions: [
+      { id:1, branch_id:1, date:'2026-05-02', slot:'Slot 1 (09:00–11:00)', staff_id:1, subject:'Maths',   table_no:1 },
+      { id:2, branch_id:1, date:'2026-05-02', slot:'Slot 2 (11:30–13:30)', staff_id:2, subject:'English', table_no:2 },
+      { id:3, branch_id:1, date:'2026-05-02', slot:'Slot 3 (14:00–16:00)', staff_id:3, subject:'Science', table_no:3 },
+      { id:4, branch_id:1, date:'2026-05-09', slot:'Slot 1 (09:00–11:00)', staff_id:1, subject:'Maths',   table_no:1 },
+      { id:5, branch_id:2, date:'2026-05-09', slot:'Slot 1 (09:00–11:00)', staff_id:5, subject:'Maths',   table_no:1 },
+    ],
+    attendance: [
+      { id:1, session_id:1, student_id:1, status:'present', notes:'' },
+      { id:2, session_id:1, student_id:2, status:'present', notes:'' },
+      { id:3, session_id:1, student_id:3, status:'absent',  notes:'Unwell' },
+      { id:4, session_id:1, student_id:4, status:'present', notes:'' },
+      { id:5, session_id:1, student_id:5, status:'present', notes:'' },
+      { id:6, session_id:2, student_id:2, status:'present', notes:'' },
+      { id:7, session_id:2, student_id:6, status:'present', notes:'' },
+      { id:8, session_id:2, student_id:7, status:'present', notes:'' },
+      { id:9, session_id:4, student_id:1, status:'present', notes:'' },
+      { id:10, session_id:5, student_id:9, status:'present', notes:'' },
+      { id:11, session_id:5, student_id:10, status:'present', notes:'' },
+    ],
+    invoices: [
+      { id:1, student_id:1, branch_id:1, month:'2026-05', amount:120, status:'paid',    issued:'2026-05-01', paid_date:'2026-05-03', notes:'' },
+      { id:2, student_id:2, branch_id:1, month:'2026-05', amount:120, status:'paid',    issued:'2026-05-01', paid_date:'2026-05-07', notes:'' },
+      { id:3, student_id:3, branch_id:1, month:'2026-05', amount:120, status:'overdue', issued:'2026-05-01', paid_date:'',           notes:'' },
+      { id:4, student_id:4, branch_id:1, month:'2026-05', amount:120, status:'paid',    issued:'2026-05-01', paid_date:'2026-05-04', notes:'' },
+      { id:5, student_id:5, branch_id:1, month:'2026-05', amount:120, status:'due',     issued:'2026-05-01', paid_date:'',           notes:'' },
+      { id:6, student_id:6, branch_id:1, month:'2026-05', amount:120, status:'paid',    issued:'2026-05-01', paid_date:'2026-05-10', notes:'Family discount applied' },
+      { id:7, student_id:7, branch_id:1, month:'2026-05', amount:100, status:'paid',    issued:'2026-05-01', paid_date:'2026-05-10', notes:'Sibling rate' },
+      { id:8, student_id:8, branch_id:1, month:'2026-05', amount:100, status:'due',     issued:'2026-05-01', paid_date:'',           notes:'Sibling rate' },
+      { id:9, student_id:9, branch_id:2, month:'2026-05', amount:120, status:'paid',    issued:'2026-05-01', paid_date:'2026-05-05', notes:'' },
+      { id:10,student_id:10,branch_id:2, month:'2026-05', amount:120, status:'overdue', issued:'2026-05-01', paid_date:'',           notes:'' },
+    ],
+    progress: [
+      { id:1, student_id:1, session_id:1, staff_id:1, subject:'Maths',   rating:5, comment:'Excellent work on quadratics. Ready for next topic.', date:'2026-05-02' },
+      { id:2, student_id:2, session_id:1, staff_id:1, subject:'Maths',   rating:4, comment:'Good understanding. Needs more practice on surds.',    date:'2026-05-02' },
+      { id:3, student_id:2, session_id:2, staff_id:2, subject:'English', rating:4, comment:'Strong essay structure. Work on vocabulary range.',     date:'2026-05-02' },
+      { id:4, student_id:4, session_id:1, staff_id:1, subject:'Maths',   rating:3, comment:'Struggling with algebra. Extra homework set.',          date:'2026-05-02' },
+      { id:5, student_id:5, session_id:1, staff_id:1, subject:'Maths',   rating:4, comment:'Consistent progress. Algebra improving well.',          date:'2026-05-02' },
+    ],
+    parent_users: [
+      { id:1, student_ids:[1],   name:'Mr Masjidi',  email:'parent.h100@ftharlesden.co.uk', password:'parent123', status:'active' },
+      { id:2, student_ids:[2],   name:'Mrs Hussain', email:'parent.h101@ftharlesden.co.uk', password:'parent123', status:'active' },
+      { id:3, student_ids:[6,7,8],name:'Mr Ahmed',   email:'parent.h110@ftharlesden.co.uk', password:'parent123', status:'active' },
+    ],
+    audit_log: [],
+    _seq: { students:14, staff:8, sessions:6, users:9, attendance:12, branches:4, invoices:11, progress:6, parent_users:4 }
+  };
+}
+
+let db = loadDB() || seedDB();
+saveDB();
+
+// ═══════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════
+let state = {
+  currentUser: null,
+  currentBranch: null,
+  page: 'dashboard',
+  modal: null,
+  editTarget: null,
+  attSessionId: null,
+  parentUser: null,
+  parentView: 'overview',
+  sessionReportId: null,
+  invoiceFilter: 'all',
+};
+
+// ═══════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════
+function nextId(table) { db._seq[table] = (db._seq[table]||1)+1; return db._seq[table]; }
+
+function nextAdmissionId(branchId) {
+  const branch = db.branches.find(b => b.id === branchId);
+  if (!branch) return '?';
+  const prefix = branch.prefix;
+  const existing = db.students.filter(s => s.branch_id === branchId)
+    .map(s => {
+      const m = s.admission_id.match(/^[A-Z](\d+)/);
+      return m ? parseInt(m[1]) : 99;
+    });
+  const max = existing.length ? Math.max(...existing) : 99;
+  return prefix + (max + 1);
+}
+
+function scopedStudents() {
+  if (!state.currentBranch) return db.students;
+  return db.students.filter(s => s.branch_id === state.currentBranch);
+}
+function scopedStaff() {
+  if (!state.currentBranch) return db.staff;
+  return db.staff.filter(s => s.branch_id === state.currentBranch);
+}
+function scopedSessions() {
+  if (!state.currentBranch) return db.sessions;
+  return db.sessions.filter(s => s.branch_id === state.currentBranch);
+}
+function branchName(id) { const b = db.branches.find(b=>b.id===id); return b?b.name:'—'; }
+function staffName(id) { const s = db.staff.find(s=>s.id===id); return s?s.name:'—'; }
+function getBranch(id) { return db.branches.find(b=>b.id===id); }
+
+function canAccess(page) {
+  const r = state.currentUser?.role;
+  if (r === 'super_admin') return true;
+  if (r === 'branch_manager') return ['dashboard','students','staff','attendance','sessions','invoices','session_reports','reports'].includes(page);
+  if (r === 'teacher') return ['dashboard','attendance','sessions','session_reports'].includes(page);
+  if (r === 'receptionist') return ['dashboard','students','sessions','invoices'].includes(page);
+  return false;
+}
+
+function roleBadge(role) {
+  const map = {
+    super_admin: ['badge-purple','Super admin'],
+    branch_manager: ['badge-blue','Branch manager'],
+    teacher: ['badge-teal','Teacher'],
+    receptionist: ['badge-amber','Receptionist'],
+  };
+  const [cls, label] = map[role] || ['badge-gray', role];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+function statusDot(s) {
+  return s === 'active'
+    ? `<span class="dot dot-green"></span> Active`
+    : `<span class="dot dot-red"></span> Inactive`;
+}
+
+function toast(msg, type='success') {
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.textContent = (type === 'success' ? '✓ ' : '✕ ') + msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+function log(action, table, record_id) {
+  db.audit_log.unshift({
+    id: (db.audit_log.length+1),
+    user_id: state.currentUser?.id,
+    user_name: state.currentUser?.name,
+    branch_id: state.currentBranch,
+    action, table_name: table, record_id: String(record_id),
+    timestamp: new Date().toISOString()
+  });
+  if (db.audit_log.length > 200) db.audit_log.pop();
+  saveDB();
+}
+
+function avatarInitials(name) {
+  return name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+}
+function avatarClass(role) {
+  return {super_admin:'av-purple',branch_manager:'av-blue',teacher:'av-teal',receptionist:'av-amber'}[role]||'av-blue';
+}
+
+// ═══════════════════════════════════════════
+//  RENDER ENGINE
+// ═══════════════════════════════════════════
+function render() {
+  const app = document.getElementById('app');
+  if (!state.currentUser && !state.parentUser) { app.innerHTML = renderLogin(); return; }
+  if (state.parentUser && !state.currentUser) {
+    app.innerHTML = `<div style="max-width:860px;margin:0 auto;padding:24px;">${renderParentPortal()}</div>`;
+    document.getElementById('parent-logout-btn')?.addEventListener('click', ()=>{ state.parentUser=null; render(); });
+    document.querySelectorAll('[data-action]').forEach(el=>{
+      el.addEventListener('click', e => handleAction(el.dataset.action, el.dataset.id?parseInt(el.dataset.id):null, e));
+    });
+    return;
+  }
+  app.innerHTML = `
+    <div class="app">
+      ${renderSidebar()}
+      <div class="main">
+        ${renderTopbar()}
+        <div class="content">
+          ${renderPage()}
+        </div>
+      </div>
+    </div>
+    ${state.modal ? renderModal() : ''}
+  `;
+  attachEvents();
+}
+
+// ═══════════════════════════════════════════
+//  LOGIN
+// ═══════════════════════════════════════════
+function renderLogin() {
+  return `
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-logo">FT Harlesden</div>
+      <div class="login-sub">Management System — sign in to continue</div>
+      <div class="login-field">
+        <label>Email address</label>
+        <input type="email" id="l-email" placeholder="you@ftharlesden.co.uk" value="m.rahman@ftharlesden.co.uk">
+      </div>
+      <div class="login-field">
+        <label>Password</label>
+        <input type="password" id="l-pass" placeholder="••••••••" value="admin123">
+      </div>
+      <div class="login-field">
+        <label>Branch (optional — leave blank for all)</label>
+        <select id="l-branch">
+          <option value="">All branches (admin)</option>
+          ${db.branches.map(b=>`<option value="${b.id}">${b.name}</option>`).join('')}
+        </select>
+      </div>
+      <button class="login-btn" id="login-btn">Sign in</button>
+      <button class="login-btn" id="parent-login-btn" style="background:var(--teal);margin-top:8px;">Sign in as parent</button>
+      <div class="login-error" id="login-err"></div>
+      <div style="margin-top:16px;font-size:11px;color:var(--text3);border-top:1px solid var(--border);padding-top:12px;">
+        <strong>Demo accounts:</strong><br>
+        m.rahman / admin123 (super admin) &nbsp;|&nbsp; a.khan / manager123 (branch manager - Harlesden)<br>
+        s.ahmed / teacher123 (teacher) &nbsp;|&nbsp; f.omar / recep123 (receptionist)
+      </div>
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════
+//  SIDEBAR
+// ═══════════════════════════════════════════
+function renderSidebar() {
+  const u = state.currentUser;
+  const isSA = u.role === 'super_admin';
+  const pages = [
+    {id:'dashboard',       icon:iconHome(),    label:'Dashboard'},
+    {id:'students',        icon:iconUsers(),   label:'Students'},
+    {id:'staff',           icon:iconUser(),    label:'Staff'},
+    {id:'sessions',        icon:iconCal(),     label:'Sessions'},
+    {id:'attendance',      icon:iconCheck(),   label:'Attendance'},
+    {id:'invoices',        icon:iconPound(),   label:'Invoices & fees'},
+    {id:'session_reports', icon:iconDoc(),     label:'Session reports'},
+    {id:'reports',         icon:iconChart(),   label:'Analytics'},
+  ];
+  const adminPages = [
+    {id:'users',         icon:iconKey(),    label:'User management'},
+    {id:'branches',      icon:iconBranch(), label:'Branches'},
+    {id:'parent_portal', icon:iconHeart(),  label:'Parent portal'},
+    {id:'audit',         icon:iconLog(),    label:'Audit log'},
+  ];
+
+  return `
+  <div class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-name">FT Harlesden</div>
+      <div class="brand-sub">Management System</div>
+    </div>
+    ${isSA ? `
+    <div style="padding:10px 12px 0;">
+      <div class="branch-switcher">
+        <label>Viewing branch</label>
+        <select id="branch-switch">
+          <option value="">All branches</option>
+          ${db.branches.map(b=>`<option value="${b.id}" ${state.currentBranch==b.id?'selected':''}>${b.name}</option>`).join('')}
+        </select>
+      </div>
+    </div>` : ''}
+    <div class="nav-section">
+      <div class="nav-label">Main</div>
+      ${pages.filter(p=>canAccess(p.id)).map(p=>`
+        <div class="nav-item ${state.page===p.id?'active':''}" data-page="${p.id}">
+          ${p.icon} ${p.label}
+        </div>`).join('')}
+      ${isSA ? `
+      <div class="nav-label" style="margin-top:12px;">Admin</div>
+      ${adminPages.map(p=>`
+        <div class="nav-item ${state.page===p.id?'active':''}" data-page="${p.id}">
+          ${p.icon} ${p.label}
+        </div>`).join('')}` : ''}
+    </div>
+    <div class="sidebar-footer">
+      <div class="user-chip">
+        <div class="avatar ${avatarClass(u.role)}">${avatarInitials(u.name)}</div>
+        <div>
+          <div style="font-size:13px;font-weight:500;">${u.name}</div>
+          <div style="font-size:11px;color:var(--text3);">${roleBadge(u.role)}</div>
+        </div>
+      </div>
+      <button class="btn btn-sm" id="logout-btn" style="width:100%;margin-top:8px;justify-content:center;">Sign out</button>
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════
+//  TOPBAR
+// ═══════════════════════════════════════════
+function renderTopbar() {
+  const titles = {
+    dashboard:'Dashboard', students:'Students', staff:'Staff', sessions:'Sessions',
+    attendance:'Attendance', invoices:'Invoices & fees', session_reports:'Session reports',
+    reports:'Analytics', users:'User management', branches:'Branches',
+    parent_portal:'Parent portal', audit:'Audit log'
+  };
+  const branch = state.currentBranch ? db.branches.find(b=>b.id===state.currentBranch) : null;
+  return `
+  <div class="topbar">
+    <div class="page-title">${titles[state.page]||''}</div>
+    <div class="topbar-right">
+      ${branch ? `<span class="badge badge-blue">${branch.name}</span>` : `<span class="badge badge-purple">All branches</span>`}
+      <span style="font-size:13px;color:var(--text2);">${state.currentUser.name}</span>
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════
+//  PAGES
+// ═══════════════════════════════════════════
+function renderPage() {
+  const pages = {
+    dashboard: renderDashboard,
+    students: renderStudents,
+    staff: renderStaff,
+    sessions: renderSessions,
+    attendance: renderAttendance,
+    invoices: renderInvoices,
+    session_reports: renderSessionReports,
+    reports: renderReports,
+    users: renderUsers,
+    branches: renderBranches,
+    parent_portal: renderParentPortalAdmin,
+    audit: renderAudit,
+  };
+  return (pages[state.page] || renderDashboard)();
+}
+
+// ── DASHBOARD ──
+function renderDashboard() {
+  const students = scopedStudents();
+  const staff = scopedStaff();
+  const sessions = scopedSessions();
+  const allAtt = db.attendance;
+
+  // utilisation per branch
+  const branchStats = db.branches.map(b => {
+    const bSessions = db.sessions.filter(s=>s.branch_id===b.id);
+    const bStudents = db.students.filter(s=>s.branch_id===b.id);
+    const totalSlots = bSessions.length * 5; // 5 students per slot max per teacher
+    const used = db.attendance.filter(a => bSessions.find(s=>s.id===a.session_id)).length;
+    const pct = totalSlots ? Math.round(used/totalSlots*100) : 0;
+    return { ...b, pct, studentCount: bStudents.length, sessionCount: bSessions.length };
+  });
+
+  const notices = [];
+  const missingId = db.students.filter(s=>!s.admission_id);
+  if (missingId.length) notices.push({color:'var(--warning)',msg:`${missingId.length} student(s) missing admission ID`});
+  const allUsers = db.users;
+  const inactive = allUsers.filter(u=>u.status==='inactive');
+  if (inactive.length) notices.push({color:'var(--danger)',msg:`${inactive.length} user account(s) inactive`});
+  notices.push({color:'var(--accent)',msg:`System running normally — ${db.students.length} students enrolled`});
+
+  const totalAtt = allAtt.filter(a=>a.status==='present').length;
+  const totalReg = allAtt.length;
+  const avgAtt = totalReg ? Math.round(totalAtt/totalReg*100) : 0;
+
+  return `
+  <div class="metrics-grid">
+    <div class="metric-card">
+      <div class="metric-label">Total students</div>
+      <div class="metric-value">${db.students.filter(s=>s.status==='active').length}</div>
+      <div class="metric-sub">${!state.currentBranch?'Across all branches':branchName(state.currentBranch)}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Staff active</div>
+      <div class="metric-value">${scopedStaff().filter(s=>s.status==='active').length}</div>
+      <div class="metric-sub">Teachers &amp; support</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Sessions recorded</div>
+      <div class="metric-value">${sessions.length}</div>
+      <div class="metric-sub">May 2026</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Attendance rate</div>
+      <div class="metric-value">${avgAtt}%</div>
+      <div class="metric-sub">Present / registered</div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Branch utilisation — May 2026</div>
+      </div>
+      ${branchStats.map(b=>`
+        <div class="bar-row">
+          <span style="min-width:80px;color:var(--text2);">${b.name}</span>
+          <div class="bar-bg"><div class="bar-fill" style="width:${b.pct}%;background:var(--accent);"></div></div>
+          <span style="min-width:36px;text-align:right;font-weight:600;">${b.pct}%</span>
+          <span style="font-size:11px;color:var(--text3);min-width:60px;">${b.studentCount} students</span>
+        </div>`).join('')}
+      <hr class="divider">
+      <div class="card-title" style="margin-bottom:10px;">Recent activity</div>
+      ${db.audit_log.slice(0,5).map(l=>`
+        <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid var(--border);">
+          <span style="color:var(--text2);">${l.user_name} — ${l.action} in <em>${l.table_name}</em></span>
+          <span style="color:var(--text3);">${new Date(l.timestamp).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</span>
+        </div>`).join('') || '<p style="color:var(--text3);font-size:13px;">No recent activity</p>'}
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Notices</div></div>
+      ${notices.map(n=>`
+        <div class="notice-item">
+          <div class="notice-dot" style="background:${n.color};"></div>
+          <span style="color:var(--text2);">${n.msg}</span>
+        </div>`).join('')}
+      <hr class="divider">
+      <div class="card-title" style="margin-bottom:10px;">Quick actions</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button class="btn" data-page="students" data-action="add">+ Enrol new student</button>
+        <button class="btn" data-page="sessions" data-action="add">+ Add session</button>
+        <button class="btn" data-page="attendance" data-action="">Mark attendance</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── STUDENTS ──
+function renderStudents() {
+  const students = scopedStudents();
+  const search = state.studentSearch || '';
+  const filtered = search ? students.filter(s =>
+    s.name.toLowerCase().includes(search.toLowerCase()) ||
+    s.admission_id.toLowerCase().includes(search.toLowerCase())
+  ) : students;
+
+  return `
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+    <div>
+      <div class="section-title">Students</div>
+      <div class="section-sub">${students.length} enrolled${state.currentBranch?' at '+branchName(state.currentBranch):' across all branches'}</div>
+    </div>
+    ${canAccess('students') ? `<button class="btn btn-primary" data-action="add-student">+ Enrol student</button>` : ''}
+  </div>
+  <div class="toolbar">
+    <div class="search-wrap">
+      <span class="search-icon">${iconSearch()}</span>
+      <input type="text" id="student-search" placeholder="Search by name or ID…" value="${search}" style="padding-left:32px;">
+    </div>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Admission ID</th><th>Name</th><th>Year group</th><th>Branch</th><th>Parent contact</th><th>Status</th><th>Notes</th><th></th>
+        </tr></thead>
+        <tbody>
+          ${filtered.length ? filtered.map(s=>`
+            <tr>
+              <td><span class="id-code">${s.admission_id}</span>${s.notes&&s.notes.includes('Sibling')?` <span class="sibling-badge">sibling</span>`:''}</td>
+              <td><strong>${s.name}</strong></td>
+              <td>${s.year}</td>
+              <td><span class="badge badge-gray">${branchName(s.branch_id)}</span></td>
+              <td style="font-family:var(--mono);font-size:12px;">${s.parent}</td>
+              <td>${statusDot(s.status)}</td>
+              <td style="color:var(--text3);font-size:12px;">${s.notes||'—'}</td>
+              <td><div class="row-actions">
+                <button class="btn btn-sm" data-action="edit-student" data-id="${s.id}">Edit</button>
+                <button class="btn btn-sm btn-danger" data-action="del-student" data-id="${s.id}">Delete</button>
+              </div></td>
+            </tr>`).join('')
+          : `<tr><td colspan="8"><div class="empty-state">No students found</div></td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+// ── STAFF ──
+function renderStaff() {
+  const staff = scopedStaff();
+  return `
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+    <div>
+      <div class="section-title">Staff</div>
+      <div class="section-sub">${staff.length} members${state.currentBranch?' at '+branchName(state.currentBranch):' across all branches'}</div>
+    </div>
+    <button class="btn btn-primary" data-action="add-staff">+ Add staff</button>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>Role</th><th>Subject</th><th>Branch</th><th>Contact</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          ${staff.map(s=>`
+            <tr>
+              <td><div style="display:flex;align-items:center;gap:8px;">
+                <div class="avatar av-teal" style="width:26px;height:26px;font-size:10px;">${avatarInitials(s.name)}</div>
+                <strong>${s.name}</strong>
+              </div></td>
+              <td>${roleBadge(s.role==='teacher'?'teacher':s.role==='receptionist'?'receptionist':'teacher')}</td>
+              <td>${s.subject}</td>
+              <td><span class="badge badge-gray">${branchName(s.branch_id)}</span></td>
+              <td style="font-family:var(--mono);font-size:12px;">${s.contact}</td>
+              <td>${statusDot(s.status)}</td>
+              <td><div class="row-actions">
+                <button class="btn btn-sm" data-action="edit-staff" data-id="${s.id}">Edit</button>
+                <button class="btn btn-sm btn-danger" data-action="del-staff" data-id="${s.id}">Delete</button>
+              </div></td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+// ── SESSIONS ──
+function renderSessions() {
+  const sessions = scopedSessions();
+  return `
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+    <div>
+      <div class="section-title">Sessions</div>
+      <div class="section-sub">${sessions.length} sessions recorded</div>
+    </div>
+    <button class="btn btn-primary" data-action="add-session">+ Add session</button>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Date</th><th>Slot</th><th>Branch</th><th>Teacher</th><th>Subject</th><th>Table</th><th>Attendance</th><th></th></tr></thead>
+        <tbody>
+          ${sessions.sort((a,b)=>b.date.localeCompare(a.date)).map(s=>{
+            const attCount = db.attendance.filter(a=>a.session_id===s.id&&a.status==='present').length;
+            const totalReg = db.attendance.filter(a=>a.session_id===s.id).length;
+            return `
+            <tr>
+              <td><strong>${new Date(s.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</strong></td>
+              <td style="font-size:12px;">${s.slot}</td>
+              <td><span class="badge badge-gray">${branchName(s.branch_id)}</span></td>
+              <td>${staffName(s.staff_id)}</td>
+              <td>${s.subject}</td>
+              <td>Table ${s.table_no}</td>
+              <td><span class="badge ${attCount>0?'badge-success':'badge-gray'}">${attCount}/${totalReg} present</span></td>
+              <td><div class="row-actions">
+                <button class="btn btn-sm" data-action="mark-att" data-id="${s.id}">Mark attendance</button>
+                <button class="btn btn-sm btn-danger" data-action="del-session" data-id="${s.id}">Delete</button>
+              </div></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+// ── ATTENDANCE ──
+function renderAttendance() {
+  const sessions = scopedSessions().sort((a,b)=>b.date.localeCompare(a.date));
+  const selId = state.attSessionId || (sessions[0]?.id);
+  const selSession = db.sessions.find(s=>s.id===selId);
+  const branchStudents = selSession ? db.students.filter(s=>s.branch_id===selSession.branch_id&&s.status==='active') : [];
+  const existing = db.attendance.filter(a=>a.session_id===selId);
+
+  return `
+  <div class="section-title" style="margin-bottom:4px;">Attendance</div>
+  <div class="section-sub">Select a session to view or mark attendance</div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-header"><div class="card-title">Select session</div></div>
+    <div class="field">
+      <select id="att-session-select">
+        <option value="">— choose session —</option>
+        ${sessions.map(s=>`<option value="${s.id}" ${s.id===selId?'selected':''}>${new Date(s.date).toLocaleDateString('en-GB',{day:'numeric',month:'short'})} · ${s.slot} · ${branchName(s.branch_id)} · ${staffName(s.staff_id)}</option>`).join('')}
+      </select>
+    </div>
+  </div>
+
+  ${selSession ? `
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">${new Date(selSession.date).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})} — ${selSession.slot}</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span class="badge badge-success">${existing.filter(a=>a.status==='present').length} present</span>
+        <span class="badge badge-danger">${existing.filter(a=>a.status==='absent').length} absent</span>
+        <button class="btn btn-sm btn-primary" data-action="save-att">Save attendance</button>
+      </div>
+    </div>
+    <p style="font-size:12px;color:var(--text3);margin-bottom:14px;">Click a student card to toggle present / absent</p>
+    <div class="att-grid">
+      ${branchStudents.map(st=>{
+        const rec = existing.find(a=>a.student_id===st.id);
+        const cls = rec ? (rec.status==='present'?'present':'absent') : '';
+        return `
+        <div class="att-cell ${cls}" data-action="toggle-att" data-student="${st.id}" data-session="${selId}">
+          <div class="att-name">${st.name}</div>
+          <div class="att-id">${st.admission_id}</div>
+          <div style="font-size:10px;margin-top:4px;font-weight:500;">${rec?rec.status.toUpperCase():'—'}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>` : ''}`;
+}
+
+// ── INVOICES ──
+function renderInvoices() {
+  const filter = state.invoiceFilter || 'all';
+  const scopedInvoices = state.currentBranch
+    ? db.invoices.filter(i=>i.branch_id===state.currentBranch)
+    : db.invoices;
+  const filtered = filter === 'all' ? scopedInvoices : scopedInvoices.filter(i=>i.status===filter);
+  const total = scopedInvoices.reduce((s,i)=>s+i.amount,0);
+  const paid = scopedInvoices.filter(i=>i.status==='paid').reduce((s,i)=>s+i.amount,0);
+  const outstanding = scopedInvoices.filter(i=>i.status!=='paid').reduce((s,i)=>s+i.amount,0);
+
+  function invBadge(status) {
+    if (status==='paid')    return `<span class="badge badge-success">Paid</span>`;
+    if (status==='overdue') return `<span class="badge badge-danger">Overdue</span>`;
+    return `<span class="badge badge-amber">Due</span>`;
+  }
+
+  return `
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+    <div><div class="section-title">Invoices & fees</div><div class="section-sub">Monthly fee tracking and invoice management</div></div>
+    <button class="btn btn-primary" data-action="gen-invoices">Generate monthly invoices</button>
+  </div>
+  <div class="metrics-grid" style="grid-template-columns:repeat(4,1fr);">
+    <div class="metric-card"><div class="metric-label">Total invoiced</div><div class="metric-value">£${total.toLocaleString()}</div><div class="metric-sub">This month</div></div>
+    <div class="metric-card"><div class="metric-label">Collected</div><div class="metric-value" style="color:var(--success);">£${paid.toLocaleString()}</div><div class="metric-sub">${scopedInvoices.length ? Math.round(paid/total*100) : 0}% of total</div></div>
+    <div class="metric-card"><div class="metric-label">Outstanding</div><div class="metric-value" style="color:var(--danger);">£${outstanding.toLocaleString()}</div><div class="metric-sub">${scopedInvoices.filter(i=>i.status!=='paid').length} invoices</div></div>
+    <div class="metric-card"><div class="metric-label">Overdue</div><div class="metric-value" style="color:var(--danger);">${scopedInvoices.filter(i=>i.status==='overdue').length}</div><div class="metric-sub">Need chasing</div></div>
+  </div>
+  <div class="toolbar">
+    ${['all','paid','due','overdue'].map(f=>`<button class="btn btn-sm ${filter===f?'btn-primary':''}" data-action="inv-filter" data-filter="${f}">${f.charAt(0).toUpperCase()+f.slice(1)}</button>`).join('')}
+  </div>
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Student</th><th>ID</th><th>Branch</th><th>Month</th><th>Amount</th><th>Status</th><th>Issued</th><th>Paid date</th><th>Notes</th><th></th></tr></thead>
+        <tbody>
+          ${filtered.map(inv=>{
+            const st = db.students.find(s=>s.id===inv.student_id);
+            return `<tr>
+              <td><strong>${st?.name||'?'}</strong></td>
+              <td><span class="id-code">${st?.admission_id||'?'}</span></td>
+              <td><span class="badge badge-gray">${branchName(inv.branch_id)}</span></td>
+              <td>${inv.month}</td>
+              <td><strong>£${inv.amount}</strong></td>
+              <td>${invBadge(inv.status)}</td>
+              <td style="font-size:12px;color:var(--text3);">${inv.issued}</td>
+              <td style="font-size:12px;color:var(--text3);">${inv.paid_date||'—'}</td>
+              <td style="font-size:12px;color:var(--text3);">${inv.notes||'—'}</td>
+              <td><div class="row-actions">
+                ${inv.status!=='paid'?`<button class="btn btn-sm" data-action="mark-paid" data-id="${inv.id}">Mark paid</button>`:''}
+                <button class="btn btn-sm" data-action="edit-invoice" data-id="${inv.id}">Edit</button>
+              </div></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+// ── SESSION REPORTS ──
+function renderSessionReports() {
+  const sessions = scopedSessions().sort((a,b)=>b.date.localeCompare(a.date));
+  const selId = state.sessionReportId || sessions[0]?.id;
+  const sel = db.sessions.find(s=>s.id===selId);
+  const attRecs = sel ? db.attendance.filter(a=>a.session_id===selId) : [];
+  const present = attRecs.filter(a=>a.status==='present');
+  const absent = attRecs.filter(a=>a.status==='absent');
+  const progressRecs = sel ? db.progress.filter(p=>p.session_id===selId) : [];
+
+  function stars(n) {
+    return Array.from({length:5},(_,i)=>`<span style="color:${i<n?'#f59e0b':'var(--border2)'};">★</span>`).join('');
+  }
+
+  return `
+  <div class="section-title" style="margin-bottom:4px;">Session reports</div>
+  <div class="section-sub">Per-session attendance summary and teacher progress notes</div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div class="field">
+      <label style="font-size:12px;font-weight:500;color:var(--text2);display:block;margin-bottom:5px;">Select session</label>
+      <select id="sr-session-select">
+        <option value="">— choose session —</option>
+        ${sessions.map(s=>`<option value="${s.id}" ${s.id===selId?'selected':''}>${new Date(s.date).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})} · ${s.slot} · ${branchName(s.branch_id)} · ${staffName(s.staff_id)}</option>`).join('')}
+      </select>
+    </div>
+  </div>
+
+  ${sel ? `
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+    <div class="metric-card"><div class="metric-label">Date</div><div class="metric-value" style="font-size:18px;">${new Date(sel.date).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</div></div>
+    <div class="metric-card"><div class="metric-label">Slot / subject / teacher</div><div class="metric-value" style="font-size:16px;">${sel.slot}</div><div class="metric-sub">${sel.subject} · ${staffName(sel.staff_id)} · Table ${sel.table_no}</div></div>
+    <div class="metric-card"><div class="metric-label">Present</div><div class="metric-value" style="color:var(--success);">${present.length}</div><div class="metric-sub">out of ${attRecs.length} registered</div></div>
+    <div class="metric-card"><div class="metric-label">Absent</div><div class="metric-value" style="color:var(--danger);">${absent.length}</div><div class="metric-sub">${attRecs.length?Math.round(absent.length/attRecs.length*100):0}% absence rate</div></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Attendance register</div>
+        <button class="btn btn-sm" data-action="export-session-report" data-id="${sel.id}">Export PDF</button>
+      </div>
+      <table style="width:100%;font-size:13px;">
+        <thead><tr><th>Student</th><th>ID</th><th>Status</th><th>Notes</th></tr></thead>
+        <tbody>
+          ${attRecs.length ? attRecs.map(a=>{
+            const st = db.students.find(s=>s.id===a.student_id);
+            return `<tr>
+              <td>${st?.name||'?'}</td>
+              <td><span class="id-code">${st?.admission_id||'?'}</span></td>
+              <td><span class="badge ${a.status==='present'?'badge-success':'badge-danger'}">${a.status}</span></td>
+              <td style="font-size:12px;color:var(--text3);">${a.notes||'—'}</td>
+            </tr>`;
+          }).join('') : `<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text3);">No attendance recorded yet</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Progress notes</div>
+        <button class="btn btn-sm btn-primary" data-action="add-progress" data-session="${sel.id}">+ Add note</button>
+      </div>
+      ${progressRecs.length ? progressRecs.map(p=>{
+        const st = db.students.find(s=>s.id===p.student_id);
+        return `<div style="padding:10px 0;border-bottom:1px solid var(--border);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <strong style="font-size:13px;">${st?.name||'?'}</strong>
+            <div>${stars(p.rating)}</div>
+          </div>
+          <div style="font-size:12px;color:var(--text2);">${p.comment}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:3px;">${p.subject} · ${staffName(p.staff_id)}</div>
+        </div>`;
+      }).join('') : `<p style="color:var(--text3);font-size:13px;padding:20px 0;text-align:center;">No progress notes yet</p>`}
+    </div>
+  </div>` : ''}`;
+}
+
+// ── PARENT PORTAL ADMIN VIEW ──
+function renderParentPortalAdmin() {
+  return `
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+    <div><div class="section-title">Parent portal</div><div class="section-sub">Manage parent accounts and preview what parents see</div></div>
+    <button class="btn btn-primary" data-action="add-parent-user">+ Add parent account</button>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden;margin-bottom:16px;">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Parent name</th><th>Email</th><th>Children</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          ${db.parent_users.map(pu=>{
+            const children = pu.student_ids.map(sid=>{
+              const st = db.students.find(s=>s.id===sid);
+              return st ? `<span class="id-code">${st.admission_id}</span> ${st.name}` : '?';
+            }).join(', ');
+            return `<tr>
+              <td><strong>${pu.name}</strong></td>
+              <td style="font-size:12px;color:var(--text2);">${pu.email}</td>
+              <td style="font-size:13px;">${children}</td>
+              <td>${statusDot(pu.status)}</td>
+              <td><div class="row-actions">
+                <button class="btn btn-sm" data-action="preview-parent" data-id="${pu.id}">Preview portal</button>
+                <button class="btn btn-sm" data-action="edit-parent-user" data-id="${pu.id}">Edit</button>
+                <button class="btn btn-sm btn-danger" data-action="del-parent-user" data-id="${pu.id}">Delete</button>
+              </div></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card" style="border:2px dashed var(--border2);background:var(--surface2);">
+    <div style="font-size:13px;color:var(--text2);margin-bottom:8px;font-weight:500;">Parent portal demo login</div>
+    <div style="font-size:12px;color:var(--text3);">
+      Parents access a separate view showing only their child's data.<br>
+      <strong>Demo:</strong> parent.h100@ftharlesden.co.uk / parent123
+      &nbsp;&nbsp;|&nbsp;&nbsp; parent.h110@ftharlesden.co.uk / parent123 (3 siblings)
+    </div>
+  </div>`;
+}
+
+// ── REPORTS ──
+function renderReports() {
+  const students = scopedStudents();
+  const sessions = scopedSessions();
+  const att = db.attendance;
+  const present = att.filter(a=>a.status==='present').length;
+  const total = att.length;
+
+  return `
+  <div class="section-title" style="margin-bottom:4px;">Reports</div>
+  <div class="section-sub">Summary analytics${state.currentBranch?' for '+branchName(state.currentBranch):' across all branches'}</div>
+
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+    <div class="report-stat card">
+      <div class="report-stat-num">${students.length}</div>
+      <div class="report-stat-lbl">Total students</div>
+    </div>
+    <div class="report-stat card">
+      <div class="report-stat-num">${sessions.length}</div>
+      <div class="report-stat-lbl">Sessions held</div>
+    </div>
+    <div class="report-stat card">
+      <div class="report-stat-num">${present}</div>
+      <div class="report-stat-lbl">Attendances logged</div>
+    </div>
+    <div class="report-stat card">
+      <div class="report-stat-num">${total?Math.round(present/total*100):0}%</div>
+      <div class="report-stat-lbl">Attendance rate</div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Students per branch</div></div>
+      ${db.branches.map(b=>{
+        const count = db.students.filter(s=>s.branch_id===b.id).length;
+        const pct = db.students.length ? Math.round(count/db.students.length*100) : 0;
+        return `
+        <div class="bar-row">
+          <span style="min-width:80px;">${b.name}</span>
+          <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:var(--accent);"></div></div>
+          <span style="min-width:30px;text-align:right;font-weight:600;">${count}</span>
+        </div>`;
+      }).join('')}
+      <hr class="divider">
+      <div class="card-title" style="margin-bottom:10px;">Year group breakdown</div>
+      ${['Year 6','Year 7','Year 8','Year 9','Year 10','Year 11'].map(yr=>{
+        const count = students.filter(s=>s.year===yr).length;
+        return count ? `
+        <div class="bar-row">
+          <span style="min-width:80px;">${yr}</span>
+          <div class="bar-bg"><div class="bar-fill" style="width:${students.length?Math.round(count/students.length*100):0}%;background:var(--teal);"></div></div>
+          <span style="min-width:30px;text-align:right;font-weight:600;">${count}</span>
+        </div>` : '';
+      }).join('')}
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Sessions by subject</div></div>
+      ${['Maths','English','Science'].map(subj=>{
+        const count = sessions.filter(s=>s.subject===subj).length;
+        return `
+        <div class="bar-row">
+          <span style="min-width:70px;">${subj}</span>
+          <div class="bar-bg"><div class="bar-fill" style="width:${sessions.length?Math.round(count/sessions.length*100):0}%;background:var(--purple);"></div></div>
+          <span style="min-width:30px;text-align:right;font-weight:600;">${count}</span>
+        </div>`;
+      }).join('')}
+      <hr class="divider">
+      <div class="card-title" style="margin-bottom:10px;">Export</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button class="btn" data-action="export-students">Export students CSV</button>
+        <button class="btn" data-action="export-attendance">Export attendance CSV</button>
+        <button class="btn" data-action="export-sessions">Export sessions CSV</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── PARENT PORTAL ──
+function renderParentPortal() {
+  const pu = state.parentUser;
+  const children = pu.student_ids.map(sid => db.students.find(s=>s.id===sid)).filter(Boolean);
+  const view = state.parentView || 'overview';
+
+  function childCard(st) {
+    const attRecs = db.attendance.filter(a=>a.student_id===st.id);
+    const present = attRecs.filter(a=>a.status==='present').length;
+    const pct = attRecs.length ? Math.round(present/attRecs.length*100) : 0;
+    const invoices = db.invoices.filter(i=>i.student_id===st.id);
+    const outstanding = invoices.filter(i=>i.status!=='paid').reduce((s,i)=>s+i.amount,0);
+    const progress = db.progress.filter(p=>p.student_id===st.id).slice(0,3);
+
+    function stars(n) {
+      return Array.from({length:5},(_,i)=>`<span style="color:${i<n?'#f59e0b':'var(--border2)'};">★</span>`).join('');
+    }
+
+    return `
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border);">
+        <div class="avatar av-teal" style="width:44px;height:44px;font-size:16px;">${avatarInitials(st.name)}</div>
+        <div>
+          <div style="font-size:17px;font-weight:600;">${st.name}</div>
+          <div style="font-size:13px;color:var(--text3);margin-top:2px;">
+            <span class="id-code">${st.admission_id}</span> &nbsp;·&nbsp; ${st.year} &nbsp;·&nbsp; ${branchName(st.branch_id)}
+          </div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;">
+        <div class="metric-card"><div class="metric-label">Attendance</div><div class="metric-value" style="font-size:22px;">${pct}%</div><div class="metric-sub">${present}/${attRecs.length} sessions</div></div>
+        <div class="metric-card"><div class="metric-label">Outstanding fees</div><div class="metric-value" style="font-size:22px;${outstanding>0?'color:var(--danger);':'color:var(--success);'}">£${outstanding}</div><div class="metric-sub">${outstanding>0?invoices.filter(i=>i.status!=='paid').length+' invoice(s) due':'All paid'}</div></div>
+        <div class="metric-card"><div class="metric-label">Progress notes</div><div class="metric-value" style="font-size:22px;">${db.progress.filter(p=>p.student_id===st.id).length}</div><div class="metric-sub">From teachers</div></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div>
+          <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Recent attendance</div>
+          ${attRecs.slice(-5).reverse().map(a=>{
+            const sess = db.sessions.find(s=>s.id===a.session_id);
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;">
+              <span style="color:var(--text2);">${sess?new Date(sess.date).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'?'} · ${sess?.subject||'?'}</span>
+              <span class="badge ${a.status==='present'?'badge-success':'badge-danger'}">${a.status}</span>
+            </div>`;
+          }).join('') || '<p style="color:var(--text3);font-size:13px;">No attendance yet</p>'}
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Teacher notes</div>
+          ${progress.map(p=>`
+          <div style="padding:8px 0;border-bottom:1px solid var(--border);">
+            <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+              <span style="font-size:12px;font-weight:500;">${p.subject}</span>
+              <span>${stars(p.rating)}</span>
+            </div>
+            <div style="font-size:12px;color:var(--text2);">${p.comment}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px;">${p.date}</div>
+          </div>`).join('') || '<p style="color:var(--text3);font-size:13px;">No notes yet</p>'}
+        </div>
+      </div>
+
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Fee invoices</div>
+        ${invoices.map(inv=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;">
+          <span style="color:var(--text2);">${inv.month}</span>
+          <span><strong>£${inv.amount}</strong></span>
+          <span class="badge ${inv.status==='paid'?'badge-success':inv.status==='overdue'?'badge-danger':'badge-amber'}">${inv.status}</span>
+          <span style="font-size:11px;color:var(--text3);">${inv.paid_date?'Paid '+inv.paid_date:inv.notes||''}</span>
+        </div>`).join('') || '<p style="color:var(--text3);font-size:13px;">No invoices yet</p>'}
+      </div>
+    </div>`;
+  }
+
+  return `
+  <div style="background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;margin:-24px -24px 24px;display:flex;justify-content:space-between;align-items:center;">
+    <div>
+      <div style="font-size:16px;font-weight:600;">Welcome, ${pu.name}</div>
+      <div style="font-size:13px;color:var(--text2);">FT Harlesden — Parent portal</div>
+    </div>
+    <button class="btn" id="parent-logout-btn">Sign out</button>
+  </div>
+  ${children.map(st => childCard(st)).join('')}`;
+}
+
+// ── USERS ──
+function renderUsers() {
+  return `
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+    <div>
+      <div class="section-title">User management</div>
+      <div class="section-sub">${db.users.length} accounts across all branches</div>
+    </div>
+    <button class="btn btn-primary" data-action="add-user">+ Add user</button>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>Email</th><th>Branch</th><th>Role</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          ${db.users.map(u=>`
+            <tr>
+              <td><div style="display:flex;align-items:center;gap:8px;">
+                <div class="avatar ${avatarClass(u.role)}">${avatarInitials(u.name)}</div>
+                <strong>${u.name}</strong>
+              </div></td>
+              <td style="font-size:12px;color:var(--text2);">${u.email}</td>
+              <td><span class="badge badge-gray">${u.branch_id?branchName(u.branch_id):'All branches'}</span></td>
+              <td>${roleBadge(u.role)}</td>
+              <td>${statusDot(u.status)}</td>
+              <td><div class="row-actions">
+                <button class="btn btn-sm" data-action="edit-user" data-id="${u.id}">Edit</button>
+                <button class="btn btn-sm btn-danger" data-action="del-user" data-id="${u.id}">Delete</button>
+              </div></td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+// ── BRANCHES ──
+function renderBranches() {
+  return `
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+    <div>
+      <div class="section-title">Branches</div>
+      <div class="section-sub">${db.branches.length} active branches</div>
+    </div>
+    <button class="btn btn-primary" data-action="add-branch">+ Add branch</button>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;">
+    ${db.branches.map(b=>{
+      const studentCount = db.students.filter(s=>s.branch_id===b.id).length;
+      const staffCount = db.staff.filter(s=>s.branch_id===b.id).length;
+      return `
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+          <div>
+            <div style="font-size:16px;font-weight:600;">${b.name}</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px;">Prefix: <span class="id-code">${b.prefix}</span></div>
+          </div>
+          <span class="badge badge-success">${b.status}</span>
+        </div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:10px;">${b.address}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+          <div class="metric-card" style="padding:10px;"><div class="metric-label">Students</div><div class="metric-value" style="font-size:20px;">${studentCount}</div></div>
+          <div class="metric-card" style="padding:10px;"><div class="metric-label">Staff</div><div class="metric-value" style="font-size:20px;">${staffCount}</div></div>
+        </div>
+        <div style="font-size:12px;color:var(--text3);">${b.phone} · ${b.email}</div>
+        <div class="row-actions" style="margin-top:12px;">
+          <button class="btn btn-sm" data-action="edit-branch" data-id="${b.id}">Edit</button>
+          <button class="btn btn-sm btn-danger" data-action="del-branch" data-id="${b.id}">Delete</button>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+// ── AUDIT ──
+function renderAudit() {
+  return `
+  <div class="section-title" style="margin-bottom:4px;">Audit log</div>
+  <div class="section-sub">All system actions recorded with user and timestamp</div>
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>When</th><th>User</th><th>Action</th><th>Table</th><th>Record ID</th></tr></thead>
+        <tbody>
+          ${db.audit_log.length ? db.audit_log.map(l=>`
+            <tr>
+              <td style="font-size:12px;color:var(--text3);white-space:nowrap;">${new Date(l.timestamp).toLocaleString('en-GB')}</td>
+              <td>${l.user_name||'—'}</td>
+              <td><span class="badge ${l.action.startsWith('add')?'badge-success':l.action.startsWith('del')?'badge-danger':'badge-gray'}">${l.action}</span></td>
+              <td style="font-size:12px;">${l.table_name}</td>
+              <td><span class="id-code">${l.record_id}</span></td>
+            </tr>`).join('')
+          : `<tr><td colspan="5"><div class="empty-state">No actions logged yet</div></td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════
+//  MODALS
+// ═══════════════════════════════════════════
+function renderModal() {
+  const m = state.modal;
+  if (m === 'add-student'     || m === 'edit-student')     return modalStudent();
+  if (m === 'add-staff'       || m === 'edit-staff')       return modalStaff();
+  if (m === 'add-session'     || m === 'edit-session')     return modalSession();
+  if (m === 'add-user'        || m === 'edit-user')        return modalUser();
+  if (m === 'add-branch'      || m === 'edit-branch')      return modalBranch();
+  if (m === 'edit-invoice')                                return modalInvoice();
+  if (m === 'add-progress')                                return modalProgress();
+  if (m === 'add-parent-user' || m === 'edit-parent-user') return modalParentUser();
+  return '';
+}
+
+function modalWrap(title, body, footer) {
+  return `<div class="modal-backdrop" id="modal-backdrop">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <div class="modal-title">${title}</div>
+        <button class="btn btn-icon" id="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">${body}</div>
+      <div class="modal-footer">${footer}</div>
+    </div>
+  </div>`;
+}
+
+function modalStudent() {
+  const editing = state.editTarget;
+  const s = editing || {};
+  const branches = state.currentUser.role === 'super_admin' ? db.branches : db.branches.filter(b=>b.id===state.currentUser.branch_id);
+  const defBranch = state.currentBranch || (branches[0]?.id) || '';
+  const nextId_ = editing ? s.admission_id : nextAdmissionId(s.branch_id || defBranch);
+  return modalWrap(editing?'Edit student':'Enrol new student', `
+    <div class="form-grid">
+      <div class="field">
+        <label>Full name</label>
+        <input type="text" id="f-name" value="${s.name||''}" placeholder="Full name">
+      </div>
+      <div class="field">
+        <label>Admission ID</label>
+        <input type="text" id="f-admid" value="${editing?s.admission_id:nextId_}" placeholder="Auto-generated">
+        <span class="hint">Auto-assigned by branch. Edit if sibling (add a, b suffix).</span>
+      </div>
+      <div class="field">
+        <label>Branch</label>
+        <select id="f-branch">
+          ${branches.map(b=>`<option value="${b.id}" ${(s.branch_id||defBranch)==b.id?'selected':''}>${b.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label>Year group</label>
+        <select id="f-year">
+          ${['Year 3','Year 4','Year 5','Year 6','Year 7','Year 8','Year 9','Year 10','Year 11','Year 12','Year 13'].map(y=>`<option ${s.year===y?'selected':''}>${y}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label>Parent / guardian contact</label>
+        <input type="text" id="f-parent" value="${s.parent||''}" placeholder="07700 000000">
+      </div>
+      <div class="field">
+        <label>Status</label>
+        <select id="f-status">
+          <option value="active" ${s.status==='active'||!s.status?'selected':''}>Active</option>
+          <option value="inactive" ${s.status==='inactive'?'selected':''}>Inactive</option>
+        </select>
+      </div>
+      <div class="field" style="grid-column:1/-1;">
+        <label>Notes</label>
+        <input type="text" id="f-notes" value="${s.notes||''}" placeholder="e.g. 1-to-1 student, sibling group…">
+      </div>
+    </div>`,
+  `<button class="btn" id="modal-cancel">Cancel</button>
+   <button class="btn btn-primary" id="modal-save">${editing?'Save changes':'Enrol student'}</button>`);
+}
+
+function modalStaff() {
+  const s = state.editTarget || {};
+  const branches = state.currentUser.role === 'super_admin' ? db.branches : db.branches.filter(b=>b.id===state.currentUser.branch_id);
+  const defBranch = state.currentBranch || (branches[0]?.id) || '';
+  return modalWrap(s.id?'Edit staff':'Add staff member', `
+    <div class="form-grid">
+      <div class="field"><label>Full name</label><input type="text" id="f-name" value="${s.name||''}" placeholder="Full name"></div>
+      <div class="field"><label>Branch</label><select id="f-branch">${branches.map(b=>`<option value="${b.id}" ${(s.branch_id||defBranch)==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>
+      <div class="field"><label>Role</label><select id="f-role">
+        <option value="teacher" ${s.role==='teacher'?'selected':''}>Teacher</option>
+        <option value="receptionist" ${s.role==='receptionist'?'selected':''}>Receptionist</option>
+        <option value="admin" ${s.role==='admin'?'selected':''}>Admin support</option>
+      </select></div>
+      <div class="field"><label>Subject</label><input type="text" id="f-subject" value="${s.subject||''}" placeholder="e.g. Maths"></div>
+      <div class="field"><label>Contact number</label><input type="text" id="f-contact" value="${s.contact||''}" placeholder="07700 000000"></div>
+      <div class="field"><label>Status</label><select id="f-status">
+        <option value="active" ${!s.status||s.status==='active'?'selected':''}>Active</option>
+        <option value="inactive" ${s.status==='inactive'?'selected':''}>Inactive</option>
+      </select></div>
+    </div>`,
+  `<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${s.id?'Save changes':'Add staff'}</button>`);
+}
+
+function modalSession() {
+  const s = state.editTarget || {};
+  const branches = state.currentUser.role === 'super_admin' ? db.branches : db.branches.filter(b=>b.id===state.currentUser.branch_id);
+  const defBranch = state.currentBranch || (branches[0]?.id) || '';
+  const branchStaff = db.staff.filter(st=>st.branch_id===(s.branch_id||defBranch)&&st.role==='teacher');
+  const slots = ['Slot 1 (09:00–11:00)','Slot 2 (11:30–13:30)','Slot 3 (14:00–16:00)','Slot 4 (16:30–18:30)','Weekday Slot 1 (17:00–19:00)','Weekday Slot 2 (19:00–21:00)'];
+  return modalWrap(s.id?'Edit session':'Add session', `
+    <div class="form-grid">
+      <div class="field"><label>Date</label><input type="date" id="f-date" value="${s.date||new Date().toISOString().slice(0,10)}"></div>
+      <div class="field"><label>Branch</label><select id="f-branch">${branches.map(b=>`<option value="${b.id}" ${(s.branch_id||defBranch)==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>
+      <div class="field"><label>Slot</label><select id="f-slot">${slots.map(sl=>`<option ${s.slot===sl?'selected':''}>${sl}</option>`).join('')}</select></div>
+      <div class="field"><label>Teacher</label><select id="f-staff">${branchStaff.map(st=>`<option value="${st.id}" ${s.staff_id===st.id?'selected':''}>${st.name}</option>`).join('')}</select></div>
+      <div class="field"><label>Subject</label><select id="f-subject">
+        ${['Maths','English','Science','History','Geography','Other'].map(sub=>`<option ${s.subject===sub?'selected':''}>${sub}</option>`).join('')}
+      </select></div>
+      <div class="field"><label>Table number</label><input type="number" id="f-table" value="${s.table_no||1}" min="1" max="8"></div>
+    </div>`,
+  `<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${s.id?'Save changes':'Add session'}</button>`);
+}
+
+function modalUser() {
+  const u = state.editTarget || {};
+  return modalWrap(u.id?'Edit user':'Add user', `
+    <div class="form-grid">
+      <div class="field"><label>Full name</label><input type="text" id="f-name" value="${u.name||''}"></div>
+      <div class="field"><label>Email</label><input type="email" id="f-email" value="${u.email||''}"></div>
+      <div class="field"><label>Password</label><input type="password" id="f-password" placeholder="${u.id?'Leave blank to keep current':'Set password'}"></div>
+      <div class="field"><label>Role</label><select id="f-role">
+        <option value="super_admin" ${u.role==='super_admin'?'selected':''}>Super admin</option>
+        <option value="branch_manager" ${u.role==='branch_manager'?'selected':''}>Branch manager</option>
+        <option value="teacher" ${u.role==='teacher'?'selected':''}>Teacher</option>
+        <option value="receptionist" ${u.role==='receptionist'?'selected':''}>Receptionist</option>
+      </select></div>
+      <div class="field"><label>Branch</label><select id="f-branch">
+        <option value="">All branches (admin only)</option>
+        ${db.branches.map(b=>`<option value="${b.id}" ${u.branch_id==b.id?'selected':''}>${b.name}</option>`).join('')}
+      </select></div>
+      <div class="field"><label>Status</label><select id="f-status">
+        <option value="active" ${!u.status||u.status==='active'?'selected':''}>Active</option>
+        <option value="inactive" ${u.status==='inactive'?'selected':''}>Inactive</option>
+      </select></div>
+    </div>`,
+  `<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${u.id?'Save changes':'Add user'}</button>`);
+}
+
+function modalBranch() {
+  const b = state.editTarget || {};
+  return modalWrap(b.id?'Edit branch':'Add branch', `
+    <div class="form-grid">
+      <div class="field"><label>Branch name</label><input type="text" id="f-name" value="${b.name||''}"></div>
+      <div class="field"><label>Admission prefix (single letter)</label><input type="text" id="f-prefix" value="${b.prefix||''}" maxlength="1" placeholder="e.g. E for Ealing"></div>
+      <div class="field" style="grid-column:1/-1;"><label>Address</label><input type="text" id="f-address" value="${b.address||''}"></div>
+      <div class="field"><label>Phone</label><input type="text" id="f-phone" value="${b.phone||''}"></div>
+      <div class="field"><label>Email</label><input type="email" id="f-email" value="${b.email||''}"></div>
+      <div class="field"><label>Status</label><select id="f-status">
+        <option value="active" ${!b.status||b.status==='active'?'selected':''}>Active</option>
+        <option value="inactive" ${b.status==='inactive'?'selected':''}>Inactive</option>
+      </select></div>
+    </div>`,
+  `<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${b.id?'Save changes':'Add branch'}</button>`);
+}
+
+// ═══════════════════════════════════════════
+//  EVENTS
+// ═══════════════════════════════════════════
+function attachEvents() {
+  // Login
+  document.getElementById('login-btn')?.addEventListener('click', doLogin);
+  document.getElementById('parent-login-btn')?.addEventListener('click', doParentLogin);
+  document.getElementById('l-pass')?.addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
+
+  // Nav
+  document.querySelectorAll('[data-page]').forEach(el => {
+    el.addEventListener('click', () => {
+      const action = el.dataset.action;
+      state.page = el.dataset.page;
+      if (action) { state.modal = action; state.editTarget = null; }
+      render();
+    });
+  });
+
+  // Branch switch
+  document.getElementById('branch-switch')?.addEventListener('change', e => {
+    state.currentBranch = e.target.value ? parseInt(e.target.value) : null;
+    render();
+  });
+
+  // Logout
+  document.getElementById('logout-btn')?.addEventListener('click', () => {
+    state.currentUser = null; state.currentBranch = null; state.page = 'dashboard';
+    render();
+  });
+
+  // Actions
+  document.querySelectorAll('[data-action]').forEach(el => {
+    el.addEventListener('click', e => {
+      const action = el.dataset.action;
+      const id = el.dataset.id ? parseInt(el.dataset.id) : null;
+      handleAction(action, id, e);
+    });
+  });
+
+  // Modal close
+  document.getElementById('modal-close')?.addEventListener('click', closeModal);
+  document.getElementById('modal-cancel')?.addEventListener('click', closeModal);
+  document.getElementById('modal-backdrop')?.addEventListener('click', e => { if (e.target.id==='modal-backdrop') closeModal(); });
+  document.getElementById('modal-save')?.addEventListener('click', doSave);
+
+  // Search
+  document.getElementById('student-search')?.addEventListener('input', e => {
+    state.studentSearch = e.target.value; render();
+  });
+
+  // Attendance session select
+  document.getElementById('att-session-select')?.addEventListener('change', e => {
+    state.attSessionId = e.target.value ? parseInt(e.target.value) : null; render();
+  });
+
+  // Session report select
+  document.getElementById('sr-session-select')?.addEventListener('change', e => {
+    state.sessionReportId = e.target.value ? parseInt(e.target.value) : null; render();
+  });
+}
+
+function doLogin() {
+  const email = document.getElementById('l-email').value.trim();
+  const pass  = document.getElementById('l-pass').value;
+  const bId   = document.getElementById('l-branch').value;
+  const user  = db.users.find(u => u.email === email && u.password === pass && u.status === 'active');
+  if (!user) { document.getElementById('login-err').textContent = 'Invalid email or password.'; return; }
+  // role-based branch restriction
+  if (user.role !== 'super_admin' && user.branch_id && bId && parseInt(bId) !== user.branch_id) {
+    document.getElementById('login-err').textContent = 'You do not have access to that branch.'; return;
+  }
+  state.currentUser = user;
+  state.currentBranch = user.role === 'super_admin' ? (bId ? parseInt(bId) : null) : user.branch_id;
+  state.page = 'dashboard';
+  log('login', 'users', user.id);
+  render();
+}
+
+function doParentLogin() {
+  const email = document.getElementById('l-email').value.trim();
+  const pass  = document.getElementById('l-pass').value;
+  const pu = db.parent_users.find(p=>p.email===email&&p.password===pass&&p.status==='active');
+  if (!pu) { document.getElementById('login-err').textContent='Invalid parent email or password.'; return; }
+  state.parentUser = pu;
+  state.currentUser = null;
+  render();
+}
+
+function handleAction(action, id, e) {
+  if (action === 'add-student')  { state.modal = 'add-student';  state.editTarget = null; render(); return; }
+  if (action === 'edit-student') { state.modal = 'edit-student'; state.editTarget = db.students.find(s=>s.id===id); render(); return; }
+  if (action === 'del-student')  { if (confirm('Delete this student?')) { db.students = db.students.filter(s=>s.id!==id); log('delete','students',id); saveDB(); toast('Student deleted'); render(); } return; }
+
+  if (action === 'add-staff')   { state.modal = 'add-staff';   state.editTarget = null; render(); return; }
+  if (action === 'edit-staff')  { state.modal = 'edit-staff';  state.editTarget = db.staff.find(s=>s.id===id); render(); return; }
+  if (action === 'del-staff')   { if (confirm('Delete this staff member?')) { db.staff = db.staff.filter(s=>s.id!==id); log('delete','staff',id); saveDB(); toast('Staff deleted'); render(); } return; }
+
+  if (action === 'add-session')  { state.modal = 'add-session';  state.editTarget = null; render(); return; }
+  if (action === 'del-session')  { if (confirm('Delete this session?')) { db.sessions = db.sessions.filter(s=>s.id!==id); log('delete','sessions',id); saveDB(); toast('Session deleted'); render(); } return; }
+  if (action === 'mark-att')    { state.page = 'attendance'; state.attSessionId = id; render(); return; }
+
+  if (action === 'add-user')    { state.modal = 'add-user';    state.editTarget = null; render(); return; }
+  if (action === 'edit-user')   { state.modal = 'edit-user';   state.editTarget = db.users.find(u=>u.id===id); render(); return; }
+  if (action === 'del-user')    { if (confirm('Delete this user?')) { db.users = db.users.filter(u=>u.id!==id); log('delete','users',id); saveDB(); toast('User deleted'); render(); } return; }
+
+  if (action === 'add-branch')  { state.modal = 'add-branch';  state.editTarget = null; render(); return; }
+  if (action === 'edit-branch') { state.modal = 'edit-branch'; state.editTarget = db.branches.find(b=>b.id===id); render(); return; }
+  if (action === 'del-branch')  { if (confirm('Delete this branch? This will not remove associated students.')) { db.branches = db.branches.filter(b=>b.id!==id); log('delete','branches',id); saveDB(); toast('Branch deleted'); render(); } return; }
+
+  if (action === 'toggle-att') {
+    const sid = parseInt(el_data(e,'session'));
+    const stId = parseInt(el_data(e,'student'));
+    let rec = db.attendance.find(a=>a.session_id===sid&&a.student_id===stId);
+    if (rec) { rec.status = rec.status==='present'?'absent':'present'; }
+    else { db.attendance.push({id:nextId('attendance'),session_id:sid,student_id:stId,status:'present',notes:''}); }
+    saveDB(); render(); return;
+  }
+
+  if (action === 'save-att') { saveDB(); toast('Attendance saved'); return; }
+
+  if (action === 'inv-filter') { state.invoiceFilter = e.target.dataset.filter; render(); return; }
+  if (action === 'mark-paid') {
+    const inv = db.invoices.find(i=>i.id===id);
+    if (inv) { inv.status='paid'; inv.paid_date=new Date().toISOString().slice(0,10); log('edit','invoices',id); saveDB(); toast('Invoice marked as paid'); render(); }
+    return;
+  }
+  if (action === 'edit-invoice') { state.modal='edit-invoice'; state.editTarget=db.invoices.find(i=>i.id===id); render(); return; }
+  if (action === 'gen-invoices') {
+    const month = new Date().toISOString().slice(0,7);
+    let added = 0;
+    scopedStudents().forEach(st=>{
+      if (!db.invoices.find(i=>i.student_id===st.id&&i.month===month)) {
+        db.invoices.push({id:nextId('invoices'),student_id:st.id,branch_id:st.branch_id,month,amount:120,status:'due',issued:new Date().toISOString().slice(0,10),paid_date:'',notes:''});
+        added++;
+      }
+    });
+    log('add','invoices','batch'); saveDB(); toast(`${added} invoice(s) generated`); render(); return;
+  }
+
+  if (action === 'add-progress') {
+    state.modal='add-progress';
+    state.editTarget={session_id:parseInt(e.target.dataset.session)};
+    render(); return;
+  }
+  if (action === 'export-session-report') {
+    const sess = db.sessions.find(s=>s.id===id);
+    const attRecs = db.attendance.filter(a=>a.session_id===id);
+    const headers = ['Student','Admission ID','Status','Notes'];
+    const rows = attRecs.map(a=>{
+      const st=db.students.find(s=>s.id===a.student_id);
+      return [st?.name||'?',st?.admission_id||'?',a.status,a.notes];
+    });
+    const csv=[headers,...rows].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob=new Blob([csv],{type:'text/csv'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download=`session_${id}_report.csv`;a.click();
+    toast('Session report exported'); return;
+  }
+
+  if (action === 'add-parent-user')  { state.modal='add-parent-user';  state.editTarget=null; render(); return; }
+  if (action === 'edit-parent-user') { state.modal='edit-parent-user'; state.editTarget=db.parent_users.find(p=>p.id===id); render(); return; }
+  if (action === 'del-parent-user')  { if(confirm('Delete parent account?')){ db.parent_users=db.parent_users.filter(p=>p.id!==id); log('delete','parent_users',id); saveDB(); toast('Parent account deleted'); render(); } return; }
+  if (action === 'preview-parent')   { const pu=db.parent_users.find(p=>p.id===id); if(pu){ state.parentUser=pu; state.currentUser=null; render(); } return; }
+
+  if (action === 'sr-session-select') { state.sessionReportId=parseInt(e.target.value)||null; render(); return; }
+
+  if (action === 'export-students') { exportCSV('students'); return; }
+  if (action === 'export-attendance') { exportCSV('attendance'); return; }
+  if (action === 'export-sessions') { exportCSV('sessions'); return; }
+}
+
+function el_data(e, key) { return e.target.closest('[data-'+key+']')?.dataset[key]; }
+
+function doSave() {
+  const m = state.modal;
+  const val = id => document.getElementById(id)?.value;
+
+  if (m === 'add-student' || m === 'edit-student') {
+    const name = val('f-name'); if (!name) { toast('Name required','error'); return; }
+    if (m === 'add-student') {
+      const rec = { id: nextId('students'), branch_id: parseInt(val('f-branch')), admission_id: val('f-admid'), name, year: val('f-year'), parent: val('f-parent'), status: val('f-status'), notes: val('f-notes') };
+      db.students.push(rec); log('add','students',rec.id); toast('Student enrolled');
+    } else {
+      const s = state.editTarget;
+      Object.assign(s, { branch_id: parseInt(val('f-branch')), admission_id: val('f-admid'), name, year: val('f-year'), parent: val('f-parent'), status: val('f-status'), notes: val('f-notes') });
+      log('edit','students',s.id); toast('Student updated');
+    }
+  }
+
+  if (m === 'add-staff' || m === 'edit-staff') {
+    const name = val('f-name'); if (!name) { toast('Name required','error'); return; }
+    if (m === 'add-staff') {
+      const rec = { id: nextId('staff'), branch_id: parseInt(val('f-branch')), name, role: val('f-role'), subject: val('f-subject'), contact: val('f-contact'), status: val('f-status') };
+      db.staff.push(rec); log('add','staff',rec.id); toast('Staff added');
+    } else {
+      const s = state.editTarget;
+      Object.assign(s, { branch_id: parseInt(val('f-branch')), name, role: val('f-role'), subject: val('f-subject'), contact: val('f-contact'), status: val('f-status') });
+      log('edit','staff',s.id); toast('Staff updated');
+    }
+  }
+
+  if (m === 'add-session' || m === 'edit-session') {
+    if (m === 'add-session') {
+      const rec = { id: nextId('sessions'), branch_id: parseInt(val('f-branch')), date: val('f-date'), slot: val('f-slot'), staff_id: parseInt(val('f-staff')), subject: val('f-subject'), table_no: parseInt(val('f-table'))||1 };
+      db.sessions.push(rec); log('add','sessions',rec.id); toast('Session added');
+    } else {
+      const s = state.editTarget;
+      Object.assign(s, { branch_id: parseInt(val('f-branch')), date: val('f-date'), slot: val('f-slot'), staff_id: parseInt(val('f-staff')), subject: val('f-subject'), table_no: parseInt(val('f-table'))||1 });
+      log('edit','sessions',s.id); toast('Session updated');
+    }
+  }
+
+  if (m === 'add-user' || m === 'edit-user') {
+    const name = val('f-name'), email = val('f-email');
+    if (!name || !email) { toast('Name and email required','error'); return; }
+    if (m === 'add-user') {
+      const pass = val('f-password'); if (!pass) { toast('Password required','error'); return; }
+      const rec = { id: nextId('users'), name, email, password: pass, role: val('f-role'), branch_id: val('f-branch') ? parseInt(val('f-branch')) : null, status: val('f-status') };
+      db.users.push(rec); log('add','users',rec.id); toast('User added');
+    } else {
+      const u = state.editTarget;
+      const pass = val('f-password');
+      Object.assign(u, { name, email, role: val('f-role'), branch_id: val('f-branch') ? parseInt(val('f-branch')) : null, status: val('f-status') });
+      if (pass) u.password = pass;
+      log('edit','users',u.id); toast('User updated');
+    }
+  }
+
+  if (m === 'add-branch' || m === 'edit-branch') {
+    const name = val('f-name'), prefix = val('f-prefix')?.toUpperCase();
+    if (!name || !prefix) { toast('Name and prefix required','error'); return; }
+    if (m === 'add-branch') {
+      const rec = { id: nextId('branches'), name, prefix, address: val('f-address'), phone: val('f-phone'), email: val('f-email'), status: val('f-status') };
+      db.branches.push(rec); log('add','branches',rec.id); toast('Branch added');
+    } else {
+      const b = state.editTarget;
+      Object.assign(b, { name, prefix, address: val('f-address'), phone: val('f-phone'), email: val('f-email'), status: val('f-status') });
+      log('edit','branches',b.id); toast('Branch updated');
+    }
+  }
+
+  if (m === 'edit-invoice') {
+    const inv = state.editTarget;
+    Object.assign(inv, { amount: parseInt(document.getElementById('f-amount')?.value)||120, status: document.getElementById('f-inv-status')?.value, paid_date: document.getElementById('f-paid-date')?.value, notes: document.getElementById('f-notes')?.value });
+    log('edit','invoices',inv.id); toast('Invoice updated');
+  }
+
+  if (m === 'add-progress') {
+    const sessId = state.editTarget?.session_id;
+    const sess = db.sessions.find(s=>s.id===sessId);
+    const rec = {
+      id: nextId('progress'),
+      student_id: parseInt(document.getElementById('f-student')?.value),
+      session_id: sessId,
+      staff_id: sess?.staff_id||1,
+      subject: document.getElementById('f-subject')?.value,
+      rating: parseInt(document.getElementById('f-rating')?.value)||4,
+      comment: document.getElementById('f-comment')?.value,
+      date: sess?.date || new Date().toISOString().slice(0,10)
+    };
+    db.progress.push(rec); log('add','progress',rec.id); toast('Progress note added');
+  }
+
+  if (m === 'add-parent-user' || m === 'edit-parent-user') {
+    const name = document.getElementById('f-name')?.value;
+    const email = document.getElementById('f-email')?.value;
+    if (!name || !email) { toast('Name and email required','error'); return; }
+    const sel = document.getElementById('f-students');
+    const studentIds = sel ? Array.from(sel.selectedOptions).map(o=>parseInt(o.value)) : [];
+    if (m === 'add-parent-user') {
+      const pass = document.getElementById('f-password')?.value;
+      if (!pass) { toast('Password required','error'); return; }
+      const rec = { id: nextId('parent_users'), name, email, password: pass, student_ids: studentIds, status: document.getElementById('f-status')?.value };
+      db.parent_users.push(rec); log('add','parent_users',rec.id); toast('Parent account added');
+    } else {
+      const pu = state.editTarget;
+      const pass = document.getElementById('f-password')?.value;
+      Object.assign(pu, { name, email, student_ids: studentIds, status: document.getElementById('f-status')?.value });
+      if (pass) pu.password = pass;
+      log('edit','parent_users',pu.id); toast('Parent account updated');
+    }
+  }
+
+  saveDB(); closeModal(); render();
+}
+
+function closeModal() { state.modal = null; state.editTarget = null; render(); }
+
+// ═══════════════════════════════════════════
+//  EXPORT
+// ═══════════════════════════════════════════
+function exportCSV(type) {
+  let rows, headers;
+  if (type === 'students') {
+    headers = ['Admission ID','Name','Year','Branch','Parent','Status','Notes'];
+    rows = scopedStudents().map(s=>[s.admission_id,s.name,s.year,branchName(s.branch_id),s.parent,s.status,s.notes]);
+  } else if (type === 'sessions') {
+    headers = ['Date','Slot','Branch','Teacher','Subject','Table'];
+    rows = scopedSessions().map(s=>[s.date,s.slot,branchName(s.branch_id),staffName(s.staff_id),s.subject,s.table_no]);
+  } else {
+    headers = ['Session ID','Student','Admission ID','Status','Notes'];
+    rows = db.attendance.map(a=>{
+      const st = db.students.find(s=>s.id===a.student_id);
+      return [a.session_id, st?.name||'?', st?.admission_id||'?', a.status, a.notes];
+    });
+  }
+  const csv = [headers, ...rows].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=`${type}_export.csv`; a.click();
+  toast(`${type} exported`);
+}
+
+function modalInvoice() {
+  const inv = state.editTarget || {};
+  const st = db.students.find(s=>s.id===inv.student_id);
+  return modalWrap('Edit invoice', `
+    <div style="margin-bottom:14px;font-size:13px;color:var(--text2);">Student: <strong>${st?.name||'?'}</strong> (${st?.admission_id||'?'}) — ${inv.month}</div>
+    <div class="form-grid">
+      <div class="field"><label>Amount (£)</label><input type="number" id="f-amount" value="${inv.amount||120}"></div>
+      <div class="field"><label>Status</label><select id="f-inv-status">
+        <option value="due" ${inv.status==='due'?'selected':''}>Due</option>
+        <option value="paid" ${inv.status==='paid'?'selected':''}>Paid</option>
+        <option value="overdue" ${inv.status==='overdue'?'selected':''}>Overdue</option>
+      </select></div>
+      <div class="field"><label>Paid date</label><input type="date" id="f-paid-date" value="${inv.paid_date||''}"></div>
+      <div class="field"><label>Notes</label><input type="text" id="f-notes" value="${inv.notes||''}"></div>
+    </div>`,
+  `<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Save changes</button>`);
+}
+
+function modalProgress() {
+  const data = state.editTarget || {};
+  const sessionId = data.session_id;
+  const sess = db.sessions.find(s=>s.id===sessionId);
+  const branchStudents = sess ? db.students.filter(s=>s.branch_id===sess.branch_id&&s.status==='active') : [];
+  return modalWrap('Add progress note', `
+    <div class="form-grid">
+      <div class="field"><label>Student</label><select id="f-student">${branchStudents.map(s=>`<option value="${s.id}">${s.name} (${s.admission_id})</option>`).join('')}</select></div>
+      <div class="field"><label>Subject</label><select id="f-subject">
+        ${['Maths','English','Science','History','Geography','Other'].map(s=>`<option>${s}</option>`).join('')}
+      </select></div>
+      <div class="field"><label>Rating (1–5)</label><select id="f-rating">
+        ${[1,2,3,4,5].map(n=>`<option value="${n}" ${n===4?'selected':''}>${n} star${n>1?'s':''}</option>`).join('')}
+      </select></div>
+      <div class="field" style="grid-column:1/-1;"><label>Comment</label><textarea id="f-comment" rows="3" placeholder="Teacher notes on student progress…"></textarea></div>
+    </div>`,
+  `<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Save note</button>`);
+}
+
+function modalParentUser() {
+  const pu = state.editTarget || {};
+  const allStudents = db.students;
+  return modalWrap(pu.id?'Edit parent account':'Add parent account', `
+    <div class="form-grid">
+      <div class="field"><label>Parent / guardian name</label><input type="text" id="f-name" value="${pu.name||''}"></div>
+      <div class="field"><label>Email</label><input type="email" id="f-email" value="${pu.email||''}"></div>
+      <div class="field"><label>Password</label><input type="password" id="f-password" placeholder="${pu.id?'Leave blank to keep':'Set password'}"></div>
+      <div class="field"><label>Status</label><select id="f-status">
+        <option value="active" ${!pu.status||pu.status==='active'?'selected':''}>Active</option>
+        <option value="inactive" ${pu.status==='inactive'?'selected':''}>Inactive</option>
+      </select></div>
+      <div class="field" style="grid-column:1/-1;"><label>Linked students (hold Ctrl/Cmd to select multiple)</label>
+        <select id="f-students" multiple style="height:120px;">
+          ${allStudents.map(s=>`<option value="${s.id}" ${pu.student_ids?.includes(s.id)?'selected':''}>${s.name} (${s.admission_id}) — ${branchName(s.branch_id)}</option>`).join('')}
+        </select>
+      </div>
+    </div>`,
+  `<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${pu.id?'Save changes':'Add account'}</button>`);
+}
+
+// ═══════════════════════════════════════════
+//  ICONS (inline SVG)
+// ═══════════════════════════════════════════
+const ico = (d, sz=16) => `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const iconHome   = () => ico('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>');
+const iconUsers  = () => ico('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>');
+const iconUser   = () => ico('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>');
+const iconCal    = () => ico('<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>');
+const iconCheck  = () => ico('<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>');
+const iconPound  = () => ico('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>');
+const iconChart  = () => ico('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>');
+const iconKey    = () => ico('<path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>');
+const iconBranch = () => ico('<line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>');
+const iconLog    = () => ico('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>');
+const iconSearch = () => ico('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>');
+const iconDoc    = () => ico('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>');
+const iconHeart  = () => ico('<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>');
+
+// ═══════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════
+render();
+</script>
+</body>
+</html>
