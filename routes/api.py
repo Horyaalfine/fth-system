@@ -170,28 +170,81 @@ def get_next_id(branch_id):
 def add_student():
     d = request.json
     conn = get_conn(); cur = conn.cursor()
+    dob = d.get('date_of_birth') or None
     cur.execute("""
-        INSERT INTO students (branch_id, admission_id, name, year_group, parent_contact, status, notes)
-        VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING *
-    """, (d['branch_id'], d['admission_id'], d['name'], d.get('year_group',''), d.get('parent_contact',''), d.get('status','active'), d.get('notes','')))
+        INSERT INTO students (
+            branch_id, admission_id, name, first_name, last_name,
+            date_of_birth, gender, year_group, current_school,
+            medical_notes, sen_notes,
+            carer1_first_name, carer1_last_name, carer1_address,
+            carer1_telephone, carer1_mobile, carer1_email, carer1_occupation,
+            carer2_first_name, carer2_last_name, carer2_address,
+            carer2_telephone, carer2_mobile, carer2_email, carer2_occupation,
+            emergency_name, emergency_telephone, emergency_relation,
+            referred_by, referral_admission, parent_contact, status, notes
+        ) VALUES (
+            %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
+            %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
+            %s,%s,%s,%s,%s,%s,%s,%s
+        ) RETURNING *
+    """, (
+        d['branch_id'], d['admission_id'], d['name'],
+        d.get('first_name',''), d.get('last_name',''),
+        dob, d.get('gender',''), d.get('year_group',''),
+        d.get('current_school',''), d.get('medical_notes',''), d.get('sen_notes',''),
+        d.get('carer1_first_name',''), d.get('carer1_last_name',''),
+        d.get('carer1_address',''), d.get('carer1_telephone',''),
+        d.get('carer1_mobile',''), d.get('carer1_email',''), d.get('carer1_occupation',''),
+        d.get('carer2_first_name',''), d.get('carer2_last_name',''),
+        d.get('carer2_address',''), d.get('carer2_telephone',''),
+        d.get('carer2_mobile',''), d.get('carer2_email',''), d.get('carer2_occupation',''),
+        d.get('emergency_name',''), d.get('emergency_telephone',''), d.get('emergency_relation',''),
+        d.get('referred_by',''), d.get('referral_admission',''),
+        d.get('carer1_mobile') or d.get('parent_contact',''),
+        d.get('status','active'), d.get('notes','')
+    ))
     r = row(cur); conn.commit(); cur.close(); conn.close()
-    log_action('add', 'students', r['id'])
+    if r and r.get('date_of_birth'): r['date_of_birth'] = str(r['date_of_birth'])
+    log_action('add','students',r['id'])
     return jsonify(r), 201
-
 @api_bp.route('/api/students/<int:sid>', methods=['PUT'])
 @require_auth
 def update_student(sid):
     d = request.json
     conn = get_conn(); cur = conn.cursor()
+    dob = d.get('date_of_birth') or None
     cur.execute("""
-        UPDATE students SET branch_id=%s, admission_id=%s, name=%s, year_group=%s,
-        parent_contact=%s, status=%s, notes=%s WHERE id=%s RETURNING *
-    """, (d['branch_id'], d['admission_id'], d['name'], d.get('year_group',''),
-          d.get('parent_contact',''), d.get('status','active'), d.get('notes',''), sid))
+        UPDATE students SET
+            branch_id=%s, admission_id=%s, name=%s, first_name=%s, last_name=%s,
+            date_of_birth=%s, gender=%s, year_group=%s, current_school=%s,
+            medical_notes=%s, sen_notes=%s,
+            carer1_first_name=%s, carer1_last_name=%s, carer1_address=%s,
+            carer1_telephone=%s, carer1_mobile=%s, carer1_email=%s, carer1_occupation=%s,
+            carer2_first_name=%s, carer2_last_name=%s, carer2_address=%s,
+            carer2_telephone=%s, carer2_mobile=%s, carer2_email=%s, carer2_occupation=%s,
+            emergency_name=%s, emergency_telephone=%s, emergency_relation=%s,
+            referred_by=%s, referral_admission=%s, parent_contact=%s, status=%s, notes=%s
+        WHERE id=%s RETURNING *
+    """, (
+        d['branch_id'], d['admission_id'], d['name'],
+        d.get('first_name',''), d.get('last_name',''),
+        dob, d.get('gender',''), d.get('year_group',''),
+        d.get('current_school',''), d.get('medical_notes',''), d.get('sen_notes',''),
+        d.get('carer1_first_name',''), d.get('carer1_last_name',''),
+        d.get('carer1_address',''), d.get('carer1_telephone',''),
+        d.get('carer1_mobile',''), d.get('carer1_email',''), d.get('carer1_occupation',''),
+        d.get('carer2_first_name',''), d.get('carer2_last_name',''),
+        d.get('carer2_address',''), d.get('carer2_telephone',''),
+        d.get('carer2_mobile',''), d.get('carer2_email',''), d.get('carer2_occupation',''),
+        d.get('emergency_name',''), d.get('emergency_telephone',''), d.get('emergency_relation',''),
+        d.get('referred_by',''), d.get('referral_admission',''),
+        d.get('carer1_mobile') or d.get('parent_contact',''),
+        d.get('status','active'), d.get('notes',''), sid
+    ))
     r = row(cur); conn.commit(); cur.close(); conn.close()
-    log_action('edit', 'students', sid)
+    if r and r.get('date_of_birth'): r['date_of_birth'] = str(r['date_of_birth'])
+    log_action('edit','students',sid)
     return jsonify(r)
-
 @api_bp.route('/api/students/<int:sid>', methods=['DELETE'])
 @require_auth
 def delete_student(sid):
