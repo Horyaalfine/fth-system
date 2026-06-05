@@ -920,19 +920,79 @@ function renderModal(){const m=state.modal;if(m==='add-student'||m==='edit-stude
   if(m==='add-instalment-plan')return modalInstalmentPlan();return'';}
 function mWrap(title,body,footer){return`<div class="modal-backdrop" id="modal-backdrop"><div class="modal modal-lg"><div class="modal-header"><div class="modal-title">${title}</div><button class="btn btn-sm" id="modal-close">✕</button></div><div class="modal-body">${body}</div><div class="modal-footer">${footer}</div></div></div>`;}
 
-function modalStudent(){const s=state.editTarget||{};const branches=state.data.branches||[];const defBranch=state.currentBranch||branches[0]?.id||'';
-return mWrap(s.id?'Edit student':'Enrol new student',`
-<div class="form-grid">
-<div class="field"><label>Full name</label><input type="text" id="f-name" value="${s.name||''}" placeholder="Student full name"></div>
-<div class="field"><label>Admission ID</label><input type="text" id="f-admid" value="${s.admission_id||''}" placeholder="Auto-generated"><span class="hint">Auto-filled by branch. Add a/b suffix for siblings (e.g. H110a)</span></div>
-<div class="field"><label>Branch</label><select id="f-branch" onchange="onBranchChange(this.value)">${branches.map(b=>`<option value="${b.id}" ${(s.branch_id||defBranch)==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>
-<div class="field"><label>Year group</label><select id="f-year">${['Year 3','Year 4','Year 5','Year 6','Year 7','Year 8','Year 9','Year 10','Year 11','Year 12','Year 13'].map(y=>`<option ${s.year_group===y?'selected':''}>${y}</option>`).join('')}</select></div>
-<div class="field"><label>Parent / guardian contact</label><input type="text" id="f-parent" value="${s.parent_contact||''}" placeholder="07700 000000"></div>
-<div class="field"><label>Status</label><select id="f-status"><option value="active" ${!s.status||s.status==='active'?'selected':''}>Active</option><option value="inactive" ${s.status==='inactive'?'selected':''}>Inactive</option></select></div>
-<div class="field" style="grid-column:1/-1;"><label>Notes</label><input type="text" id="f-notes" value="${s.notes||''}" placeholder="e.g. Sibling, 1-to-1 student…"></div>
-</div>`,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${s.id?'Save changes':'Enrol student'}</button>`);}
+function modalStudent(){
+  const s=state.editTarget||{};
+  const branches=state.data.branches||[];
+  const defBranch=state.currentBranch||branches[0]?.id||'';
+  return mWrap(s.id?'Edit student record':'Enrol new student',`
+    <div style="margin-bottom:16px;padding:10px 14px;background:var(--accent-bg);border-radius:var(--radius);border:1px solid rgba(108,99,255,0.2);">
+      <div style="font-size:12px;font-weight:600;color:var(--accent-text);">STUDENT DETAILS</div>
+    </div>
+    <div class="form-grid">
+      <div class="field"><label>First name</label><input type="text" id="f-first-name" value="${s.first_name||''}"></div>
+      <div class="field"><label>Last name</label><input type="text" id="f-last-name" value="${s.last_name||''}"></div>
+      <div class="field"><label>Full name (auto-fills)</label><input type="text" id="f-name" value="${s.name||''}"><span class="hint">Will auto-fill from first + last name</span></div>
+      <div class="field"><label>Admission ID</label><input type="text" id="f-admid" value="${s.admission_id||''}"><span class="hint">Auto-generated. Add a/b suffix for siblings (e.g. H110a)</span></div>
+      <div class="field"><label>Branch</label><select id="f-branch" onchange="onBranchChange(this.value)">${branches.map(b=>`<option value="${b.id}" ${(s.branch_id||defBranch)==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>
+      <div class="field"><label>Date of birth</label><input type="date" id="f-dob" value="${s.date_of_birth||''}"></div>
+      <div class="field"><label>Gender</label><select id="f-gender">
+        <option value="">— select —</option>
+        <option value="Male" ${s.gender==='Male'?'selected':''}>Male</option>
+        <option value="Female" ${s.gender==='Female'?'selected':''}>Female</option>
+        <option value="Other" ${s.gender==='Other'?'selected':''}>Other</option>
+      </select></div>
+      <div class="field"><label>School year</label><select id="f-year">${['Year 1','Year 2','Year 3','Year 4','Year 5','Year 6','Year 7','Year 8','Year 9','Year 10','Year 11','Year 12','Year 13'].map(y=>`<option ${s.year_group===y?'selected':''}>${y}</option>`).join('')}</select></div>
+      <div class="field" style="grid-column:1/-1;"><label>Current school</label><input type="text" id="f-school" value="${s.current_school||''}" placeholder="Name of current school"></div>
+      <div class="field" style="grid-column:1/-1;"><label>Medical conditions / allergies</label><textarea id="f-medical" rows="2" style="resize:vertical;">${s.medical_notes||''}</textarea></div>
+      <div class="field" style="grid-column:1/-1;"><label>Learning needs / SEN</label><textarea id="f-sen" rows="2" style="resize:vertical;">${s.sen_notes||''}</textarea></div>
+    </div>
 
-async function onBranchChange(branchId){if(!branchId||state.editTarget?.id)return;try{const r=await API.get('/api/students/next-id/'+branchId);const el=document.getElementById('f-admid');if(el&&r?.next_id)el.value=r.next_id;}catch(e){}}
+    <div style="margin:20px 0 12px;padding:10px 14px;background:var(--teal-bg);border-radius:var(--radius);border:1px solid rgba(20,184,166,0.2);">
+      <div style="font-size:12px;font-weight:600;color:var(--teal-text);">PARENT / CARER 1</div>
+    </div>
+    <div class="form-grid">
+      <div class="field"><label>First name</label><input type="text" id="f-c1-first" value="${s.carer1_first_name||''}"></div>
+      <div class="field"><label>Last name</label><input type="text" id="f-c1-last" value="${s.carer1_last_name||''}"></div>
+      <div class="field" style="grid-column:1/-1;"><label>Address</label><input type="text" id="f-c1-address" value="${s.carer1_address||''}"></div>
+      <div class="field"><label>Telephone</label><input type="text" id="f-c1-tel" value="${s.carer1_telephone||''}"></div>
+      <div class="field"><label>Mobile</label><input type="text" id="f-c1-mobile" value="${s.carer1_mobile||''}"></div>
+      <div class="field"><label>Email</label><input type="email" id="f-c1-email" value="${s.carer1_email||''}"></div>
+      <div class="field"><label>Occupation</label><input type="text" id="f-c1-occupation" value="${s.carer1_occupation||''}"></div>
+    </div>
+
+    <div style="margin:20px 0 12px;padding:10px 14px;background:var(--teal-bg);border-radius:var(--radius);border:1px solid rgba(20,184,166,0.2);">
+      <div style="font-size:12px;font-weight:600;color:var(--teal-text);">PARENT / CARER 2 (optional)</div>
+    </div>
+    <div class="form-grid">
+      <div class="field"><label>First name</label><input type="text" id="f-c2-first" value="${s.carer2_first_name||''}"></div>
+      <div class="field"><label>Last name</label><input type="text" id="f-c2-last" value="${s.carer2_last_name||''}"></div>
+      <div class="field" style="grid-column:1/-1;"><label>Address</label><input type="text" id="f-c2-address" value="${s.carer2_address||''}"></div>
+      <div class="field"><label>Telephone</label><input type="text" id="f-c2-tel" value="${s.carer2_telephone||''}"></div>
+      <div class="field"><label>Mobile</label><input type="text" id="f-c2-mobile" value="${s.carer2_mobile||''}"></div>
+      <div class="field"><label>Email</label><input type="email" id="f-c2-email" value="${s.carer2_email||''}"></div>
+      <div class="field"><label>Occupation</label><input type="text" id="f-c2-occupation" value="${s.carer2_occupation||''}"></div>
+    </div>
+
+    <div style="margin:20px 0 12px;padding:10px 14px;background:var(--danger-bg);border-radius:var(--radius);border:1px solid rgba(239,68,68,0.2);">
+      <div style="font-size:12px;font-weight:600;color:var(--danger-text);">EMERGENCY CONTACT</div>
+    </div>
+    <div class="form-grid">
+      <div class="field"><label>Full name</label><input type="text" id="f-emg-name" value="${s.emergency_name||''}"></div>
+      <div class="field"><label>Telephone / mobile</label><input type="text" id="f-emg-tel" value="${s.emergency_telephone||''}"></div>
+      <div class="field"><label>Relationship to child</label><input type="text" id="f-emg-rel" value="${s.emergency_relation||''}" placeholder="e.g. Aunt, Grandparent"></div>
+    </div>
+
+    <div style="margin:20px 0 12px;padding:10px 14px;background:var(--amber-bg);border-radius:var(--radius);border:1px solid rgba(245,158,11,0.2);">
+      <div style="font-size:12px;font-weight:600;color:var(--amber-text);">REFERENCE & OTHER</div>
+    </div>
+    <div class="form-grid">
+      <div class="field"><label>Referred by (name)</label><input type="text" id="f-ref-by" value="${s.referred_by||''}" placeholder="Who referred this family?"></div>
+      <div class="field"><label>Referral admission number</label><input type="text" id="f-ref-admid" value="${s.referral_admission||''}" placeholder="e.g. H100"></div>
+      <div class="field"><label>Status</label><select id="f-status"><option value="active" ${!s.status||s.status==='active'?'selected':''}>Active</option><option value="inactive" ${s.status==='inactive'?'selected':''}>Inactive</option></select></div>
+      <div class="field" style="grid-column:1/-1;"><label>Additional notes</label><input type="text" id="f-notes" value="${s.notes||''}" placeholder="Any additional notes"></div>
+    </div>
+  `,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${s.id?'Save changes':'Enrol student'}</button>`);}
+
 
 function modalStaff(){const s=state.editTarget||{};const branches=state.data.branches||[];const defBranch=state.currentBranch||branches[0]?.id||'';
 return mWrap(s.id?'Edit staff member':'Add staff member',`
@@ -1101,7 +1161,30 @@ function addInstalmentRow(){
 // SAVE
 async function doSave(){const m=state.modal;const v=id=>document.getElementById(id)?.value;const saveBtn=document.getElementById('modal-save');if(saveBtn)saveBtn.disabled=true;
 try{
-if(m==='add-student'||m==='edit-student'){const body={branch_id:parseInt(v('f-branch')),admission_id:v('f-admid'),name:v('f-name'),year_group:v('f-year'),parent_contact:v('f-parent'),status:v('f-status'),notes:v('f-notes')};if(!body.name){toast('Name required','error');return;}if(m==='add-student')await API.post('/api/students',body);else await API.put('/api/students/'+state.editTarget.id,body);toast(m==='add-student'?'Student enrolled':'Student updated');}
+if(m==='add-student'||m==='edit-student'){
+  const fn=v('f-first-name')||''; const ln=v('f-last-name')||'';
+  const fullName=v('f-name')||(fn+' '+ln).trim();
+  if(!fullName){toast('Name required','error');return;}
+  const body={
+    branch_id:parseInt(v('f-branch')),admission_id:v('f-admid'),
+    name:fullName,first_name:fn,last_name:ln,
+    date_of_birth:v('f-dob')||null,gender:v('f-gender'),
+    year_group:v('f-year'),current_school:v('f-school'),
+    medical_notes:v('f-medical'),sen_notes:v('f-sen'),
+    carer1_first_name:v('f-c1-first'),carer1_last_name:v('f-c1-last'),
+    carer1_address:v('f-c1-address'),carer1_telephone:v('f-c1-tel'),
+    carer1_mobile:v('f-c1-mobile'),carer1_email:v('f-c1-email'),carer1_occupation:v('f-c1-occupation'),
+    carer2_first_name:v('f-c2-first'),carer2_last_name:v('f-c2-last'),
+    carer2_address:v('f-c2-address'),carer2_telephone:v('f-c2-tel'),
+    carer2_mobile:v('f-c2-mobile'),carer2_email:v('f-c2-email'),carer2_occupation:v('f-c2-occupation'),
+    emergency_name:v('f-emg-name'),emergency_telephone:v('f-emg-tel'),emergency_relation:v('f-emg-rel'),
+    referred_by:v('f-ref-by'),referral_admission:v('f-ref-admid'),
+    parent_contact:v('f-c1-mobile'),status:v('f-status'),notes:v('f-notes')
+  };
+  if(m==='add-student')await API.post('/api/students',body);
+  else await API.put('/api/students/'+state.editTarget.id,body);
+  toast(m==='add-student'?'Student enrolled':'Student updated');
+}
 else if(m==='add-staff'||m==='edit-staff'){const body={branch_id:parseInt(v('f-branch')),name:v('f-name'),role:v('f-role'),subject:v('f-subject'),contact:v('f-contact'),status:v('f-status')};if(!body.name){toast('Name required','error');return;}if(m==='add-staff')await API.post('/api/staff',body);else await API.put('/api/staff/'+state.editTarget.id,body);toast(m==='add-staff'?'Staff added':'Staff updated');}
 else if(m==='add-session'||m==='edit-session'){const body={branch_id:parseInt(v('f-branch')),staff_id:parseInt(v('f-staff'))||null,date:v('f-date'),slot:v('f-slot'),subject:v('f-subject'),table_no:parseInt(v('f-table'))||1};if(m==='add-session')await API.post('/api/sessions',body);else await API.put('/api/sessions/'+state.editTarget.id,body);toast(m==='add-session'?'Session added':'Session updated');}
 else if(m==='add-user'||m==='edit-user'){const body={name:v('f-name'),email:v('f-email'),role:v('f-role'),branch_id:v('f-branch')?parseInt(v('f-branch')):null,status:v('f-status')};if(v('f-password'))body.password=v('f-password');if(!body.name||!body.email){toast('Name and email required','error');return;}if(m==='add-user'){if(!body.password){toast('Password required','error');return;}await API.post('/api/users',body);}else await API.put('/api/users/'+state.editTarget.id,body);toast(m==='add-user'?'User added':'User updated');}
@@ -1141,6 +1224,19 @@ closeModal();refreshPage();
 function bindNav(){document.querySelectorAll('[data-page]').forEach(el=>{el.addEventListener('click',()=>{state.page=el.dataset.page;refreshPage();});});document.getElementById('branch-switch')?.addEventListener('change',e=>{state.currentBranch=e.target.value?parseInt(e.target.value):null;refreshPage();});document.getElementById('logout-btn')?.addEventListener('click',async()=>{await API.post('/api/logout');state.currentUser=null;state.page='dashboard';state.data={};render();});}
 
 function bindAll(){bindNav();document.querySelectorAll('[data-action]').forEach(el=>{el.addEventListener('click',e=>handleAction(el.dataset.action,el.dataset.id?parseInt(el.dataset.id):null,el,e));});document.querySelectorAll('[data-nav]').forEach(el=>{el.addEventListener('click',()=>{state.page=el.dataset.nav;if(el.dataset.action){state.modal=el.dataset.action;state.editTarget=null;}refreshPage();});});document.getElementById('modal-close')?.addEventListener('click',closeModal);document.getElementById('modal-cancel')?.addEventListener('click',closeModal);document.getElementById('modal-backdrop')?.addEventListener('click',e=>{if(e.target.id==='modal-backdrop')closeModal();});document.getElementById('modal-save')?.addEventListener('click',doSave);document.getElementById('student-search')?.addEventListener('input',e=>{state.studentSearch=e.target.value;refreshPage();});document.getElementById('att-session-select')?.addEventListener('change',async e=>{state.attSessionId=e.target.value?parseInt(e.target.value):null;if(state.attSessionId){state.attRecords[state.attSessionId]={};await loadData('attendance_'+state.attSessionId,'/api/attendance/'+state.attSessionId);const att=state.data['attendance_'+state.attSessionId]||[];att.forEach(a=>{state.attRecords[state.attSessionId][a.student_id]={status:a.status,notes:a.notes||''};});}render();});document.getElementById('staff-att-month')?.addEventListener('change',e=>{state.staffAttMonth=e.target.value;refreshPage();});
+document.getElementById('f-first-name')?.addEventListener('input',()=>{
+  const fn=document.getElementById('f-first-name')?.value||'';
+  const ln=document.getElementById('f-last-name')?.value||'';
+  const full=document.getElementById('f-name');
+  if(full&&!full.dataset.manual)(full.value=(fn+' '+ln).trim());
+});
+document.getElementById('f-last-name')?.addEventListener('input',()=>{
+  const fn=document.getElementById('f-first-name')?.value||'';
+  const ln=document.getElementById('f-last-name')?.value||'';
+  const full=document.getElementById('f-name');
+  if(full&&!full.dataset.manual)(full.value=(fn+' '+ln).trim());
+});
+document.getElementById('f-name')?.addEventListener('input',e=>{e.target.dataset.manual='1';});
 document.getElementById('fin-student-select')?.addEventListener('change',async e=>{
   state.finStudentId=e.target.value?parseInt(e.target.value):null;
   if(state.finStudentId){state.data['statement_'+state.finStudentId]=await API.get('/api/statement/'+state.finStudentId).catch(()=>null);}
