@@ -165,8 +165,6 @@ def get_next_id(branch_id):
     conn.close()
     return jsonify({'next_id': nid})
 
-@api_bp.route('/api/students', methods=['POST'])
-@require_auth
 def get_student_fields(d):
     dob = d.get('date_of_birth') or None
     return {
