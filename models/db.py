@@ -151,6 +151,7 @@ DO $$ BEGIN
     ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_science_book TEXT;
     ALTER TABLE students ADD COLUMN IF NOT EXISTS hours_per_week TEXT;
     -- Update payment method constraint to include direct_debit and standing_order
+    -- Create hq_transfers if not exists (handled by CREATE TABLE IF NOT EXISTS above)
     ALTER TABLE payments DROP CONSTRAINT IF EXISTS payments_method_check;
     ALTER TABLE payments ADD CONSTRAINT payments_method_check
         CHECK (method IN ('cash','bank_transfer','cheque','card','direct_debit','standing_order','other'));
@@ -258,6 +259,21 @@ CREATE TABLE IF NOT EXISTS instalment_schedule (
     payment_id     INT REFERENCES payments(id) ON DELETE SET NULL,
     notes          TEXT
 );
+
+-- ── HQ TRANSFERS ──
+CREATE TABLE IF NOT EXISTS hq_transfers (
+    id             SERIAL PRIMARY KEY,
+    branch_id      INT NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+    amount         NUMERIC(10,2) NOT NULL,
+    transfer_date  DATE NOT NULL DEFAULT CURRENT_DATE,
+    method         TEXT NOT NULL DEFAULT 'cash' CHECK (method IN ('cash','bank_transfer','cheque','other')),
+    reference      TEXT,
+    notes          TEXT,
+    recorded_by    INT REFERENCES users(id) ON DELETE SET NULL,
+    created_at     TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_hq_transfers_branch ON hq_transfers(branch_id);
+CREATE INDEX IF NOT EXISTS idx_hq_transfers_date ON hq_transfers(transfer_date DESC);
 
 -- ── STAFF ATTENDANCE ──
 CREATE TABLE IF NOT EXISTS staff_attendance (
