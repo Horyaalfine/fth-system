@@ -210,7 +210,6 @@ def get_student_fields(d):
 def add_student():
     d = request.json
     conn = get_conn(); cur = conn.cursor()
-    dob = d.get('date_of_birth') or None
     fields = get_student_fields(d)
     placeholders = ','.join(['%s'] * len(fields))
     cols = ','.join(fields.keys())
@@ -229,7 +228,9 @@ def update_student(sid):
     vals = list(fields.values()) + [sid]
     cur.execute(f"UPDATE students SET {set_clause} WHERE id=%s RETURNING *", vals)
     r = row(cur); conn.commit(); cur.close(); conn.close()
-    if r and r.get('date_of_birth'): r['date_of_birth'] = str(r['date_of_birth'])
+    if r:
+        if r.get('date_of_birth'): r['date_of_birth'] = str(r['date_of_birth'])
+        if r.get('created_at'): r['created_at'] = str(r['created_at'])
     log_action('edit','students',sid)
     return jsonify(r)
 @api_bp.route('/api/students/<int:sid>', methods=['DELETE'])
