@@ -56,16 +56,77 @@ CREATE TABLE IF NOT EXISTS parent_students (
 
 -- ── STUDENTS ──
 CREATE TABLE IF NOT EXISTS students (
-    id           SERIAL PRIMARY KEY,
-    branch_id    INT NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
-    admission_id TEXT NOT NULL UNIQUE,
-    name         TEXT NOT NULL,
-    year_group   TEXT,
-    parent_contact TEXT,
-    status       TEXT NOT NULL DEFAULT 'active',
-    notes        TEXT,
-    created_at   TIMESTAMP DEFAULT NOW()
+    id                  SERIAL PRIMARY KEY,
+    branch_id           INT NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+    admission_id        TEXT NOT NULL UNIQUE,
+    name                TEXT NOT NULL,
+    first_name          TEXT,
+    last_name           TEXT,
+    date_of_birth       DATE,
+    gender              TEXT,
+    year_group          TEXT,
+    current_school      TEXT,
+    medical_notes       TEXT,
+    sen_notes           TEXT,
+    -- Parent / Carer 1
+    carer1_first_name   TEXT,
+    carer1_last_name    TEXT,
+    carer1_address      TEXT,
+    carer1_telephone    TEXT,
+    carer1_mobile       TEXT,
+    carer1_email        TEXT,
+    carer1_occupation   TEXT,
+    -- Parent / Carer 2
+    carer2_first_name   TEXT,
+    carer2_last_name    TEXT,
+    carer2_address      TEXT,
+    carer2_telephone    TEXT,
+    carer2_mobile       TEXT,
+    carer2_email        TEXT,
+    carer2_occupation   TEXT,
+    -- Emergency contact
+    emergency_name      TEXT,
+    emergency_telephone TEXT,
+    emergency_relation  TEXT,
+    -- Reference
+    referred_by         TEXT,
+    referral_admission  TEXT,
+    -- Legacy fields kept for compatibility
+    parent_contact      TEXT,
+    status              TEXT NOT NULL DEFAULT 'active',
+    notes               TEXT,
+    created_at          TIMESTAMP DEFAULT NOW()
 );
+
+-- Migration: add new columns if they don't exist (safe to run multiple times)
+DO $$ BEGIN
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS first_name TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS last_name TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS date_of_birth DATE;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS gender TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS current_school TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS medical_notes TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS sen_notes TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_first_name TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_last_name TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_address TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_telephone TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_mobile TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_email TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_occupation TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer2_first_name TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer2_last_name TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer2_address TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer2_telephone TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer2_mobile TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer2_email TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer2_occupation TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS emergency_name TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS emergency_telephone TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS emergency_relation TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS referred_by TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS referral_admission TEXT;
+END $$;
 
 -- ── STAFF ──
 CREATE TABLE IF NOT EXISTS staff (
