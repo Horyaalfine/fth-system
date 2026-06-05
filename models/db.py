@@ -126,6 +126,30 @@ DO $$ BEGIN
     ALTER TABLE students ADD COLUMN IF NOT EXISTS emergency_relation TEXT;
     ALTER TABLE students ADD COLUMN IF NOT EXISTS referred_by TEXT;
     ALTER TABLE students ADD COLUMN IF NOT EXISTS referral_admission TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_postcode TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer2_postcode TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_maths_board TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_maths_paper TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_maths_exam_date TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_maths_current_grade TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_maths_predicted_grade TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_english_board TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_english_paper TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_english_exam_date TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_english_current_grade TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_english_predicted_grade TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_science_board TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_science_paper TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_science_exam_date TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_science_current_grade TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_science_predicted_grade TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_maths_pct TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_maths_book TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_english_pct TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_english_book TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_science_pct TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_science_book TEXT;
+    ALTER TABLE students ADD COLUMN IF NOT EXISTS hours_per_week TEXT;
 END $$;
 
 -- ── STAFF ──
