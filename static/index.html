@@ -363,7 +363,7 @@ return`
 <thead><tr><th>Name</th><th>Role</th><th>Subject</th><th>Branch</th><th>Contact</th><th>Status</th><th></th></tr></thead>
 <tbody>${staff.map(s=>`<tr>
 <td><div style="display:flex;align-items:center;gap:10px;"><div class="avatar av-teal" style="width:30px;height:30px;font-size:11px;">${avatarInitials(s.name)}</div><strong>${s.name}</strong></div></td>
-<td>${roleBadge(s.role==='teacher'?'teacher':'receptionist')}</td>
+<td>${roleBadge(s.role)}</td>
 <td><span class="badge badge-gray">${s.subject||'—'}</span></td>
 <td><span class="badge badge-accent">${s.branch_name||'?'}</span></td>
 <td style="font-family:var(--mono);font-size:12px;color:var(--text3);">${s.contact||'—'}</td>
