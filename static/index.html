@@ -1424,9 +1424,10 @@ return mWrap(s.id?'Edit staff member':'Add staff member',`
 <div class="field"><label>Full name</label><input type="text" id="f-name" value="${s.name||''}"></div>
 <div class="field"><label>Branch</label><select id="f-branch">${branches.map(b=>`<option value="${b.id}" ${(s.branch_id||defBranch)==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>
 <div class="field"><label>Role</label><select id="f-role"><option value="teacher" ${s.role==='teacher'||!s.role?'selected':''}>Teacher</option>
+        <option value="head_of_centre" ${s.role==='head_of_centre'?'selected':''}>Head of Centre</option>
+        <option value="supervisor" ${s.role==='supervisor'?'selected':''}>Supervisor</option>
         <option value="receptionist" ${s.role==='receptionist'?'selected':''}>Receptionist</option>
-        <option value="admin" ${s.role==='admin'?'selected':''}>Admin support</option>
-        <option value="supervisor" ${s.role==='supervisor'?'selected':''}>Supervisor</option></select></div>
+        <option value="admin" ${s.role==='admin'?'selected':''}>Admin support</option></select></div>
 <div class="field"><label>Subject</label><input type="text" id="f-subject" value="${s.subject||''}" placeholder="e.g. Maths, English"></div>
 <div class="field"><label>Contact number</label><input type="text" id="f-contact" value="${s.contact||''}"></div>
 <div class="field"><label>Status</label><select id="f-status"><option value="active" ${!s.status||s.status==='active'?'selected':''}>Active</option><option value="inactive" ${s.status==='inactive'?'selected':''}>Inactive</option></select></div>
