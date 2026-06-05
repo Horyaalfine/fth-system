@@ -1158,6 +1158,82 @@ def mark_instalment_paid(sid):
     return jsonify({'ok': True})
 
 # ════════════════════════════════════════════
+#  HQ TRANSFERS
+# ════════════════════════════════════════════
+@api_bp.route('/api/hq-transfers', methods=['GET'])
+@require_auth
+def get_hq_transfers():
+    b = branch_scope()
+    conn = get_conn(); cur = conn.cursor()
+    where = []; params = []
+    if b: where.append("t.branch_id=%s"); params.append(b)
+    wc = ('WHERE '+' AND '.join(where)) if where else ''
+    cur.execute(f"""
+        SELECT t.*, b.name as branch_name, u.name as recorded_by_name
+        FROM hq_transfers t
+        JOIN branches b ON b.id=t.branch_id
+        LEFT JOIN users u ON u.id=t.recorded_by
+        {wc} ORDER BY t.transfer_date DESC, t.created_at DESC
+    """, params)
+    data = rows(cur)
+    for d in data:
+        if d.get('transfer_date'): d['transfer_date'] = str(d['transfer_date'])
+        if d.get('amount'): d['amount'] = float(d['amount'])
+    cur.close(); conn.close()
+    return jsonify(data)
+
+@api_bp.route('/api/hq-transfers/summary', methods=['GET'])
+@require_auth
+def hq_transfer_summary():
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        SELECT b.id, b.name as branch_name,
+            COALESCE(SUM(p.amount) FILTER (WHERE p.method='cash'), 0) as cash_collected,
+            COALESCE(SUM(t.amount), 0) as transferred_to_hq,
+            COALESCE(SUM(p.amount) FILTER (WHERE p.method='cash'), 0) -
+            COALESCE(SUM(t.amount), 0) as held_at_branch
+        FROM branches b
+        LEFT JOIN payments p ON p.branch_id=b.id
+        LEFT JOIN hq_transfers t ON t.branch_id=b.id
+        GROUP BY b.id, b.name ORDER BY b.name
+    """)
+    data = rows(cur)
+    for d in data:
+        for k in ['cash_collected','transferred_to_hq','held_at_branch']:
+            if d.get(k) is not None: d[k] = float(d[k])
+    cur.close(); conn.close()
+    return jsonify(data)
+
+@api_bp.route('/api/hq-transfers', methods=['POST'])
+@require_auth
+def add_hq_transfer():
+    d = request.json
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO hq_transfers (branch_id, amount, transfer_date, method, reference, notes, recorded_by)
+        VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING *
+    """, (d['branch_id'], d['amount'],
+          d.get('transfer_date', str(date.today())),
+          d.get('method','cash'), d.get('reference',''),
+          d.get('notes',''), session.get('user_id')))
+    r = row(cur); conn.commit()
+    if r:
+        if r.get('transfer_date'): r['transfer_date'] = str(r['transfer_date'])
+        if r.get('amount'): r['amount'] = float(r['amount'])
+    cur.close(); conn.close()
+    log_action('add', 'hq_transfers', r['id'])
+    return jsonify(r), 201
+
+@api_bp.route('/api/hq-transfers/<int:tid>', methods=['DELETE'])
+@require_auth
+def delete_hq_transfer(tid):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("DELETE FROM hq_transfers WHERE id=%s", (tid,))
+    conn.commit(); cur.close(); conn.close()
+    log_action('delete', 'hq_transfers', tid)
+    return jsonify({'ok': True})
+
+# ════════════════════════════════════════════
 #  FINANCIAL — PAYMENT SUMMARY
 # ════════════════════════════════════════════
 @api_bp.route('/api/payments/summary', methods=['GET'])
