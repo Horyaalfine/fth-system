@@ -122,7 +122,7 @@ tr:hover td{background:var(--surface2);}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
 .field{display:flex;flex-direction:column;gap:6px;}
 .field label{font-size:13px;font-weight:600;color:var(--text);letter-spacing:0.01em;margin-bottom:4px;}
-.field input,.field select,.field textarea{border:1.5px solid var(--border2);border-radius:var(--radius);padding:10px 14px;font-family:var(--font);font-size:14px;background:var(--surface2);color:var(--text);outline:none;transition:all 0.15s;}
+.field input,.field select,.field textarea{border:1.5px solid #555e68;border-radius:var(--radius);padding:11px 14px;font-family:var(--font);font-size:14px;background:#1c2533;color:#f0f3f9;outline:none;transition:all 0.15s;}
 .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(108,99,255,0.15);background:var(--surface3);}
 .field input::placeholder{color:var(--text3);}
 .field select option{background:var(--surface2);}
@@ -929,13 +929,13 @@ function modalStudent(){
   const branches=state.data.branches||[];
   const defBranch=state.currentBranch||branches[0]?.id||'';
   return mWrap(s.id?'Edit student record':'Enrol new student',`
-    <div style="margin-bottom:16px;padding:10px 14px;background:var(--accent-bg);border-radius:var(--radius);border:1px solid rgba(108,99,255,0.2);">
-      <div style="font-size:12px;font-weight:600;color:var(--accent-text);">STUDENT DETAILS</div>
+    <div style="margin-bottom:16px;padding:10px 14px;background:rgba(99,102,241,0.18);border-radius:var(--radius);border-left:4px solid #6366f1;">
+      <div style="font-size:13px;font-weight:700;color:#a5b4fc;letter-spacing:0.04em;">STUDENT DETAILS</div>
     </div>
     <div class="form-grid">
       <div class="field"><label>First name</label><input type="text" id="f-first-name" value="${s.first_name||''}"></div>
       <div class="field"><label>Last name</label><input type="text" id="f-last-name" value="${s.last_name||''}"></div>
-      <div class="field"><label>Full name (auto-fills)</label><input type="text" id="f-name" value="${s.name||''}"><span class="hint">Will auto-fill from first + last name</span></div>
+      <input type="hidden" id="f-name" value="${s.name||''}">
       <div class="field"><label>Admission ID</label><input type="text" id="f-admid" value="${s.admission_id||''}"><span class="hint">Auto-generated. Add a/b suffix for siblings (e.g. H110a)</span></div>
       <div class="field"><label>Branch</label><select id="f-branch" onchange="onBranchChange(this.value)">${branches.map(b=>`<option value="${b.id}" ${(s.branch_id||defBranch)==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>
       <div class="field"><label>Date of birth</label><input type="date" id="f-dob" value="${s.date_of_birth||''}"></div>
@@ -951,8 +951,8 @@ function modalStudent(){
       <div class="field" style="grid-column:1/-1;"><label>Learning needs / SEN</label><textarea id="f-sen" rows="2" style="resize:vertical;">${s.sen_notes||''}</textarea></div>
     </div>
 
-    <div style="margin:20px 0 12px;padding:10px 14px;background:var(--teal-bg);border-radius:var(--radius);border:1px solid rgba(20,184,166,0.2);">
-      <div style="font-size:12px;font-weight:600;color:var(--teal-text);">PARENT / CARER 1</div>
+    <div style="margin:20px 0 12px;padding:10px 14px;background:rgba(45,212,191,0.18);border-radius:var(--radius);border-left:4px solid #2dd4bf;">
+      <div style="font-size:13px;font-weight:700;color:#5eead4;letter-spacing:0.04em;">PARENT / CARER 1</div>
     </div>
     <div class="form-grid">
       <div class="field"><label>First name</label><input type="text" id="f-c1-first" value="${s.carer1_first_name||''}"></div>
@@ -965,8 +965,8 @@ function modalStudent(){
       <div class="field"><label>Occupation</label><input type="text" id="f-c1-occupation" value="${s.carer1_occupation||''}"></div>
     </div>
 
-    <div style="margin:20px 0 12px;padding:10px 14px;background:var(--teal-bg);border-radius:var(--radius);border:1px solid rgba(20,184,166,0.2);">
-      <div style="font-size:12px;font-weight:600;color:var(--teal-text);">PARENT / CARER 2 (optional)</div>
+    <div style="margin:20px 0 12px;padding:10px 14px;background:rgba(45,212,191,0.12);border-radius:var(--radius);border-left:4px solid #2dd4bf;">
+      <div style="font-size:13px;font-weight:700;color:#5eead4;letter-spacing:0.04em;">PARENT / CARER 2 (optional)</div>
     </div>
     <div class="form-grid">
       <div class="field"><label>First name</label><input type="text" id="f-c2-first" value="${s.carer2_first_name||''}"></div>
@@ -979,8 +979,8 @@ function modalStudent(){
       <div class="field"><label>Occupation</label><input type="text" id="f-c2-occupation" value="${s.carer2_occupation||''}"></div>
     </div>
 
-    <div style="margin:20px 0 12px;padding:10px 14px;background:var(--danger-bg);border-radius:var(--radius);border:1px solid rgba(239,68,68,0.2);">
-      <div style="font-size:12px;font-weight:600;color:var(--danger-text);">EMERGENCY CONTACT</div>
+    <div style="margin:20px 0 12px;padding:10px 14px;background:rgba(248,113,113,0.18);border-radius:var(--radius);border-left:4px solid #f87171;">
+      <div style="font-size:13px;font-weight:700;color:#fca5a5;letter-spacing:0.04em;">EMERGENCY CONTACT</div>
     </div>
     <div class="form-grid">
       <div class="field"><label>Full name</label><input type="text" id="f-emg-name" value="${s.emergency_name||''}"></div>
@@ -988,8 +988,8 @@ function modalStudent(){
       <div class="field"><label>Relationship to child</label><input type="text" id="f-emg-rel" value="${s.emergency_relation||''}" placeholder="e.g. Aunt, Grandparent"></div>
     </div>
 
-    <div style="margin:20px 0 12px;padding:10px 14px;background:var(--blue-bg);border-radius:var(--radius);border:1px solid rgba(59,130,246,0.2);">
-      <div style="font-size:12px;font-weight:600;color:var(--blue-text);">ASSESSMENT RESULTS</div>
+    <div style="margin:20px 0 12px;padding:10px 14px;background:rgba(96,165,250,0.18);border-radius:var(--radius);border-left:4px solid #60a5fa;">
+      <div style="font-size:13px;font-weight:700;color:#93c5fd;letter-spacing:0.04em;">ASSESSMENT RESULTS</div>
     </div>
     <div class="form-grid">
       <div class="field"><label>Maths %</label><input type="text" id="f-assess-maths-pct" value="${s.assess_maths_pct||''}" placeholder="e.g. 75%"></div>
@@ -1001,8 +1001,8 @@ function modalStudent(){
       <div class="field"><label>Hours per week</label><input type="text" id="f-hours-per-week" value="${s.hours_per_week||''}" placeholder="e.g. 2"></div>
     </div>
 
-    <div style="margin:20px 0 12px;padding:10px 14px;background:var(--blue-bg);border-radius:var(--radius);border:1px solid rgba(59,130,246,0.2);">
-      <div style="font-size:12px;font-weight:600;color:var(--blue-text);">GCSE EXAM DETAILS (if applicable)</div>
+    <div style="margin:20px 0 12px;padding:10px 14px;background:rgba(96,165,250,0.18);border-radius:var(--radius);border-left:4px solid #60a5fa;">
+      <div style="font-size:13px;font-weight:700;color:#93c5fd;letter-spacing:0.04em;">GCSE EXAM DETAILS (if applicable)</div>
     </div>
     <div style="overflow-x:auto;margin-bottom:12px;">
     <table style="width:100%;font-size:12px;border-collapse:collapse;">
@@ -1040,8 +1040,8 @@ function modalStudent(){
     </table>
     </div>
 
-    <div style="margin:20px 0 12px;padding:10px 14px;background:var(--amber-bg);border-radius:var(--radius);border:1px solid rgba(245,158,11,0.2);">
-      <div style="font-size:12px;font-weight:600;color:var(--amber-text);">REFERENCE & OTHER</div>
+    <div style="margin:20px 0 12px;padding:10px 14px;background:rgba(251,191,36,0.18);border-radius:var(--radius);border-left:4px solid #fbbf24;">
+      <div style="font-size:13px;font-weight:700;color:#fcd34d;letter-spacing:0.04em;">REFERENCE & OTHER</div>
     </div>
     <div class="form-grid">
       <div class="field"><label>Referred by (name)</label><input type="text" id="f-ref-by" value="${s.referred_by||''}" placeholder="Who referred this family?"></div>
