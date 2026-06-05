@@ -167,42 +167,54 @@ def get_next_id(branch_id):
 
 @api_bp.route('/api/students', methods=['POST'])
 @require_auth
+def get_student_fields(d):
+    dob = d.get('date_of_birth') or None
+    return {
+        'branch_id': d['branch_id'], 'admission_id': d['admission_id'],
+        'name': d['name'], 'first_name': d.get('first_name',''),
+        'last_name': d.get('last_name',''), 'date_of_birth': dob,
+        'gender': d.get('gender',''), 'year_group': d.get('year_group',''),
+        'current_school': d.get('current_school',''),
+        'medical_notes': d.get('medical_notes',''), 'sen_notes': d.get('sen_notes',''),
+        'carer1_first_name': d.get('carer1_first_name',''), 'carer1_last_name': d.get('carer1_last_name',''),
+        'carer1_address': d.get('carer1_address',''), 'carer1_postcode': d.get('carer1_postcode',''),
+        'carer1_telephone': d.get('carer1_telephone',''), 'carer1_mobile': d.get('carer1_mobile',''),
+        'carer1_email': d.get('carer1_email',''), 'carer1_occupation': d.get('carer1_occupation',''),
+        'carer2_first_name': d.get('carer2_first_name',''), 'carer2_last_name': d.get('carer2_last_name',''),
+        'carer2_address': d.get('carer2_address',''), 'carer2_postcode': d.get('carer2_postcode',''),
+        'carer2_telephone': d.get('carer2_telephone',''), 'carer2_mobile': d.get('carer2_mobile',''),
+        'carer2_email': d.get('carer2_email',''), 'carer2_occupation': d.get('carer2_occupation',''),
+        'emergency_name': d.get('emergency_name',''), 'emergency_telephone': d.get('emergency_telephone',''),
+        'emergency_relation': d.get('emergency_relation',''),
+        'referred_by': d.get('referred_by',''), 'referral_admission': d.get('referral_admission',''),
+        'gcse_maths_board': d.get('gcse_maths_board',''), 'gcse_maths_paper': d.get('gcse_maths_paper',''),
+        'gcse_maths_exam_date': d.get('gcse_maths_exam_date',''),
+        'gcse_maths_current_grade': d.get('gcse_maths_current_grade',''),
+        'gcse_maths_predicted_grade': d.get('gcse_maths_predicted_grade',''),
+        'gcse_english_board': d.get('gcse_english_board',''), 'gcse_english_paper': d.get('gcse_english_paper',''),
+        'gcse_english_exam_date': d.get('gcse_english_exam_date',''),
+        'gcse_english_current_grade': d.get('gcse_english_current_grade',''),
+        'gcse_english_predicted_grade': d.get('gcse_english_predicted_grade',''),
+        'gcse_science_board': d.get('gcse_science_board',''), 'gcse_science_paper': d.get('gcse_science_paper',''),
+        'gcse_science_exam_date': d.get('gcse_science_exam_date',''),
+        'gcse_science_current_grade': d.get('gcse_science_current_grade',''),
+        'gcse_science_predicted_grade': d.get('gcse_science_predicted_grade',''),
+        'assess_maths_pct': d.get('assess_maths_pct',''), 'assess_maths_book': d.get('assess_maths_book',''),
+        'assess_english_pct': d.get('assess_english_pct',''), 'assess_english_book': d.get('assess_english_book',''),
+        'assess_science_pct': d.get('assess_science_pct',''), 'assess_science_book': d.get('assess_science_book',''),
+        'hours_per_week': d.get('hours_per_week',''),
+        'parent_contact': d.get('carer1_mobile') or d.get('parent_contact',''),
+        'status': d.get('status','active'), 'notes': d.get('notes','')
+    }
+
 def add_student():
     d = request.json
     conn = get_conn(); cur = conn.cursor()
     dob = d.get('date_of_birth') or None
-    cur.execute("""
-        INSERT INTO students (
-            branch_id, admission_id, name, first_name, last_name,
-            date_of_birth, gender, year_group, current_school,
-            medical_notes, sen_notes,
-            carer1_first_name, carer1_last_name, carer1_address,
-            carer1_telephone, carer1_mobile, carer1_email, carer1_occupation,
-            carer2_first_name, carer2_last_name, carer2_address,
-            carer2_telephone, carer2_mobile, carer2_email, carer2_occupation,
-            emergency_name, emergency_telephone, emergency_relation,
-            referred_by, referral_admission, parent_contact, status, notes
-        ) VALUES (
-            %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
-            %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
-            %s,%s,%s,%s,%s,%s,%s,%s
-        ) RETURNING *
-    """, (
-        d['branch_id'], d['admission_id'], d['name'],
-        d.get('first_name',''), d.get('last_name',''),
-        dob, d.get('gender',''), d.get('year_group',''),
-        d.get('current_school',''), d.get('medical_notes',''), d.get('sen_notes',''),
-        d.get('carer1_first_name',''), d.get('carer1_last_name',''),
-        d.get('carer1_address',''), d.get('carer1_telephone',''),
-        d.get('carer1_mobile',''), d.get('carer1_email',''), d.get('carer1_occupation',''),
-        d.get('carer2_first_name',''), d.get('carer2_last_name',''),
-        d.get('carer2_address',''), d.get('carer2_telephone',''),
-        d.get('carer2_mobile',''), d.get('carer2_email',''), d.get('carer2_occupation',''),
-        d.get('emergency_name',''), d.get('emergency_telephone',''), d.get('emergency_relation',''),
-        d.get('referred_by',''), d.get('referral_admission',''),
-        d.get('carer1_mobile') or d.get('parent_contact',''),
-        d.get('status','active'), d.get('notes','')
-    ))
+    fields = get_student_fields(d)
+    placeholders = ','.join(['%s'] * len(fields))
+    cols = ','.join(fields.keys())
+    cur.execute(f"INSERT INTO students ({cols}) VALUES ({placeholders}) RETURNING *", list(fields.values()))
     r = row(cur); conn.commit(); cur.close(); conn.close()
     if r and r.get('date_of_birth'): r['date_of_birth'] = str(r['date_of_birth'])
     log_action('add','students',r['id'])
@@ -212,35 +224,10 @@ def add_student():
 def update_student(sid):
     d = request.json
     conn = get_conn(); cur = conn.cursor()
-    dob = d.get('date_of_birth') or None
-    cur.execute("""
-        UPDATE students SET
-            branch_id=%s, admission_id=%s, name=%s, first_name=%s, last_name=%s,
-            date_of_birth=%s, gender=%s, year_group=%s, current_school=%s,
-            medical_notes=%s, sen_notes=%s,
-            carer1_first_name=%s, carer1_last_name=%s, carer1_address=%s,
-            carer1_telephone=%s, carer1_mobile=%s, carer1_email=%s, carer1_occupation=%s,
-            carer2_first_name=%s, carer2_last_name=%s, carer2_address=%s,
-            carer2_telephone=%s, carer2_mobile=%s, carer2_email=%s, carer2_occupation=%s,
-            emergency_name=%s, emergency_telephone=%s, emergency_relation=%s,
-            referred_by=%s, referral_admission=%s, parent_contact=%s, status=%s, notes=%s
-        WHERE id=%s RETURNING *
-    """, (
-        d['branch_id'], d['admission_id'], d['name'],
-        d.get('first_name',''), d.get('last_name',''),
-        dob, d.get('gender',''), d.get('year_group',''),
-        d.get('current_school',''), d.get('medical_notes',''), d.get('sen_notes',''),
-        d.get('carer1_first_name',''), d.get('carer1_last_name',''),
-        d.get('carer1_address',''), d.get('carer1_telephone',''),
-        d.get('carer1_mobile',''), d.get('carer1_email',''), d.get('carer1_occupation',''),
-        d.get('carer2_first_name',''), d.get('carer2_last_name',''),
-        d.get('carer2_address',''), d.get('carer2_telephone',''),
-        d.get('carer2_mobile',''), d.get('carer2_email',''), d.get('carer2_occupation',''),
-        d.get('emergency_name',''), d.get('emergency_telephone',''), d.get('emergency_relation',''),
-        d.get('referred_by',''), d.get('referral_admission',''),
-        d.get('carer1_mobile') or d.get('parent_contact',''),
-        d.get('status','active'), d.get('notes',''), sid
-    ))
+    fields = get_student_fields(d)
+    set_clause = ','.join([f"{k}=%s" for k in fields.keys()])
+    vals = list(fields.values()) + [sid]
+    cur.execute(f"UPDATE students SET {set_clause} WHERE id=%s RETURNING *", vals)
     r = row(cur); conn.commit(); cur.close(); conn.close()
     if r and r.get('date_of_birth'): r['date_of_birth'] = str(r['date_of_birth'])
     log_action('edit','students',sid)
