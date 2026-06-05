@@ -152,6 +152,7 @@ DO $$ BEGIN
     ALTER TABLE students ADD COLUMN IF NOT EXISTS hours_per_week TEXT;
     -- Update payment method constraint to include direct_debit and standing_order
     -- Create hq_transfers if not exists (handled by CREATE TABLE IF NOT EXISTS above)
+    -- Lesson reports and test records (handled by CREATE TABLE IF NOT EXISTS)
     ALTER TABLE payments DROP CONSTRAINT IF EXISTS payments_method_check;
     ALTER TABLE payments ADD CONSTRAINT payments_method_check
         CHECK (method IN ('cash','bank_transfer','cheque','card','direct_debit','standing_order','other'));
@@ -274,6 +275,56 @@ CREATE TABLE IF NOT EXISTS hq_transfers (
 );
 CREATE INDEX IF NOT EXISTS idx_hq_transfers_branch ON hq_transfers(branch_id);
 CREATE INDEX IF NOT EXISTS idx_hq_transfers_date ON hq_transfers(transfer_date DESC);
+
+-- ── LESSON REPORTS ──
+CREATE TABLE IF NOT EXISTS lesson_reports (
+    id                    SERIAL PRIMARY KEY,
+    session_id            INT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    student_id            INT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    branch_id             INT NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+    staff_id              INT REFERENCES staff(id) ON DELETE SET NULL,
+    date                  DATE NOT NULL,
+    -- Teacher fields
+    classwork_completed   TEXT,
+    homework_marked       BOOLEAN DEFAULT FALSE,
+    homework_set          TEXT,
+    diary_entry           TEXT,
+    www                   TEXT,
+    ebi                   TEXT,
+    -- Supervisor check
+    supervisor_checked    BOOLEAN DEFAULT FALSE,
+    supervisor_id         INT REFERENCES users(id) ON DELETE SET NULL,
+    supervisor_checked_at TIMESTAMP,
+    supervisor_notes      TEXT,
+    created_at            TIMESTAMP DEFAULT NOW(),
+    UNIQUE (session_id, student_id)
+);
+
+-- ── TEST RECORDS ──
+CREATE TABLE IF NOT EXISTS test_records (
+    id                    SERIAL PRIMARY KEY,
+    student_id            INT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    branch_id             INT NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+    staff_id              INT REFERENCES staff(id) ON DELETE SET NULL,
+    recorded_by           INT REFERENCES users(id) ON DELETE SET NULL,
+    subject               TEXT NOT NULL,
+    book_unit             TEXT NOT NULL,
+    test_date             DATE NOT NULL DEFAULT CURRENT_DATE,
+    score_pct             NUMERIC(5,2) NOT NULL,
+    passed                BOOLEAN GENERATED ALWAYS AS (score_pct >= 70) STORED,
+    revision_given        BOOLEAN DEFAULT FALSE,
+    retest_date           DATE,
+    retest_score_pct      NUMERIC(5,2),
+    retest_passed         BOOLEAN GENERATED ALWAYS AS (retest_score_pct >= 70) STORED,
+    action_plan           TEXT,
+    notes                 TEXT,
+    created_at            TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_lesson_reports_session ON lesson_reports(session_id);
+CREATE INDEX IF NOT EXISTS idx_lesson_reports_student ON lesson_reports(student_id);
+CREATE INDEX IF NOT EXISTS idx_test_records_student ON test_records(student_id);
+CREATE INDEX IF NOT EXISTS idx_test_records_date ON test_records(test_date DESC);
 
 -- ── STAFF ATTENDANCE ──
 CREATE TABLE IF NOT EXISTS staff_attendance (
