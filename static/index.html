@@ -1695,8 +1695,18 @@ if(m==='add-student'||m==='edit-student'){
   else await API.put('/api/students/'+state.editTarget.id,body);
   toast(m==='add-student'?'Student enrolled':'Student updated');
 }
-else if(m==='add-staff'||m==='edit-staff'){const body={branch_id:parseInt(v('f-branch')),name:v('f-name'),role:v('f-role'),subject:v('f-subject'),contact:v('f-contact'),status:v('f-status')};if(!body.name){toast('Name required','error');return;}if(m==='add-staff')await API.post('/api/staff',body);else await API.put('/api/staff/'+state.editTarget.id,body);toast(m==='add-staff'?'Staff added':'Staff updated');}
-else if(m==='add-session'||m==='edit-session'){const body={branch_id:parseInt(v('f-branch')),staff_id:parseInt(v('f-staff'))||null,date:v('f-date'),slot:v('f-slot'),subject:v('f-subject'),table_no:parseInt(v('f-table'))||1};if(m==='add-session')await API.post('/api/sessions',body);else await API.put('/api/sessions/'+state.editTarget.id,body);toast(m==='add-session'?'Session added':'Session updated');}
+else if(m==='add-staff'||m==='edit-staff'){
+  const body={branch_id:parseInt(v('f-branch')),name:v('f-name'),role:v('f-role'),subject:v('f-subject'),contact:v('f-contact'),status:v('f-status')};
+  if(!body.name){toast('Name required','error');return;}
+  const result=m==='add-staff'?await API.post('/api/staff',body):await API.put('/api/staff/'+state.editTarget.id,body);
+  // Update local state immediately so list reflects change without full reload
+  if(result&&state.data.staff){
+    if(m==='add-staff'){state.data.staff.push(result);}
+    else{const idx=state.data.staff.findIndex(s=>s.id===state.editTarget.id);if(idx>=0)state.data.staff[idx]={...state.data.staff[idx],...result};}
+  }
+  toast(m==='add-staff'?'Staff added':'Staff updated');
+}
+else if(m==='add-session'||m==='edit-session'){const body={branch_id:parseInt(v('f-branch')),staff_id:parseInt(v('f-staff'))||null,date:v('f-date'),slot:v('f-slot'),subject:v('f-subject'),table_no:parseInt(v('f-table'))||1};if(!body.date||!body.slot){toast('Date and slot required','error');return;}if(m==='add-session')await API.post('/api/sessions',body);else await API.put('/api/sessions/'+state.editTarget.id,body);toast(m==='add-session'?'Session added':'Session updated');}
 else if(m==='add-user'||m==='edit-user'){const body={name:v('f-name'),email:v('f-email'),role:v('f-role'),branch_id:v('f-branch')?parseInt(v('f-branch')):null,status:v('f-status')};if(v('f-password'))body.password=v('f-password');if(!body.name||!body.email){toast('Name and email required','error');return;}if(m==='add-user'){if(!body.password){toast('Password required','error');return;}await API.post('/api/users',body);}else await API.put('/api/users/'+state.editTarget.id,body);toast(m==='add-user'?'User added':'User updated');}
 else if(m==='add-branch'||m==='edit-branch'){const body={name:v('f-name'),prefix:(v('f-prefix')||'').toUpperCase(),address:v('f-address'),phone:v('f-phone'),email:v('f-email'),status:v('f-status')};if(!body.name||!body.prefix){toast('Name and prefix required','error');return;}if(m==='add-branch')await API.post('/api/branches',body);else await API.put('/api/branches/'+state.editTarget.id,body);toast(m==='add-branch'?'Branch added':'Branch updated');}
 else if(m==='edit-invoice'){await API.put('/api/invoices/'+state.editTarget.id,{amount:parseInt(v('f-amount'))||120,status:v('f-inv-status'),paid_date:v('f-paid-date')||null,notes:v('f-notes')});toast('Invoice updated');}
