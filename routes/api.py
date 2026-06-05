@@ -1158,6 +1158,248 @@ def mark_instalment_paid(sid):
     return jsonify({'ok': True})
 
 # ════════════════════════════════════════════
+#  LESSON REPORTS
+# ════════════════════════════════════════════
+@api_bp.route('/api/lesson-reports/<int:session_id>', methods=['GET'])
+@require_auth
+def get_lesson_reports(session_id):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        SELECT lr.*, s.name as student_name, s.admission_id,
+               st.name as staff_name, u.name as supervisor_name
+        FROM lesson_reports lr
+        JOIN students s ON s.id=lr.student_id
+        LEFT JOIN staff st ON st.id=lr.staff_id
+        LEFT JOIN users u ON u.id=lr.supervisor_id
+        WHERE lr.session_id=%s ORDER BY s.admission_id
+    """, (session_id,))
+    data = rows(cur)
+    for d in data:
+        if d.get('date'): d['date'] = str(d['date'])
+        if d.get('supervisor_checked_at'): d['supervisor_checked_at'] = str(d['supervisor_checked_at'])
+    cur.close(); conn.close()
+    return jsonify(data)
+
+@api_bp.route('/api/lesson-reports', methods=['POST'])
+@require_auth
+def save_lesson_report():
+    d = request.json
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO lesson_reports
+            (session_id, student_id, branch_id, staff_id, date,
+             classwork_completed, homework_marked, homework_set,
+             diary_entry, www, ebi)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        ON CONFLICT (session_id, student_id) DO UPDATE SET
+            classwork_completed=EXCLUDED.classwork_completed,
+            homework_marked=EXCLUDED.homework_marked,
+            homework_set=EXCLUDED.homework_set,
+            diary_entry=EXCLUDED.diary_entry,
+            www=EXCLUDED.www, ebi=EXCLUDED.ebi
+        RETURNING *
+    """, (
+        d['session_id'], d['student_id'], d['branch_id'],
+        d.get('staff_id'), d.get('date', str(date.today())),
+        d.get('classwork_completed',''), d.get('homework_marked', False),
+        d.get('homework_set',''), d.get('diary_entry',''),
+        d.get('www',''), d.get('ebi','')
+    ))
+    r = row(cur); conn.commit(); cur.close(); conn.close()
+    if r and r.get('date'): r['date'] = str(r['date'])
+    log_action('edit', 'lesson_reports', d.get('student_id'))
+    return jsonify(r), 201
+
+@api_bp.route('/api/lesson-reports/<int:rid>/supervisor-check', methods=['POST'])
+@require_auth
+def supervisor_check(rid):
+    d = request.json
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        UPDATE lesson_reports SET
+            supervisor_checked=%s, supervisor_id=%s,
+            supervisor_checked_at=NOW(), supervisor_notes=%s
+        WHERE id=%s RETURNING *
+    """, (
+        d.get('checked', True), session.get('user_id'),
+        d.get('notes',''), rid
+    ))
+    r = row(cur); conn.commit(); cur.close(); conn.close()
+    if r and r.get('date'): r['date'] = str(r['date'])
+    log_action('edit', 'lesson_reports', rid)
+    return jsonify(r)
+
+@api_bp.route('/api/lesson-reports/student/<int:student_id>', methods=['GET'])
+@require_auth
+def get_student_diary(student_id):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        SELECT lr.*, sess.date as session_date, sess.slot,
+               st.name as staff_name, b.name as branch_name
+        FROM lesson_reports lr
+        JOIN sessions sess ON sess.id=lr.session_id
+        LEFT JOIN staff st ON st.id=lr.staff_id
+        LEFT JOIN branches b ON b.id=lr.branch_id
+        WHERE lr.student_id=%s
+        ORDER BY sess.date DESC
+        LIMIT 50
+    """, (student_id,))
+    data = rows(cur)
+    for d in data:
+        if d.get('date'): d['date'] = str(d['date'])
+        if d.get('session_date'): d['session_date'] = str(d['session_date'])
+    cur.close(); conn.close()
+    return jsonify(data)
+
+# ════════════════════════════════════════════
+#  TEST RECORDS
+# ════════════════════════════════════════════
+@api_bp.route('/api/test-records', methods=['GET'])
+@require_auth
+def get_test_records():
+    b = branch_scope()
+    student_id = request.args.get('student_id')
+    conn = get_conn(); cur = conn.cursor()
+    where = []; params = []
+    if b: where.append("t.branch_id=%s"); params.append(b)
+    if student_id: where.append("t.student_id=%s"); params.append(int(student_id))
+    wc = ('WHERE '+' AND '.join(where)) if where else ''
+    cur.execute(f"""
+        SELECT t.*, s.name as student_name, s.admission_id,
+               b.name as branch_name, u.name as recorded_by_name
+        FROM test_records t
+        JOIN students s ON s.id=t.student_id
+        JOIN branches b ON b.id=t.branch_id
+        LEFT JOIN users u ON u.id=t.recorded_by
+        {wc} ORDER BY t.test_date DESC, t.created_at DESC
+    """, params)
+    data = rows(cur)
+    for d in data:
+        if d.get('test_date'): d['test_date'] = str(d['test_date'])
+        if d.get('retest_date'): d['retest_date'] = str(d['retest_date'])
+        if d.get('score_pct'): d['score_pct'] = float(d['score_pct'])
+        if d.get('retest_score_pct'): d['retest_score_pct'] = float(d['retest_score_pct'])
+    cur.close(); conn.close()
+    return jsonify(data)
+
+@api_bp.route('/api/test-records', methods=['POST'])
+@require_auth
+def add_test_record():
+    d = request.json
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO test_records
+            (student_id, branch_id, staff_id, recorded_by,
+             subject, book_unit, test_date, score_pct,
+             revision_given, retest_date, retest_score_pct,
+             action_plan, notes)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        RETURNING *
+    """, (
+        d['student_id'], d['branch_id'], d.get('staff_id'),
+        session.get('user_id'),
+        d['subject'], d['book_unit'],
+        d.get('test_date', str(date.today())),
+        d['score_pct'],
+        d.get('revision_given', False),
+        d.get('retest_date') or None,
+        d.get('retest_score_pct') or None,
+        d.get('action_plan',''), d.get('notes','')
+    ))
+    r = row(cur); conn.commit(); cur.close(); conn.close()
+    if r:
+        if r.get('test_date'): r['test_date'] = str(r['test_date'])
+        if r.get('retest_date'): r['retest_date'] = str(r['retest_date'])
+        if r.get('score_pct'): r['score_pct'] = float(r['score_pct'])
+    log_action('add', 'test_records', r['id'])
+    return jsonify(r), 201
+
+@api_bp.route('/api/test-records/<int:tid>', methods=['PUT'])
+@require_auth
+def update_test_record(tid):
+    d = request.json
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        UPDATE test_records SET
+            subject=%s, book_unit=%s, test_date=%s, score_pct=%s,
+            revision_given=%s, retest_date=%s, retest_score_pct=%s,
+            action_plan=%s, notes=%s
+        WHERE id=%s RETURNING *
+    """, (
+        d['subject'], d['book_unit'],
+        d.get('test_date', str(date.today())), d['score_pct'],
+        d.get('revision_given', False),
+        d.get('retest_date') or None,
+        d.get('retest_score_pct') or None,
+        d.get('action_plan',''), d.get('notes',''), tid
+    ))
+    r = row(cur); conn.commit(); cur.close(); conn.close()
+    if r:
+        if r.get('test_date'): r['test_date'] = str(r['test_date'])
+        if r.get('retest_date'): r['retest_date'] = str(r['retest_date'])
+        if r.get('score_pct'): r['score_pct'] = float(r['score_pct'])
+        if r.get('retest_score_pct'): r['retest_score_pct'] = float(r['retest_score_pct'])
+    log_action('edit', 'test_records', tid)
+    return jsonify(r)
+
+@api_bp.route('/api/test-records/<int:tid>', methods=['DELETE'])
+@require_auth
+def delete_test_record(tid):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("DELETE FROM test_records WHERE id=%s", (tid,))
+    conn.commit(); cur.close(); conn.close()
+    log_action('delete', 'test_records', tid)
+    return jsonify({'ok': True})
+
+# Parent portal — test records
+@api_bp.route('/api/parent/test-records/<int:student_id>', methods=['GET'])
+@require_parent
+def parent_test_records(student_id):
+    pid = session['parent_id']
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("SELECT 1 FROM parent_students WHERE parent_id=%s AND student_id=%s",(pid,student_id))
+    if not cur.fetchone(): cur.close(); conn.close(); return jsonify({'error':'Forbidden'}), 403
+    cur.execute("""
+        SELECT t.subject, t.book_unit, t.test_date, t.score_pct,
+               t.passed, t.revision_given, t.retest_date,
+               t.retest_score_pct, t.retest_passed, t.action_plan
+        FROM test_records t
+        WHERE t.student_id=%s ORDER BY t.test_date DESC
+    """, (student_id,))
+    data = rows(cur)
+    for d in data:
+        if d.get('test_date'): d['test_date'] = str(d['test_date'])
+        if d.get('retest_date'): d['retest_date'] = str(d['retest_date'])
+        if d.get('score_pct'): d['score_pct'] = float(d['score_pct'])
+        if d.get('retest_score_pct'): d['retest_score_pct'] = float(d['retest_score_pct'])
+    cur.close(); conn.close()
+    return jsonify(data)
+
+# Parent portal — diary
+@api_bp.route('/api/parent/diary/<int:student_id>', methods=['GET'])
+@require_parent
+def parent_diary(student_id):
+    pid = session['parent_id']
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("SELECT 1 FROM parent_students WHERE parent_id=%s AND student_id=%s",(pid,student_id))
+    if not cur.fetchone(): cur.close(); conn.close(); return jsonify({'error':'Forbidden'}), 403
+    cur.execute("""
+        SELECT lr.diary_entry, lr.homework_set, sess.date, sess.slot,
+               st.name as staff_name
+        FROM lesson_reports lr
+        JOIN sessions sess ON sess.id=lr.session_id
+        LEFT JOIN staff st ON st.id=lr.staff_id
+        WHERE lr.student_id=%s AND lr.diary_entry IS NOT NULL
+              AND lr.diary_entry != ''
+        ORDER BY sess.date DESC LIMIT 20
+    """, (student_id,))
+    data = rows(cur)
+    for d in data:
+        if d.get('date'): d['date'] = str(d['date'])
+    cur.close(); conn.close()
+    return jsonify(data)
+
+# ════════════════════════════════════════════
 #  HQ TRANSFERS
 # ════════════════════════════════════════════
 @api_bp.route('/api/hq-transfers', methods=['GET'])
