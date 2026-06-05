@@ -1158,6 +1158,56 @@ def mark_instalment_paid(sid):
     return jsonify({'ok': True})
 
 # ════════════════════════════════════════════
+#  FINANCIAL — PAYMENT SUMMARY
+# ════════════════════════════════════════════
+@api_bp.route('/api/payments/summary', methods=['GET'])
+@require_auth
+def payment_summary():
+    b = branch_scope()
+    month = request.args.get('month')
+    conn = get_conn(); cur = conn.cursor()
+    where = []; params = []
+    if b: where.append("branch_id=%s"); params.append(b)
+    if month: where.append("TO_CHAR(payment_date,'YYYY-MM')=%s"); params.append(month)
+    wc = ('WHERE '+' AND '.join(where)) if where else ''
+
+    # Summary by method
+    cur.execute(f"""
+        SELECT method,
+            COUNT(*) as count,
+            SUM(amount) as total
+        FROM payments {wc}
+        GROUP BY method ORDER BY total DESC
+    """, params)
+    by_method = rows(cur)
+    for r in by_method:
+        if r.get('total'): r['total'] = float(r['total'])
+
+    # Monthly breakdown by method
+    cur.execute(f"""
+        SELECT TO_CHAR(payment_date,'YYYY-MM') as month,
+            method, SUM(amount) as total, COUNT(*) as count
+        FROM payments {wc}
+        GROUP BY TO_CHAR(payment_date,'YYYY-MM'), method
+        ORDER BY month DESC, total DESC
+    """, params)
+    by_month = rows(cur)
+    for r in by_month:
+        if r.get('total'): r['total'] = float(r['total'])
+
+    # Overall total
+    cur.execute(f"SELECT SUM(amount) as total, COUNT(*) as count FROM payments {wc}", params)
+    overall = row(cur)
+    if overall and overall.get('total'): overall['total'] = float(overall['total'])
+
+    cur.close(); conn.close()
+    return jsonify({
+        'by_method': by_method,
+        'by_month': by_month,
+        'overall': overall or {'total': 0, 'count': 0}
+    })
+
+# ════════════════════════════════════════════
 #  AUDIT LOG
 # ════════════════════════════════════════════
 @api_bp.route('/api/audit', methods=['GET'])
