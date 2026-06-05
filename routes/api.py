@@ -72,12 +72,12 @@ def next_admission_id(conn, branch_id):
         return '?'
     prefix = b['prefix']
     cur.execute("""
-        SELECT MAX(CAST(REGEXP_REPLACE(admission_id, '[^0-9]', '', 'g') AS INT))
+        SELECT MAX(CAST(REGEXP_REPLACE(admission_id, '[^0-9]', '', 'g') AS INT)) AS max_num
         FROM students WHERE branch_id=%s AND admission_id ~ '^[A-Z][0-9]+'
     """, (branch_id,))
     r = cur.fetchone()
     cur.close()
-    max_num = r[0] if r and r[0] else 99
+    max_num = r['max_num'] if r and r.get('max_num') else 99
     return f"{prefix}{max_num + 1}"
 
 # ════════════════════════════════════════════
