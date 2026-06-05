@@ -1297,7 +1297,12 @@ function modalStudent(){
       <div class="field"><label>First name</label><input type="text" id="f-first-name" value="${s.first_name||''}"></div>
       <div class="field"><label>Last name</label><input type="text" id="f-last-name" value="${s.last_name||''}"></div>
       <input type="hidden" id="f-name" value="${s.name||''}">
-      <div class="field"><label>Admission ID</label><input type="text" id="f-admid" value="${s.admission_id||''}"><span class="hint">Auto-generated. Add a/b suffix for siblings (e.g. H110a)</span></div>
+      <div class="field"><label>Admission ID</label>
+        <div style="display:flex;gap:8px;align-items:flex-start;">
+          <input type="text" id="f-admid" value="${s.admission_id||''}" placeholder="e.g. H100" style="flex:1;">
+          ${!s.id?`<button type="button" class="btn btn-sm" id="btn-auto-id" style="margin-top:0;white-space:nowrap;">Auto-generate</button>`:''}
+        </div>
+        <span class="hint">Enter manually or click Auto-generate. Add a/b suffix for siblings (e.g. H110a)</span></div>
       <div class="field"><label>Branch</label><select id="f-branch" onchange="onBranchChange(this.value)">${branches.map(b=>`<option value="${b.id}" ${(s.branch_id||defBranch)==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>
       <div class="field"><label>Date of birth</label><input type="date" id="f-dob" value="${s.date_of_birth||''}"></div>
       <div class="field"><label>Gender</label><select id="f-gender">
@@ -1418,7 +1423,10 @@ return mWrap(s.id?'Edit staff member':'Add staff member',`
 <div class="form-grid">
 <div class="field"><label>Full name</label><input type="text" id="f-name" value="${s.name||''}"></div>
 <div class="field"><label>Branch</label><select id="f-branch">${branches.map(b=>`<option value="${b.id}" ${(s.branch_id||defBranch)==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>
-<div class="field"><label>Role</label><select id="f-role"><option value="teacher" ${s.role==='teacher'?'selected':''}>Teacher</option><option value="receptionist" ${s.role==='receptionist'?'selected':''}>Receptionist</option><option value="admin">Admin support</option></select></div>
+<div class="field"><label>Role</label><select id="f-role"><option value="teacher" ${s.role==='teacher'||!s.role?'selected':''}>Teacher</option>
+        <option value="receptionist" ${s.role==='receptionist'?'selected':''}>Receptionist</option>
+        <option value="admin" ${s.role==='admin'?'selected':''}>Admin support</option>
+        <option value="supervisor" ${s.role==='supervisor'?'selected':''}>Supervisor</option></select></div>
 <div class="field"><label>Subject</label><input type="text" id="f-subject" value="${s.subject||''}" placeholder="e.g. Maths, English"></div>
 <div class="field"><label>Contact number</label><input type="text" id="f-contact" value="${s.contact||''}"></div>
 <div class="field"><label>Status</label><select id="f-status"><option value="active" ${!s.status||s.status==='active'?'selected':''}>Active</option><option value="inactive" ${s.status==='inactive'?'selected':''}>Inactive</option></select></div>
@@ -1640,7 +1648,18 @@ try{
 if(m==='add-student'||m==='edit-student'){
   const fn=v('f-first-name')||''; const ln=v('f-last-name')||'';
   const fullName=v('f-name')||(fn+' '+ln).trim();
-  if(!fullName){toast('Name required','error');return;}
+  // Validate required fields and highlight errors
+  let errors=[];
+  if(!fullName){errors.push('first-name');}
+  if(!v('f-branch')){errors.push('branch');}
+  if(!v('f-admid')){errors.push('admid');}
+  if(errors.length){
+    errors.forEach(id=>{
+      const el=document.getElementById('f-'+id);
+      if(el){el.style.border='2px solid var(--danger)';el.style.boxShadow='0 0 0 3px rgba(248,113,113,0.2)';}
+    });
+    toast('Please fill in the highlighted fields','error');return;
+  }
   const body={
     branch_id:parseInt(v('f-branch')),admission_id:v('f-admid'),
     name:fullName,first_name:fn,last_name:ln,
@@ -1727,12 +1746,24 @@ closeModal();refreshPage();
 // EVENTS
 function bindNav(){document.querySelectorAll('[data-page]').forEach(el=>{el.addEventListener('click',()=>{state.page=el.dataset.page;refreshPage();});});document.getElementById('branch-switch')?.addEventListener('change',e=>{state.currentBranch=e.target.value?parseInt(e.target.value):null;refreshPage();});document.getElementById('logout-btn')?.addEventListener('click',async()=>{await API.post('/api/logout');state.currentUser=null;state.page='dashboard';state.data={};render();});}
 
-function bindAll(){bindNav();document.querySelectorAll('[data-action]').forEach(el=>{el.addEventListener('click',e=>handleAction(el.dataset.action,el.dataset.id?parseInt(el.dataset.id):null,el,e));});document.querySelectorAll('[data-nav]').forEach(el=>{el.addEventListener('click',()=>{state.page=el.dataset.nav;if(el.dataset.action){state.modal=el.dataset.action;state.editTarget=null;}refreshPage();});});document.getElementById('modal-close')?.addEventListener('click',closeModal);document.getElementById('modal-cancel')?.addEventListener('click',closeModal);document.getElementById('modal-backdrop')?.addEventListener('click',e=>{if(e.target.id==='modal-backdrop')closeModal();});document.getElementById('modal-save')?.addEventListener('click',doSave);document.getElementById('student-search')?.addEventListener('input',e=>{state.studentSearch=e.target.value;refreshPage();});document.getElementById('att-session-select')?.addEventListener('change',async e=>{state.attSessionId=e.target.value?parseInt(e.target.value):null;if(state.attSessionId){state.attRecords[state.attSessionId]={};await loadData('attendance_'+state.attSessionId,'/api/attendance/'+state.attSessionId);const att=state.data['attendance_'+state.attSessionId]||[];att.forEach(a=>{state.attRecords[state.attSessionId][a.student_id]={status:a.status,notes:a.notes||''};});}render();});document.getElementById('staff-att-month')?.addEventListener('change',e=>{state.staffAttMonth=e.target.value;refreshPage();});
+function bindAll(){bindNav();document.querySelectorAll('[data-action]').forEach(el=>{el.addEventListener('click',e=>handleAction(el.dataset.action,el.dataset.id?parseInt(el.dataset.id):null,el,e));});document.querySelectorAll('[data-nav]').forEach(el=>{el.addEventListener('click',()=>{state.page=el.dataset.nav;if(el.dataset.action){state.modal=el.dataset.action;state.editTarget=null;}refreshPage();});});document.getElementById('modal-close')?.addEventListener('click',closeModal);document.getElementById('modal-cancel')?.addEventListener('click',closeModal);
+// Clear any validation highlights when modal first opens
+document.querySelectorAll('.modal-body input, .modal-body select, .modal-body textarea').forEach(el=>{
+  el.addEventListener('focus',()=>{el.style.border='';el.style.boxShadow='';});
+});document.getElementById('modal-backdrop')?.addEventListener('click',e=>{if(e.target.id==='modal-backdrop')closeModal();});document.getElementById('modal-save')?.addEventListener('click',doSave);document.getElementById('student-search')?.addEventListener('input',e=>{state.studentSearch=e.target.value;refreshPage();});document.getElementById('att-session-select')?.addEventListener('change',async e=>{state.attSessionId=e.target.value?parseInt(e.target.value):null;if(state.attSessionId){state.attRecords[state.attSessionId]={};await loadData('attendance_'+state.attSessionId,'/api/attendance/'+state.attSessionId);const att=state.data['attendance_'+state.attSessionId]||[];att.forEach(a=>{state.attRecords[state.attSessionId][a.student_id]={status:a.status,notes:a.notes||''};});}render();});document.getElementById('staff-att-month')?.addEventListener('change',e=>{state.staffAttMonth=e.target.value;refreshPage();});
+document.getElementById('btn-auto-id')?.addEventListener('click',async()=>{
+  const branchId=document.getElementById('f-branch')?.value;
+  if(!branchId){toast('Select a branch first','error');return;}
+  try{const r=await API.get('/api/students/next-id/'+branchId);document.getElementById('f-admid').value=r.next_id;document.getElementById('f-admid').style.border='';}
+  catch(e){toast('Could not generate ID','error');}
+});
 document.getElementById('f-first-name')?.addEventListener('input',()=>{
   const fn=document.getElementById('f-first-name')?.value||'';
   const ln=document.getElementById('f-last-name')?.value||'';
   const full=document.getElementById('f-name');
   if(full&&!full.dataset.manual)(full.value=(fn+' '+ln).trim());
+  document.getElementById('f-first-name').style.border='';
+  document.getElementById('f-first-name').style.boxShadow='';
 });
 document.getElementById('f-last-name')?.addEventListener('input',()=>{
   const fn=document.getElementById('f-first-name')?.value||'';
