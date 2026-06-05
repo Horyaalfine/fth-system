@@ -248,7 +248,7 @@ function renderLogin(){return`<div class="login-wrap"><div class="login-card">
 <button class="login-btn" id="login-btn">Sign in as staff →</button>
 <button class="login-btn secondary" id="parent-login-btn">Sign in as parent</button>
 <div class="login-error" id="login-err"></div>
-<div class="login-hint"><strong style="color:var(--text2)">Demo:</strong> m.rahman@ftharlesden.co.uk / admin123 &nbsp;·&nbsp; a.khan / manager123 &nbsp;·&nbsp; s.ahmed / teacher123<br>Parent: parent.h100@ftharlesden.co.uk / parent123</div>
+
 </div></div>`;}
 
 function bindLoginEvents(){document.getElementById('login-btn')?.addEventListener('click',doLogin);document.getElementById('parent-login-btn')?.addEventListener('click',doParentLogin);document.getElementById('l-pass')?.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});}
