@@ -240,7 +240,9 @@ function canAccess(page){const r=state.currentUser?.role;if(r==='super_admin')re
 function invBadge(s){if(s==='paid')return`<span class="badge badge-success">Paid</span>`;if(s==='overdue')return`<span class="badge badge-danger">Overdue</span>`;return`<span class="badge badge-amber">Due</span>`;}
 function stars(n){return Array.from({length:5},(_,i)=>`<span style="color:${i<n?'var(--amber)':'var(--surface3)'}">★</span>`).join('');}
 async function loadData(key,path,params){try{state.data[key]=await API.get(path,params||{});}catch(e){state.data[key]=state.data[key]||[];}}
-async function refreshPage(){state.loading=true;render();const b=branchParam();const page=state.page;try{if(page==='dashboard')await Promise.all([loadData('branches','/api/branches'),loadData('summary','/api/reports/summary',b),loadData('audit','/api/audit')]);else if(page==='students')await loadData('students','/api/students',{...b,q:state.studentSearch});else if(page==='staff')await loadData('staff','/api/staff',b);else if(page==='sessions')await loadData('sessions','/api/sessions',b);else if(page==='attendance'){await Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b)]);if(state.attSessionId)await loadData('attendance_'+state.attSessionId,'/api/attendance/'+state.attSessionId);}else if(page==='invoices')await loadData('invoices','/api/invoices',{...b,status:state.invoiceFilter});else if(page==='session_reports'){await loadData('sessions','/api/sessions',b);if(state.sessionReportId){await Promise.all([loadData('sr_att_'+state.sessionReportId,'/api/attendance/'+state.sessionReportId),loadData('sr_prog_'+state.sessionReportId,'/api/progress',{session_id:state.sessionReportId}),loadData('students','/api/students',b)]);}}else if(page==='staff_timesheets'){await Promise.all([loadData('sessions','/api/sessions',b),loadData('staff','/api/staff',b),loadData('staff_att_summary','/api/staff-attendance/summary',{...b,month:state.staffAttMonth||new Date().toISOString().slice(0,7)}),loadData('staff_att','/api/staff-attendance',{...b,month:state.staffAttMonth||new Date().toISOString().slice(0,7)})]);}else if(page==='finance'){const mp=state.finMonth?{month:state.finMonth}:{};await Promise.all([loadData('students','/api/students',b),loadData('payments','/api/payments',{...b,...mp}),loadData('instalment_plans','/api/instalment-plans',b),loadData('payment_summary','/api/payments/summary',{...b,...mp})]);if(state.finStudentId)state.data['statement_'+state.finStudentId]=await API.get('/api/statement/'+state.finStudentId).catch(()=>null);}else if(page==='reports')await loadData('summary','/api/reports/summary',b);else if(page==='users')await loadData('users','/api/users');else if(page==='branches')await Promise.all([loadData('branches','/api/branches'),loadData('summary','/api/reports/summary')]);else if(page==='parent_portal'){await Promise.all([loadData('parent_users','/api/parent-users'),loadData('students','/api/students')]);}else if(page==='audit')await loadData('audit','/api/audit');}catch(e){}state.loading=false;render();}
+async function refreshPage(){state.loading=true;render();const b=branchParam();const page=state.page;try{if(page==='dashboard')await Promise.all([loadData('branches','/api/branches'),loadData('summary','/api/reports/summary',b),loadData('audit','/api/audit')]);else if(page==='students')await loadData('students','/api/students',{...b,q:state.studentSearch});else if(page==='staff')await loadData('staff','/api/staff',b);else if(page==='sessions')await loadData('sessions','/api/sessions',b);else if(page==='attendance'){await Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b)]);if(state.attSessionId)await loadData('attendance_'+state.attSessionId,'/api/attendance/'+state.attSessionId);}else if(page==='invoices')await loadData('invoices','/api/invoices',{...b,status:state.invoiceFilter});else if(page==='session_reports'){await loadData('sessions','/api/sessions',b);if(state.sessionReportId){await Promise.all([loadData('sr_att_'+state.sessionReportId,'/api/attendance/'+state.sessionReportId),loadData('sr_prog_'+state.sessionReportId,'/api/progress',{session_id:state.sessionReportId}),loadData('students','/api/students',b)]);}}else if(page==='staff_timesheets'){await Promise.all([loadData('sessions','/api/sessions',b),loadData('staff','/api/staff',b),loadData('staff_att_summary','/api/staff-attendance/summary',{...b,month:state.staffAttMonth||new Date().toISOString().slice(0,7)}),loadData('staff_att','/api/staff-attendance',{...b,month:state.staffAttMonth||new Date().toISOString().slice(0,7)})]);}else if(page==='finance'){const mp=state.finMonth?{month:state.finMonth}:{};await Promise.all([loadData('students','/api/students',b),loadData('payments','/api/payments',{...b,...mp}),loadData('instalment_plans','/api/instalment-plans',b),loadData('payment_summary','/api/payments/summary',{...b,...mp}),
+    loadData('hq_transfers','/api/hq-transfers',b),
+    loadData('hq_summary','/api/hq-transfers/summary')]);if(state.finStudentId)state.data['statement_'+state.finStudentId]=await API.get('/api/statement/'+state.finStudentId).catch(()=>null);}else if(page==='reports')await loadData('summary','/api/reports/summary',b);else if(page==='users')await loadData('users','/api/users');else if(page==='branches')await Promise.all([loadData('branches','/api/branches'),loadData('summary','/api/reports/summary')]);else if(page==='parent_portal'){await Promise.all([loadData('parent_users','/api/parent-users'),loadData('students','/api/students')]);}else if(page==='audit')await loadData('audit','/api/audit');}catch(e){}state.loading=false;render();}
 
 function render(){const app=document.getElementById('app');if(!state.currentUser&&!state.parentUser){app.innerHTML=renderLogin();bindLoginEvents();return;}if(state.parentUser&&!state.currentUser){app.innerHTML=`<div style="max-width:900px;margin:0 auto;padding:28px;">${renderParentPortal()}</div>`;bindParentEvents();return;}if(state.loading){app.innerHTML=`<div class="app">${renderSidebar()}<div class="main">${renderTopbar()}<div class="loading"><div class="spinner"></div>Loading…</div></div></div>`;bindNav();return;}app.innerHTML=`<div class="app">${renderSidebar()}<div class="main">${renderTopbar()}<div class="content">${renderPage()}</div></div></div>${state.modal?renderModal():''}`;bindAll();}
 
@@ -642,7 +644,8 @@ function renderFinance(){
       <div class="tab ${tab==='statement'?'active':''}" data-action="fin-tab" data-tab="statement">Statement of account</div>
       <div class="tab ${tab==='accounts'?'active':''}" data-action="fin-tab" data-tab="accounts">Payment accounts</div>
       <div class="tab ${tab==='payments'?'active':''}" data-action="fin-tab" data-tab="payments">Payment log</div>
-      <div class="tab ${tab==='instalments'?'active':''}" data-action="fin-tab" data-tab="instalments">Instalment plans</div>
+      <div class="tab ${tab==='hq'?renderHQTab():''}${tab==='instalments'?'active':''}" data-action="fin-tab" data-tab="instalments">Instalment plans</div>
+      <div class="tab ${tab==='hq'?'active':''}" data-action="fin-tab" data-tab="hq">HQ Transfers</div>
     </div>
     <div style="display:flex;gap:8px;align-items:center;">
       <input type="month" id="fin-month-filter" value="${state.finMonth||''}" style="border:1px solid var(--border2);border-radius:var(--radius);padding:7px 10px;font-family:var(--font);font-size:13px;background:var(--surface2);color:var(--text);outline:none;">
@@ -847,6 +850,77 @@ function renderFinance(){
   `:''}`;
 }
 
+
+function renderHQTab(){
+  const transfers = state.data.hq_transfers || [];
+  const summary = state.data.hq_summary || [];
+  const branches = state.data.branches || [];
+  const totalTransferred = transfers.reduce((s,t) => s + t.amount, 0);
+
+  function methodBadge(m){
+    const map = {cash:'badge-success',bank_transfer:'badge-blue',cheque:'badge-amber',other:'badge-gray'};
+    const labels = {cash:'Cash',bank_transfer:'Bank Transfer',cheque:'Cheque',other:'Other'};
+    return '<span class="badge '+( map[m]||'badge-gray')+'">'+( labels[m]||m)+'</span>';
+  }
+
+  return `
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
+    <div>
+      <div style="font-size:16px;font-weight:700;color:var(--text);">HQ Transfer Ledger</div>
+      <div style="font-size:13px;color:var(--text3);margin-top:2px;">Track cash and payments transferred from branches to head office</div>
+    </div>
+    <button class="btn btn-primary" data-action="add-hq-transfer">+ Record transfer to HQ</button>
+  </div>
+
+  <!-- Branch holding summary -->
+  <div class="card" style="margin-bottom:20px;border-top:3px solid var(--accent);">
+    <div class="card-header"><div class="card-title">Branch cash holdings</div><div style="font-size:12px;color:var(--text3);">Cash collected vs transferred to HQ</div></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Branch</th><th>Cash collected</th><th>Transferred to HQ</th><th>Held at branch</th><th>Status</th></tr></thead>
+      <tbody>${summary.map(s => {
+        const held = s.held_at_branch || 0;
+        return '<tr>' +
+          '<td><strong>' + s.branch_name + '</strong></td>' +
+          '<td style="color:var(--success-text);font-weight:500;">£' + (s.cash_collected||0).toFixed(2) + '</td>' +
+          '<td style="color:var(--accent-text);font-weight:500;">£' + (s.transferred_to_hq||0).toFixed(2) + '</td>' +
+          '<td><strong style="font-size:16px;color:' + (held > 0 ? 'var(--amber-text)' : 'var(--success-text)') + ';">£' + held.toFixed(2) + '</strong></td>' +
+          '<td>' + (held > 100 ? '<span class="badge badge-amber">Transfer due</span>' : held > 0 ? '<span class="badge badge-gray">Small balance</span>' : '<span class="badge badge-success">All transferred</span>') + '</td>' +
+          '</tr>';
+      }).join('') || '<tr><td colspan="5"><div class="empty-state">No branches set up</div></td></tr>'}
+      <tr style="background:var(--surface2);">
+        <td style="font-weight:700;color:var(--text);">TOTAL</td>
+        <td style="color:var(--success-text);font-weight:700;">£${summary.reduce((s,r)=>s+(r.cash_collected||0),0).toFixed(2)}</td>
+        <td style="color:var(--accent-text);font-weight:700;">£${summary.reduce((s,r)=>s+(r.transferred_to_hq||0),0).toFixed(2)}</td>
+        <td style="font-weight:700;color:var(--amber-text);">£${summary.reduce((s,r)=>s+(r.held_at_branch||0),0).toFixed(2)}</td>
+        <td></td>
+      </tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- Transfer log -->
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+      <div class="card-title">Transfer log</div>
+      <span class="badge badge-accent">${transfers.length} transfers · £${totalTransferred.toFixed(2)} total</span>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Date</th><th>Branch</th><th>Amount</th><th>Method</th><th>Reference</th><th>Recorded by</th><th>Notes</th><th></th></tr></thead>
+      <tbody>${transfers.length ? transfers.map(t => '<tr>' +
+        '<td style="font-family:var(--mono);font-size:12px;">' + new Date(t.transfer_date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) + '</td>' +
+        '<td><span class="badge badge-accent">' + t.branch_name + '</span></td>' +
+        '<td><strong style="color:var(--accent-text);font-size:15px;">£' + t.amount.toFixed(2) + '</strong></td>' +
+        '<td>' + methodBadge(t.method) + '</td>' +
+        '<td style="font-family:var(--mono);font-size:12px;color:var(--text3);">' + (t.reference||'—') + '</td>' +
+        '<td style="font-size:12px;color:var(--text3);">' + (t.recorded_by_name||'—') + '</td>' +
+        '<td style="font-size:12px;color:var(--text3);">' + (t.notes||'—') + '</td>' +
+        '<td><button class="btn btn-sm btn-danger" data-action="del-hq-transfer" data-id="' + t.id + '">Del</button></td>' +
+        '</tr>').join('') : '<tr><td colspan="8"><div class="empty-state">No transfers recorded yet</div></td></tr>'}
+      </tbody>
+    </table></div>
+  </div>`;
+}
+
 function renderReports(){const s=state.data.summary||{};const bs=s.branch_stats||[];const yg=s.year_groups||[];const subj=s.subjects||[];const cols=['var(--accent)','var(--teal)','var(--amber)','var(--pink)'];
 return`
 <div class="section-title" style="margin-bottom:4px;">Analytics</div>
@@ -989,7 +1063,8 @@ ${children.map(st=>childCard(st)).join('')}`;}
 // MODALS
 function renderModal(){const m=state.modal;if(m==='add-student'||m==='edit-student')return modalStudent();if(m==='add-staff'||m==='edit-staff')return modalStaff();if(m==='add-session'||m==='edit-session')return modalSession();if(m==='add-user'||m==='edit-user')return modalUser();if(m==='add-branch'||m==='edit-branch')return modalBranch();if(m==='edit-invoice')return modalInvoice();if(m==='add-progress')return modalProgress();if(m==='add-parent-user'||m==='edit-parent-user')return modalParentUser();if(m==='add-staff-att'||m==='edit-staff-att')return modalStaffAtt();
   if(m==='add-payment'||m==='edit-payment')return modalPayment();
-  if(m==='add-instalment-plan')return modalInstalmentPlan();return'';}
+  if(m==='add-instalment-plan')return modalInstalmentPlan();
+  if(m==='add-hq-transfer')return modalHQTransfer();return'';}
 function mWrap(title,body,footer){return`<div class="modal-backdrop" id="modal-backdrop"><div class="modal modal-lg"><div class="modal-header"><div class="modal-title">${title}</div><button class="btn btn-sm" id="modal-close">✕</button></div><div class="modal-body">${body}</div><div class="modal-footer">${footer}</div></div></div>`;}
 
 function modalStudent(){
@@ -1286,6 +1361,29 @@ function addInstalmentRow(){
   container.appendChild(div);
 }
 
+function modalHQTransfer(){
+  const branches = state.data.branches || [];
+  const defBranch = state.currentBranch || branches[0]?.id || '';
+  return mWrap('Record transfer to HQ',`
+    <div style="margin-bottom:16px;padding:12px 16px;background:rgba(99,102,241,0.15);border-radius:var(--radius);border-left:4px solid #6366f1;">
+      <div style="font-size:13px;color:var(--accent-text);">Record cash or payment transferred from a branch to head office</div>
+    </div>
+    <div class="form-grid">
+      <div class="field"><label>Branch</label><select id="f-branch">${branches.map(b=>`<option value="${b.id}" ${defBranch==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>
+      <div class="field"><label>Amount (£)</label><input type="number" id="f-amount" step="0.01" placeholder="0.00"></div>
+      <div class="field"><label>Transfer date</label><input type="date" id="f-date" value="${new Date().toISOString().slice(0,10)}"></div>
+      <div class="field"><label>Method</label><select id="f-method">
+        <option value="cash">Cash (hand delivery)</option>
+        <option value="bank_transfer">Bank transfer</option>
+        <option value="cheque">Cheque</option>
+        <option value="other">Other</option>
+      </select></div>
+      <div class="field"><label>Reference</label><input type="text" id="f-reference" placeholder="e.g. bank ref, receipt no."></div>
+      <div class="field" style="grid-column:1/-1;"><label>Notes</label><input type="text" id="f-notes" placeholder="e.g. May week 1 cash collection, Harlesden to HQ"></div>
+    </div>
+  `,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Record transfer</button>`);
+}
+
 // SAVE
 async function doSave(){const m=state.modal;const v=id=>document.getElementById(id)?.value;const saveBtn=document.getElementById('modal-save');if(saveBtn)saveBtn.disabled=true;
 try{
@@ -1359,6 +1457,12 @@ if(m==='add-instalment-plan'){
   await API.post('/api/instalment-plans',body);
   toast('Instalment plan created');
 }
+if(m==='add-hq-transfer'){
+  const body={branch_id:parseInt(v('f-branch')),amount:parseFloat(v('f-amount')),transfer_date:v('f-date'),method:v('f-method'),reference:v('f-reference'),notes:v('f-notes')};
+  if(!body.branch_id||!body.amount){toast('Branch and amount required','error');return;}
+  await API.post('/api/hq-transfers',body);
+  toast('Transfer recorded');
+}
 closeModal();refreshPage();
 }catch(e){toast(e.error||'Save failed','error');}finally{if(saveBtn)saveBtn.disabled=false;}}
 
@@ -1414,6 +1518,8 @@ if(action==='edit-payment'){state.modal='edit-payment';state.editTarget=(state.d
 if(action==='del-payment'){if(!confirm('Delete this payment?'))return;await API.delete('/api/payments/'+id);toast('Payment deleted');refreshPage();return;}
 if(action==='add-instalment-plan'){state.modal='add-instalment-plan';state.editTarget=null;render();return;}
 if(action==='del-instalment-plan'){if(!confirm('Delete this plan?'))return;await API.delete('/api/instalment-plans/'+id);toast('Plan deleted');refreshPage();return;}
+if(action==='add-hq-transfer'){state.modal='add-hq-transfer';state.editTarget=null;render();return;}
+if(action==='del-hq-transfer'){if(!confirm('Delete this transfer record?'))return;await API.delete('/api/hq-transfers/'+id);toast('Transfer deleted');refreshPage();return;}
 if(action==='fin-tab'){state.finTab=el.dataset.tab;render();return;}
 if(action==='fin-method-filter'){state.finMethod=el.dataset.method||null;state.finTab='accounts';render();return;}
 if(action==='fin-clear-month'){state.finMonth='';refreshPage();return;}
