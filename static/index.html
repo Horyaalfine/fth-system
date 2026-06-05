@@ -954,6 +954,7 @@ function modalStudent(){
       <div class="field"><label>First name</label><input type="text" id="f-c1-first" value="${s.carer1_first_name||''}"></div>
       <div class="field"><label>Last name</label><input type="text" id="f-c1-last" value="${s.carer1_last_name||''}"></div>
       <div class="field" style="grid-column:1/-1;"><label>Address</label><input type="text" id="f-c1-address" value="${s.carer1_address||''}"></div>
+      <div class="field"><label>Postcode</label><input type="text" id="f-c1-postcode" value="${s.carer1_postcode||''}"></div>
       <div class="field"><label>Telephone</label><input type="text" id="f-c1-tel" value="${s.carer1_telephone||''}"></div>
       <div class="field"><label>Mobile</label><input type="text" id="f-c1-mobile" value="${s.carer1_mobile||''}"></div>
       <div class="field"><label>Email</label><input type="email" id="f-c1-email" value="${s.carer1_email||''}"></div>
@@ -967,6 +968,7 @@ function modalStudent(){
       <div class="field"><label>First name</label><input type="text" id="f-c2-first" value="${s.carer2_first_name||''}"></div>
       <div class="field"><label>Last name</label><input type="text" id="f-c2-last" value="${s.carer2_last_name||''}"></div>
       <div class="field" style="grid-column:1/-1;"><label>Address</label><input type="text" id="f-c2-address" value="${s.carer2_address||''}"></div>
+      <div class="field"><label>Postcode</label><input type="text" id="f-c2-postcode" value="${s.carer2_postcode||''}"></div>
       <div class="field"><label>Telephone</label><input type="text" id="f-c2-tel" value="${s.carer2_telephone||''}"></div>
       <div class="field"><label>Mobile</label><input type="text" id="f-c2-mobile" value="${s.carer2_mobile||''}"></div>
       <div class="field"><label>Email</label><input type="email" id="f-c2-email" value="${s.carer2_email||''}"></div>
@@ -980,6 +982,58 @@ function modalStudent(){
       <div class="field"><label>Full name</label><input type="text" id="f-emg-name" value="${s.emergency_name||''}"></div>
       <div class="field"><label>Telephone / mobile</label><input type="text" id="f-emg-tel" value="${s.emergency_telephone||''}"></div>
       <div class="field"><label>Relationship to child</label><input type="text" id="f-emg-rel" value="${s.emergency_relation||''}" placeholder="e.g. Aunt, Grandparent"></div>
+    </div>
+
+    <div style="margin:20px 0 12px;padding:10px 14px;background:var(--blue-bg);border-radius:var(--radius);border:1px solid rgba(59,130,246,0.2);">
+      <div style="font-size:12px;font-weight:600;color:var(--blue-text);">ASSESSMENT RESULTS</div>
+    </div>
+    <div class="form-grid">
+      <div class="field"><label>Maths %</label><input type="text" id="f-assess-maths-pct" value="${s.assess_maths_pct||''}" placeholder="e.g. 75%"></div>
+      <div class="field"><label>Maths book recommended</label><input type="text" id="f-assess-maths-book" value="${s.assess_maths_book||''}"></div>
+      <div class="field"><label>English %</label><input type="text" id="f-assess-english-pct" value="${s.assess_english_pct||''}" placeholder="e.g. 68%"></div>
+      <div class="field"><label>English book recommended</label><input type="text" id="f-assess-english-book" value="${s.assess_english_book||''}"></div>
+      <div class="field"><label>Science %</label><input type="text" id="f-assess-science-pct" value="${s.assess_science_pct||''}" placeholder="e.g. 72%"></div>
+      <div class="field"><label>Science book recommended</label><input type="text" id="f-assess-science-book" value="${s.assess_science_book||''}"></div>
+      <div class="field"><label>Hours per week</label><input type="text" id="f-hours-per-week" value="${s.hours_per_week||''}" placeholder="e.g. 2"></div>
+    </div>
+
+    <div style="margin:20px 0 12px;padding:10px 14px;background:var(--blue-bg);border-radius:var(--radius);border:1px solid rgba(59,130,246,0.2);">
+      <div style="font-size:12px;font-weight:600;color:var(--blue-text);">GCSE EXAM DETAILS (if applicable)</div>
+    </div>
+    <div style="overflow-x:auto;margin-bottom:12px;">
+    <table style="width:100%;font-size:12px;border-collapse:collapse;">
+      <thead><tr>
+        <th style="text-align:left;padding:6px 8px;background:var(--surface3);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:0.06em;">Subject</th>
+        <th style="text-align:left;padding:6px 8px;background:var(--surface3);color:var(--text3);font-size:11px;">Board</th>
+        <th style="text-align:left;padding:6px 8px;background:var(--surface3);color:var(--text3);font-size:11px;">Paper (H/F)</th>
+        <th style="text-align:left;padding:6px 8px;background:var(--surface3);color:var(--text3);font-size:11px;">Exam date</th>
+        <th style="text-align:left;padding:6px 8px;background:var(--surface3);color:var(--text3);font-size:11px;">Current grade</th>
+        <th style="text-align:left;padding:6px 8px;background:var(--surface3);color:var(--text3);font-size:11px;">Predicted grade</th>
+      </tr></thead>
+      <tbody>
+        <tr><td style="padding:4px 8px;color:var(--text2);font-weight:600;">Maths</td>
+          <td style="padding:4px;"><input type="text" id="f-gcse-maths-board" value="${s.gcse_maths_board||''}" style="width:90px;"></td>
+          <td style="padding:4px;"><select id="f-gcse-maths-paper" style="width:70px;"><option value="">—</option><option value="H" ${s.gcse_maths_paper==='H'?'selected':''}>H</option><option value="F" ${s.gcse_maths_paper==='F'?'selected':''}>F</option><option value="N/A" ${s.gcse_maths_paper==='N/A'?'selected':''}>N/A</option></select></td>
+          <td style="padding:4px;"><input type="date" id="f-gcse-maths-date" value="${s.gcse_maths_exam_date||''}" style="width:130px;"></td>
+          <td style="padding:4px;"><input type="text" id="f-gcse-maths-current" value="${s.gcse_maths_current_grade||''}" style="width:60px;" placeholder="e.g. 4"></td>
+          <td style="padding:4px;"><input type="text" id="f-gcse-maths-predicted" value="${s.gcse_maths_predicted_grade||''}" style="width:60px;" placeholder="e.g. 6"></td>
+        </tr>
+        <tr><td style="padding:4px 8px;color:var(--text2);font-weight:600;">English</td>
+          <td style="padding:4px;"><input type="text" id="f-gcse-english-board" value="${s.gcse_english_board||''}" style="width:90px;"></td>
+          <td style="padding:4px;"><select id="f-gcse-english-paper" style="width:70px;"><option value="">—</option><option value="H" ${s.gcse_english_paper==='H'?'selected':''}>H</option><option value="F" ${s.gcse_english_paper==='F'?'selected':''}>F</option><option value="N/A" ${s.gcse_english_paper==='N/A'?'selected':''}>N/A</option></select></td>
+          <td style="padding:4px;"><input type="date" id="f-gcse-english-date" value="${s.gcse_english_exam_date||''}" style="width:130px;"></td>
+          <td style="padding:4px;"><input type="text" id="f-gcse-english-current" value="${s.gcse_english_current_grade||''}" style="width:60px;"></td>
+          <td style="padding:4px;"><input type="text" id="f-gcse-english-predicted" value="${s.gcse_english_predicted_grade||''}" style="width:60px;"></td>
+        </tr>
+        <tr><td style="padding:4px 8px;color:var(--text2);font-weight:600;">Science</td>
+          <td style="padding:4px;"><input type="text" id="f-gcse-science-board" value="${s.gcse_science_board||''}" style="width:90px;"></td>
+          <td style="padding:4px;"><select id="f-gcse-science-paper" style="width:70px;"><option value="">—</option><option value="H" ${s.gcse_science_paper==='H'?'selected':''}>H</option><option value="F" ${s.gcse_science_paper==='F'?'selected':''}>F</option><option value="N/A" ${s.gcse_science_paper==='N/A'?'selected':''}>N/A</option></select></td>
+          <td style="padding:4px;"><input type="date" id="f-gcse-science-date" value="${s.gcse_science_exam_date||''}" style="width:130px;"></td>
+          <td style="padding:4px;"><input type="text" id="f-gcse-science-current" value="${s.gcse_science_current_grade||''}" style="width:60px;"></td>
+          <td style="padding:4px;"><input type="text" id="f-gcse-science-predicted" value="${s.gcse_science_predicted_grade||''}" style="width:60px;"></td>
+        </tr>
+      </tbody>
+    </table>
     </div>
 
     <div style="margin:20px 0 12px;padding:10px 14px;background:var(--amber-bg);border-radius:var(--radius);border:1px solid rgba(245,158,11,0.2);">
@@ -1179,6 +1233,20 @@ if(m==='add-student'||m==='edit-student'){
     carer2_mobile:v('f-c2-mobile'),carer2_email:v('f-c2-email'),carer2_occupation:v('f-c2-occupation'),
     emergency_name:v('f-emg-name'),emergency_telephone:v('f-emg-tel'),emergency_relation:v('f-emg-rel'),
     referred_by:v('f-ref-by'),referral_admission:v('f-ref-admid'),
+    carer1_postcode:v('f-c1-postcode'),carer2_postcode:v('f-c2-postcode'),
+    assess_maths_pct:v('f-assess-maths-pct'),assess_maths_book:v('f-assess-maths-book'),
+    assess_english_pct:v('f-assess-english-pct'),assess_english_book:v('f-assess-english-book'),
+    assess_science_pct:v('f-assess-science-pct'),assess_science_book:v('f-assess-science-book'),
+    hours_per_week:v('f-hours-per-week'),
+    gcse_maths_board:v('f-gcse-maths-board'),gcse_maths_paper:v('f-gcse-maths-paper'),
+    gcse_maths_exam_date:v('f-gcse-maths-date'),gcse_maths_current_grade:v('f-gcse-maths-current'),
+    gcse_maths_predicted_grade:v('f-gcse-maths-predicted'),
+    gcse_english_board:v('f-gcse-english-board'),gcse_english_paper:v('f-gcse-english-paper'),
+    gcse_english_exam_date:v('f-gcse-english-date'),gcse_english_current_grade:v('f-gcse-english-current'),
+    gcse_english_predicted_grade:v('f-gcse-english-predicted'),
+    gcse_science_board:v('f-gcse-science-board'),gcse_science_paper:v('f-gcse-science-paper'),
+    gcse_science_exam_date:v('f-gcse-science-date'),gcse_science_current_grade:v('f-gcse-science-current'),
+    gcse_science_predicted_grade:v('f-gcse-science-predicted'),
     parent_contact:v('f-c1-mobile'),status:v('f-status'),notes:v('f-notes')
   };
   if(m==='add-student')await API.post('/api/students',body);
