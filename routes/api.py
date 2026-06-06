@@ -83,6 +83,14 @@ def next_admission_id(conn, branch_id):
 # ════════════════════════════════════════════
 #  BRANCHES
 # ════════════════════════════════════════════
+@api_bp.route('/api/debug/student-columns', methods=['GET'])
+def debug_student_columns():
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='students' ORDER BY ordinal_position")
+    cols = [r['column_name'] for r in cur.fetchall()]
+    cur.close(); conn.close()
+    return jsonify({'columns': cols, 'count': len(cols)})
+
 @api_bp.route('/api/branches', methods=['GET'])
 @require_auth
 def get_branches():
