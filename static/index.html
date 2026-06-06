@@ -235,7 +235,15 @@ function roleBadge(role){const m={super_admin:['badge-purple','Super admin'],bra
 function statusDot(s){return s==='active'?`<span class="dot dot-green"></span><span style="color:var(--success-text)">Active</span>`:`<span class="dot dot-red"></span><span style="color:var(--danger-text)">Inactive</span>`;}
 function avatarInitials(name){return(name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();}
 function avatarClass(role){return{super_admin:'av-purple',branch_manager:'av-blue',head_of_centre:'av-blue',supervisor:'av-teal',teacher:'av-teal',receptionist:'av-amber',admin:'av-gray'}[role]||'av-blue';}
-function branchParam(){return state.currentBranch?{branch_id:state.currentBranch}:{};}
+function branchParam(){
+  if(state.currentBranch) return {branch_id:state.currentBranch};
+  // Non-super-admin always scoped to their branch
+  const role=state.currentUser?.role;
+  if(role&&role!=='super_admin'&&state.currentUser?.branch_id){
+    return {branch_id:state.currentUser.branch_id};
+  }
+  return {};
+}
 function canAccess(page){
   const r=state.currentUser?.role;
   if(r==='super_admin') return true;
@@ -282,7 +290,7 @@ function renderLogin(){return`<div class="login-wrap"><div class="login-card">
 
 function bindLoginEvents(){document.getElementById('login-btn')?.addEventListener('click',doLogin);document.getElementById('parent-login-btn')?.addEventListener('click',doParentLogin);document.getElementById('l-pass')?.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});}
 
-async function doLogin(){const email=document.getElementById('l-email')?.value.trim();const pass=document.getElementById('l-pass')?.value;document.getElementById('login-err').textContent='';try{const user=await API.post('/api/login',{email,password:pass});if(!user)return;state.currentUser=user;state.currentBranch=user.role!=='super_admin'?user.branch_id:null;state.page='dashboard';refreshPage();}catch(e){document.getElementById('login-err').textContent=e.error||'Login failed';}}
+async function doLogin(){const email=document.getElementById('l-email')?.value.trim();const pass=document.getElementById('l-pass')?.value;document.getElementById('login-err').textContent='';try{const user=await API.post('/api/login',{email,password:pass});if(!user)return;state.currentUser=user;state.currentBranch=user.role==='super_admin'?null:(user.branch_id||null);state.page='dashboard';refreshPage();}catch(e){document.getElementById('login-err').textContent=e.error||'Login failed';}}
 
 async function doParentLogin(){const email=document.getElementById('l-email')?.value.trim();const pass=document.getElementById('l-pass')?.value;document.getElementById('login-err').textContent='';try{const pu=await API.post('/api/parent-login',{email,password:pass});if(!pu)return;state.parentUser=pu;const children=await API.get('/api/parent/children');state.data.parent_children=children||[];for(const child of(children||[])){state.data['p_att_'+child.id]=await API.get('/api/parent/attendance/'+child.id)||[];
         state.data['p_diary_'+child.id]=await API.get('/api/parent/diary/'+child.id)||[];
