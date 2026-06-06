@@ -1567,6 +1567,33 @@ def payment_summary():
         'overall': overall or {'total': 0, 'count': 0}
     })
 
+
+@api_bp.route('/api/me/change-password', methods=['POST'])
+@require_auth
+def change_password():
+    d = request.json
+    current = d.get('current_password','')
+    new_pw = d.get('new_password','')
+    if not current or not new_pw:
+        return jsonify({'error': 'Current and new password are required'}), 400
+    if len(new_pw) < 6:
+        return jsonify({'error': 'New password must be at least 6 characters'}), 400
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("SELECT password_hash FROM users WHERE id=%s", (session['user_id'],))
+    u = cur.fetchone()
+    if not u:
+        cur.close(); conn.close()
+        return jsonify({'error': 'User not found'}), 404
+    from werkzeug.security import check_password_hash, generate_password_hash
+    if not check_password_hash(u['password_hash'], current):
+        cur.close(); conn.close()
+        return jsonify({'error': 'Current password is incorrect'}), 400
+    cur.execute("UPDATE users SET password_hash=%s WHERE id=%s",
+                (generate_password_hash(new_pw), session['user_id']))
+    conn.commit(); cur.close(); conn.close()
+    log_action('edit', 'users', session['user_id'])
+    return jsonify({'ok': True})
+
 # ════════════════════════════════════════════
 #  AUDIT LOG
 # ════════════════════════════════════════════
