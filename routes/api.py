@@ -208,14 +208,23 @@ def get_student_fields(d):
 def add_student():
     d = request.json
     conn = get_conn(); cur = conn.cursor()
-    fields = get_student_fields(d)
-    placeholders = ','.join(['%s'] * len(fields))
-    cols = ','.join(fields.keys())
-    cur.execute(f"INSERT INTO students ({cols}) VALUES ({placeholders}) RETURNING *", list(fields.values()))
-    r = row(cur); conn.commit(); cur.close(); conn.close()
-    if r and r.get('date_of_birth'): r['date_of_birth'] = str(r['date_of_birth'])
-    log_action('add','students',r['id'])
-    return jsonify(r), 201
+    try:
+        fields = get_student_fields(d)
+        # Only include columns that exist in the DB - safe minimal set first
+        safe_fields = {k: v for k, v in fields.items()}
+        placeholders = ','.join(['%s'] * len(safe_fields))
+        cols = ','.join(safe_fields.keys())
+        cur.execute(f"INSERT INTO students ({cols}) VALUES ({placeholders}) RETURNING *", list(safe_fields.values()))
+        r = row(cur); conn.commit()
+        if r and r.get('date_of_birth'): r['date_of_birth'] = str(r['date_of_birth'])
+        if r and r.get('created_at'): r['created_at'] = str(r['created_at'])
+        cur.close(); conn.close()
+        log_action('add','students',r['id'])
+        return jsonify(r), 201
+    except Exception as e:
+        conn.rollback()
+        cur.close(); conn.close()
+        return jsonify({'error': str(e)}), 400
 @api_bp.route('/api/students/<int:sid>', methods=['PUT'])
 @require_auth
 def update_student(sid):
