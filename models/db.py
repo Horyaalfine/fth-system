@@ -151,6 +151,8 @@ DO $$ BEGIN
     ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_science_book TEXT;
     ALTER TABLE students ADD COLUMN IF NOT EXISTS hours_per_week TEXT;
     -- Update payment method constraint to include direct_debit and standing_order
+    -- Make staff_attendance.session_id nullable
+    ALTER TABLE staff_attendance ALTER COLUMN session_id DROP NOT NULL;
     -- Create hq_transfers if not exists (handled by CREATE TABLE IF NOT EXISTS above)
     -- Lesson reports and test records (handled by CREATE TABLE IF NOT EXISTS)
     ALTER TABLE payments DROP CONSTRAINT IF EXISTS payments_method_check;
