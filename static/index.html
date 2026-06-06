@@ -1296,7 +1296,7 @@ function modalStudent(){
     <div class="form-grid">
       <div class="field"><label>First name</label><input type="text" id="f-first-name" value="${s.first_name||''}"></div>
       <div class="field"><label>Last name</label><input type="text" id="f-last-name" value="${s.last_name||''}"></div>
-      <input type="hidden" id="f-name" value="${s.name||''}">
+
       <div class="field"><label>Admission ID</label>
         <div style="display:flex;gap:8px;align-items:flex-start;">
           <input type="text" id="f-admid" value="${s.admission_id||''}" placeholder="e.g. H100" style="flex:1;">
@@ -1647,23 +1647,32 @@ function modalTestRecord(){
 async function doSave(){const m=state.modal;const v=id=>document.getElementById(id)?.value;const saveBtn=document.getElementById('modal-save');if(saveBtn)saveBtn.disabled=true;
 try{
 if(m==='add-student'||m==='edit-student'){
-  const fn=v('f-first-name')||''; const ln=v('f-last-name')||'';
-  const fullName=v('f-name')||(fn+' '+ln).trim();
-  // Validate required fields and highlight errors
-  let errors=[];
-  if(!fullName){errors.push('first-name');}
-  if(!v('f-branch')){errors.push('branch');}
-  if(!v('f-admid')){errors.push('admid');}
-  if(errors.length){
-    errors.forEach(id=>{
-      const el=document.getElementById('f-'+id);
-      if(el){el.style.border='2px solid var(--danger)';el.style.boxShadow='0 0 0 3px rgba(248,113,113,0.2)';}
-    });
-    toast('Please fill in the highlighted fields','error');return;
+  const fn=(v('f-first-name')||'').trim();
+  const ln=(v('f-last-name')||'').trim();
+  const fullName=(fn+' '+ln).trim();
+  const branch=v('f-branch');
+  const admid=(v('f-admid')||'').trim();
+  // Validate and highlight errors
+  let hasError=false;
+  if(!fn){
+    const el=document.getElementById('f-first-name');
+    if(el){el.style.border='2px solid var(--danger)';el.style.boxShadow='0 0 0 3px rgba(248,113,113,0.2)';}
+    hasError=true;
   }
+  if(!branch){
+    const el=document.getElementById('f-branch');
+    if(el){el.style.border='2px solid var(--danger)';el.style.boxShadow='0 0 0 3px rgba(248,113,113,0.2)';}
+    hasError=true;
+  }
+  if(!admid){
+    const el=document.getElementById('f-admid');
+    if(el){el.style.border='2px solid var(--danger)';el.style.boxShadow='0 0 0 3px rgba(248,113,113,0.2)';}
+    hasError=true;
+  }
+  if(hasError){toast('Please fill in: First name, Branch, and Admission ID','error');return;}
   const body={
-    branch_id:parseInt(v('f-branch')),admission_id:v('f-admid'),
-    name:fullName,first_name:fn,last_name:ln,
+    branch_id:parseInt(branch),admission_id:admid,
+    name:fullName||fn,first_name:fn,last_name:ln,
     date_of_birth:v('f-dob')||null,gender:v('f-gender'),
     year_group:v('f-year'),current_school:v('f-school'),
     medical_notes:v('f-medical'),sen_notes:v('f-sen'),
@@ -1769,20 +1778,9 @@ document.getElementById('btn-auto-id')?.addEventListener('click',async()=>{
   catch(e){toast('Could not generate ID','error');}
 });
 document.getElementById('f-first-name')?.addEventListener('input',()=>{
-  const fn=document.getElementById('f-first-name')?.value||'';
-  const ln=document.getElementById('f-last-name')?.value||'';
-  const full=document.getElementById('f-name');
-  if(full&&!full.dataset.manual)(full.value=(fn+' '+ln).trim());
   document.getElementById('f-first-name').style.border='';
   document.getElementById('f-first-name').style.boxShadow='';
 });
-document.getElementById('f-last-name')?.addEventListener('input',()=>{
-  const fn=document.getElementById('f-first-name')?.value||'';
-  const ln=document.getElementById('f-last-name')?.value||'';
-  const full=document.getElementById('f-name');
-  if(full&&!full.dataset.manual)(full.value=(fn+' '+ln).trim());
-});
-document.getElementById('f-name')?.addEventListener('input',e=>{e.target.dataset.manual='1';});
 document.getElementById('fin-month-filter')?.addEventListener('change',e=>{state.finMonth=e.target.value||'';refreshPage();});
 document.getElementById('fin-student-select')?.addEventListener('change',async e=>{
   state.finStudentId=e.target.value?parseInt(e.target.value):null;
