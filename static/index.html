@@ -1451,7 +1451,15 @@ return mWrap(u.id?'Edit user':'Add user',`
 <div class="field"><label>Full name</label><input type="text" id="f-name" value="${u.name||''}"></div>
 <div class="field"><label>Email</label><input type="email" id="f-email" value="${u.email||''}"></div>
 <div class="field"><label>Password</label><input type="password" id="f-password" placeholder="${u.id?'Leave blank to keep current':'Set password'}"></div>
-<div class="field"><label>Role</label><select id="f-role"><option value="super_admin" ${u.role==='super_admin'?'selected':''}>Super admin</option><option value="branch_manager" ${u.role==='branch_manager'?'selected':''}>Branch manager</option><option value="teacher" ${u.role==='teacher'?'selected':''}>Teacher</option><option value="receptionist" ${u.role==='receptionist'?'selected':''}>Receptionist</option></select></div>
+<div class="field"><label>Role</label><select id="f-role">
+        <option value="super_admin" ${u.role==='super_admin'?'selected':''}>Super admin</option>
+        <option value="branch_manager" ${u.role==='branch_manager'?'selected':''}>Branch manager</option>
+        <option value="teacher" ${u.role==='teacher'?'selected':''}>Teacher</option>
+        <option value="head_of_centre" ${u.role==='head_of_centre'?'selected':''}>Head of Centre</option>
+        <option value="supervisor" ${u.role==='supervisor'?'selected':''}>Supervisor</option>
+        <option value="receptionist" ${u.role==='receptionist'?'selected':''}>Receptionist</option>
+        <option value="admin" ${u.role==='admin'?'selected':''}>Admin support</option>
+      </select></div>
 <div class="field"><label>Branch</label><select id="f-branch"><option value="">All branches (admin)</option>${branches.map(b=>`<option value="${b.id}" ${u.branch_id==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>
 <div class="field"><label>Status</label><select id="f-status"><option value="active" ${!u.status||u.status==='active'?'selected':''}>Active</option><option value="inactive" ${u.status==='inactive'?'selected':''}>Inactive</option></select></div>
 </div>`,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${u.id?'Save changes':'Add user'}</button>`);}
