@@ -255,7 +255,7 @@ table{min-width:480px;}
 <script>
 const API={async call(method,path,body){const opts={method,credentials:'include',headers:{'Content-Type':'application/json'}};if(body)opts.body=JSON.stringify(body);const res=await fetch(path,opts);if(res.status===401){state.currentUser=null;state.parentUser=null;render();return null;}return res.ok?res.json():Promise.reject(await res.json());},get:(p,q)=>API.call('GET',q?p+'?'+new URLSearchParams(q):p),post:(p,body)=>API.call('POST',p,body),put:(p,body)=>API.call('PUT',p,body),delete:(p)=>API.call('DELETE',p)};
 
-let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',lrSessionId:null,lrTab:'report',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
+let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
 
 function toast(msg,type='success'){const el=document.createElement('div');el.className=`toast toast-${type}`;el.innerHTML=(type==='success'?'<span style="color:var(--success)">✓</span> ':'<span style="color:var(--danger)">✕</span> ')+msg;document.getElementById('toasts').appendChild(el);setTimeout(()=>el.remove(),3500);}
 function roleBadge(role){const m={super_admin:['badge-purple','Super admin'],branch_manager:['badge-blue','Branch manager'],teacher:['badge-teal','Teacher'],receptionist:['badge-amber','Receptionist']};const[cls,label]=m[role]||['badge-gray',role];return`<span class="badge ${cls}">${label}</span>`;}
@@ -502,40 +502,69 @@ return`
 </tr>`).join('')}</tbody>
 </table></div></div>`;}
 
-function renderSessionReports(){const sessions=state.data.sessions||[];const selId=state.sessionReportId;const sel=sessions.find(s=>s.id===selId);const attRecs=selId?(state.data['sr_att_'+selId]||[]):[];const progRecs=selId?(state.data['sr_prog_'+selId]||[]):[];
-return`
-<div class="section-title" style="margin-bottom:4px;">Session reports</div>
-<div class="section-sub">Per-session attendance register and teacher progress notes</div>
-<div class="card" style="margin-bottom:16px;">
-<div class="field"><label>Select session</label>
-<select id="sr-select"><option value="">— choose session —</option>
-${sessions.map(s=>`<option value="${s.id}" ${s.id===selId?'selected':''}>${new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})} · ${s.slot} · ${s.branch_name} · ${s.staff_name}</option>`).join('')}
-</select></div>
-</div>
-${sel?`
-<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
-<div class="metric-card"><div class="metric-label">Date</div><div class="metric-value" style="font-size:16px;">${new Date(sel.date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div></div>
-<div class="metric-card"><div class="metric-label">Slot</div><div class="metric-value" style="font-size:14px;">${sel.slot}</div></div>
-<div class="metric-card"><div class="metric-label">Present</div><div class="metric-value" style="color:var(--success-text);">${attRecs.filter(a=>a.status==='present').length}/${attRecs.length}</div></div>
-<div class="metric-card"><div class="metric-label">Progress notes</div><div class="metric-value" style="color:var(--accent-text);">${progRecs.length}</div></div>
-</div>
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-<div class="card">
-<div class="card-header"><div class="card-title">Attendance register</div><button class="btn btn-sm" data-action="export-sr" data-id="${sel.id}">Export CSV</button></div>
-<table style="width:100%;font-size:13px;">
-<thead><tr><th>Student</th><th>ID</th><th>Status</th><th>Notes</th></tr></thead>
-<tbody>${attRecs.length?attRecs.map(a=>`<tr><td>${a.student_name}</td><td><span class="id-code">${a.admission_id}</span></td><td><span class="badge ${a.status==='present'?'badge-success':'badge-danger'}">${a.status}</span></td><td style="font-size:12px;color:var(--text3);">${a.notes||'—'}</td></tr>`).join(''):`<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text3);">No attendance recorded</td></tr>`}</tbody>
-</table>
-</div>
-<div class="card">
-<div class="card-header"><div class="card-title">Progress notes</div><button class="btn btn-sm btn-primary" data-action="add-progress" data-session="${sel.id}">+ Add note</button></div>
-${progRecs.map(p=>`<div style="padding:12px 0;border-bottom:1px solid var(--border);">
-<div style="display:flex;justify-content:space-between;margin-bottom:4px;"><strong style="font-size:13px;color:var(--text);">${p.student_name}</strong><div style="font-size:16px;">${stars(p.rating)}</div></div>
-<div style="font-size:13px;color:var(--text2);">${p.comment}</div>
-<div style="font-size:11px;color:var(--text3);margin-top:4px;">${p.subject} · ${p.staff_name} · ${p.date}</div>
-</div>`).join('')||`<p style="color:var(--text3);font-size:13px;padding:24px 0;text-align:center;">No progress notes yet</p>`}
-</div>
-</div>`:''}` ;}
+function renderSessionReports(){
+  const sessions=state.data.sessions||[];
+  const selId=state.sessionReportId;
+  const sel=sessions.find(s=>s.id===selId);
+  const attRecs=selId?(state.data['sr_att_'+selId]||[]):[];
+  const progRecs=selId?(state.data['sr_prog_'+selId]||[]):[];
+  const srTab=state.srTab||'daily';
+  const dates=[...new Set(sessions.map(s=>s.date))].sort().reverse();
+  const selDate=state.srDate||dates[0]||'';
+  const dateSessions=sessions.filter(s=>s.date===selDate);
+
+  function attRow(a){return '<tr><td><strong>'+a.student_name+'</strong></td><td><span class="id-code">'+a.admission_id+'</span></td><td><span class="badge '+(a.status==='present'?'badge-success':'badge-danger')+'">'+a.status+'</span></td><td style="font-size:12px;color:var(--text3);">'+(a.notes||'—')+'</td></tr>';}
+
+  return \`
+  <div class="section-title" style="margin-bottom:4px;">Session reports</div>
+  <div class="section-sub">Attendance register and teacher progress notes</div>
+  <div class="tab-bar" style="margin-bottom:16px;">
+    <div class="tab \${srTab==='daily'?'active':''}" data-action="sr-tab" data-tab="daily">Daily report (all slots)</div>
+    <div class="tab \${srTab==='single'?'active':''}" data-action="sr-tab" data-tab="single">Single session</div>
+  </div>
+
+  \${srTab==='daily'?\`
+  <div class="card" style="margin-bottom:16px;">
+    <div class="field"><label>Select date</label>
+    <select id="sr-date-select">
+      <option value="">— choose date —</option>
+      \${dates.map(d=>\`<option value="\${d}" \${d===selDate?'selected':''}>\${new Date(d+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</option>\`).join('')}
+    </select></div>
+  </div>
+  \${selDate&&dateSessions.length?\`
+    <div style="margin-bottom:8px;font-size:13px;color:var(--text3);">\${dateSessions.length} session\${dateSessions.length!==1?'s':''} on this date</div>
+    \${dateSessions.map(sess=>{
+      const att=state.data['sr_att_'+sess.id]||[];
+      const prog=state.data['sr_prog_'+sess.id]||[];
+      return \`<div class="card" style="margin-bottom:14px;border-left:3px solid var(--accent);">
+        <div class="card-header" style="margin-bottom:12px;">
+          <div>
+            <div style="font-weight:700;font-size:15px;">\${sess.slot}</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px;">\${sess.staff_name||'No teacher'} · \${sess.subject||'—'}</div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <span class="badge badge-success">\${att.filter(a=>a.status==='present').length} present</span>
+            <span class="badge badge-danger">\${att.filter(a=>a.status==='absent').length} absent</span>
+          </div>
+        </div>
+        <div class="table-wrap"><table style="width:100%;">
+          <thead><tr><th>Student</th><th>ID</th><th>Status</th><th>Notes</th></tr></thead>
+          <tbody>\${att.length?att.map(a=>attRow(a)).join(''):'<tr><td colspan="4"><div class="empty-state" style="padding:10px;">No attendance recorded</div></td></tr>'}
+          </tbody>
+        </table></div>
+      </div>\`;
+    }).join('')}
+  \`:\`<div class="empty-state" style="padding:40px;">No sessions found for this date</div>\`}
+  \`:\`\`}
+
+  \${srTab==='single'?\`
+  <div class="card" style="margin-bottom:16px;">
+  <div class="field"><label>Select session</label>
+  <select id="sr-select"><option value="">— choose session —</option>
+  \${sessions.map(s=>\`<option value="\${s.id}" \${s.id===selId?'selected':''}>\${new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})} · \${s.slot} · \${s.branch_name} · \${s.staff_name||'?'}</option>\`).join('')}
+  </select></div>
+  </div>\`;
+}
 
 
 function renderStaffTimesheets(){
@@ -1946,6 +1975,17 @@ document.getElementById('tr-student-select')?.addEventListener('change',async e=
   if(state.trStudentId)await loadData('tr_'+state.trStudentId,'/api/test-records',{student_id:state.trStudentId});
   render();
 });
+document.getElementById('sr-date-select')?.addEventListener('change',async e=>{
+  state.srDate=e.target.value||'';
+  if(state.srDate){
+    const ds=(state.data.sessions||[]).filter(s=>s.date===state.srDate);
+    await Promise.all(ds.flatMap(s=>[
+      loadData('sr_att_'+s.id,'/api/attendance/'+s.id),
+      loadData('sr_prog_'+s.id,'/api/progress',{session_id:s.id})
+    ]));
+  }
+  render();
+});
 document.getElementById('sr-select')?.addEventListener('change',async e=>{state.sessionReportId=e.target.value?parseInt(e.target.value):null;if(state.sessionReportId){await Promise.all([loadData('sr_att_'+state.sessionReportId,'/api/attendance/'+state.sessionReportId),loadData('sr_prog_'+state.sessionReportId,'/api/progress',{session_id:state.sessionReportId})]);}render();});}
 
 function bindParentEvents(){document.getElementById('parent-logout-btn')?.addEventListener('click',async()=>{await API.post('/api/logout');state.parentUser=null;state.data={};render();});}
@@ -1978,6 +2018,7 @@ if(action==='del-instalment-plan'){if(!confirm('Delete this plan?'))return;await
 if(action==='add-test-record'){state.modal='add-test-record';state.editTarget=null;render();return;}
 if(action==='edit-test-record'){state.modal='edit-test-record';state.editTarget=(state.data.test_records||[]).find(t=>t.id===id)||(state.trStudentId?(state.data['tr_'+state.trStudentId]||[]).find(t=>t.id===id):null);render();return;}
 if(action==='del-test-record'){if(!confirm('Delete this test record?'))return;await API.delete('/api/test-records/'+id);toast('Deleted');refreshPage();return;}
+if(action==='sr-tab'){state.srTab=el.dataset.tab;render();return;}
 if(action==='lr-tab'){state.lrTab=el.dataset.tab;render();return;}
 if(action==='tr-tab'){state.trTab=el.dataset.tab;render();return;}
 if(action==='save-lr'){
@@ -2027,7 +2068,7 @@ if(action==='export-staff-timesheet'){
   const csv=[['Date','Session','Sign in','Sign out','Hours','Status','Notes','Absence reason'],...records.map(r=>[r.date,r.slot||'',r.sign_in||'',r.sign_out||'',calcHours(r.sign_in,r.sign_out),r.status,r.notes||'',r.absence_reason||''])].map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`${staff?.name||'staff'}_timesheet.csv`;a.click();toast('Timesheet exported');return;
 }
-if(action==='toggle-att'){const sessId=parseInt(el.dataset.session);const stId=parseInt(el.dataset.student);if(!state.attRecords[sessId])state.attRecords[sessId]={};const cur=state.attRecords[sessId][stId];state.attRecords[sessId][stId]={status:cur?.status==='present'?'absent':'present',notes:''};render();return;}
+if(action==='toggle-att'){const sessId=parseInt(el.dataset.session);const stId=parseInt(el.dataset.student);if(!state.attRecords[sessId])state.attRecords[sessId]={};const cur=state.attRecords[sessId][stId]?.status;const nxt=cur==='present'?'absent':cur==='absent'?null:'present';if(nxt===null){delete state.attRecords[sessId][stId];}else{state.attRecords[sessId][stId]={status:nxt,notes:''}}render();return;}
 if(action==='save-att'){const records=Object.entries(state.attRecords[id]||{}).map(([stId,rec])=>({student_id:parseInt(stId),status:rec.status,notes:rec.notes||''}));await API.post('/api/attendance',{session_id:id,records});toast('Attendance saved');return;}
 if(action==='inv-filter'){state.invoiceFilter=el.dataset.filter;refreshPage();return;}
 if(action==='mark-paid'){await API.post('/api/invoices/'+id+'/mark-paid');toast('Invoice marked paid');refreshPage();return;}
