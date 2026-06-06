@@ -1192,7 +1192,7 @@ return`
 <td><span class="badge badge-accent">${u.branch_name||'All branches'}</span></td>
 <td>${roleBadge(u.role)}</td><td>${statusDot(u.status)}</td>
 <td style="font-size:11px;color:var(--text3);">${u.last_login?new Date(u.last_login).toLocaleDateString('en-GB'):'Never'}</td>
-<td><div class="row-actions"><button class="btn btn-sm" data-action="edit-user" data-id="${u.id}">Edit</button><button class="btn btn-sm btn-danger" data-action="del-user" data-id="${u.id}">Del</button></div></td>
+<td><div class="row-actions"><button class="btn btn-sm" data-action="edit-user" data-id="${u.id}">Edit</button><button class="btn btn-sm" data-action="reset-user-pw" data-id="${u.id}" style="color:var(--amber-text);border-color:var(--amber);">Reset PW</button><button class="btn btn-sm btn-danger" data-action="del-user" data-id="${u.id}">Del</button></div></td>
 </tr>`).join('')}</tbody>
 </table></div></div>`;}
 
@@ -1293,6 +1293,7 @@ function renderModal(){const m=state.modal;if(m==='add-student'||m==='edit-stude
   if(m==='add-instalment-plan')return modalInstalmentPlan();
   if(m==='add-hq-transfer')return modalHQTransfer();
   if(m==='change-password')return modalChangePassword();
+  if(m==='reset-user-pw')return modalResetPassword();
   if(m==='add-test-record'||m==='edit-test-record')return modalTestRecord();return'';}
 function mWrap(title,body,footer){return`<div class="modal-backdrop" id="modal-backdrop"><div class="modal modal-lg"><div class="modal-header"><div class="modal-title">${title}</div><button class="btn btn-sm" id="modal-close">✕</button></div><div class="modal-body">${body}</div><div class="modal-footer">${footer}</div></div></div>`;}
 
@@ -1675,6 +1676,18 @@ function modalChangePassword(){
   `,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Update password</button>`);
 }
 
+function modalResetPassword(){
+  const u=state.editTarget||{};
+  return mWrap(`Reset password — ${u.name||'user'}`,`
+    <div style="margin-bottom:16px;padding:12px 16px;background:rgba(251,191,36,0.15);border-radius:var(--radius);border-left:4px solid var(--amber);">
+      <div style="font-size:13px;color:var(--amber-text);">You are resetting the password for <strong>${u.name||'this user'}</strong>. Share the new password with them securely.</div>
+    </div>
+    <div class="form-grid">
+      <div class="field" style="grid-column:1/-1;"><label>New password</label><input type="text" id="f-new-pw" placeholder="At least 6 characters" autocomplete="off"></div>
+    </div>
+  `,\`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Set new password</button>\`);
+}
+
 // SAVE
 async function doSave(){const m=state.modal;const v=id=>document.getElementById(id)?.value;const saveBtn=document.getElementById('modal-save');if(saveBtn)saveBtn.disabled=true;
 try{
@@ -1737,9 +1750,21 @@ if(m==='add-student'||m==='edit-student'){
   toast(m==='add-student'?'Student enrolled':'Student updated');
 }
 else if(m==='add-staff'||m==='edit-staff'){
-  const body={branch_id:parseInt(v('f-branch')),name:v('f-name'),role:v('f-role'),subject:v('f-subject'),contact:v('f-contact'),status:v('f-status')};
-  if(!body.name){toast('Name required','error');return;}
+  const branchVal=v('f-branch');
+  const nameVal=(v('f-name')||'').trim();
+  if(!nameVal){
+    const el=document.getElementById('f-name');
+    if(el){el.style.border='2px solid var(--danger)';}
+    toast('Name is required','error');return;
+  }
+  if(!branchVal){
+    const el=document.getElementById('f-branch');
+    if(el){el.style.border='2px solid var(--danger)';}
+    toast('Branch is required','error');return;
+  }
+  const body={branch_id:parseInt(branchVal),name:nameVal,role:v('f-role'),subject:v('f-subject'),contact:v('f-contact'),status:v('f-status')};
   const result=m==='add-staff'?await API.post('/api/staff',body):await API.put('/api/staff/'+state.editTarget.id,body);
+  if(result?.error){toast(result.error,'error');return;}
   // Update local state immediately so list reflects change without full reload
   if(result&&state.data.staff){
     if(m==='add-staff'){state.data.staff.push(result);}
@@ -1785,6 +1810,13 @@ if(m==='add-test-record'||m==='edit-test-record'){
   if(m==='add-test-record')await API.post('/api/test-records',body);
   else await API.put('/api/test-records/'+state.editTarget.id,body);
   toast(m==='add-test-record'?'Test recorded':'Test updated');
+}
+if(m==='reset-user-pw'){
+  const np=v('f-new-pw');
+  if(!np||np.length<6){toast('Password must be at least 6 characters','error');return;}
+  const r=await API.post('/api/users/'+state.editTarget.id+'/reset-password',{new_password:np});
+  if(r?.error){toast(r.error,'error');return;}
+  toast('Password reset for '+state.editTarget.name+' ✓');
 }
 if(m==='change-password'){
   const cur=v('f-current-pw');
@@ -1905,6 +1937,7 @@ if(action==='uncheck-lr'){
   toast('Check removed');
   if(state.lrSessionId)await loadData('lr_'+state.lrSessionId,'/api/lesson-reports/'+state.lrSessionId);
   render();return;}
+if(action==='reset-user-pw'){state.modal='reset-user-pw';state.editTarget=(state.data.users||[]).find(u=>u.id===id);render();return;}
 if(action==='change-password'){state.modal='change-password';state.editTarget=null;render();return;}
 if(action==='add-hq-transfer'){state.modal='add-hq-transfer';state.editTarget=null;render();return;}
 if(action==='del-hq-transfer'){if(!confirm('Delete this transfer record?'))return;await API.delete('/api/hq-transfers/'+id);toast('Transfer deleted');refreshPage();return;}
