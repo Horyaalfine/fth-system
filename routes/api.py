@@ -704,9 +704,9 @@ def report_summary():
     b = branch_scope()
     conn = get_conn(); cur = conn.cursor()
     params = (b,) if b else ()
-    bw = "WHERE s.branch_id=%s" if b else ""
+    bw = "WHERE s.branch_id=%s AND" if b else "WHERE"
 
-    cur.execute(f"SELECT COUNT(*) as c FROM students s {bw} AND s.status='active'", params)
+    cur.execute(f"SELECT COUNT(*) as c FROM students s {bw} s.status='active'", params)
     student_count = cur.fetchone()['c']
 
     bw2 = "WHERE s.branch_id=%s" if b else ""
