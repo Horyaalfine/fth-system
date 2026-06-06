@@ -754,7 +754,10 @@ def report_summary():
     year_groups = rows(cur)
 
     # Subject breakdown
-    cur.execute(f"SELECT subject, COUNT(*) as c FROM sessions s {bw3} GROUP BY subject ORDER BY c DESC", params)
+    if b:
+        cur.execute("SELECT subject, COUNT(*) as c FROM sessions s WHERE s.branch_id=%s GROUP BY subject ORDER BY c DESC", (b,))
+    else:
+        cur.execute("SELECT subject, COUNT(*) as c FROM sessions s GROUP BY subject ORDER BY c DESC")
     subjects = rows(cur)
 
     # Outstanding invoices
