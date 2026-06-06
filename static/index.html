@@ -549,27 +549,21 @@ function renderSessionReports(){
       const branchIds=[...new Set(slotSessions.map(function(s){return s.branch_id;}))];
       const branchStudents=allStudents.filter(function(s){return branchIds.includes(s.branch_id)&&s.status==='active';});
 
-      // Use branch students if available, else fall back to attendance records
-      const displayList=branchStudents.length?branchStudents:allAtt;
-
-      const present=Object.values(attById).filter(function(a){return a.status==='present';}).length;
-      const absent=Object.values(attById).filter(function(a){return a.status==='absent';}).length;
-      const total=branchStudents.length||displayList.length;
-      const unmarked=total-(present+absent);
+      // Only show students who have been marked present or absent
+      const present=allAtt.filter(function(a){return a.status==='present';}).length;
+      const absent=allAtt.filter(function(a){return a.status==='absent';}).length;
 
       let rows='';
-      displayList.forEach(function(st){
-        const a=attById[st.id||st.student_id];
-        const status=a?a.status:'—';
-        const notes=a&&a.notes?a.notes:'—';
+      allAtt.sort(function(a,b){return a.admission_id>b.admission_id?1:-1;});
+      allAtt.forEach(function(a){
         rows+='<tr>';
-        rows+='<td><strong>'+(st.name||st.student_name||'')+'</strong></td>';
-        rows+='<td><span class="id-code">'+(st.admission_id||'')+'</span></td>';
-        rows+='<td>'+(status==='present'?'<span class="badge badge-success">Present</span>':status==='absent'?'<span class="badge badge-danger">Absent</span>':'<span class="badge badge-gray">Not marked</span>')+'</td>';
-        rows+='<td style="font-size:12px;color:var(--text3);">'+notes+'</td>';
+        rows+='<td><strong>'+a.student_name+'</strong></td>';
+        rows+='<td><span class="id-code">'+a.admission_id+'</span></td>';
+        rows+='<td>'+(a.status==='present'?'<span class="badge badge-success">Present</span>':'<span class="badge badge-danger">Absent</span>')+'</td>';
+        rows+='<td style="font-size:12px;color:var(--text3);">'+(a.notes||'—')+'</td>';
         rows+='</tr>';
       });
-      if(!rows) rows='<tr><td colspan="4"><div class="empty-state" style="padding:10px;">No students enrolled</div></td></tr>';
+      if(!rows) rows='<tr><td colspan="4"><div class="empty-state" style="padding:10px;">No attendance marked for this slot</div></td></tr>';
 
       html+='<div class="card" style="margin-bottom:16px;border-left:3px solid var(--accent);">';
       html+='<div class="card-header" style="margin-bottom:12px;">';
@@ -580,7 +574,7 @@ function renderSessionReports(){
       html+='<div style="display:flex;gap:6px;align-items:center;">';
       html+='<span class="badge badge-success">'+present+' present</span>';
       html+='<span class="badge badge-danger">'+absent+' absent</span>';
-      if(unmarked>0) html+='<span class="badge badge-gray">'+unmarked+' unmarked</span>';
+      html+='<span class="badge badge-gray">'+(present+absent)+' total marked</span>';
       html+='</div>';
       html+='</div>';
       html+='<div class="table-wrap"><table style="width:100%;">';
