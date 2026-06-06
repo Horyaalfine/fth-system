@@ -513,57 +513,68 @@ function renderSessionReports(){
   const selDate=state.srDate||dates[0]||'';
   const dateSessions=sessions.filter(s=>s.date===selDate);
 
-  function attRow(a){return '<tr><td><strong>'+a.student_name+'</strong></td><td><span class="id-code">'+a.admission_id+'</span></td><td><span class="badge '+(a.status==='present'?'badge-success':'badge-danger')+'">'+a.status+'</span></td><td style="font-size:12px;color:var(--text3);">'+(a.notes||'—')+'</td></tr>';}
-
-  return \`
-  <div class="section-title" style="margin-bottom:4px;">Session reports</div>
-  <div class="section-sub">Attendance register and teacher progress notes</div>
-  <div class="tab-bar" style="margin-bottom:16px;">
-    <div class="tab \${srTab==='daily'?'active':''}" data-action="sr-tab" data-tab="daily">Daily report (all slots)</div>
-    <div class="tab \${srTab==='single'?'active':''}" data-action="sr-tab" data-tab="single">Single session</div>
-  </div>
-
-  \${srTab==='daily'?\`
-  <div class="card" style="margin-bottom:16px;">
-    <div class="field"><label>Select date</label>
-    <select id="sr-date-select">
-      <option value="">— choose date —</option>
-      \${dates.map(d=>\`<option value="\${d}" \${d===selDate?'selected':''}>\${new Date(d+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</option>\`).join('')}
-    </select></div>
-  </div>
-  \${selDate&&dateSessions.length?\`
-    <div style="margin-bottom:8px;font-size:13px;color:var(--text3);">\${dateSessions.length} session\${dateSessions.length!==1?'s':''} on this date</div>
-    \${dateSessions.map(sess=>{
+  // Build daily report HTML using string concatenation (no nested template literals)
+  function buildDailyReport(){
+    if(!selDate||!dateSessions.length) return '<div class="empty-state" style="padding:40px;">No sessions found for this date</div>';
+    let html='<div style="margin-bottom:8px;font-size:13px;color:var(--text3);">'+dateSessions.length+' session'+(dateSessions.length!==1?'s':'')+' on this date</div>';
+    dateSessions.forEach(function(sess){
       const att=state.data['sr_att_'+sess.id]||[];
-      const prog=state.data['sr_prog_'+sess.id]||[];
-      return \`<div class="card" style="margin-bottom:14px;border-left:3px solid var(--accent);">
-        <div class="card-header" style="margin-bottom:12px;">
-          <div>
-            <div style="font-weight:700;font-size:15px;">\${sess.slot}</div>
-            <div style="font-size:12px;color:var(--text3);margin-top:2px;">\${sess.staff_name||'No teacher'} · \${sess.subject||'—'}</div>
-          </div>
-          <div style="display:flex;gap:6px;">
-            <span class="badge badge-success">\${att.filter(a=>a.status==='present').length} present</span>
-            <span class="badge badge-danger">\${att.filter(a=>a.status==='absent').length} absent</span>
-          </div>
-        </div>
-        <div class="table-wrap"><table style="width:100%;">
-          <thead><tr><th>Student</th><th>ID</th><th>Status</th><th>Notes</th></tr></thead>
-          <tbody>\${att.length?att.map(a=>attRow(a)).join(''):'<tr><td colspan="4"><div class="empty-state" style="padding:10px;">No attendance recorded</div></td></tr>'}
-          </tbody>
-        </table></div>
-      </div>\`;
-    }).join('')}
-  \`:\`<div class="empty-state" style="padding:40px;">No sessions found for this date</div>\`}
-  \`:\`\`}
+      const present=att.filter(function(a){return a.status==='present';}).length;
+      const absent=att.filter(function(a){return a.status==='absent';}).length;
+      let rows='';
+      if(att.length){
+        att.forEach(function(a){
+          rows+='<tr><td><strong>'+a.student_name+'</strong></td><td><span class="id-code">'+a.admission_id+'</span></td><td><span class="badge '+(a.status==='present'?'badge-success':'badge-danger')+'">'+a.status+'</span></td><td style="font-size:12px;color:var(--text3);">'+(a.notes||'—')+'</td></tr>';
+        });
+      } else {
+        rows='<tr><td colspan="4"><div class="empty-state" style="padding:10px;">No attendance recorded</div></td></tr>';
+      }
+      html+='<div class="card" style="margin-bottom:14px;border-left:3px solid var(--accent);">';
+      html+='<div class="card-header" style="margin-bottom:12px;">';
+      html+='<div><div style="font-weight:700;font-size:15px;">'+sess.slot+'</div>';
+      html+='<div style="font-size:12px;color:var(--text3);margin-top:2px;">'+(sess.staff_name||'No teacher')+' · '+(sess.subject||'—')+'</div></div>';
+      html+='<div style="display:flex;gap:6px;"><span class="badge badge-success">'+present+' present</span><span class="badge badge-danger">'+absent+' absent</span></div>';
+      html+='</div>';
+      html+='<div class="table-wrap"><table style="width:100%;"><thead><tr><th>Student</th><th>ID</th><th>Status</th><th>Notes</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+      html+='</div>';
+    });
+    return html;
+  }
 
-  \${srTab==='single'?\`
-  <div class="card" style="margin-bottom:16px;">
-  <div class="field"><label>Select session</label>
-  <select id="sr-select"><option value="">— choose session —</option>
-  \${sessions.map(s=>\`<option value="\${s.id}" \${s.id===selId?'selected':''}>\${new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})} · \${s.slot} · \${s.branch_name} · \${s.staff_name||'?'}</option>\`).join('')}
-  </select></div>
-  </div>\`;
+  // Build session options
+  let sessOpts='<option value="">— choose session —</option>';
+  sessions.forEach(function(s){
+    sessOpts+='<option value="'+s.id+'" '+(s.id===selId?'selected':'')+'>'+new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})+' · '+s.slot+' · '+s.branch_name+' · '+(s.staff_name||'?')+'</option>';
+  });
+
+  // Build date options
+  let dateOpts='<option value="">— choose date —</option>';
+  dates.forEach(function(d){
+    dateOpts+='<option value="'+d+'" '+(d===selDate?'selected':'')+'>'+new Date(d+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+'</option>';
+  });
+
+  let html='<div class="section-title" style="margin-bottom:4px;">Session reports</div>';
+  html+='<div class="section-sub">Attendance register and teacher progress notes</div>';
+  html+='<div class="tab-bar" style="margin-bottom:16px;">';
+  html+='<div class="tab '+(srTab==='daily'?'active':'')+'" data-action="sr-tab" data-tab="daily">Daily report (all slots)</div>';
+  html+='<div class="tab '+(srTab==='single'?'active':'')+'" data-action="sr-tab" data-tab="single">Single session</div>';
+  html+='</div>';
+
+  if(srTab==='daily'){
+    html+='<div class="card" style="margin-bottom:16px;"><div class="field"><label>Select date</label><select id="sr-date-select">'+dateOpts+'</select></div></div>';
+    html+=buildDailyReport();
+  } else {
+    html+='<div class="card" style="margin-bottom:16px;"><div class="field"><label>Select session</label><select id="sr-select">'+sessOpts+'</select></div></div>';
+    if(sel){
+      html+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">';
+      html+='<div class="metric-card"><div class="metric-label">Date</div><div class="metric-value" style="font-size:16px;">'+new Date(sel.date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})+'</div></div>';
+      html+='<div class="metric-card"><div class="metric-label">Slot</div><div class="metric-value" style="font-size:14px;">'+sel.slot+'</div></div>';
+      html+='<div class="metric-card"><div class="metric-label">Present</div><div class="metric-value" style="color:var(--success-text);">'+attRecs.filter(function(a){return a.status==='present';}).length+'/'+attRecs.length+'</div></div>';
+      html+='<div class="metric-card"><div class="metric-label">Progress notes</div><div class="metric-value" style="color:var(--accent-text);">'+progRecs.length+'</div></div>';
+      html+='</div>';
+    }
+  }
+  return html;
 }
 
 
