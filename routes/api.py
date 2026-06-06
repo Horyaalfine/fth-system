@@ -302,13 +302,17 @@ def add_staff():
 def update_staff(sid):
     d = request.json
     conn = get_conn(); cur = conn.cursor()
-    cur.execute("""
-        UPDATE staff SET branch_id=%s, name=%s, role=%s, subject=%s, contact=%s, status=%s
-        WHERE id=%s RETURNING *
-    """, (d['branch_id'], d['name'], d.get('role','teacher'), d.get('subject',''), d.get('contact',''), d.get('status','active'), sid))
-    r = row(cur); conn.commit(); cur.close(); conn.close()
-    log_action('edit', 'staff', sid)
-    return jsonify(r)
+    try:
+        cur.execute("""
+            UPDATE staff SET branch_id=%s, name=%s, role=%s, subject=%s, contact=%s, status=%s
+            WHERE id=%s RETURNING *
+        """, (d['branch_id'], d['name'], d.get('role','teacher'), d.get('subject',''), d.get('contact',''), d.get('status','active'), sid))
+        r = row(cur); conn.commit(); cur.close(); conn.close()
+        log_action('edit', 'staff', sid)
+        return jsonify(r)
+    except Exception as e:
+        conn.rollback(); cur.close(); conn.close()
+        return jsonify({'error': str(e)}), 400
 
 @api_bp.route('/api/staff/<int:sid>', methods=['DELETE'])
 @require_auth
@@ -1593,6 +1597,24 @@ def change_password():
     conn.commit(); cur.close(); conn.close()
     log_action('edit', 'users', session['user_id'])
     return jsonify({'ok': True})
+
+
+@api_bp.route('/api/users/<int:uid>/reset-password', methods=['POST'])
+@require_roles('super_admin', 'branch_manager', 'head_of_centre')
+def reset_user_password(uid):
+    d = request.json
+    new_pw = d.get('new_password', '')
+    if not new_pw or len(new_pw) < 6:
+        return jsonify({'error': 'Password must be at least 6 characters'}), 400
+    from werkzeug.security import generate_password_hash
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("UPDATE users SET password_hash=%s WHERE id=%s RETURNING id, name, email",
+                (generate_password_hash(new_pw), uid))
+    r = row(cur); conn.commit(); cur.close(); conn.close()
+    if not r:
+        return jsonify({'error': 'User not found'}), 404
+    log_action('edit', 'users', uid)
+    return jsonify({'ok': True, 'name': r['name']})
 
 # ════════════════════════════════════════════
 #  AUDIT LOG
