@@ -311,11 +311,11 @@ CREATE TABLE IF NOT EXISTS test_records (
     book_unit             TEXT NOT NULL,
     test_date             DATE NOT NULL DEFAULT CURRENT_DATE,
     score_pct             NUMERIC(5,2) NOT NULL,
-    passed                BOOLEAN GENERATED ALWAYS AS (score_pct >= 70) STORED,
+    passed                BOOLEAN,
     revision_given        BOOLEAN DEFAULT FALSE,
     retest_date           DATE,
     retest_score_pct      NUMERIC(5,2),
-    retest_passed         BOOLEAN GENERATED ALWAYS AS (retest_score_pct >= 70) STORED,
+    retest_passed         BOOLEAN,
     action_plan           TEXT,
     notes                 TEXT,
     created_at            TIMESTAMP DEFAULT NOW()
