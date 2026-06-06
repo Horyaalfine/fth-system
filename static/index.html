@@ -220,10 +220,37 @@ tr:hover td{background:var(--surface2);}
 
 @media(max-width:1024px){.metrics-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:900px){.two-col{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}}
+
+/* ── MOBILE ── */
+.hamburger{display:none;background:none;border:none;cursor:pointer;padding:6px;color:var(--text);flex-shrink:0;}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99;}
+@media(max-width:768px){
+.hamburger{display:flex;}
+.sidebar{position:fixed;top:0;left:0;height:100vh;z-index:100;transform:translateX(-100%);transition:transform 0.25s ease;width:260px;}
+.sidebar.open{transform:translateX(0);}
+.sidebar-overlay.open{display:block;}
+.main{margin-left:0 !important;}
+.topbar{padding:10px 12px;}
+.content{padding:12px 10px;}
+.metrics-grid{grid-template-columns:repeat(2,1fr);gap:10px;}
+.metric-value{font-size:20px;}
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+table{min-width:480px;}
+.card-header{flex-direction:column;align-items:flex-start;gap:8px;}
+.form-grid{grid-template-columns:1fr !important;}
+.modal-card{width:calc(100vw - 20px);max-width:100%;margin:10px;max-height:92vh;}
+.modal-footer{flex-wrap:wrap;gap:8px;}
+.modal-footer .btn{flex:1;min-width:100px;justify-content:center;}
+.section-header{flex-direction:column;align-items:flex-start;gap:10px;}
+.tab-bar{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;}
+.tab{white-space:nowrap;font-size:13px;}
+.login-card{margin:20px 14px;padding:22px 18px;}
+.row-actions{flex-direction:column;gap:3px;}
+}
 </style>
 </head>
 <body>
-<div id="app"></div>
+<div id="app"></div><div class="sidebar-overlay" id="sidebar-overlay"></div>
 <div class="toast-container" id="toasts"></div>
 <script>
 const API={async call(method,path,body){const opts={method,credentials:'include',headers:{'Content-Type':'application/json'}};if(body)opts.body=JSON.stringify(body);const res=await fetch(path,opts);if(res.status===401){state.currentUser=null;state.parentUser=null;render();return null;}return res.ok?res.json():Promise.reject(await res.json());},get:(p,q)=>API.call('GET',q?p+'?'+new URLSearchParams(q):p),post:(p,body)=>API.call('POST',p,body),put:(p,body)=>API.call('PUT',p,body),delete:(p)=>API.call('DELETE',p)};
@@ -315,7 +342,7 @@ ${(u.role==='super_admin'||u.role==='branch_manager'||u.role==='head_of_centre')
 </div></div>`;}
 
 function renderTopbar(){const titles={dashboard:'Dashboard',students:'Students',staff:'Staff',sessions:'Sessions',attendance:'Attendance',invoices:'Invoices & fees',session_reports:'Session reports',staff_timesheets:'Staff timesheets',lesson_reports:'Lesson reports',test_records:'Test records',finance:'Finance',reports:'Analytics',users:'User management',branches:'Branches',parent_portal:'Parent portal',audit:'Audit log'};const b=state.currentBranch?(state.data.branches||[]).find(br=>br.id===state.currentBranch):null;
-return`<div class="topbar"><div class="page-title">${titles[state.page]||''}</div><div class="topbar-right">${b?`<span class="badge badge-accent">${b.name}</span>`:`<span class="badge badge-purple">${state.currentUser.role==='super_admin'?'All branches':''}</span>`}<div class="user-chip" style="padding:6px 10px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border);"><div class="avatar ${avatarClass(state.currentUser.role)}" style="width:26px;height:26px;font-size:10px;">${avatarInitials(state.currentUser.name)}</div><span style="font-size:13px;color:var(--text2);margin-left:6px;">${state.currentUser.name}</span></div></div></div>`;}
+return`<div class="topbar"><button class="hamburger" id="hamburger-btn"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><div class="page-title">${titles[state.page]||''}</div><div class="topbar-right">${b?`<span class="badge badge-accent">${b.name}</span>`:`<span class="badge badge-purple">${state.currentUser.role==='super_admin'?'All branches':''}</span>`}<div class="user-chip" style="padding:6px 10px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border);"><div class="avatar ${avatarClass(state.currentUser.role)}" style="width:26px;height:26px;font-size:10px;">${avatarInitials(state.currentUser.name)}</div><span style="font-size:13px;color:var(--text2);margin-left:6px;">${state.currentUser.name}</span></div></div></div>`;}
 
 function renderPage(){const map={dashboard:renderDashboard,students:renderStudents,staff:renderStaff,sessions:renderSessions,attendance:renderAttendance,invoices:renderInvoices,session_reports:renderSessionReports,staff_timesheets:renderStaffTimesheets,lesson_reports:renderLessonReports,test_records:renderTestRecords,finance:renderFinance,reports:renderReports,users:renderUsers,branches:renderBranches,parent_portal:renderParentPortalAdmin,audit:renderAudit};return(map[state.page]||renderDashboard)();}
 
@@ -1880,7 +1907,7 @@ closeModal();refreshPage();
 }catch(e){toast(e.error||'Save failed','error');}finally{if(saveBtn)saveBtn.disabled=false;}}
 
 // EVENTS
-function bindNav(){document.querySelectorAll('[data-page]').forEach(el=>{el.addEventListener('click',()=>{state.page=el.dataset.page;refreshPage();});});document.getElementById('branch-switch')?.addEventListener('change',e=>{state.currentBranch=e.target.value?parseInt(e.target.value):null;refreshPage();});document.getElementById('logout-btn')?.addEventListener('click',async()=>{await API.post('/api/logout');state.currentUser=null;state.page='dashboard';state.data={};render();});}
+function bindNav(){const hb=document.getElementById('hamburger-btn');const sb=document.querySelector('.sidebar');const ov=document.getElementById('sidebar-overlay');if(hb&&sb){hb.onclick=()=>{sb.classList.toggle('open');if(ov)ov.classList.toggle('open');};if(ov)ov.onclick=()=>{sb.classList.remove('open');ov.classList.remove('open');};}document.querySelectorAll('[data-page]').forEach(el=>{el.addEventListener('click',()=>{if(sb)sb.classList.remove('open');if(ov)ov.classList.remove('open');state.page=el.dataset.page;refreshPage();});});document.getElementById('branch-switch')?.addEventListener('change',e=>{state.currentBranch=e.target.value?parseInt(e.target.value):null;refreshPage();});document.getElementById('logout-btn')?.addEventListener('click',async()=>{await API.post('/api/logout');state.currentUser=null;state.page='dashboard';state.data={};render();});}
 
 function bindAll(){bindNav();document.querySelectorAll('[data-action]').forEach(el=>{el.addEventListener('click',e=>handleAction(el.dataset.action,el.dataset.id?parseInt(el.dataset.id):null,el,e));});document.querySelectorAll('[data-nav]').forEach(el=>{el.addEventListener('click',()=>{state.page=el.dataset.nav;if(el.dataset.action){state.modal=el.dataset.action;state.editTarget=null;}refreshPage();});});document.getElementById('modal-close')?.addEventListener('click',closeModal);document.getElementById('modal-cancel')?.addEventListener('click',closeModal);
 // Clear any validation highlights when modal first opens
