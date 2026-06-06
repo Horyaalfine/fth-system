@@ -877,39 +877,46 @@ def save_staff_attendance():
     session_id = d.get('session_id') or None
     try:
         if session_id:
+            # With session — use upsert
             cur.execute("""
                 INSERT INTO staff_attendance
-                    (session_id, staff_id, branch_id, date, sign_in, sign_out, status, cover_for, absence_reason, notes)
+                    (session_id, staff_id, branch_id, date, sign_in, sign_out,
+                     status, cover_for, absence_reason, notes)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 ON CONFLICT (session_id, staff_id)
-                DO UPDATE SET sign_in=EXCLUDED.sign_in, sign_out=EXCLUDED.sign_out,
+                DO UPDATE SET
+                    sign_in=EXCLUDED.sign_in, sign_out=EXCLUDED.sign_out,
                     status=EXCLUDED.status, cover_for=EXCLUDED.cover_for,
                     absence_reason=EXCLUDED.absence_reason, notes=EXCLUDED.notes
                 RETURNING *
             """, (session_id, d['staff_id'], d['branch_id'], d['date'],
-                d.get('sign_in') or None, d.get('sign_out') or None,
-                d.get('status','present'), d.get('cover_for') or None,
-                d.get('absence_reason',''), d.get('notes','')))
+                  d.get('sign_in') or None, d.get('sign_out') or None,
+                  d.get('status','present'), d.get('cover_for') or None,
+                  d.get('absence_reason',''), d.get('notes','')))
         else:
+            # Without session — plain insert (no upsert, session_id is NULL)
             cur.execute("""
                 INSERT INTO staff_attendance
-                    (session_id, staff_id, branch_id, date, sign_in, sign_out, status, cover_for, absence_reason, notes)
+                    (session_id, staff_id, branch_id, date, sign_in, sign_out,
+                     status, cover_for, absence_reason, notes)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 RETURNING *
             """, (None, d['staff_id'], d['branch_id'], d['date'],
-                d.get('sign_in') or None, d.get('sign_out') or None,
-                d.get('status','present'), d.get('cover_for') or None,
-                d.get('absence_reason',''), d.get('notes','')))
+                  d.get('sign_in') or None, d.get('sign_out') or None,
+                  d.get('status','present'), d.get('cover_for') or None,
+                  d.get('absence_reason',''), d.get('notes','')))
+        r = row(cur); conn.commit(); cur.close(); conn.close()
+        if r:
+            if r.get('date'):     r['date']     = str(r['date'])
+            if r.get('sign_in'):  r['sign_in']  = str(r['sign_in'])
+            if r.get('sign_out'): r['sign_out'] = str(r['sign_out'])
+        log_action('edit', 'staff_attendance', d.get('staff_id'))
+        return jsonify(r), 201
     except Exception as e:
         conn.rollback(); cur.close(); conn.close()
+        import traceback; traceback.print_exc()
         return jsonify({'error': str(e)}), 400
-    r = row(cur); conn.commit(); cur.close(); conn.close()
-    if r:
-        if r.get('date'):     r['date']     = str(r['date'])
-        if r.get('sign_in'):  r['sign_in']  = str(r['sign_in'])
-        if r.get('sign_out'): r['sign_out'] = str(r['sign_out'])
-    log_action('edit', 'staff_attendance', d.get('staff_id'))
-    return jsonify(r), 201
+
 
 @api_bp.route('/api/staff-attendance/<int:aid>', methods=['PUT'])
 @require_auth
