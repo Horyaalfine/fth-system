@@ -234,7 +234,7 @@ function toast(msg,type='success'){const el=document.createElement('div');el.cla
 function roleBadge(role){const m={super_admin:['badge-purple','Super admin'],branch_manager:['badge-blue','Branch manager'],teacher:['badge-teal','Teacher'],receptionist:['badge-amber','Receptionist']};const[cls,label]=m[role]||['badge-gray',role];return`<span class="badge ${cls}">${label}</span>`;}
 function statusDot(s){return s==='active'?`<span class="dot dot-green"></span><span style="color:var(--success-text)">Active</span>`:`<span class="dot dot-red"></span><span style="color:var(--danger-text)">Inactive</span>`;}
 function avatarInitials(name){return(name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();}
-function avatarClass(role){return{super_admin:'av-purple',branch_manager:'av-blue',teacher:'av-teal',receptionist:'av-amber'}[role]||'av-blue';}
+function avatarClass(role){return{super_admin:'av-purple',branch_manager:'av-blue',head_of_centre:'av-blue',supervisor:'av-teal',teacher:'av-teal',receptionist:'av-amber',admin:'av-gray'}[role]||'av-blue';}
 function branchParam(){return state.currentBranch?{branch_id:state.currentBranch}:{};}
 function canAccess(page){
   const r=state.currentUser?.role;
