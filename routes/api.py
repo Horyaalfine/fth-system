@@ -223,6 +223,8 @@ def get_student_fields(d):
         'status': d.get('status','active'), 'notes': d.get('notes','')
     }
 
+@api_bp.route('/api/students', methods=['POST'])
+@require_auth
 def add_student():
     d = request.json
     conn = get_conn(); cur = conn.cursor()
