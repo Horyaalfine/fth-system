@@ -517,49 +517,75 @@ function renderSessionReports(){
   function buildDailyReport(){
     if(!selDate||!dateSessions.length) return '<div class="empty-state" style="padding:40px;">No sessions found for this date</div>';
     const allStudents=state.data.students||[];
-    let html='<div style="margin-bottom:8px;font-size:13px;color:var(--text3);">'+dateSessions.length+' session'+(dateSessions.length!==1?'s':'')+' on this date</div>';
+
+    // Group sessions by slot
+    const slotMap={};
+    const slotOrder=[];
     dateSessions.forEach(function(sess){
-      const att=state.data['sr_att_'+sess.id]||[];
-      // Get all students for this session's branch
-      const branchStudents=allStudents.filter(function(s){return s.branch_id===sess.branch_id&&s.status==='active';});
-      // Merge: show all branch students with their attendance status
-      const attMap={};
-      att.forEach(function(a){attMap[a.student_id]=a;});
-      const displayList=branchStudents.length?branchStudents:att;
-      const present=att.filter(function(a){return a.status==='present';}).length;
-      const absent=att.filter(function(a){return a.status==='absent';}).length;
-      const unmarked=branchStudents.length-(present+absent);
-      let rows='';
-      if(displayList.length){
-        displayList.forEach(function(st){
-          const a=attMap[st.id]||attMap[st.student_id];
-          const status=a?a.status:'—';
-          const notes=a?a.notes||'—':'—';
-          const name=st.name||st.student_name||'';
-          const admId=st.admission_id||'';
-          rows+='<tr>';
-          rows+='<td><strong>'+name+'</strong></td>';
-          rows+='<td><span class="id-code">'+admId+'</span></td>';
-          rows+='<td>'+(status==='present'?'<span class="badge badge-success">Present</span>':status==='absent'?'<span class="badge badge-danger">Absent</span>':'<span class="badge badge-gray">—</span>')+'</td>';
-          rows+='<td style="font-size:12px;color:var(--text3);">'+notes+'</td>';
-          rows+='</tr>';
+      if(!slotMap[sess.slot]){slotMap[sess.slot]=[];slotOrder.push(sess.slot);}
+      slotMap[sess.slot].push(sess);
+    });
+
+    let html='<div style="margin-bottom:8px;font-size:13px;color:var(--text3);">'+slotOrder.length+' slot'+(slotOrder.length!==1?'s':'')+' · '+dateSessions.length+' class'+(dateSessions.length!==1?'es':'')+' on this date</div>';
+
+    slotOrder.forEach(function(slot){
+      const slotSessions=slotMap[slot];
+
+      // Collect ALL attendance records across all sessions in this slot
+      const allAtt=[];
+      const attById={};
+      slotSessions.forEach(function(sess){
+        const att=state.data['sr_att_'+sess.id]||[];
+        att.forEach(function(a){
+          allAtt.push(a);
+          attById[a.student_id]=a;
         });
-      } else {
-        rows='<tr><td colspan="4"><div class="empty-state" style="padding:10px;">No students enrolled at this branch</div></td></tr>';
-      }
-      html+='<div class="card" style="margin-bottom:14px;border-left:3px solid var(--accent);">';
+      });
+
+      // Collect all teachers in this slot
+      const teachers=slotSessions.map(function(s){return (s.staff_name||'?')+' ('+( s.subject||'—')+')'}).join(' · ');
+
+      // Get all students for the branch(es) in this slot
+      const branchIds=[...new Set(slotSessions.map(function(s){return s.branch_id;}))];
+      const branchStudents=allStudents.filter(function(s){return branchIds.includes(s.branch_id)&&s.status==='active';});
+
+      // Use branch students if available, else fall back to attendance records
+      const displayList=branchStudents.length?branchStudents:allAtt;
+
+      const present=Object.values(attById).filter(function(a){return a.status==='present';}).length;
+      const absent=Object.values(attById).filter(function(a){return a.status==='absent';}).length;
+      const total=branchStudents.length||displayList.length;
+      const unmarked=total-(present+absent);
+
+      let rows='';
+      displayList.forEach(function(st){
+        const a=attById[st.id||st.student_id];
+        const status=a?a.status:'—';
+        const notes=a&&a.notes?a.notes:'—';
+        rows+='<tr>';
+        rows+='<td><strong>'+(st.name||st.student_name||'')+'</strong></td>';
+        rows+='<td><span class="id-code">'+(st.admission_id||'')+'</span></td>';
+        rows+='<td>'+(status==='present'?'<span class="badge badge-success">Present</span>':status==='absent'?'<span class="badge badge-danger">Absent</span>':'<span class="badge badge-gray">Not marked</span>')+'</td>';
+        rows+='<td style="font-size:12px;color:var(--text3);">'+notes+'</td>';
+        rows+='</tr>';
+      });
+      if(!rows) rows='<tr><td colspan="4"><div class="empty-state" style="padding:10px;">No students enrolled</div></td></tr>';
+
+      html+='<div class="card" style="margin-bottom:16px;border-left:3px solid var(--accent);">';
       html+='<div class="card-header" style="margin-bottom:12px;">';
       html+='<div>';
-      html+='<div style="font-weight:700;font-size:15px;">'+sess.slot+'</div>';
-      html+='<div style="font-size:12px;color:var(--text3);margin-top:2px;">'+(sess.staff_name||'No teacher')+' · '+(sess.subject||'—')+'</div>';
+      html+='<div style="font-weight:700;font-size:16px;">'+slot+'</div>';
+      html+='<div style="font-size:12px;color:var(--text3);margin-top:3px;">'+teachers+'</div>';
       html+='</div>';
-      html+='<div style="display:flex;gap:6px;">';
+      html+='<div style="display:flex;gap:6px;align-items:center;">';
       html+='<span class="badge badge-success">'+present+' present</span>';
       html+='<span class="badge badge-danger">'+absent+' absent</span>';
-      if(unmarked>0)html+='<span class="badge badge-gray">'+unmarked+' unmarked</span>';
+      if(unmarked>0) html+='<span class="badge badge-gray">'+unmarked+' unmarked</span>';
       html+='</div>';
       html+='</div>';
-      html+='<div class="table-wrap"><table style="width:100%;"><thead><tr><th>Student</th><th>ID</th><th>Status</th><th>Notes</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+      html+='<div class="table-wrap"><table style="width:100%;">';
+      html+='<thead><tr><th>Student</th><th>ID</th><th>Attendance</th><th>Notes</th></tr></thead>';
+      html+='<tbody>'+rows+'</tbody></table></div>';
       html+='</div>';
     });
     return html;
