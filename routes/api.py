@@ -527,7 +527,7 @@ def add_progress():
 #  USERS
 # ════════════════════════════════════════════
 @api_bp.route('/api/users', methods=['GET'])
-@require_roles('super_admin','branch_manager')
+@require_roles('super_admin','branch_manager','head_of_centre')
 def get_users():
     conn = get_conn(); cur = conn.cursor()
     cur.execute("""
@@ -586,7 +586,7 @@ def delete_user(uid):
 #  PARENT USERS (admin management)
 # ════════════════════════════════════════════
 @api_bp.route('/api/parent-users', methods=['GET'])
-@require_roles('super_admin','branch_manager')
+@require_roles('super_admin','branch_manager','head_of_centre')
 def get_parent_users():
     conn = get_conn(); cur = conn.cursor()
     cur.execute("SELECT * FROM parent_users ORDER BY name")
@@ -599,7 +599,7 @@ def get_parent_users():
     return jsonify(pus)
 
 @api_bp.route('/api/parent-users', methods=['POST'])
-@require_roles('super_admin','branch_manager')
+@require_roles('super_admin','branch_manager','head_of_centre')
 def add_parent_user():
     d = request.json
     conn = get_conn(); cur = conn.cursor()
@@ -615,7 +615,7 @@ def add_parent_user():
     return jsonify(pu), 201
 
 @api_bp.route('/api/parent-users/<int:pid>', methods=['PUT'])
-@require_roles('super_admin','branch_manager')
+@require_roles('super_admin','branch_manager','head_of_centre')
 def update_parent_user(pid):
     d = request.json
     conn = get_conn(); cur = conn.cursor()
@@ -634,7 +634,7 @@ def update_parent_user(pid):
     return jsonify(pu)
 
 @api_bp.route('/api/parent-users/<int:pid>', methods=['DELETE'])
-@require_roles('super_admin','branch_manager')
+@require_roles('super_admin','branch_manager','head_of_centre')
 def delete_parent_user(pid):
     conn = get_conn(); cur = conn.cursor()
     cur.execute("DELETE FROM parent_users WHERE id=%s", (pid,))
