@@ -704,19 +704,26 @@ def report_summary():
     b = branch_scope()
     conn = get_conn(); cur = conn.cursor()
     params = (b,) if b else ()
-    bw = "WHERE s.branch_id=%s AND" if b else "WHERE"
+    bw  = "WHERE s.branch_id=%s" if b else ""
+    bw2 = "WHERE s.branch_id=%s" if b else ""
+    bw3 = "WHERE s.branch_id=%s" if b else ""
 
-    cur.execute(f"SELECT COUNT(*) as c FROM students s {bw} s.status='active'", params)
+    # Student count
+    if b:
+        cur.execute("SELECT COUNT(*) as c FROM students s WHERE s.branch_id=%s AND s.status='active'", (b,))
+    else:
+        cur.execute("SELECT COUNT(*) as c FROM students s WHERE s.status='active'")
     student_count = cur.fetchone()['c']
 
-    bw2 = "WHERE s.branch_id=%s" if b else ""
+    # Staff count
     cur.execute(f"SELECT COUNT(*) as c FROM staff s {bw2}", params)
     staff_count = cur.fetchone()['c']
 
-    bw3 = "WHERE s.branch_id=%s" if b else ""
+    # Session count
     cur.execute(f"SELECT COUNT(*) as c FROM sessions s {bw3}", params)
     session_count = cur.fetchone()['c']
 
+    # Attendance rate
     cur.execute("""
         SELECT COUNT(*) FILTER (WHERE a.status='present') as present,
                COUNT(*) as total
@@ -740,21 +747,21 @@ def report_summary():
     branch_stats = rows(cur)
 
     # Year group breakdown
-    cur.execute(f"""
-        SELECT year_group, COUNT(*) as c FROM students s {bw}
-        GROUP BY year_group ORDER BY year_group
-    """, params)
+    if b:
+        cur.execute("SELECT year_group, COUNT(*) as c FROM students s WHERE s.branch_id=%s GROUP BY year_group ORDER BY year_group", (b,))
+    else:
+        cur.execute("SELECT year_group, COUNT(*) as c FROM students s GROUP BY year_group ORDER BY year_group")
     year_groups = rows(cur)
 
     # Subject breakdown
-    cur.execute(f"""
-        SELECT subject, COUNT(*) as c FROM sessions s {bw3}
-        GROUP BY subject ORDER BY c DESC
-    """, params)
+    cur.execute(f"SELECT subject, COUNT(*) as c FROM sessions s {bw3} GROUP BY subject ORDER BY c DESC", params)
     subjects = rows(cur)
 
     # Outstanding invoices
-    cur.execute("SELECT SUM(amount) as total FROM invoices WHERE status!='paid'" + (f" AND branch_id=%s" if b else ""), params)
+    if b:
+        cur.execute("SELECT SUM(amount) as total FROM invoices WHERE status!='paid' AND branch_id=%s", (b,))
+    else:
+        cur.execute("SELECT SUM(amount) as total FROM invoices WHERE status!='paid'")
     outstanding = cur.fetchone()['total'] or 0
 
     cur.close(); conn.close()
@@ -771,9 +778,7 @@ def report_summary():
         'outstanding_fees': int(outstanding),
     })
 
-# ════════════════════════════════════════════
-#  STAFF ATTENDANCE
-# ════════════════════════════════════════════
+
 @api_bp.route('/api/staff-attendance', methods=['GET'])
 @require_auth
 def get_staff_attendance():
