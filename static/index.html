@@ -1678,14 +1678,15 @@ function modalChangePassword(){
 
 function modalResetPassword(){
   const u=state.editTarget||{};
-  return mWrap(`Reset password — ${u.name||'user'}`,`
+  const footer='<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Set new password</button>';
+  return mWrap('Reset password — '+(u.name||'user'),`
     <div style="margin-bottom:16px;padding:12px 16px;background:rgba(251,191,36,0.15);border-radius:var(--radius);border-left:4px solid var(--amber);">
       <div style="font-size:13px;color:var(--amber-text);">You are resetting the password for <strong>${u.name||'this user'}</strong>. Share the new password with them securely.</div>
     </div>
     <div class="form-grid">
       <div class="field" style="grid-column:1/-1;"><label>New password</label><input type="text" id="f-new-pw" placeholder="At least 6 characters" autocomplete="off"></div>
     </div>
-  `,\`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Set new password</button>\`);
+  `,footer);
 }
 
 // SAVE
