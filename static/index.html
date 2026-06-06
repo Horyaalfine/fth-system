@@ -295,11 +295,11 @@ ${isSA?`<div style="padding:10px 14px 0;"><div class="branch-switcher"><label>Vi
 <div class="nav-section">
 <div class="nav-label">Main</div>
 ${pages.filter(p=>canAccess(p.id)).map(p=>`<div class="nav-item ${state.page===p.id?'active':''}" data-page="${p.id}">${p.icon} ${p.label}</div>`).join('')}
-${isSA?`<div class="nav-label" style="margin-top:14px;">Admin</div>${adminPages.map(p=>`<div class="nav-item ${state.page===p.id?'active':''}" data-page="${p.id}">${p.icon} ${p.label}</div>`).join('')}`:''}
+${(u.role==='super_admin'||u.role==='branch_manager'||u.role==='head_of_centre')?`<div class="nav-label" style="margin-top:14px;">Admin</div>${adminPages.filter(p=>canAccess(p.id)).map(p=>`<div class="nav-item ${state.page===p.id?'active':''}" data-page="${p.id}">${p.icon} ${p.label}</div>`).join('')}`:''}
 </div>
 <div class="sidebar-footer">
 <div class="user-chip"><div class="avatar ${avatarClass(u.role)}">${avatarInitials(u.name)}</div><div><div style="font-size:13px;font-weight:600;color:var(--text);">${u.name}</div><div style="margin-top:2px;">${roleBadge(u.role)}</div></div></div>
-<button class="btn btn-sm" id="logout-btn" style="width:100%;margin-top:10px;justify-content:center;">Sign out</button>
+<div class="nav-item" data-action="change-password" style="font-size:12px;color:var(--text3);padding:6px 4px;margin-top:4px;cursor:pointer;">🔑 Change password</div><button class="btn btn-sm" id="logout-btn" style="width:100%;margin-top:6px;justify-content:center;">Sign out</button>
 </div></div>`;}
 
 function renderTopbar(){const titles={dashboard:'Dashboard',students:'Students',staff:'Staff',sessions:'Sessions',attendance:'Attendance',invoices:'Invoices & fees',session_reports:'Session reports',staff_timesheets:'Staff timesheets',lesson_reports:'Lesson reports',test_records:'Test records',finance:'Finance',reports:'Analytics',users:'User management',branches:'Branches',parent_portal:'Parent portal',audit:'Audit log'};const b=state.currentBranch?(state.data.branches||[]).find(br=>br.id===state.currentBranch):null;
