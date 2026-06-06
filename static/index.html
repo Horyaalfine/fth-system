@@ -236,7 +236,17 @@ function statusDot(s){return s==='active'?`<span class="dot dot-green"></span><s
 function avatarInitials(name){return(name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();}
 function avatarClass(role){return{super_admin:'av-purple',branch_manager:'av-blue',teacher:'av-teal',receptionist:'av-amber'}[role]||'av-blue';}
 function branchParam(){return state.currentBranch?{branch_id:state.currentBranch}:{};}
-function canAccess(page){const r=state.currentUser?.role;if(r==='super_admin')return true;if(r==='branch_manager')return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports'].includes(page);if(r==='teacher')return['dashboard','sessions','attendance','session_reports','lesson_reports','test_records','staff_timesheets'].includes(page);if(r==='receptionist')return['dashboard','students','sessions','invoices','finance'].includes(page);return false;}
+function canAccess(page){
+  const r=state.currentUser?.role;
+  if(r==='super_admin') return true;
+  if(r==='branch_manager') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports'].includes(page);
+  if(r==='head_of_centre') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports'].includes(page);
+  if(r==='supervisor') return['dashboard','students','sessions','attendance','session_reports','lesson_reports','test_records','staff_timesheets'].includes(page);
+  if(r==='teacher') return['dashboard','sessions','attendance','session_reports','lesson_reports','test_records','staff_timesheets'].includes(page);
+  if(r==='receptionist') return['dashboard','students','sessions','attendance','invoices','finance'].includes(page);
+  if(r==='admin') return['dashboard','students','sessions','attendance','invoices'].includes(page);
+  return false;
+}
 function invBadge(s){if(s==='paid')return`<span class="badge badge-success">Paid</span>`;if(s==='overdue')return`<span class="badge badge-danger">Overdue</span>`;return`<span class="badge badge-amber">Due</span>`;}
 function stars(n){return Array.from({length:5},(_,i)=>`<span style="color:${i<n?'var(--amber)':'var(--surface3)'}">★</span>`).join('');}
 async function loadData(key,path,params){try{state.data[key]=await API.get(path,params||{});}catch(e){state.data[key]=state.data[key]||[];}}
