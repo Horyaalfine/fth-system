@@ -874,21 +874,35 @@ def staff_attendance_summary():
 def save_staff_attendance():
     d = request.json
     conn = get_conn(); cur = conn.cursor()
-    cur.execute("""
-        INSERT INTO staff_attendance
-            (session_id, staff_id, branch_id, date, sign_in, sign_out, status, cover_for, absence_reason, notes)
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-        ON CONFLICT (session_id, staff_id)
-        DO UPDATE SET sign_in=EXCLUDED.sign_in, sign_out=EXCLUDED.sign_out,
-            status=EXCLUDED.status, cover_for=EXCLUDED.cover_for,
-            absence_reason=EXCLUDED.absence_reason, notes=EXCLUDED.notes
-        RETURNING *
-    """, (
-        d.get('session_id'), d['staff_id'], d['branch_id'], d['date'],
-        d.get('sign_in') or None, d.get('sign_out') or None,
-        d.get('status','present'), d.get('cover_for') or None,
-        d.get('absence_reason',''), d.get('notes','')
-    ))
+    session_id = d.get('session_id') or None
+    try:
+        if session_id:
+            cur.execute("""
+                INSERT INTO staff_attendance
+                    (session_id, staff_id, branch_id, date, sign_in, sign_out, status, cover_for, absence_reason, notes)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                ON CONFLICT (session_id, staff_id)
+                DO UPDATE SET sign_in=EXCLUDED.sign_in, sign_out=EXCLUDED.sign_out,
+                    status=EXCLUDED.status, cover_for=EXCLUDED.cover_for,
+                    absence_reason=EXCLUDED.absence_reason, notes=EXCLUDED.notes
+                RETURNING *
+            """, (session_id, d['staff_id'], d['branch_id'], d['date'],
+                d.get('sign_in') or None, d.get('sign_out') or None,
+                d.get('status','present'), d.get('cover_for') or None,
+                d.get('absence_reason',''), d.get('notes','')))
+        else:
+            cur.execute("""
+                INSERT INTO staff_attendance
+                    (session_id, staff_id, branch_id, date, sign_in, sign_out, status, cover_for, absence_reason, notes)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                RETURNING *
+            """, (None, d['staff_id'], d['branch_id'], d['date'],
+                d.get('sign_in') or None, d.get('sign_out') or None,
+                d.get('status','present'), d.get('cover_for') or None,
+                d.get('absence_reason',''), d.get('notes','')))
+    except Exception as e:
+        conn.rollback(); cur.close(); conn.close()
+        return jsonify({'error': str(e)}), 400
     r = row(cur); conn.commit(); cur.close(); conn.close()
     if r:
         if r.get('date'):     r['date']     = str(r['date'])
