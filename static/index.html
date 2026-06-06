@@ -285,7 +285,28 @@ function canAccess(page){
 function invBadge(s){if(s==='paid')return`<span class="badge badge-success">Paid</span>`;if(s==='overdue')return`<span class="badge badge-danger">Overdue</span>`;return`<span class="badge badge-amber">Due</span>`;}
 function stars(n){return Array.from({length:5},(_,i)=>`<span style="color:${i<n?'var(--amber)':'var(--surface3)'}">★</span>`).join('');}
 async function loadData(key,path,params){try{state.data[key]=await API.get(path,params||{});}catch(e){state.data[key]=state.data[key]||[];}}
-async function refreshPage(){state.loading=true;render();const b=branchParam();const page=state.page;try{if(page==='dashboard')await Promise.all([loadData('branches','/api/branches'),loadData('summary','/api/reports/summary',b),loadData('audit','/api/audit')]);else if(page==='students')await loadData('students','/api/students',{...b,q:state.studentSearch});else if(page==='staff')await loadData('staff','/api/staff',b);else if(page==='sessions')await loadData('sessions','/api/sessions',b);else if(page==='attendance'){await Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b)]);if(state.attSessionId)await loadData('attendance_'+state.attSessionId,'/api/attendance/'+state.attSessionId);}else if(page==='invoices')await loadData('invoices','/api/invoices',{...b,status:state.invoiceFilter});else if(page==='session_reports'){await loadData('sessions','/api/sessions',b);if(state.sessionReportId){await Promise.all([loadData('sr_att_'+state.sessionReportId,'/api/attendance/'+state.sessionReportId),loadData('sr_prog_'+state.sessionReportId,'/api/progress',{session_id:state.sessionReportId}),loadData('students','/api/students',b)]);}}else if(page==='lesson_reports'){
+async function refreshPage(){state.loading=true;render();const b=branchParam();const page=state.page;try{if(page==='dashboard')await Promise.all([loadData('branches','/api/branches'),loadData('summary','/api/reports/summary',b),loadData('audit','/api/audit')]);else if(page==='students')await loadData('students','/api/students',{...b,q:state.studentSearch});else if(page==='staff')await loadData('staff','/api/staff',b);else if(page==='sessions')await loadData('sessions','/api/sessions',b);else if(page==='attendance'){await Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b)]);if(state.attSessionId)await loadData('attendance_'+state.attSessionId,'/api/attendance/'+state.attSessionId);}else if(page==='invoices')await loadData('invoices','/api/invoices',{...b,status:state.invoiceFilter});else if(page==='session_reports'){
+  await loadData('sessions','/api/sessions',b);
+  const allSessions=state.data.sessions||[];
+  // Auto-select most recent date if none selected
+  const dates=[...new Set(allSessions.map(s=>s.date))].sort().reverse();
+  if(!state.srDate&&dates.length) state.srDate=dates[0];
+  // Load attendance for all sessions on selected date
+  if(state.srDate){
+    const dateSessions=allSessions.filter(s=>s.date===state.srDate);
+    await Promise.all(dateSessions.flatMap(s=>[
+      loadData('sr_att_'+s.id,'/api/attendance/'+s.id),
+      loadData('sr_prog_'+s.id,'/api/progress',{session_id:s.id})
+    ]));
+  }
+  // Also load single session if selected
+  if(state.sessionReportId){
+    await Promise.all([
+      loadData('sr_att_'+state.sessionReportId,'/api/attendance/'+state.sessionReportId),
+      loadData('sr_prog_'+state.sessionReportId,'/api/progress',{session_id:state.sessionReportId})
+    ]);
+  }
+}else if(page==='lesson_reports'){
   await Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b)]);
   if(state.lrSessionId){
     await Promise.all([
