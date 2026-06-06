@@ -175,9 +175,19 @@ def get_next_id(branch_id):
 
 def get_student_fields(d):
     dob = d.get('date_of_birth') or None
+    # Ensure required fields have fallbacks
+    name = d.get('name') or (str(d.get('first_name','')) + ' ' + str(d.get('last_name',''))).strip() or 'Unknown'
+    branch_id = d.get('branch_id')
+    admission_id = d.get('admission_id','')
+    if not branch_id:
+        raise ValueError("branch_id is required")
+    if not admission_id:
+        raise ValueError("admission_id is required")
+    if not name:
+        raise ValueError("Student name is required")
     return {
-        'branch_id': d['branch_id'], 'admission_id': d['admission_id'],
-        'name': d['name'], 'first_name': d.get('first_name',''),
+        'branch_id': branch_id, 'admission_id': admission_id,
+        'name': name, 'first_name': d.get('first_name',''),
         'last_name': d.get('last_name',''), 'date_of_birth': dob,
         'gender': d.get('gender',''), 'year_group': d.get('year_group',''),
         'current_school': d.get('current_school',''),
