@@ -255,7 +255,7 @@ table{min-width:480px;}
 <script>
 const API={async call(method,path,body){const opts={method,credentials:'include',headers:{'Content-Type':'application/json'}};if(body)opts.body=JSON.stringify(body);const res=await fetch(path,opts);if(res.status===401){state.currentUser=null;state.parentUser=null;render();return null;}return res.ok?res.json():Promise.reject(await res.json());},get:(p,q)=>API.call('GET',q?p+'?'+new URLSearchParams(q):p),post:(p,body)=>API.call('POST',p,body),put:(p,body)=>API.call('PUT',p,body),delete:(p)=>API.call('DELETE',p)};
 
-let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
+let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',planSessionId:null,planMonth:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
 
 function toast(msg,type='success'){const el=document.createElement('div');el.className=`toast toast-${type}`;el.innerHTML=(type==='success'?'<span style="color:var(--success)">✓</span> ':'<span style="color:var(--danger)">✕</span> ')+msg;document.getElementById('toasts').appendChild(el);setTimeout(()=>el.remove(),3500);}
 function roleBadge(role){const m={super_admin:['badge-purple','Super admin'],branch_manager:['badge-blue','Branch manager'],teacher:['badge-teal','Teacher'],receptionist:['badge-amber','Receptionist']};const[cls,label]=m[role]||['badge-gray',role];return`<span class="badge ${cls}">${label}</span>`;}
@@ -274,9 +274,9 @@ function branchParam(){
 function canAccess(page){
   const r=state.currentUser?.role;
   if(r==='super_admin') return true;
-  if(r==='branch_manager') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup'].includes(page);
-  if(r==='head_of_centre') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup'].includes(page);
-  if(r==='supervisor') return['dashboard','students','sessions','attendance','session_reports','lesson_reports','test_records','staff_timesheets','catchup'].includes(page);
+  if(r==='branch_manager') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup','session_plan'].includes(page);
+  if(r==='head_of_centre') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup','session_plan'].includes(page);
+  if(r==='supervisor') return['dashboard','students','sessions','attendance','session_reports','lesson_reports','test_records','staff_timesheets','catchup','session_plan'].includes(page);
   if(r==='teacher') return['dashboard','sessions','attendance','session_reports','lesson_reports','test_records','staff_timesheets'].includes(page);
   if(r==='receptionist') return['dashboard','students','sessions','attendance','invoices','finance'].includes(page);
   if(r==='admin') return['dashboard','students','sessions','attendance','invoices'].includes(page);
@@ -313,6 +313,18 @@ async function refreshPage(){state.loading=true;render();const b=branchParam();c
       loadData('lr_'+state.lrSessionId,'/api/lesson-reports/'+state.lrSessionId),
       loadData('lr_att_'+state.lrSessionId,'/api/attendance/'+state.lrSessionId)
     ]);
+  }
+}
+else if(page==='session_plan'){
+  const b2=branchParam();
+  await Promise.all([
+    loadData('sessions','/api/sessions',b2),
+    loadData('students','/api/students',b2),
+    loadData('staff','/api/staff',b2),
+    loadData('branches','/api/branches'),
+  ]);
+  if(state.planSessionId){
+    await loadData('plan_students_'+state.planSessionId,'/api/session-students/'+state.planSessionId);
   }
 }
 else if(page==='catchup'){
@@ -372,10 +384,10 @@ ${(u.role==='super_admin'||u.role==='branch_manager'||u.role==='head_of_centre')
 <div class="nav-item" data-action="change-password" style="font-size:12px;color:var(--text3);padding:6px 4px;margin-top:4px;cursor:pointer;">🔑 Change password</div><button class="btn btn-sm" id="logout-btn" style="width:100%;margin-top:6px;justify-content:center;">Sign out</button>
 </div></div>`;}
 
-function renderTopbar(){const titles={dashboard:'Dashboard',students:'Students',staff:'Staff',sessions:'Sessions',attendance:'Attendance',invoices:'Invoices & fees',session_reports:'Session reports',staff_timesheets:'Staff timesheets',lesson_reports:'Lesson reports',test_records:'Test records',catchup:'Catch-up lessons',finance:'Finance',reports:'Analytics',users:'User management',branches:'Branches',parent_portal:'Parent portal',audit:'Audit log'};const b=state.currentBranch?(state.data.branches||[]).find(br=>br.id===state.currentBranch):null;
+function renderTopbar(){const titles={dashboard:'Dashboard',students:'Students',staff:'Staff',sessions:'Sessions',attendance:'Attendance',invoices:'Invoices & fees',session_reports:'Session reports',staff_timesheets:'Staff timesheets',lesson_reports:'Lesson reports',test_records:'Test records',catchup:'Catch-up lessons',session_plan:'Session planner',finance:'Finance',reports:'Analytics',users:'User management',branches:'Branches',parent_portal:'Parent portal',audit:'Audit log'};const b=state.currentBranch?(state.data.branches||[]).find(br=>br.id===state.currentBranch):null;
 return`<div class="topbar"><button class="hamburger" id="hamburger-btn"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><div class="page-title">${titles[state.page]||''}</div><div class="topbar-right">${b?`<span class="badge badge-accent">${b.name}</span>`:`<span class="badge badge-purple">${state.currentUser.role==='super_admin'?'All branches':''}</span>`}<div class="user-chip" style="padding:6px 10px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border);"><div class="avatar ${avatarClass(state.currentUser.role)}" style="width:26px;height:26px;font-size:10px;">${avatarInitials(state.currentUser.name)}</div><span style="font-size:13px;color:var(--text2);margin-left:6px;">${state.currentUser.name}</span></div></div></div>`;}
 
-function renderPage(){const map={dashboard:renderDashboard,students:renderStudents,staff:renderStaff,sessions:renderSessions,attendance:renderAttendance,invoices:renderInvoices,session_reports:renderSessionReports,staff_timesheets:renderStaffTimesheets,lesson_reports:renderLessonReports,test_records:renderTestRecords,catchup:renderCatchup,finance:renderFinance,reports:renderReports,users:renderUsers,branches:renderBranches,parent_portal:renderParentPortalAdmin,audit:renderAudit};return(map[state.page]||renderDashboard)();}
+function renderPage(){const map={dashboard:renderDashboard,students:renderStudents,staff:renderStaff,sessions:renderSessions,attendance:renderAttendance,invoices:renderInvoices,session_reports:renderSessionReports,staff_timesheets:renderStaffTimesheets,lesson_reports:renderLessonReports,test_records:renderTestRecords,catchup:renderCatchup,session_plan:renderSessionPlan,finance:renderFinance,reports:renderReports,users:renderUsers,branches:renderBranches,parent_portal:renderParentPortalAdmin,audit:renderAudit};return(map[state.page]||renderDashboard)();}
 
 function renderDashboard(){const s=state.data.summary||{};const bs=s.branch_stats||[];const audit=(state.data.audit||[]).slice(0,5);
 return`
@@ -1126,6 +1138,119 @@ function renderHQTab(){
 }
 
 
+function renderSessionPlan(){
+  const sessions=state.data.sessions||[];
+  const students=state.data.students||[];
+  const staff=state.data.staff||[];
+  const selId=state.planSessionId;
+  const sel=sessions.find(function(s){return s.id===selId;});
+  const assigned=selId?(state.data['plan_students_'+selId]||[]):[];
+  const assignedIds=assigned.map(function(a){return a.student_id;});
+  const planMonth=state.planMonth||'';
+
+  // Filter sessions by month
+  const filteredSessions=planMonth?sessions.filter(function(s){return s.date&&s.date.slice(0,7)===planMonth;}):sessions;
+
+  // Get unique months for filter
+  const months=[...new Set(sessions.map(function(s){return s.date?s.date.slice(0,7):'';}).filter(Boolean))].sort().reverse();
+
+  // Branch students (not yet assigned to this session)
+  const branchStudents=sel?students.filter(function(s){return s.branch_id===sel.branch_id&&s.status==='active';}):[];
+  const unassigned=branchStudents.filter(function(s){return !assignedIds.includes(s.id);});
+
+  let html='';
+  html+='<div class="section-title" style="margin-bottom:4px;">Session planner</div>';
+  html+='<div class="section-sub">Pre-assign students to sessions and manage table capacity</div>';
+
+  // Month filter + session selector
+  html+='<div class="card" style="margin-bottom:16px;">';
+  html+='<div class="form-grid">';
+  html+='<div class="field"><label>Filter by month</label><select id="plan-month-filter">';
+  html+='<option value="">All sessions</option>';
+  months.forEach(function(m){
+    html+='<option value="'+m+'" '+(m===planMonth?'selected':'')+'>'+new Date(m+'-01T00:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'})+'</option>';
+  });
+  html+='</select></div>';
+  html+='<div class="field"><label>Select session to plan</label><select id="plan-session-select">';
+  html+='<option value="">— choose session —</option>';
+  filteredSessions.forEach(function(s){
+    html+='<option value="'+s.id+'" '+(s.id===selId?'selected':'')+'>'+
+      new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})+
+      ' · '+s.slot+' · '+(s.staff_name||'No teacher')+' · '+(s.subject||'—')+'</option>';
+  });
+  html+='</select></div>';
+  html+='</div></div>';
+
+  if(sel){
+    // Session info card
+    html+='<div class="card" style="margin-bottom:16px;border-left:3px solid var(--accent);">';
+    html+='<div class="card-header">';
+    html+='<div>';
+    html+='<div style="font-weight:700;font-size:15px;">'+sel.slot+'</div>';
+    html+='<div style="font-size:12px;color:var(--text3);margin-top:3px;">';
+    html+=new Date(sel.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+    html+=' · Table '+(sel.table_no||'—')+' · '+(sel.subject||'—');
+    html+='</div></div>';
+    html+='<div style="display:flex;gap:8px;align-items:center;">';
+    html+='<span class="badge badge-accent">'+assigned.length+' assigned</span>';
+    html+='<span class="badge badge-gray">'+(6-assigned.length)+' spaces</span>';
+    html+='<button class="btn btn-sm" data-action="set-cover-teacher" data-id="'+sel.id+'">Set cover teacher</button>';
+    html+='</div></div>';
+
+    // Cover teacher notice
+    if(sel.cover_staff_id){
+      const cover=staff.find(function(s){return s.id===sel.cover_staff_id;});
+      html+='<div style="margin-top:10px;padding:8px 12px;background:var(--amber-bg);border-radius:var(--radius);font-size:13px;color:var(--amber-text);">⚠ Cover teacher: <strong>'+(cover?cover.name:'Unknown')+'</strong>'+(sel.cover_notes?' — '+sel.cover_notes:'')+'</div>';
+    }
+    html+='</div>';
+
+    // Two column layout: assigned | available
+    html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
+
+    // Assigned students
+    html+='<div class="card">';
+    html+='<div class="card-header" style="margin-bottom:12px;"><div class="card-title">Assigned students ('+assigned.length+')</div></div>';
+    if(assigned.length){
+      assigned.forEach(function(a){
+        html+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">';
+        html+='<div>';
+        html+='<div style="font-weight:600;font-size:13px;">'+a.student_name+'</div>';
+        html+='<div style="font-size:11px;color:var(--text3);">'+a.admission_id+(a.is_catchup?' · <span style="color:var(--amber-text);">Catch-up</span>':'')+'</div>';
+        html+='</div>';
+        html+='<button class="btn btn-sm btn-danger" data-action="remove-session-student" data-session="'+selId+'" data-student="'+a.student_id+'">Remove</button>';
+        html+='</div>';
+      });
+    } else {
+      html+='<div style="color:var(--text3);font-size:13px;padding:10px 0;">No students assigned yet</div>';
+    }
+    html+='</div>';
+
+    // Available students to add
+    html+='<div class="card">';
+    html+='<div class="card-header" style="margin-bottom:12px;">';
+    html+='<div class="card-title">Available students ('+unassigned.length+')</div>';
+    html+='<button class="btn btn-sm btn-primary" data-action="assign-all-students" data-session="'+selId+'">+ Add all</button>';
+    html+='</div>';
+    html+='<input type="text" id="student-search" placeholder="Search students..." style="width:100%;margin-bottom:10px;border:1px solid var(--border2);border-radius:var(--radius);padding:8px 12px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;">';
+    if(unassigned.length){
+      unassigned.forEach(function(s){
+        html+='<div class="student-row" style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);" data-name="'+s.name.toLowerCase()+'">';
+        html+='<div>';
+        html+='<div style="font-weight:600;font-size:13px;">'+s.name+'</div>';
+        html+='<div style="font-size:11px;color:var(--text3);">'+s.admission_id+' · '+( s.year_group||'—')+'</div>';
+        html+='</div>';
+        html+='<button class="btn btn-sm btn-primary" data-action="add-session-student" data-session="'+selId+'" data-student="'+s.id+'">+ Add</button>';
+        html+='</div>';
+      });
+    } else {
+      html+='<div style="color:var(--text3);font-size:13px;padding:10px 0;">All branch students are assigned</div>';
+    }
+    html+='</div>';
+    html+='</div>'; // end grid
+  }
+  return html;
+}
+
 function renderCatchup(){
   const owed=state.data.catchup_owed||[];
   const scheduled=state.data.catchup_scheduled||[];
@@ -1547,6 +1672,7 @@ function renderModal(){const m=state.modal;if(m==='add-student'||m==='edit-stude
   if(m==='reset-user-pw')return modalResetPassword();
   if(m==='add-catchup')return modalAddCatchup();
   if(m==='schedule-catchup')return modalScheduleCatchup();
+  if(m==='set-cover-teacher')return modalSetCoverTeacher();
   if(m==='add-test-record'||m==='edit-test-record')return modalTestRecord();return'';}
 function mWrap(title,body,footer){return`<div class="modal-backdrop" id="modal-backdrop"><div class="modal modal-lg"><div class="modal-header"><div class="modal-title">${title}</div><button class="btn btn-sm" id="modal-close">✕</button></div><div class="modal-body">${body}</div><div class="modal-footer">${footer}</div></div></div>`;}
 
@@ -1942,6 +2068,19 @@ function modalResetPassword(){
   `,footer);
 }
 
+function modalSetCoverTeacher(){
+  const sess=state.editTarget||{};
+  const staff=state.data.staff||[];
+  let staffOpts='<option value="">— No cover needed —</option>';
+  staff.forEach(function(s){staffOpts+='<option value="'+s.id+'" '+(s.id===sess.cover_staff_id?'selected':'')+'>'+s.name+' ('+s.role+')</option>';});
+  const footer='<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Save cover teacher</button>';
+  return mWrap('Set cover teacher','<div class="form-grid">'+
+    '<div class="field" style="grid-column:1/-1;padding:10px 14px;background:var(--amber-bg);border-radius:var(--radius);"><div style="font-size:13px;color:var(--amber-text);">Original teacher: <strong>'+(sess.staff_name||'None')+'</strong></div></div>'+
+    '<div class="field"><label>Cover teacher</label><select id="f-cover-staff">'+staffOpts+'</select></div>'+
+    '<div class="field"><label>Cover notes</label><input type="text" id="f-cover-notes" value="'+(sess.cover_notes||'')+'" placeholder="e.g. Original teacher unwell"></div>'+
+    '</div>',footer);
+}
+
 function modalAddCatchup(){
   const students=state.data.students||[];
   const sessions=state.data.sessions||[];
@@ -2102,6 +2241,11 @@ if(m==='add-test-record'||m==='edit-test-record'){
   else await API.put('/api/test-records/'+state.editTarget.id,body);
   toast(m==='add-test-record'?'Test recorded':'Test updated');
 }
+if(m==='set-cover-teacher'){
+  const body={cover_staff_id:parseInt(v('f-cover-staff'))||null,cover_notes:v('f-cover-notes')};
+  await API.post('/api/sessions/'+state.editTarget.id+'/cover',body);
+  toast('Cover teacher updated');
+}
 if(m==='add-catchup'){
   const body={student_id:parseInt(v('f-student-id')),branch_id:parseInt(v('f-branch')),subject:v('f-subject'),missed_date:v('f-missed-date'),missed_session_id:v('f-missed-session')||null,notified_in_advance:v('f-notified')==='true',notification_notes:v('f-notes')};
   if(!body.student_id||!body.missed_date){toast('Student and missed date required','error');return;}
@@ -2166,6 +2310,22 @@ document.getElementById('fin-student-select')?.addEventListener('change',async e
   state.finStudentId=e.target.value?parseInt(e.target.value):null;
   if(state.finStudentId){state.data['statement_'+state.finStudentId]=await API.get('/api/statement/'+state.finStudentId).catch(()=>null);}
   render();
+});
+document.getElementById('plan-month-filter')?.addEventListener('change',e=>{
+  state.planMonth=e.target.value||'';render();
+});
+document.getElementById('plan-session-select')?.addEventListener('change',async e=>{
+  state.planSessionId=e.target.value?parseInt(e.target.value):null;
+  if(state.planSessionId){
+    await loadData('plan_students_'+state.planSessionId,'/api/session-students/'+state.planSessionId);
+  }
+  render();
+});
+document.getElementById('student-search')?.addEventListener('input',e=>{
+  const q=e.target.value.toLowerCase();
+  document.querySelectorAll('.student-row').forEach(row=>{
+    row.style.display=row.dataset.name.includes(q)?'':'none';
+  });
 });
 document.getElementById('lr-session-select')?.addEventListener('change',async e=>{
   state.lrSessionId=e.target.value?parseInt(e.target.value):null;
@@ -2254,6 +2414,35 @@ if(action==='uncheck-lr'){
   await API.post('/api/lesson-reports/'+id+'/supervisor-check',{checked:false});
   toast('Check removed');
   if(state.lrSessionId)await loadData('lr_'+state.lrSessionId,'/api/lesson-reports/'+state.lrSessionId);
+  render();return;}
+if(action==='set-cover-teacher'){
+  state.modal='set-cover-teacher';
+  state.editTarget=(state.data.sessions||[]).find(s=>s.id===id);
+  render();return;}
+if(action==='add-session-student'){
+  const sessId=parseInt(el.dataset.session);
+  const stuId=parseInt(el.dataset.student);
+  await API.post('/api/session-students/'+sessId,{student_ids:[stuId]});
+  await loadData('plan_students_'+sessId,'/api/session-students/'+sessId);
+  render();return;}
+if(action==='remove-session-student'){
+  const sessId=parseInt(el.dataset.session);
+  const stuId=parseInt(el.dataset.student);
+  await API.delete('/api/session-students/'+sessId+'/'+stuId);
+  await loadData('plan_students_'+sessId,'/api/session-students/'+sessId);
+  render();return;}
+if(action==='assign-all-students'){
+  const sessId=parseInt(el.dataset.session);
+  const sess=(state.data.sessions||[]).find(s=>s.id===sessId);
+  if(!sess){return;}
+  const branchStudents=(state.data.students||[]).filter(s=>s.branch_id===sess.branch_id&&s.status==='active');
+  const assigned=state.data['plan_students_'+sessId]||[];
+  const assignedIds=assigned.map(a=>a.student_id);
+  const toAdd=branchStudents.filter(s=>!assignedIds.includes(s.id)).map(s=>s.id);
+  if(!toAdd.length){toast('All students already assigned');return;}
+  await API.post('/api/session-students/'+sessId,{student_ids:toAdd});
+  await loadData('plan_students_'+sessId,'/api/session-students/'+sessId);
+  toast(toAdd.length+' students assigned');
   render();return;}
 if(action==='catchup-tab'){state.catchupTab=el.dataset.tab;render();return;}
 if(action==='add-catchup'){state.modal='add-catchup';state.editTarget=null;render();return;}
@@ -2354,6 +2543,7 @@ const icoDoc=()=>ico('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0
 const icoHeart=()=>ico('<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>');
 const icoFinance=(sz=16)=>ico('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',sz);
 const icoBook=(sz=16)=>ico('<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',sz);
+const icoGrid=(sz=16)=>ico('<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>',sz);
 const icoTest=(sz=16)=>ico('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/><line x1="9" y1="11" x2="15" y2="11"/>',sz);
 const icoSearch=()=>ico('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>');
 const icoClipboard=(sz=16)=>ico('<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>',sz);
