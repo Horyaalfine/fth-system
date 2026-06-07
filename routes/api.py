@@ -1216,6 +1216,195 @@ def mark_instalment_paid(sid):
     r = row(cur); conn.commit(); cur.close(); conn.close()
     return jsonify({'ok': True})
 
+
+# ════════════════════════════════════════════
+#  SESSION STUDENTS (pre-assignment)
+# ════════════════════════════════════════════
+@api_bp.route('/api/session-students/<int:session_id>', methods=['GET'])
+@require_auth
+def get_session_students(session_id):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        SELECT ss.*, s.name as student_name, s.admission_id, s.year_group,
+               s.status as student_status
+        FROM session_students ss
+        JOIN students s ON s.id=ss.student_id
+        WHERE ss.session_id=%s ORDER BY s.admission_id
+    """, (session_id,))
+    data = rows(cur); cur.close(); conn.close()
+    return jsonify(data)
+
+@api_bp.route('/api/session-students/<int:session_id>', methods=['POST'])
+@require_auth
+def assign_students(session_id):
+    """Bulk assign students to a session."""
+    d = request.json
+    student_ids = d.get('student_ids', [])
+    conn = get_conn(); cur = conn.cursor()
+    added = 0
+    for sid in student_ids:
+        cur.execute("""
+            INSERT INTO session_students (session_id, student_id, added_by, is_catchup)
+            VALUES (%s,%s,%s,%s) ON CONFLICT (session_id, student_id) DO NOTHING
+        """, (session_id, sid, session.get('user_id'), d.get('is_catchup', False)))
+        if cur.rowcount: added += 1
+    conn.commit(); cur.close(); conn.close()
+    log_action('edit', 'session_students', session_id)
+    return jsonify({'added': added})
+
+@api_bp.route('/api/session-students/<int:session_id>/<int:student_id>', methods=['DELETE'])
+@require_auth
+def remove_session_student(session_id, student_id):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("DELETE FROM session_students WHERE session_id=%s AND student_id=%s",
+                (session_id, student_id))
+    conn.commit(); cur.close(); conn.close()
+    log_action('edit', 'session_students', session_id)
+    return jsonify({'ok': True})
+
+@api_bp.route('/api/session-students/<int:session_id>/capacity', methods=['GET'])
+@require_auth
+def session_capacity(session_id):
+    """Get session student count and capacity info."""
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) as assigned FROM session_students WHERE session_id=%s", (session_id,))
+    assigned = cur.fetchone()['assigned']
+    cur.execute("SELECT table_no FROM sessions WHERE id=%s", (session_id,))
+    sess = cur.fetchone()
+    # Max 6 students per table by default
+    capacity = 6
+    cur.close(); conn.close()
+    return jsonify({'assigned': assigned, 'capacity': capacity, 'spaces': max(0, capacity - assigned)})
+
+# ════════════════════════════════════════════
+#  CATCH-UP LESSONS
+# ════════════════════════════════════════════
+@api_bp.route('/api/catchup', methods=['GET'])
+@require_auth
+def get_catchup():
+    b = branch_scope()
+    status = request.args.get('status')
+    conn = get_conn(); cur = conn.cursor()
+    where = []; params = []
+    if b: where.append("c.branch_id=%s"); params.append(b)
+    if status: where.append("c.status=%s"); params.append(status)
+    wc = ('WHERE '+' AND '.join(where)) if where else ''
+    cur.execute(f"""
+        SELECT c.*, s.name as student_name, s.admission_id,
+               ms.date as missed_date_actual, ms.slot as missed_slot,
+               cs.date as catchup_date_actual, cs.slot as catchup_slot,
+               b.name as branch_name
+        FROM catchup_lessons c
+        JOIN students s ON s.id=c.student_id
+        JOIN branches b ON b.id=c.branch_id
+        LEFT JOIN sessions ms ON ms.id=c.missed_session_id
+        LEFT JOIN sessions cs ON cs.id=c.catchup_session_id
+        {wc} ORDER BY c.created_at DESC
+    """, params)
+    data = rows(cur)
+    for d in data:
+        for f in ['missed_date','scheduled_date','completed_date',
+                  'missed_date_actual','catchup_date_actual']:
+            if d.get(f): d[f] = str(d[f])
+    cur.close(); conn.close()
+    return jsonify(data)
+
+@api_bp.route('/api/catchup', methods=['POST'])
+@require_auth
+def add_catchup():
+    d = request.json
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO catchup_lessons
+            (student_id, branch_id, missed_session_id, missed_date, subject,
+             notified_in_advance, notification_notes, status, notes, created_by)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,'owed',%s,%s) RETURNING *
+    """, (d['student_id'], d['branch_id'],
+          d.get('missed_session_id') or None,
+          d['missed_date'], d.get('subject',''),
+          d.get('notified_in_advance', False),
+          d.get('notification_notes',''),
+          d.get('notes',''), session.get('user_id')))
+    r = row(cur); conn.commit(); cur.close(); conn.close()
+    if r and r.get('missed_date'): r['missed_date'] = str(r['missed_date'])
+    log_action('add', 'catchup_lessons', r['id'])
+    return jsonify(r), 201
+
+@api_bp.route('/api/catchup/<int:cid>', methods=['PUT'])
+@require_auth
+def update_catchup(cid):
+    d = request.json
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        UPDATE catchup_lessons SET
+            status=%s, catchup_session_id=%s, scheduled_date=%s,
+            completed_date=%s, notes=%s
+        WHERE id=%s RETURNING *
+    """, (d.get('status','owed'),
+          d.get('catchup_session_id') or None,
+          d.get('scheduled_date') or None,
+          d.get('completed_date') or None,
+          d.get('notes',''), cid))
+    r = row(cur); conn.commit(); cur.close(); conn.close()
+    for f in ['missed_date','scheduled_date','completed_date']:
+        if r and r.get(f): r[f] = str(r[f])
+    log_action('edit', 'catchup_lessons', cid)
+    return jsonify(r)
+
+@api_bp.route('/api/catchup/<int:cid>', methods=['DELETE'])
+@require_auth
+def delete_catchup(cid):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("DELETE FROM catchup_lessons WHERE id=%s", (cid,))
+    conn.commit(); cur.close(); conn.close()
+    log_action('delete', 'catchup_lessons', cid)
+    return jsonify({'ok': True})
+
+# Auto-create catch-up when student marked absent with notification
+@api_bp.route('/api/catchup/from-absence', methods=['POST'])
+@require_auth
+def catchup_from_absence():
+    """Create catch-up record from an absence notification."""
+    d = request.json
+    conn = get_conn(); cur = conn.cursor()
+    # Get session details
+    cur.execute("""
+        SELECT s.date, s.subject, s.branch_id FROM sessions s WHERE s.id=%s
+    """, (d['session_id'],))
+    sess = cur.fetchone()
+    if not sess:
+        cur.close(); conn.close()
+        return jsonify({'error': 'Session not found'}), 404
+    cur.execute("""
+        INSERT INTO catchup_lessons
+            (student_id, branch_id, missed_session_id, missed_date, subject,
+             notified_in_advance, notification_notes, status, created_by)
+        VALUES (%s,%s,%s,%s,%s,TRUE,%s,'owed',%s)
+        ON CONFLICT DO NOTHING RETURNING *
+    """, (d['student_id'], sess['branch_id'], d['session_id'],
+          sess['date'], sess['subject'] or '',
+          d.get('notification_notes',''), session.get('user_id')))
+    r = row(cur); conn.commit(); cur.close(); conn.close()
+    if r and r.get('missed_date'): r['missed_date'] = str(r['missed_date'])
+    return jsonify(r or {'already_exists': True}), 201
+
+# ════════════════════════════════════════════
+#  SESSION COVER TEACHER
+# ════════════════════════════════════════════
+@api_bp.route('/api/sessions/<int:sid>/cover', methods=['POST'])
+@require_auth
+def set_cover_teacher(sid):
+    d = request.json
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        UPDATE sessions SET cover_staff_id=%s, cover_notes=%s
+        WHERE id=%s RETURNING *
+    """, (d.get('cover_staff_id') or None, d.get('cover_notes',''), sid))
+    r = row(cur); conn.commit(); cur.close(); conn.close()
+    if r and r.get('date'): r['date'] = str(r['date'])
+    log_action('edit', 'sessions', sid)
+    return jsonify(r)
+
 # ════════════════════════════════════════════
 #  LESSON REPORTS
 # ════════════════════════════════════════════
