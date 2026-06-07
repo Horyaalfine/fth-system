@@ -59,6 +59,33 @@ def log_action(action, table=None, record_id=None):
     except Exception:
         pass
 
+# ── PAID HOURS HELPER ──
+def calc_paid_hours(sign_in, sign_out, work_date):
+    if not sign_in or not sign_out:
+        return None
+    try:
+        from datetime import datetime
+        si_str = str(sign_in)[:5]
+        so_str = str(sign_out)[:5]
+        si_mins = int(si_str[:2])*60 + int(si_str[3:5])
+        so_mins = int(so_str[:2])*60 + int(so_str[3:5])
+        total_mins = so_mins - si_mins
+        if total_mins <= 0:
+            return 0.0
+        deduct = 0
+        if work_date:
+            if isinstance(work_date, str):
+                d = datetime.strptime(work_date, '%Y-%m-%d').date()
+            else:
+                d = work_date
+            if d.weekday() >= 5:  # weekend
+                if so_mins > 16*60+15:   deduct = 90  # full day: -1h30
+                elif so_mins > 13*60+15: deduct = 75  # morning+gap: -1h15
+                elif so_mins > 11*60+15: deduct = 15  # slot2 break: -15min
+        return round((total_mins - deduct) / 60, 2)
+    except Exception:
+        return None
+
 # ── HELPERS ──
 def rows(cur): return [dict(r) for r in cur.fetchall()]
 def row(cur):  r = cur.fetchone(); return dict(r) if r else None
