@@ -255,7 +255,7 @@ table{min-width:480px;}
 <script>
 const API={async call(method,path,body){const opts={method,credentials:'include',headers:{'Content-Type':'application/json'}};if(body)opts.body=JSON.stringify(body);const res=await fetch(path,opts);if(res.status===401){state.currentUser=null;state.parentUser=null;render();return null;}return res.ok?res.json():Promise.reject(await res.json());},get:(p,q)=>API.call('GET',q?p+'?'+new URLSearchParams(q):p),post:(p,body)=>API.call('POST',p,body),put:(p,body)=>API.call('PUT',p,body),delete:(p)=>API.call('DELETE',p)};
 
-let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
+let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
 
 function toast(msg,type='success'){const el=document.createElement('div');el.className=`toast toast-${type}`;el.innerHTML=(type==='success'?'<span style="color:var(--success)">✓</span> ':'<span style="color:var(--danger)">✕</span> ')+msg;document.getElementById('toasts').appendChild(el);setTimeout(()=>el.remove(),3500);}
 function roleBadge(role){const m={super_admin:['badge-purple','Super admin'],branch_manager:['badge-blue','Branch manager'],teacher:['badge-teal','Teacher'],receptionist:['badge-amber','Receptionist']};const[cls,label]=m[role]||['badge-gray',role];return`<span class="badge ${cls}">${label}</span>`;}
@@ -274,9 +274,9 @@ function branchParam(){
 function canAccess(page){
   const r=state.currentUser?.role;
   if(r==='super_admin') return true;
-  if(r==='branch_manager') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports'].includes(page);
-  if(r==='head_of_centre') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports'].includes(page);
-  if(r==='supervisor') return['dashboard','students','sessions','attendance','session_reports','lesson_reports','test_records','staff_timesheets'].includes(page);
+  if(r==='branch_manager') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup'].includes(page);
+  if(r==='head_of_centre') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup'].includes(page);
+  if(r==='supervisor') return['dashboard','students','sessions','attendance','session_reports','lesson_reports','test_records','staff_timesheets','catchup'].includes(page);
   if(r==='teacher') return['dashboard','sessions','attendance','session_reports','lesson_reports','test_records','staff_timesheets'].includes(page);
   if(r==='receptionist') return['dashboard','students','sessions','attendance','invoices','finance'].includes(page);
   if(r==='admin') return['dashboard','students','sessions','attendance','invoices'].includes(page);
@@ -315,6 +315,16 @@ async function refreshPage(){state.loading=true;render();const b=branchParam();c
     ]);
   }
 }
+else if(page==='catchup'){
+  const b2=branchParam();
+  await Promise.all([
+    loadData('catchup_owed','/api/catchup',{...b2,status:'owed'}),
+    loadData('catchup_scheduled','/api/catchup',{...b2,status:'scheduled'}),
+    loadData('catchup_completed','/api/catchup',{...b2,status:'completed'}),
+    loadData('sessions','/api/sessions',b2),
+    loadData('students','/api/students',b2),
+  ]);
+}
 else if(page==='test_records'){
   await Promise.all([loadData('students','/api/students',b),loadData('test_records','/api/test-records',b)]);
   if(state.trStudentId) await loadData('tr_'+state.trStudentId,'/api/test-records',{student_id:state.trStudentId});
@@ -348,7 +358,7 @@ async function doParentLogin(){const email=document.getElementById('l-email')?.v
         state.data['p_diary_'+child.id]=await API.get('/api/parent/diary/'+child.id)||[];
         state.data['p_tests_'+child.id]=await API.get('/api/parent/test-records/'+child.id)||[];state.data['p_inv_'+child.id]=await API.get('/api/parent/invoices/'+child.id)||[];state.data['p_prog_'+child.id]=await API.get('/api/parent/progress/'+child.id)||[];}render();}catch(e){document.getElementById('login-err').textContent=e.error||'Login failed';}}
 
-function renderSidebar(){const u=state.currentUser;const isSA=u.role==='super_admin';const pages=[{id:'dashboard',icon:icoHome(),label:'Dashboard'},{id:'students',icon:icoUsers(),label:'Students'},{id:'staff',icon:icoUser(),label:'Staff'},{id:'sessions',icon:icoCal(),label:'Sessions'},{id:'attendance',icon:icoCheck(),label:'Attendance'},{id:'invoices',icon:icoPound(),label:'Invoices & fees'},{id:'session_reports',icon:icoDoc(),label:'Session reports'},{id:'lesson_reports',icon:icoBook(),label:'Lesson reports'},{id:'test_records',icon:icoTest(),label:'Test records'},{id:'staff_timesheets',icon:icoClipboard(),label:'Staff timesheets'},{id:'finance',icon:icoFinance(),label:'Finance'},{id:'reports',icon:icoChart(),label:'Analytics'}];const adminPages=[{id:'users',icon:icoKey(),label:'User management'},{id:'branches',icon:icoBranch(),label:'Branches'},{id:'parent_portal',icon:icoHeart(),label:'Parent portal'},{id:'audit',icon:icoLog(),label:'Audit log'}];const branches=state.data.branches||[];
+function renderSidebar(){const u=state.currentUser;const isSA=u.role==='super_admin';const pages=[{id:'dashboard',icon:icoHome(),label:'Dashboard'},{id:'students',icon:icoUsers(),label:'Students'},{id:'staff',icon:icoUser(),label:'Staff'},{id:'sessions',icon:icoCal(),label:'Sessions'},{id:'attendance',icon:icoCheck(),label:'Attendance'},{id:'invoices',icon:icoPound(),label:'Invoices & fees'},{id:'session_reports',icon:icoDoc(),label:'Session reports'},{id:'catchup',icon:icoHeart(),label:'Catch-up lessons'},{id:'lesson_reports',icon:icoBook(),label:'Lesson reports'},{id:'test_records',icon:icoTest(),label:'Test records'},{id:'staff_timesheets',icon:icoClipboard(),label:'Staff timesheets'},{id:'finance',icon:icoFinance(),label:'Finance'},{id:'reports',icon:icoChart(),label:'Analytics'}];const adminPages=[{id:'users',icon:icoKey(),label:'User management'},{id:'branches',icon:icoBranch(),label:'Branches'},{id:'parent_portal',icon:icoHeart(),label:'Parent portal'},{id:'audit',icon:icoLog(),label:'Audit log'}];const branches=state.data.branches||[];
 return`<div class="sidebar">
 <div class="sidebar-brand"><div class="brand-icon">FT</div><div class="brand-name">FT Harlesden</div><div class="brand-sub">Management System</div></div>
 ${isSA?`<div style="padding:10px 14px 0;"><div class="branch-switcher"><label>Viewing branch</label><select id="branch-switch"><option value="">All branches</option>${branches.map(b=>`<option value="${b.id}" ${state.currentBranch==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div></div>`:''}
@@ -362,10 +372,10 @@ ${(u.role==='super_admin'||u.role==='branch_manager'||u.role==='head_of_centre')
 <div class="nav-item" data-action="change-password" style="font-size:12px;color:var(--text3);padding:6px 4px;margin-top:4px;cursor:pointer;">🔑 Change password</div><button class="btn btn-sm" id="logout-btn" style="width:100%;margin-top:6px;justify-content:center;">Sign out</button>
 </div></div>`;}
 
-function renderTopbar(){const titles={dashboard:'Dashboard',students:'Students',staff:'Staff',sessions:'Sessions',attendance:'Attendance',invoices:'Invoices & fees',session_reports:'Session reports',staff_timesheets:'Staff timesheets',lesson_reports:'Lesson reports',test_records:'Test records',finance:'Finance',reports:'Analytics',users:'User management',branches:'Branches',parent_portal:'Parent portal',audit:'Audit log'};const b=state.currentBranch?(state.data.branches||[]).find(br=>br.id===state.currentBranch):null;
+function renderTopbar(){const titles={dashboard:'Dashboard',students:'Students',staff:'Staff',sessions:'Sessions',attendance:'Attendance',invoices:'Invoices & fees',session_reports:'Session reports',staff_timesheets:'Staff timesheets',lesson_reports:'Lesson reports',test_records:'Test records',catchup:'Catch-up lessons',finance:'Finance',reports:'Analytics',users:'User management',branches:'Branches',parent_portal:'Parent portal',audit:'Audit log'};const b=state.currentBranch?(state.data.branches||[]).find(br=>br.id===state.currentBranch):null;
 return`<div class="topbar"><button class="hamburger" id="hamburger-btn"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><div class="page-title">${titles[state.page]||''}</div><div class="topbar-right">${b?`<span class="badge badge-accent">${b.name}</span>`:`<span class="badge badge-purple">${state.currentUser.role==='super_admin'?'All branches':''}</span>`}<div class="user-chip" style="padding:6px 10px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border);"><div class="avatar ${avatarClass(state.currentUser.role)}" style="width:26px;height:26px;font-size:10px;">${avatarInitials(state.currentUser.name)}</div><span style="font-size:13px;color:var(--text2);margin-left:6px;">${state.currentUser.name}</span></div></div></div>`;}
 
-function renderPage(){const map={dashboard:renderDashboard,students:renderStudents,staff:renderStaff,sessions:renderSessions,attendance:renderAttendance,invoices:renderInvoices,session_reports:renderSessionReports,staff_timesheets:renderStaffTimesheets,lesson_reports:renderLessonReports,test_records:renderTestRecords,finance:renderFinance,reports:renderReports,users:renderUsers,branches:renderBranches,parent_portal:renderParentPortalAdmin,audit:renderAudit};return(map[state.page]||renderDashboard)();}
+function renderPage(){const map={dashboard:renderDashboard,students:renderStudents,staff:renderStaff,sessions:renderSessions,attendance:renderAttendance,invoices:renderInvoices,session_reports:renderSessionReports,staff_timesheets:renderStaffTimesheets,lesson_reports:renderLessonReports,test_records:renderTestRecords,catchup:renderCatchup,finance:renderFinance,reports:renderReports,users:renderUsers,branches:renderBranches,parent_portal:renderParentPortalAdmin,audit:renderAudit};return(map[state.page]||renderDashboard)();}
 
 function renderDashboard(){const s=state.data.summary||{};const bs=s.branch_stats||[];const audit=(state.data.audit||[]).slice(0,5);
 return`
@@ -1116,6 +1126,78 @@ function renderHQTab(){
 }
 
 
+function renderCatchup(){
+  const owed=state.data.catchup_owed||[];
+  const scheduled=state.data.catchup_scheduled||[];
+  const completed=state.data.catchup_completed||[];
+  const sessions=state.data.sessions||[];
+  const students=state.data.students||[];
+  const tab=state.catchupTab||'owed';
+
+  function statusBadge(s){
+    if(s==='owed') return '<span class="badge badge-danger">Owed</span>';
+    if(s==='scheduled') return '<span class="badge badge-amber">Scheduled</span>';
+    if(s==='completed') return '<span class="badge badge-success">Completed</span>';
+    return '<span class="badge badge-gray">'+s+'</span>';
+  }
+
+  function buildTable(list, showActions){
+    if(!list.length) return '<div class="empty-state" style="padding:30px;">No catch-up lessons in this category</div>';
+    let rows='';
+    list.forEach(function(c){
+      rows+='<tr>';
+      rows+='<td><strong>'+c.student_name+'</strong></td>';
+      rows+='<td><span class="id-code">'+c.admission_id+'</span></td>';
+      rows+='<td><span class="badge badge-gray">'+(c.subject||'—')+'</span></td>';
+      rows+='<td style="font-size:12px;">'+(c.missed_date||'—')+'</td>';
+      rows+='<td>'+(c.missed_slot||'—')+'</td>';
+      rows+='<td>'+statusBadge(c.status)+'</td>';
+      rows+='<td style="font-size:12px;color:var(--text3);">'+(c.catchup_date_actual||c.scheduled_date||'—')+'</td>';
+      rows+='<td style="font-size:12px;color:var(--text3);">'+(c.notes||'—')+'</td>';
+      if(showActions){
+        rows+='<td><div class="row-actions">';
+        if(c.status==='owed') rows+='<button class="btn btn-sm btn-primary" data-action="schedule-catchup" data-id="'+c.id+'">Schedule</button>';
+        if(c.status==='scheduled') rows+='<button class="btn btn-sm btn-success" data-action="complete-catchup" data-id="'+c.id+'">Complete</button>';
+        rows+='<button class="btn btn-sm btn-danger" data-action="del-catchup" data-id="'+c.id+'">Del</button>';
+        rows+='</div></td>';
+      } else {
+        rows+='<td></td>';
+      }
+      rows+='</tr>';
+    });
+    return rows;
+  }
+
+  let html='';
+  html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">';
+  html+='<div><div class="section-title">Catch-up lessons</div>';
+  html+='<div class="section-sub">Students who missed sessions and are entitled to catch-up</div></div>';
+  html+='<button class="btn btn-primary" data-action="add-catchup">+ Log catch-up owed</button>';
+  html+='</div>';
+
+  // Summary cards
+  html+='<div class="metrics-grid" style="margin-bottom:20px;">';
+  html+='<div class="metric-card" style="border-top:3px solid var(--danger);"><div class="metric-label">Owed</div><div class="metric-value" style="color:var(--danger-text);">'+owed.length+'</div><div class="metric-sub">Pending scheduling</div></div>';
+  html+='<div class="metric-card" style="border-top:3px solid var(--amber);"><div class="metric-label">Scheduled</div><div class="metric-value" style="color:var(--amber-text);">'+scheduled.length+'</div><div class="metric-sub">Awaiting completion</div></div>';
+  html+='<div class="metric-card" style="border-top:3px solid var(--success);"><div class="metric-label">Completed</div><div class="metric-value" style="color:var(--success-text);">'+completed.length+'</div><div class="metric-sub">Done</div></div>';
+  html+='</div>';
+
+  // Tabs
+  html+='<div class="tab-bar" style="margin-bottom:16px;">';
+  html+='<div class="tab '+(tab==='owed'?'active':'')+'" data-action="catchup-tab" data-tab="owed">Owed ('+owed.length+')</div>';
+  html+='<div class="tab '+(tab==='scheduled'?'active':'')+'" data-action="catchup-tab" data-tab="scheduled">Scheduled ('+scheduled.length+')</div>';
+  html+='<div class="tab '+(tab==='completed'?'active':'')+'" data-action="catchup-tab" data-tab="completed">Completed ('+completed.length+')</div>';
+  html+='</div>';
+
+  const activeList = tab==='owed'?owed:tab==='scheduled'?scheduled:completed;
+  html+='<div class="card" style="padding:0;overflow:hidden;">';
+  html+='<div class="table-wrap"><table>';
+  html+='<thead><tr><th>Student</th><th>ID</th><th>Subject</th><th>Missed date</th><th>Slot</th><th>Status</th><th>Catch-up date</th><th>Notes</th><th></th></tr></thead>';
+  html+='<tbody>'+buildTable(activeList, true)+'</tbody>';
+  html+='</table></div></div>';
+  return html;
+}
+
 function renderLessonReports(){
   const sessions=state.data.sessions||[];
   const students=state.data.students||[];
@@ -1463,6 +1545,8 @@ function renderModal(){const m=state.modal;if(m==='add-student'||m==='edit-stude
   if(m==='add-hq-transfer')return modalHQTransfer();
   if(m==='change-password')return modalChangePassword();
   if(m==='reset-user-pw')return modalResetPassword();
+  if(m==='add-catchup')return modalAddCatchup();
+  if(m==='schedule-catchup')return modalScheduleCatchup();
   if(m==='add-test-record'||m==='edit-test-record')return modalTestRecord();return'';}
 function mWrap(title,body,footer){return`<div class="modal-backdrop" id="modal-backdrop"><div class="modal modal-lg"><div class="modal-header"><div class="modal-title">${title}</div><button class="btn btn-sm" id="modal-close">✕</button></div><div class="modal-body">${body}</div><div class="modal-footer">${footer}</div></div></div>`;}
 
@@ -1858,6 +1942,43 @@ function modalResetPassword(){
   `,footer);
 }
 
+function modalAddCatchup(){
+  const students=state.data.students||[];
+  const sessions=state.data.sessions||[];
+  const branches=state.data.branches||[];
+  const defBranch=state.currentBranch||branches[0]?.id||'';
+  let studOpts='<option value="">— select student —</option>';
+  students.forEach(function(s){studOpts+='<option value="'+s.id+'">'+s.admission_id+' — '+s.name+'</option>';});
+  let sessOpts='<option value="">— select session (optional) —</option>';
+  sessions.forEach(function(s){sessOpts+='<option value="'+s.id+'">'+new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})+' · '+s.slot+'</option>';});
+  let brOpts='';
+  branches.forEach(function(b){brOpts+='<option value="'+b.id+'" '+(b.id==defBranch?'selected':'')+'>'+b.name+'</option>';});
+  const footer='<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Log catch-up owed</button>';
+  return mWrap('Log catch-up owed','<div class="form-grid">'+
+    '<div class="field"><label>Student</label><select id="f-student-id">'+studOpts+'</select></div>'+
+    '<div class="field"><label>Branch</label><select id="f-branch">'+brOpts+'</select></div>'+
+    '<div class="field"><label>Subject</label><select id="f-subject"><option>Maths</option><option>English</option><option>Science</option><option>Other</option></select></div>'+
+    '<div class="field"><label>Missed date</label><input type="date" id="f-missed-date" value="'+new Date().toISOString().slice(0,10)+'"></div>'+
+    '<div class="field"><label>Missed session (optional)</label><select id="f-missed-session">'+sessOpts+'</select></div>'+
+    '<div class="field"><label>Notified in advance?</label><select id="f-notified"><option value="true">Yes — notified in advance</option><option value="false">No — no notification</option></select></div>'+
+    '<div class="field" style="grid-column:1/-1;"><label>Notification / notes</label><input type="text" id="f-notes" placeholder="e.g. Parent called to say student unwell"></div>'+
+    '</div>',footer);
+}
+
+function modalScheduleCatchup(){
+  const c=state.editTarget||{};
+  const sessions=state.data.sessions||[];
+  let sessOpts='<option value="">— select session —</option>';
+  sessions.forEach(function(s){sessOpts+='<option value="'+s.id+'">'+new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})+' · '+s.slot+'</option>';});
+  const footer='<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Schedule catch-up</button>';
+  return mWrap('Schedule catch-up — '+( c.student_name||''),'<div class="form-grid">'+
+    '<div class="field" style="grid-column:1/-1;padding:10px 14px;background:var(--accent-bg);border-radius:var(--radius);"><div style="font-size:13px;color:var(--accent-text);">Missed: <strong>'+(c.subject||'—')+'</strong> on '+(c.missed_date||'—')+' ('+(c.missed_slot||'—')+')</div></div>'+
+    '<div class="field"><label>Catch-up session</label><select id="f-catchup-session">'+sessOpts+'</select></div>'+
+    '<div class="field"><label>Scheduled date</label><input type="date" id="f-scheduled-date"></div>'+
+    '<div class="field" style="grid-column:1/-1;"><label>Notes</label><input type="text" id="f-notes" value="'+(c.notes||'')+'"></div>'+
+    '</div>',footer);
+}
+
 // SAVE
 async function doSave(){const m=state.modal;const v=id=>document.getElementById(id)?.value;const saveBtn=document.getElementById('modal-save');if(saveBtn)saveBtn.disabled=true;
 try{
@@ -1980,6 +2101,17 @@ if(m==='add-test-record'||m==='edit-test-record'){
   if(m==='add-test-record')await API.post('/api/test-records',body);
   else await API.put('/api/test-records/'+state.editTarget.id,body);
   toast(m==='add-test-record'?'Test recorded':'Test updated');
+}
+if(m==='add-catchup'){
+  const body={student_id:parseInt(v('f-student-id')),branch_id:parseInt(v('f-branch')),subject:v('f-subject'),missed_date:v('f-missed-date'),missed_session_id:v('f-missed-session')||null,notified_in_advance:v('f-notified')==='true',notification_notes:v('f-notes')};
+  if(!body.student_id||!body.missed_date){toast('Student and missed date required','error');return;}
+  await API.post('/api/catchup',body);
+  toast('Catch-up logged');
+}
+if(m==='schedule-catchup'){
+  const body={status:'scheduled',catchup_session_id:v('f-catchup-session')||null,scheduled_date:v('f-scheduled-date')||null,notes:v('f-notes')};
+  await API.put('/api/catchup/'+state.editTarget.id,body);
+  toast('Catch-up scheduled');
 }
 if(m==='reset-user-pw'){
   const np=v('f-new-pw');
@@ -2123,6 +2255,18 @@ if(action==='uncheck-lr'){
   toast('Check removed');
   if(state.lrSessionId)await loadData('lr_'+state.lrSessionId,'/api/lesson-reports/'+state.lrSessionId);
   render();return;}
+if(action==='catchup-tab'){state.catchupTab=el.dataset.tab;render();return;}
+if(action==='add-catchup'){state.modal='add-catchup';state.editTarget=null;render();return;}
+if(action==='schedule-catchup'){
+  const all=[...(state.data.catchup_owed||[]),...(state.data.catchup_scheduled||[])];
+  state.modal='schedule-catchup';state.editTarget=all.find(c=>c.id===id);render();return;}
+if(action==='complete-catchup'){
+  if(!confirm('Mark this catch-up as completed?'))return;
+  await API.put('/api/catchup/'+id,{status:'completed',completed_date:new Date().toISOString().slice(0,10)});
+  toast('Catch-up marked complete ✓');refreshPage();return;}
+if(action==='del-catchup'){
+  if(!confirm('Delete this catch-up record?'))return;
+  await API.delete('/api/catchup/'+id);toast('Deleted');refreshPage();return;}
 if(action==='reset-user-pw'){state.modal='reset-user-pw';state.editTarget=(state.data.users||[]).find(u=>u.id===id);render();return;}
 if(action==='change-password'){state.modal='change-password';state.editTarget=null;render();return;}
 if(action==='add-hq-transfer'){state.modal='add-hq-transfer';state.editTarget=null;render();return;}
