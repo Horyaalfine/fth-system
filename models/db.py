@@ -151,6 +151,9 @@ DO $$ BEGIN
     ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_science_book TEXT;
     ALTER TABLE students ADD COLUMN IF NOT EXISTS hours_per_week TEXT;
     -- Update payment method constraint to include direct_debit and standing_order
+    -- Session students and catchup tables (handled by CREATE TABLE IF NOT EXISTS)
+    ALTER TABLE sessions ADD COLUMN IF NOT EXISTS cover_staff_id INT REFERENCES staff(id) ON DELETE SET NULL;
+    ALTER TABLE sessions ADD COLUMN IF NOT EXISTS cover_notes TEXT;
     -- Make staff_attendance.session_id nullable
     ALTER TABLE staff_attendance ALTER COLUMN session_id DROP NOT NULL;
     -- Create hq_transfers if not exists (handled by CREATE TABLE IF NOT EXISTS above)
@@ -277,6 +280,47 @@ CREATE TABLE IF NOT EXISTS hq_transfers (
 );
 CREATE INDEX IF NOT EXISTS idx_hq_transfers_branch ON hq_transfers(branch_id);
 CREATE INDEX IF NOT EXISTS idx_hq_transfers_date ON hq_transfers(transfer_date DESC);
+
+-- ── SESSION STUDENTS (pre-assignment) ──
+CREATE TABLE IF NOT EXISTS session_students (
+    id          SERIAL PRIMARY KEY,
+    session_id  INT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    student_id  INT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    added_by    INT REFERENCES users(id) ON DELETE SET NULL,
+    is_catchup  BOOLEAN DEFAULT FALSE,
+    created_at  TIMESTAMP DEFAULT NOW(),
+    UNIQUE (session_id, student_id)
+);
+CREATE INDEX IF NOT EXISTS idx_ss_session ON session_students(session_id);
+CREATE INDEX IF NOT EXISTS idx_ss_student ON session_students(student_id);
+
+-- ── CATCH-UP LESSONS ──
+CREATE TABLE IF NOT EXISTS catchup_lessons (
+    id                  SERIAL PRIMARY KEY,
+    student_id          INT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    branch_id           INT NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+    missed_session_id   INT REFERENCES sessions(id) ON DELETE SET NULL,
+    missed_date         DATE NOT NULL,
+    subject             TEXT,
+    notified_in_advance BOOLEAN DEFAULT FALSE,
+    notification_notes  TEXT,
+    status              TEXT NOT NULL DEFAULT 'owed'
+                        CHECK (status IN ('owed','scheduled','completed','waived')),
+    catchup_session_id  INT REFERENCES sessions(id) ON DELETE SET NULL,
+    scheduled_date      DATE,
+    completed_date      DATE,
+    notes               TEXT,
+    created_by          INT REFERENCES users(id) ON DELETE SET NULL,
+    created_at          TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_catchup_student ON catchup_lessons(student_id);
+CREATE INDEX IF NOT EXISTS idx_catchup_status  ON catchup_lessons(status);
+CREATE INDEX IF NOT EXISTS idx_catchup_date    ON catchup_lessons(missed_date DESC);
+
+-- ── SESSION COVER ──
+-- Track when a cover teacher takes over a session
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS cover_staff_id INT REFERENCES staff(id) ON DELETE SET NULL;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS cover_notes TEXT;
 
 -- ── LESSON REPORTS ──
 CREATE TABLE IF NOT EXISTS lesson_reports (
