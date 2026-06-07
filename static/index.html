@@ -717,7 +717,8 @@ function renderStaffTimesheets(){
     <div class="metric-card"><div class="metric-icon" style="background:var(--success-bg);">${icoCheck(18)}</div><div class="metric-label">Sessions attended</div><div class="metric-value">${totalPresent}</div><div class="metric-sub">This month</div></div>
     <div class="metric-card"><div class="metric-icon" style="background:var(--danger-bg);">${icoX(18)}</div><div class="metric-label">Absences</div><div class="metric-value" style="color:var(--danger-text);">${totalAbsent}</div><div class="metric-sub">This month</div></div>
     <div class="metric-card"><div class="metric-icon" style="background:var(--amber-bg);">${icoClock(18)}</div><div class="metric-label">Late arrivals</div><div class="metric-value" style="color:var(--amber-text);">${totalLate}</div><div class="metric-sub">+ ${totalNoSignOut} no sign-out</div></div>
-    <div class="metric-card"><div class="metric-icon" style="background:var(--accent-bg);">${icoClipboard(18)}</div><div class="metric-label">Total hours</div><div class="metric-value" style="color:var(--accent-text);">${totalHours.toFixed(1)}</div><div class="metric-sub">Logged this month</div></div>
+    <div class="metric-card"><div class="metric-icon" style="background:var(--accent-bg);">${icoClipboard(18)}</div><div class="metric-label">Clock hours</div><div class="metric-value" style="color:var(--text3);">${totalHours.toFixed(1)}</div><div class="metric-sub">Logged this month</div></div>
+    <div class="metric-card" style="border-top:3px solid var(--purple);"><div class="metric-label">Paid hours</div><div class="metric-value" style="color:var(--purple-text);">${summary.reduce((s,r)=>s+(r.total_paid_hours||0),0).toFixed(1)}</div><div class="metric-sub">After break deductions</div></div>
   </div>
 
   <div class="tab-bar">
@@ -737,7 +738,7 @@ function renderStaffTimesheets(){
       <td><span class="badge ${r.absent>0?'badge-danger':'badge-gray'}">${r.absent||0}</span></td>
       <td><span class="badge ${r.late>0?'badge-amber':'badge-gray'}">${r.late||0}</span></td>
       <td><span class="badge ${r.no_sign_out>0?'badge-purple':'badge-gray'}">${r.no_sign_out||0}</span></td>
-      <td><strong style="color:var(--accent-text);">${r.total_hours||'0.0'}h</strong></td>
+      <td><strong style="color:var(--text3);">${r.total_hours||r.total_clock_hours||'0.0'}h</strong></td><td><strong style="color:var(--purple-text);">${r.total_paid_hours!=null?r.total_paid_hours+'h':'—'}</strong></td>
       <td><button class="btn btn-sm" data-action="export-staff-timesheet" data-id="${r.id}">Export</button></td>
     </tr>`).join('')||`<tr><td colspan="9"><div class="empty-state">No records for this month</div></td></tr>`}</tbody>
   </table></div></div>` : ''}
