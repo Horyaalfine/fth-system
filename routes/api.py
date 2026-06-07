@@ -1826,6 +1826,298 @@ def reset_user_password(uid):
     log_action('edit', 'users', uid)
     return jsonify({'ok': True, 'name': r['name']})
 
+
+# ════════════════════════════════════════════
+#  MANAGEMENT REPORTS
+# ════════════════════════════════════════════
+def academic_year_bounds(year_start=None):
+    """Return start and end dates for an academic year (Sep-Aug)."""
+    from datetime import date
+    today = date.today()
+    if not year_start:
+        year_start = today.year if today.month >= 9 else today.year - 1
+    return f"{year_start}-09-01", f"{year_start+1}-08-31"
+
+@api_bp.route('/api/reports/management/summary', methods=['GET'])
+@require_roles('super_admin','branch_manager','head_of_centre')
+def mgmt_summary():
+    b = branch_scope()
+    year_start = request.args.get('year_start', type=int)
+    yr_from, yr_to = academic_year_bounds(year_start)
+    conn = get_conn(); cur = conn.cursor()
+    bp = (b,) if b else ()
+    bw = "AND s.branch_id=%s" if b else ""
+    bw2 = "WHERE branch_id=%s" if b else ""
+    bw3 = "WHERE s.branch_id=%s" if b else ""
+
+    # Students
+    cur.execute(f"SELECT COUNT(*) as c FROM students WHERE status='active' {bw2.replace('WHERE','AND') if bw2 else ''}", bp)
+    active_students = cur.fetchone()['c']
+    cur.execute(f"SELECT COUNT(*) as c FROM students WHERE created_at::date BETWEEN %s AND %s {bw}", (yr_from, yr_to)+bp)
+    new_enrolments = cur.fetchone()['c']
+
+    # Sessions this year
+    cur.execute(f"SELECT COUNT(*) as c FROM sessions s WHERE s.date BETWEEN %s AND %s {bw}", (yr_from, yr_to)+bp)
+    total_sessions = cur.fetchone()['c']
+
+    # Attendance this year
+    cur.execute(f"""SELECT
+        COUNT(*) FILTER (WHERE a.status='present') as present,
+        COUNT(*) FILTER (WHERE a.status='absent') as absent,
+        COUNT(*) as total
+        FROM attendance a JOIN sessions s ON s.id=a.session_id
+        WHERE s.date BETWEEN %s AND %s {bw}""", (yr_from, yr_to)+bp)
+    att = cur.fetchone()
+    att_rate = round(att['present']/att['total']*100) if att['total'] else 0
+
+    # Staff hours this year
+    cur.execute(f"""SELECT
+        COUNT(DISTINCT sa.staff_id) as staff_count,
+        ROUND(SUM(EXTRACT(EPOCH FROM (sa.sign_out - sa.sign_in))/3600)::numeric, 1) as total_hours
+        FROM staff_attendance sa
+        WHERE sa.date BETWEEN %s AND %s
+        AND sa.sign_in IS NOT NULL AND sa.sign_out IS NOT NULL
+        AND sa.status='present' {bw.replace('s.branch_id','sa.branch_id')}""", (yr_from, yr_to)+bp)
+    staff_hrs = cur.fetchone()
+
+    # Fees
+    cur.execute(f"SELECT COALESCE(SUM(amount),0) as t FROM invoices WHERE status!='paid' {bw2.replace('branch_id','branch_id')}", bp)
+    outstanding = float(cur.fetchone()['t'])
+    cur.execute(f"SELECT COALESCE(SUM(amount),0) as t FROM payments WHERE payment_date BETWEEN %s AND %s {bw.replace('s.branch_id','branch_id')}", (yr_from, yr_to)+bp)
+    collected = float(cur.fetchone()['t'])
+
+    # Catch-ups
+    cur.execute(f"SELECT status, COUNT(*) as c FROM catchup_lessons WHERE 1=1 {bw.replace('s.branch_id','branch_id')} GROUP BY status", bp)
+    catchups = {r['status']:r['c'] for r in cur.fetchall()}
+
+    # Tests
+    cur.execute(f"""SELECT
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE passed=true) as passed,
+        COUNT(*) FILTER (WHERE passed=false) as failed
+        FROM test_records WHERE 1=1 {bw.replace('s.branch_id','branch_id')}""", bp)
+    tests = cur.fetchone()
+
+    cur.close(); conn.close()
+    return jsonify({
+        'academic_year': f"{year_start or (date.today().year if date.today().month>=9 else date.today().year-1)}/{(year_start or (date.today().year if date.today().month>=9 else date.today().year-1))+1}",
+        'yr_from': yr_from, 'yr_to': yr_to,
+        'active_students': active_students,
+        'new_enrolments': new_enrolments,
+        'total_sessions': total_sessions,
+        'att_rate': att_rate,
+        'att_present': att['present'],
+        'att_absent': att['absent'],
+        'att_total': att['total'],
+        'staff_count': staff_hrs['staff_count'] or 0,
+        'total_staff_hours': float(staff_hrs['total_hours'] or 0),
+        'fees_outstanding': outstanding,
+        'fees_collected': collected,
+        'catchups_owed': catchups.get('owed',0),
+        'catchups_scheduled': catchups.get('scheduled',0),
+        'catchups_completed': catchups.get('completed',0),
+        'tests_total': tests['total'],
+        'tests_passed': tests['passed'],
+        'tests_failed': tests['failed'],
+    })
+
+@api_bp.route('/api/reports/management/daily', methods=['GET'])
+@require_roles('super_admin','branch_manager','head_of_centre')
+def mgmt_daily():
+    b = branch_scope()
+    report_date = request.args.get('date', str(date.today()))
+    conn = get_conn(); cur = conn.cursor()
+    bp = (b,) if b else ()
+    bw = "AND s.branch_id=%s" if b else ""
+
+    # Sessions
+    cur.execute(f"""SELECT s.*, b.name as branch_name, st.name as staff_name,
+        cv.name as cover_name,
+        COUNT(a.id) FILTER (WHERE a.status='present') as present,
+        COUNT(a.id) FILTER (WHERE a.status='absent') as absent,
+        COUNT(a.id) as total_marked
+        FROM sessions s
+        JOIN branches b ON b.id=s.branch_id
+        LEFT JOIN staff st ON st.id=s.staff_id
+        LEFT JOIN staff cv ON cv.id=s.cover_staff_id
+        LEFT JOIN attendance a ON a.session_id=s.id
+        WHERE s.date=%s {bw}
+        GROUP BY s.id, b.name, st.name, cv.name
+        ORDER BY s.slot""", (report_date,)+bp)
+    sessions = rows(cur)
+
+    # Staff attendance
+    cur.execute(f"""SELECT sa.*, st.name as staff_name, st.role,
+        ROUND(EXTRACT(EPOCH FROM (sa.sign_out - sa.sign_in))/3600::numeric, 2) as hours
+        FROM staff_attendance sa
+        JOIN staff st ON st.id=sa.staff_id
+        WHERE sa.date=%s {bw.replace('s.branch_id','sa.branch_id')}
+        ORDER BY sa.sign_in""", (report_date,)+bp)
+    staff_att = rows(cur)
+    for r in staff_att:
+        if r.get('sign_in'): r['sign_in'] = str(r['sign_in'])
+        if r.get('sign_out'): r['sign_out'] = str(r['sign_out'])
+        if r.get('hours'): r['hours'] = float(r['hours'])
+
+    # Lesson reports
+    cur.execute(f"""SELECT lr.student_id, lr.supervisor_checked,
+        s.name as student_name, sess.slot
+        FROM lesson_reports lr
+        JOIN students s ON s.id=lr.student_id
+        JOIN sessions sess ON sess.id=lr.session_id
+        WHERE lr.date=%s {bw.replace('s.branch_id','lr.branch_id')}""", (report_date,)+bp)
+    lesson_reports = rows(cur)
+
+    # Catch-ups scheduled for this date
+    cur.execute(f"""SELECT c.*, s.name as student_name, s.admission_id
+        FROM catchup_lessons c JOIN students s ON s.id=c.student_id
+        WHERE c.scheduled_date=%s {bw.replace('s.branch_id','c.branch_id')}""", (report_date,)+bp)
+    catchups = rows(cur)
+    for r in catchups:
+        if r.get('missed_date'): r['missed_date'] = str(r['missed_date'])
+        if r.get('scheduled_date'): r['scheduled_date'] = str(r['scheduled_date'])
+
+    cur.close(); conn.close()
+    return jsonify({
+        'date': report_date,
+        'sessions': sessions,
+        'staff_attendance': staff_att,
+        'lesson_reports': lesson_reports,
+        'catchups': catchups,
+    })
+
+@api_bp.route('/api/reports/management/monthly', methods=['GET'])
+@require_roles('super_admin','branch_manager','head_of_centre')
+def mgmt_monthly():
+    b = branch_scope()
+    month = request.args.get('month', date.today().strftime('%Y-%m'))
+    conn = get_conn(); cur = conn.cursor()
+    bp = (b,) if b else ()
+    bw = "AND s.branch_id=%s" if b else ""
+
+    # Weekly breakdown
+    cur.execute(f"""SELECT
+        DATE_TRUNC('week', s.date)::date as week_start,
+        COUNT(DISTINCT s.id) as sessions,
+        COUNT(a.id) FILTER (WHERE a.status='present') as present,
+        COUNT(a.id) FILTER (WHERE a.status='absent') as absent
+        FROM sessions s
+        LEFT JOIN attendance a ON a.session_id=s.id
+        WHERE TO_CHAR(s.date,'YYYY-MM')=%s {bw}
+        GROUP BY DATE_TRUNC('week', s.date) ORDER BY week_start""", (month,)+bp)
+    weekly = rows(cur)
+    for r in weekly:
+        if r.get('week_start'): r['week_start'] = str(r['week_start'])
+
+    # Staff hours
+    cur.execute(f"""SELECT st.name, st.role,
+        COUNT(sa.id) as sessions_worked,
+        ROUND(SUM(EXTRACT(EPOCH FROM (sa.sign_out-sa.sign_in))/3600)::numeric,1) as hours
+        FROM staff_attendance sa JOIN staff st ON st.id=sa.staff_id
+        WHERE TO_CHAR(sa.date,'YYYY-MM')=%s
+        AND sa.sign_in IS NOT NULL AND sa.sign_out IS NOT NULL
+        AND sa.status='present' {bw.replace('s.branch_id','sa.branch_id')}
+        GROUP BY st.name, st.role ORDER BY hours DESC NULLS LAST""", (month,)+bp)
+    staff_hours = rows(cur)
+    for r in staff_hours:
+        if r.get('hours'): r['hours'] = float(r['hours'])
+
+    # New enrolments
+    cur.execute(f"""SELECT COUNT(*) as c FROM students
+        WHERE TO_CHAR(created_at,'YYYY-MM')=%s
+        {bw.replace('s.branch_id','branch_id').replace('AND ','AND ')}""", (month,)+bp)
+    new_students = cur.fetchone()['c']
+
+    # Fees
+    cur.execute(f"""SELECT
+        COALESCE(SUM(amount) FILTER (WHERE status='paid'),0) as collected,
+        COALESCE(SUM(amount) FILTER (WHERE status!='paid'),0) as outstanding
+        FROM invoices WHERE month=%s {bw.replace('s.branch_id','branch_id')}""", (month,)+bp)
+    fees = cur.fetchone()
+
+    # Tests
+    cur.execute(f"""SELECT
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE passed=true) as passed,
+        subject
+        FROM test_records
+        WHERE TO_CHAR(test_date,'YYYY-MM')=%s {bw.replace('s.branch_id','branch_id')}
+        GROUP BY subject ORDER BY subject""", (month,)+bp)
+    tests = rows(cur)
+
+    # Catch-ups
+    cur.execute(f"""SELECT status, COUNT(*) as c FROM catchup_lessons
+        WHERE TO_CHAR(created_at,'YYYY-MM')=%s {bw.replace('s.branch_id','branch_id')}
+        GROUP BY status""", (month,)+bp)
+    catchups = {r['status']:r['c'] for r in cur.fetchall()}
+
+    cur.close(); conn.close()
+    return jsonify({
+        'month': month,
+        'weekly_breakdown': weekly,
+        'staff_hours': staff_hours,
+        'new_enrolments': new_students,
+        'fees_collected': float(fees['collected'] or 0),
+        'fees_outstanding': float(fees['outstanding'] or 0),
+        'tests_by_subject': tests,
+        'catchups': catchups,
+    })
+
+@api_bp.route('/api/reports/management/yearly', methods=['GET'])
+@require_roles('super_admin','branch_manager','head_of_centre')
+def mgmt_yearly():
+    b = branch_scope()
+    year_start = request.args.get('year_start', type=int)
+    yr_from, yr_to = academic_year_bounds(year_start)
+    conn = get_conn(); cur = conn.cursor()
+    bp = (b,) if b else ()
+    bw = "AND s.branch_id=%s" if b else ""
+
+    # Monthly trend
+    cur.execute(f"""SELECT TO_CHAR(s.date,'YYYY-MM') as month,
+        COUNT(DISTINCT s.id) as sessions,
+        COUNT(a.id) FILTER (WHERE a.status='present') as present,
+        COUNT(a.id) FILTER (WHERE a.status='absent') as absent,
+        COUNT(a.id) as total
+        FROM sessions s LEFT JOIN attendance a ON a.session_id=s.id
+        WHERE s.date BETWEEN %s AND %s {bw}
+        GROUP BY TO_CHAR(s.date,'YYYY-MM') ORDER BY month""", (yr_from, yr_to)+bp)
+    monthly_trend = rows(cur)
+
+    # Staff hours per teacher for year
+    cur.execute(f"""SELECT st.name, st.role,
+        COUNT(sa.id) as sessions_worked,
+        ROUND(SUM(EXTRACT(EPOCH FROM (sa.sign_out-sa.sign_in))/3600)::numeric,1) as total_hours
+        FROM staff_attendance sa JOIN staff st ON st.id=sa.staff_id
+        WHERE sa.date BETWEEN %s AND %s
+        AND sa.sign_in IS NOT NULL AND sa.sign_out IS NOT NULL
+        {bw.replace('s.branch_id','sa.branch_id').replace('AND ','AND ')}
+        GROUP BY st.name, st.role ORDER BY total_hours DESC NULLS LAST""", (yr_from, yr_to)+bp)
+    staff_yearly = rows(cur)
+    for r in staff_yearly:
+        if r.get('total_hours'): r['total_hours'] = float(r['total_hours'])
+
+    # Monthly fees
+    cur.execute(f"""SELECT month,
+        COALESCE(SUM(amount) FILTER (WHERE status='paid'),0) as collected,
+        COALESCE(SUM(amount) FILTER (WHERE status!='paid'),0) as outstanding
+        FROM invoices WHERE issued BETWEEN %s AND %s
+        {bw.replace('s.branch_id','branch_id').replace('AND ','AND ')}
+        GROUP BY month ORDER BY month""", (yr_from, yr_to)+bp)
+    monthly_fees = rows(cur)
+    for r in monthly_fees:
+        r['collected'] = float(r['collected'])
+        r['outstanding'] = float(r['outstanding'])
+
+    cur.close(); conn.close()
+    return jsonify({
+        'academic_year': f"{year_start or (date.today().year if date.today().month>=9 else date.today().year-1)}/{(year_start or (date.today().year if date.today().month>=9 else date.today().year-1))+1}",
+        'yr_from': yr_from, 'yr_to': yr_to,
+        'monthly_trend': monthly_trend,
+        'staff_yearly': staff_yearly,
+        'monthly_fees': monthly_fees,
+    })
+
 # ════════════════════════════════════════════
 #  AUDIT LOG
 # ════════════════════════════════════════════
