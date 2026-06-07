@@ -1824,7 +1824,7 @@ return mWrap(s.id?'Edit staff member':'Add staff member',`
 <div class="field"><label>Status</label><select id="f-status"><option value="active" ${!s.status||s.status==='active'?'selected':''}>Active</option><option value="inactive" ${s.status==='inactive'?'selected':''}>Inactive</option></select></div>
 </div>`,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${s.id?'Save changes':'Add staff'}</button>`);}
 
-function modalSession(){const s=state.editTarget||{};const branches=state.data.branches||[];const defBranch=state.currentBranch||branches[0]?.id||'';const staffList=(state.data.staff||[]).filter(st=>st.role==='teacher');const slots=['Slot 1 (09:00-11:00)','Slot 2 (11:30-13:30)','Slot 3 (14:00-16:00)','Slot 4 (16:30-18:30)','Weekday Slot 1 (17:00-19:00)','Weekday Slot 2 (19:00-21:00)'];
+function modalSession(){const s=state.editTarget||{};const branches=state.data.branches||[];const defBranch=state.currentBranch||branches[0]?.id||'';const staffList=(state.data.staff||[]).filter(st=>['teacher','head_of_centre','supervisor','admin','receptionist'].includes(st.role));const slots=['Slot 1 (09:00-11:00)','Slot 2 (11:30-13:30)','Slot 3 (14:00-16:00)','Slot 4 (16:30-18:30)','Weekday Slot 1 (17:00-19:00)','Weekday Slot 2 (19:00-21:00)'];
 return mWrap(s.id?'Edit session':'Add session',`
 <div class="form-grid">
 <div class="field"><label>Date</label><input type="date" id="f-date" value="${s.date||new Date().toISOString().slice(0,10)}"></div>
