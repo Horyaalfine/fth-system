@@ -444,11 +444,19 @@ ${audit.map(l=>`<div style="display:flex;justify-content:space-between;font-size
 </div>
 </div>`;}
 
-function renderStudents(){const students=state.data.students||[];
+function renderStudents(){const allStudents=state.data.students||[];
+const sf=state.studentFilter||'active';
+const students=sf==='all'?allStudents:allStudents.filter(s=>s.status===(sf||'active'));
 return`
 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
 <div><div class="section-title">Students</div><div class="section-sub">${students.length} enrolled${state.currentBranch?' · '+(state.data.branches||[]).find(b=>b.id===state.currentBranch)?.name||'':' across all branches'}</div></div>
 <button class="btn btn-primary" data-action="add-student">+ Enrol student</button>
+</div>
+<div class="tab-bar" style="margin-bottom:12px;">
+<div class="tab ${(state.studentFilter||'active')==='active'?'active':''}" data-action="filter-students" data-filter="active">Active</div>
+<div class="tab ${state.studentFilter==='paused'?'active':''}" data-action="filter-students" data-filter="paused">Paused</div>
+<div class="tab ${state.studentFilter==='inactive'?'active':''}" data-action="filter-students" data-filter="inactive">Inactive</div>
+<div class="tab ${state.studentFilter==='all'?'active':''}" data-action="filter-students" data-filter="all">All</div>
 </div>
 <div class="toolbar">
 <div class="search-wrap"><span class="search-icon">${icoSearch()}</span><input type="text" id="student-search" placeholder="Search by name or admission ID…" value="${state.studentSearch}" style="padding-left:36px;"></div>
@@ -2681,6 +2689,7 @@ if(action==='export-mgmt-yearly'){
   (y.staff_yearly||[]).forEach(s=>rows.push([s.name,s.role,s.sessions_worked,s.total_hours||0]));
   const csv=rows.map(r=>r.join(',')).join('\n');
   const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='fth-yearly-'+(y.academic_year||'')+'.csv';a.click();return;}
+if(action==='filter-students'){state.studentFilter=el.dataset.filter;render();return;}
 if(action==='sr-tab'){state.srTab=el.dataset.tab;render();return;}
 if(action==='lr-tab'){state.lrTab=el.dataset.tab;render();return;}
 if(action==='tr-tab'){state.trTab=el.dataset.tab;render();return;}
