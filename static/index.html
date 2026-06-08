@@ -339,6 +339,7 @@ else if(page==='session_plan'){
     loadData('students','/api/students',b2),
     loadData('staff','/api/staff',b2),
     loadData('branches','/api/branches'),
+    loadData('all_timetables','/api/student-timetable',b2),
   ]);
   if(state.planSessionId){
     await Promise.all([
@@ -1371,6 +1372,7 @@ function renderSessionPlan(){
   html+='<div class="tab-bar" style="margin-bottom:16px;">';
   html+='<div class="tab '+(planTab==='allocate'?'active':'')+'" data-action="plan-tab" data-tab="allocate">Table allocation</div>';
   html+='<div class="tab '+(planTab==='timetable'?'active':'')+'" data-action="plan-tab" data-tab="timetable">Student timetables</div>';
+  html+='<div class="tab '+(planTab==='overview'?'active':'')+'" data-action="plan-tab" data-tab="overview">All students overview</div>';
   html+='</div>';
   if(planTab==='allocate'){
     html+='<div class="card" style="margin-bottom:16px;"><div class="form-grid">';
@@ -1444,6 +1446,69 @@ function renderSessionPlan(){
       });
       html+='</div>';
     }
+  } else if(planTab==='overview'){
+    // ── ALL STUDENTS TIMETABLE OVERVIEW ──
+    html+='<div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">';
+    html+='<div style="font-size:13px;color:var(--text3);">All active students with their scheduled subjects and slots</div>';
+    html+='<button class="btn btn-sm" data-action="export-timetable-csv">⬇ Export CSV</button>';
+    html+='</div>';
+
+    const SLOTS_ALL=[
+      {key:"Weekday Slot 1 (17:00-19:00)",label:"Wed/Weekday 17:00–19:00"},
+      {key:"Weekday Slot 2 (19:00-21:00)",label:"Wed/Weekday 19:00–21:00"},
+      {key:"Saturday Slot 1 (09:00-11:00)",label:"Saturday 09:00–11:00"},
+      {key:"Saturday Slot 2 (11:15-13:15)",label:"Saturday 11:15–13:15"},
+      {key:"Saturday Slot 3 (14:15-16:15)",label:"Saturday 14:15–16:15"},
+      {key:"Saturday Slot 4 (16:30-18:30)",label:"Saturday 16:30–18:30"},
+    ];
+
+    // Load all timetable data
+    const allTT=state.data.all_timetables||[];
+
+    // Build student → slot → subjects map
+    const stuMap={};
+    allTT.forEach(function(e){
+      if(!stuMap[e.student_id]){
+        stuMap[e.student_id]={name:e.student_name,admission_id:e.admission_id,year_group:e.year_group,slots:{}};
+      }
+      if(!stuMap[e.student_id].slots[e.slot]) stuMap[e.student_id].slots[e.slot]=[];
+      stuMap[e.student_id].slots[e.slot].push(e.subject);
+    });
+
+    // Sort students by admission_id
+    const stuList=Object.values(stuMap).sort(function(a,b){return a.admission_id>b.admission_id?1:-1;});
+
+    if(!stuList.length){
+      html+='<div class="empty-state" style="padding:40px;">No timetable entries found. Use the Student timetables tab to assign subjects and slots to each student.</div>';
+    } else {
+      html+='<div class="table-wrap"><table>';
+      html+='<thead><tr><th>ID</th><th>Student</th><th>Year</th>';
+      SLOTS_ALL.forEach(function(s){html+='<th style="font-size:11px;white-space:nowrap;">'+s.label+'</th>';});
+      html+='</tr></thead><tbody>';
+      stuList.forEach(function(s){
+        html+='<tr>';
+        html+='<td><span class="id-code">'+s.admission_id+'</span></td>';
+        html+='<td><strong>'+s.name+'</strong></td>';
+        html+='<td style="font-size:12px;color:var(--text3);">'+(s.year_group||'—')+'</td>';
+        SLOTS_ALL.forEach(function(sl){
+          var subs=s.slots[sl.key]||[];
+          if(subs.length){
+            html+='<td>';
+            subs.forEach(function(sub){
+              var col=sub==='Maths'?'var(--blue-text)':sub==='English'?'var(--teal-text)':sub==='Science'?'var(--purple-text)':'var(--text3)';
+              html+='<span class="badge" style="color:'+col+';margin-right:2px;">'+sub+'</span>';
+            });
+            html+='</td>';
+          } else {
+            html+='<td style="color:var(--border2);">—</td>';
+          }
+        });
+        html+='</tr>';
+      });
+      html+='</tbody></table></div>';
+      html+='<div style="margin-top:8px;font-size:12px;color:var(--text3);">'+stuList.length+' students shown · '+allTT.length+' timetable entries total</div>';
+    }
+  
   }
   return html;
 }
@@ -2691,6 +2756,27 @@ if(action==='export-mgmt-yearly'){
   const csv=rows.map(r=>r.join(',')).join('\n');
   const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='fth-yearly-'+(y.academic_year||'')+'.csv';a.click();return;}
 if(action==='filter-students'){state.studentFilter=el.dataset.filter;render();return;}
+if(action==='export-timetable-csv'){
+  const allTT=state.data.all_timetables||[];
+  const SLOTS=[
+    'Weekday Slot 1 (17:00-19:00)','Weekday Slot 2 (19:00-21:00)',
+    'Saturday Slot 1 (09:00-11:00)','Saturday Slot 2 (11:15-13:15)',
+    'Saturday Slot 3 (14:15-16:15)','Saturday Slot 4 (16:30-18:30)',
+  ];
+  const stuMap={};
+  allTT.forEach(function(e){
+    if(!stuMap[e.student_id]){stuMap[e.student_id]={name:e.student_name,id:e.admission_id,year:e.year_group,slots:{}};}
+    if(!stuMap[e.student_id].slots[e.slot])stuMap[e.student_id].slots[e.slot]=[];
+    stuMap[e.student_id].slots[e.slot].push(e.subject);
+  });
+  const rows=[['Admission ID','Student','Year'].concat(SLOTS)];
+  Object.values(stuMap).sort((a,b)=>a.id>b.id?1:-1).forEach(function(s){
+    rows.push([s.id,s.name,s.year||''].concat(SLOTS.map(function(sl){return (s.slots[sl]||[]).join('+')||'';})));
+  });
+  const csv=rows.map(r=>r.map(c=>c.includes?c.includes(',')&&c.length?'"'+c+'"':c:c).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='fth-student-timetables.csv';a.click();return;}
 if(action==='plan-tab'){state.planTab=el.dataset.tab;render();return;}
 if(action==='add-table-alloc'){
   const sessId=parseInt(el.dataset.session);
