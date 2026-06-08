@@ -694,7 +694,7 @@ function renderStaffTimesheets(){
   const totalAbsent=summary.reduce((s,r)=>s+(r.absent||0),0);
   const totalLate=summary.reduce((s,r)=>s+(r.late||0),0);
   const totalNoSignOut=summary.reduce((s,r)=>s+(r.no_sign_out||0),0);
-  const totalHours=summary.reduce((s,r)=>s+(parseFloat(r.total_hours)||0),0);
+  const totalHours=summary.reduce((s,r)=>s+(parseFloat(r.total_clock_hours)||parseFloat(r.total_hours)||0),0);const totalPaidHours=summary.reduce((s,r)=>s+(parseFloat(r.total_paid_hours)||0),0);
 
   function statusBadge(s){
     if(s==='present')  return`<span class="badge badge-success">Present</span>`;
@@ -717,8 +717,8 @@ function renderStaffTimesheets(){
     <div class="metric-card"><div class="metric-icon" style="background:var(--success-bg);">${icoCheck(18)}</div><div class="metric-label">Sessions attended</div><div class="metric-value">${totalPresent}</div><div class="metric-sub">This month</div></div>
     <div class="metric-card"><div class="metric-icon" style="background:var(--danger-bg);">${icoX(18)}</div><div class="metric-label">Absences</div><div class="metric-value" style="color:var(--danger-text);">${totalAbsent}</div><div class="metric-sub">This month</div></div>
     <div class="metric-card"><div class="metric-icon" style="background:var(--amber-bg);">${icoClock(18)}</div><div class="metric-label">Late arrivals</div><div class="metric-value" style="color:var(--amber-text);">${totalLate}</div><div class="metric-sub">+ ${totalNoSignOut} no sign-out</div></div>
-    <div class="metric-card"><div class="metric-icon" style="background:var(--accent-bg);">${icoClipboard(18)}</div><div class="metric-label">Clock hours</div><div class="metric-value" style="color:var(--text3);">${totalHours.toFixed(1)}</div><div class="metric-sub">Logged this month</div></div>
-    <div class="metric-card" style="border-top:3px solid var(--purple);"><div class="metric-label">Paid hours</div><div class="metric-value" style="color:var(--purple-text);">${summary.reduce((s,r)=>s+(r.total_paid_hours||0),0).toFixed(1)}</div><div class="metric-sub">After break deductions</div></div>
+    <div class="metric-card"><div class="metric-icon" style="background:var(--accent-bg);">${icoClipboard(18)}</div><div class="metric-label">Clock hours</div><div class="metric-value" style="color:var(--text3);">${totalHours.toFixed(1)}</div><div class="metric-sub">Total time logged</div><div class="metric-sub">Logged this month</div></div>
+    <div class="metric-card" style="border-top:3px solid var(--purple);"><div class="metric-label">Paid hours</div><div class="metric-value" style="color:var(--purple-text);">${totalPaidHours.toFixed(1)}</div><div class="metric-sub">After break deductions</div></div>
   </div>
 
   <div class="tab-bar">
@@ -729,7 +729,7 @@ function renderStaffTimesheets(){
 
   ${tab==='summary'?`
   <div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>
-    <thead><tr><th>Staff member</th><th>Branch</th><th>Role</th><th>Present</th><th>Absent</th><th>Late</th><th>No sign-out</th><th>Total hours</th><th>Actions</th></tr></thead>
+    <thead><tr><th>Staff member</th><th>Branch</th><th>Role</th><th>Present</th><th>Absent</th><th>Late</th><th>No sign-out</th><th>Clock hrs</th><th>Paid hrs</th><th>Actions</th></tr></thead>
     <tbody>${summary.map(r=>`<tr>
       <td><div style="display:flex;align-items:center;gap:10px;"><div class="avatar av-teal" style="width:30px;height:30px;font-size:11px;">${avatarInitials(r.name)}</div><strong>${r.name}</strong></div></td>
       <td><span class="badge badge-accent">${r.branch_name}</span></td>
