@@ -1439,78 +1439,98 @@ def get_session_report(date_str):
     """, (date_str,)+bp)
     sessions = rows(cur)
 
-    # Get attendance + table allocations for each session
     report_slots = {}
     for sess in sessions:
         slot = sess['slot']
         if slot not in report_slots:
-            report_slots[slot] = {'slot': slot, 'tables': [], 'session_ids': []}
+            report_slots[slot] = {
+                'slot': slot, 'tables': [],
+                'session_ids': [], 'branch_name': sess['branch_name']
+            }
         report_slots[slot]['session_ids'].append(sess['id'])
 
-        # Get table allocations for this session
-        cur.execute("""
-            SELECT ta.*, st.name as teacher_name,
-                   tas.student_id, s.name as student_name, s.admission_id,
-                   s.year_group, tas.is_catchup,
-                   a.status as att_status, a.notes as att_notes
-            FROM table_allocations ta
-            LEFT JOIN staff st ON st.id=ta.teacher_id
-            LEFT JOIN table_allocation_students tas ON tas.allocation_id=ta.id
-            LEFT JOIN students s ON s.id=tas.student_id
-            LEFT JOIN attendance a ON a.session_id=ta.session_id AND a.student_id=tas.student_id
-            WHERE ta.session_id=%s ORDER BY ta.table_no, s.admission_id
-        """, (sess['id'],))
-        alloc_rows = cur.fetchall()
+        # Check if table allocations exist for this session
+        cur.execute("SELECT COUNT(*) as c FROM table_allocations WHERE session_id=%s", (sess['id'],))
+        has_allocs = cur.fetchone()['c'] > 0
 
-        # Group by table
-        tables = {}
-        for r in alloc_rows:
-            tid = r['id']
-            if tid not in tables:
-                tables[tid] = {
-                    'table_no': r['table_no'],
-                    'teacher_name': r['teacher_name'] or sess['staff_name'] or '—',
-                    'subject': r['subject'] or sess['staff_subject'] or '—',
-                    'max_students': r['max_students'],
-                    'students': []
-                }
-            if r['student_id']:
-                tables[tid]['students'].append({
-                    'student_id': r['student_id'],
-                    'student_name': r['student_name'],
-                    'admission_id': r['admission_id'],
-                    'year_group': r['year_group'],
-                    'is_catchup': r['is_catchup'],
-                    'att_status': r['att_status'],
-                    'att_notes': r['att_notes'],
+        if has_allocs:
+            # ── Use table allocations ──
+            cur.execute("""
+                SELECT ta.*, st.name as teacher_name,
+                       tas.student_id, s.name as student_name, s.admission_id,
+                       s.year_group, tas.is_catchup,
+                       a.status as att_status, a.notes as att_notes
+                FROM table_allocations ta
+                LEFT JOIN staff st ON st.id=ta.teacher_id
+                LEFT JOIN table_allocation_students tas ON tas.allocation_id=ta.id
+                LEFT JOIN students s ON s.id=tas.student_id
+                LEFT JOIN attendance a ON a.session_id=ta.session_id
+                    AND a.student_id=tas.student_id
+                WHERE ta.session_id=%s ORDER BY ta.table_no, s.admission_id
+            """, (sess['id'],))
+            alloc_rows = cur.fetchall()
+            tables = {}
+            for r in alloc_rows:
+                tid = r['id']
+                if tid not in tables:
+                    tables[tid] = {
+                        'table_no': r['table_no'],
+                        'teacher_name': r['teacher_name'] or sess['staff_name'] or '—',
+                        'subject': r['subject'] or sess['staff_subject'] or '—',
+                        'max_students': r['max_students'],
+                        'students': []
+                    }
+                if r['student_id']:
+                    tables[tid]['students'].append({
+                        'student_id': r['student_id'],
+                        'student_name': r['student_name'],
+                        'admission_id': r['admission_id'],
+                        'year_group': r['year_group'],
+                        'is_catchup': r['is_catchup'],
+                        'att_status': r['att_status'],
+                        'att_notes': r['att_notes'],
+                    })
+            report_slots[slot]['tables'].extend(list(tables.values()))
+        else:
+            # ── Fallback: use direct attendance records ──
+            cur.execute("""
+                SELECT a.student_id, a.status as att_status, a.notes as att_notes,
+                       s.name as student_name, s.admission_id, s.year_group
+                FROM attendance a
+                JOIN students s ON s.id=a.student_id
+                WHERE a.session_id=%s ORDER BY s.admission_id
+            """, (sess['id'],))
+            att_rows = rows(cur)
+            if att_rows:
+                # Group all attendance under one virtual table per session
+                report_slots[slot]['tables'].append({
+                    'table_no': sess.get('table_no') or '—',
+                    'teacher_name': sess['staff_name'] or '—',
+                    'subject': sess['staff_subject'] or '—',
+                    'max_students': 6,
+                    'students': [{
+                        'student_id': r['student_id'],
+                        'student_name': r['student_name'],
+                        'admission_id': r['admission_id'],
+                        'year_group': r['year_group'],
+                        'is_catchup': False,
+                        'att_status': r['att_status'],
+                        'att_notes': r['att_notes'],
+                    } for r in att_rows]
                 })
-
-        # Also get attendance-only students (marked but not in table allocation)
-        cur.execute("""
-            SELECT a.*, s.name as student_name, s.admission_id
-            FROM attendance a JOIN students s ON s.id=a.student_id
-            WHERE a.session_id=%s
-        """, (sess['id'],))
-        att_only = rows(cur)
-
-        report_slots[slot]['tables'].extend(list(tables.values()))
-        report_slots[slot]['att_only'] = att_only
-        report_slots[slot]['branch_name'] = sess['branch_name']
 
     cur.close(); conn.close()
 
-    # Build sorted slot list
+    # Build sorted slot list with summary stats
     result = sorted(report_slots.values(), key=lambda x: x['slot'])
-
-    # Summary stats per slot
     for slot in result:
         all_students = []
         for t in slot['tables']:
             all_students.extend(t['students'])
         unique_ids = set(s['student_id'] for s in all_students if s.get('student_id'))
         slot['total_students'] = len(unique_ids)
-        slot['present'] = sum(1 for s in all_students if s.get('att_status')=='present')
-        slot['absent'] = sum(1 for s in all_students if s.get('att_status')=='absent')
+        slot['present'] = sum(1 for s in all_students if s.get('att_status') == 'present')
+        slot['absent'] = sum(1 for s in all_students if s.get('att_status') == 'absent')
         slot['tables_used'] = len(slot['tables'])
 
     return jsonify({
@@ -1520,9 +1540,7 @@ def get_session_report(date_str):
         'max_per_table': 5,
     })
 
-# ════════════════════════════════════════════
-#  SESSION STUDENTS (pre-assignment)
-# ════════════════════════════════════════════
+
 @api_bp.route('/api/session-students/<int:session_id>', methods=['GET'])
 @require_auth
 def get_session_students(session_id):
