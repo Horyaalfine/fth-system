@@ -3,7 +3,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "gunicorn app:app --workers 2 --bind 0.0.0.0:$PORT --timeout 60",
+    "startCommand": "python models/db.py && gunicorn app:app --workers 2 --bind 0.0.0.0:$PORT --timeout 120 --preload",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3
   }
