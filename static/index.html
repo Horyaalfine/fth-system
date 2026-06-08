@@ -570,964 +570,209 @@ return`
 
 function renderSessionReports(){
   const sessions=state.data.sessions||[];
-  const selId=state.sessionReportId;
-  const sel=sessions.find(s=>s.id===selId);
-  const attRecs=selId?(state.data['sr_att_'+selId]||[]):[];
-  const progRecs=selId?(state.data['sr_prog_'+selId]||[]):[];
   const srTab=state.srTab||'daily';
-  const dates=[...new Set(sessions.map(s=>s.date))].sort().reverse();
+  const selId=state.sessionReportId;
+  const sel=sessions.find(function(s){return s.id===selId;});
+  const dates=[...new Set(sessions.map(function(s){return s.date;}).filter(Boolean))].sort().reverse();
   const selDate=state.srDate||dates[0]||'';
-  const dateSessions=sessions.filter(s=>s.date===selDate);
+  const report=state.data['session_report_'+selDate]||{slots:[]};
 
-  // Build daily report HTML using string concatenation (no nested template literals)
-  function buildDailyReport(){
-    if(!selDate||!dateSessions.length) return '<div class="empty-state" style="padding:40px;">No sessions found for this date</div>';
-    const allStudents=state.data.students||[];
-
-    // Group sessions by slot
-    const slotMap={};
-    const slotOrder=[];
-    dateSessions.forEach(function(sess){
-      if(!slotMap[sess.slot]){slotMap[sess.slot]=[];slotOrder.push(sess.slot);}
-      slotMap[sess.slot].push(sess);
-    });
-
-    let html='<div style="margin-bottom:8px;font-size:13px;color:var(--text3);">'+slotOrder.length+' slot'+(slotOrder.length!==1?'s':'')+' · '+dateSessions.length+' class'+(dateSessions.length!==1?'es':'')+' on this date</div>';
-
-    slotOrder.forEach(function(slot){
-      const slotSessions=slotMap[slot];
-
-      // Collect ALL attendance records across all sessions in this slot
-      const allAtt=[];
-      const attById={};
-      slotSessions.forEach(function(sess){
-        const att=state.data['sr_att_'+sess.id]||[];
-        att.forEach(function(a){
-          allAtt.push(a);
-          attById[a.student_id]=a;
-        });
-      });
-
-      // Collect all teachers in this slot
-      const teachers=slotSessions.map(function(s){return (s.staff_name||'?')+' ('+( s.subject||'—')+')'}).join(' · ');
-
-      // Get all students for the branch(es) in this slot
-      const branchIds=[...new Set(slotSessions.map(function(s){return s.branch_id;}))];
-      const branchStudents=allStudents.filter(function(s){return branchIds.includes(s.branch_id)&&s.status==='active';});
-
-      // Only show students who have been marked present or absent
-      const present=allAtt.filter(function(a){return a.status==='present';}).length;
-      const absent=allAtt.filter(function(a){return a.status==='absent';}).length;
-
-      let rows='';
-      allAtt.sort(function(a,b){return a.admission_id>b.admission_id?1:-1;});
-      allAtt.forEach(function(a){
-        rows+='<tr>';
-        rows+='<td><strong>'+a.student_name+'</strong></td>';
-        rows+='<td><span class="id-code">'+a.admission_id+'</span></td>';
-        rows+='<td>'+(a.status==='present'?'<span class="badge badge-success">Present</span>':'<span class="badge badge-danger">Absent</span>')+'</td>';
-        rows+='<td style="font-size:12px;color:var(--text3);">'+(a.notes||'—')+'</td>';
-        rows+='</tr>';
-      });
-      if(!rows) rows='<tr><td colspan="4"><div class="empty-state" style="padding:10px;">No attendance marked for this slot</div></td></tr>';
-
-      html+='<div class="card" style="margin-bottom:16px;border-left:3px solid var(--accent);">';
-      html+='<div class="card-header" style="margin-bottom:12px;">';
-      html+='<div>';
-      html+='<div style="font-weight:700;font-size:16px;">'+slot+'</div>';
-      html+='<div style="font-size:12px;color:var(--text3);margin-top:3px;">'+teachers+'</div>';
-      html+='</div>';
-      html+='<div style="display:flex;gap:6px;align-items:center;">';
-      html+='<span class="badge badge-success">'+present+' present</span>';
-      html+='<span class="badge badge-danger">'+absent+' absent</span>';
-      html+='<span class="badge badge-gray">'+(present+absent)+' total marked</span>';
-      html+='</div>';
-      html+='</div>';
-      html+='<div class="table-wrap"><table style="width:100%;">';
-      html+='<thead><tr><th>Student</th><th>ID</th><th>Attendance</th><th>Notes</th></tr></thead>';
-      html+='<tbody>'+rows+'</tbody></table></div>';
-      html+='</div>';
-    });
-    return html;
+  function attBadge(status){
+    if(status==='present') return '<span style="display:inline-block;width:16px;height:16px;background:var(--success);border-radius:50%;vertical-align:middle;"></span>';
+    if(status==='absent')  return '<span style="display:inline-block;width:16px;height:16px;background:var(--danger);border-radius:50%;vertical-align:middle;"></span>';
+    return '<span style="display:inline-block;width:16px;height:16px;background:var(--border2);border-radius:50%;vertical-align:middle;"></span>';
   }
 
-  // Build session options
-  let sessOpts='<option value="">— choose session —</option>';
-  sessions.forEach(function(s){
-    sessOpts+='<option value="'+s.id+'" '+(s.id===selId?'selected':'')+'>'+new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})+' · '+s.slot+' · '+s.branch_name+' · '+(s.staff_name||'?')+'</option>';
-  });
+  function exportDailyReport(){
+    const rows=[['FT Harlesden — Session Report | '+selDate],[]];
+    (report.slots||[]).forEach(function(slot){
+      rows.push(['SLOT: '+slot.slot]);
+      rows.push(['Table','Teacher','Subject','#','Student ID','Student Name','Attendance','Notes']);
+      (slot.tables||[]).forEach(function(t){
+        (t.students||[]).forEach(function(s,i){
+          rows.push([
+            i===0?'Table '+t.table_no:'',
+            i===0?(t.teacher_name||'—'):'',
+            i===0?(t.subject||'—'):'',
+            i+1,
+            s.admission_id||'—',
+            s.student_name||'—',
+            s.att_status||'—',
+            s.att_notes||''
+          ]);
+        });
+        rows.push(['','','','Total:',t.students?t.students.length:0]);
+        rows.push([]);
+      });
+      rows.push(['SLOT TOTAL: '+slot.slot,'','','',slot.total_students||0]);
+      rows.push([]);
+    });
+    const csv=rows.map(function(r){return r.map(function(c){return typeof c==='string'&&c.includes(',')?'"'+c+'"':c;}).join(',');}).join('\n');
+    const a=document.createElement('a');
+    a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+    a.download='fth-session-report-'+selDate+'.csv';
+    a.click();
+  }
+  window._exportDailyReport=exportDailyReport;
 
-  // Build date options
-  let dateOpts='<option value="">— choose date —</option>';
-  dates.forEach(function(d){
-    dateOpts+='<option value="'+d+'" '+(d===selDate?'selected':'')+'>'+new Date(d+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+'</option>';
-  });
+  var html='';
+  html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">';
+  html+='<div><div class="section-title" style="margin-bottom:2px;">Session reports</div>';
+  html+='<div class="section-sub">Attendance register by slot, table and teacher</div></div>';
+  html+='</div>';
 
-  let html='<div class="section-title" style="margin-bottom:4px;">Session reports</div>';
-  html+='<div class="section-sub">Attendance register and teacher progress notes</div>';
   html+='<div class="tab-bar" style="margin-bottom:16px;">';
   html+='<div class="tab '+(srTab==='daily'?'active':'')+'" data-action="sr-tab" data-tab="daily">Daily report (all slots)</div>';
   html+='<div class="tab '+(srTab==='single'?'active':'')+'" data-action="sr-tab" data-tab="single">Single session</div>';
   html+='</div>';
 
+  // ── DAILY REPORT ──
   if(srTab==='daily'){
-    html+='<div class="card" style="margin-bottom:16px;"><div class="field"><label>Select date</label><select id="sr-date-select">'+dateOpts+'</select></div></div>';
-    html+=buildDailyReport();
-  } else {
-    html+='<div class="card" style="margin-bottom:16px;"><div class="field"><label>Select session</label><select id="sr-select">'+sessOpts+'</select></div></div>';
+    // Date selector + export
+    html+='<div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:16px;">';
+    html+='<div class="field" style="margin:0;"><label>Select date</label>';
+    html+='<select id="sr-date-select" style="border:1px solid var(--border2);border-radius:var(--radius);padding:7px 10px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;">';
+    html+='<option value="">— choose date —</option>';
+    dates.forEach(function(d){
+      html+='<option value="'+d+'" '+(d===selDate?'selected':'')+'>'+new Date(d+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+'</option>';
+    });
+    html+='</select></div>';
+    html+='<button class="btn btn-sm" onclick="window._exportDailyReport()">⬇ Export CSV</button>';
+    html+='</div>';
+
+    if(!selDate){
+      html+='<div class="empty-state" style="padding:40px;">Select a date to view the session report</div>';
+    } else if(!report.slots||!report.slots.length){
+      html+='<div class="empty-state" style="padding:40px;">No sessions found for '+selDate+'. Make sure table allocations have been set up in the Session planner.</div>';
+    } else {
+      // Grand total bar
+      var grandTotal=report.slots.reduce(function(t,s){return t+(s.total_students||0);},0);
+      var grandPresent=report.slots.reduce(function(t,s){return t+(s.present||0);},0);
+      var grandAbsent=report.slots.reduce(function(t,s){return t+(s.absent||0);},0);
+      html+='<div style="display:flex;gap:10px;margin-bottom:16px;">';
+      html+='<div class="metric-card" style="flex:1;border-top:3px solid var(--accent);"><div class="metric-label">Slots</div><div class="metric-value">'+report.slots.length+'</div></div>';
+      html+='<div class="metric-card" style="flex:1;border-top:3px solid var(--success);"><div class="metric-label">Present</div><div class="metric-value" style="color:var(--success-text);">'+grandPresent+'</div></div>';
+      html+='<div class="metric-card" style="flex:1;border-top:3px solid var(--danger);"><div class="metric-label">Absent</div><div class="metric-value" style="color:var(--danger-text);">'+grandAbsent+'</div></div>';
+      html+='<div class="metric-card" style="flex:1;border-top:3px solid var(--purple);"><div class="metric-label">Total marked</div><div class="metric-value">'+grandTotal+'</div></div>';
+      html+='</div>';
+
+      // Each slot
+      report.slots.forEach(function(slot){
+        html+='<div class="card" style="margin-bottom:20px;">';
+        // Slot header
+        html+='<div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:12px;margin-bottom:14px;border-bottom:2px solid var(--border);">';
+        html+='<div>';
+        html+='<div style="font-weight:800;font-size:16px;color:var(--accent-text);">⏰ '+slot.slot+'</div>';
+        html+='<div style="font-size:12px;color:var(--text3);margin-top:2px;">'+slot.tables_used+' tables · '+slot.total_students+' students</div>';
+        html+='</div>';
+        html+='<div style="display:flex;gap:6px;">';
+        html+='<span class="badge badge-success">'+slot.present+' present</span>';
+        html+='<span class="badge badge-danger">'+slot.absent+' absent</span>';
+        html+='</div></div>';
+
+        if(!slot.tables||!slot.tables.length){
+          html+='<div style="color:var(--text3);font-size:13px;padding:10px 0;">No table allocations for this slot</div>';
+        } else {
+          // Table layout - match paper register style
+          html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">';
+          slot.tables.forEach(function(ta){
+            var stus=ta.students||[];
+            var present=stus.filter(function(s){return s.att_status==='present';}).length;
+            var absent=stus.filter(function(s){return s.att_status==='absent';}).length;
+            html+='<div style="border:1px solid var(--border2);border-radius:var(--radius);overflow:hidden;">';
+            // Table header
+            html+='<div style="background:var(--navy,#1a2a4a);color:#fff;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;">';
+            html+='<div>';
+            html+='<div style="font-weight:700;font-size:13px;">Table '+ta.table_no+'</div>';
+            html+='<div style="font-size:11px;opacity:0.8;">'+(ta.teacher_name||'—')+'</div>';
+            html+='</div>';
+            html+='<div style="text-align:right;">';
+            html+='<div style="font-size:11px;opacity:0.8;">'+(ta.subject||'—')+'</div>';
+            html+='<div style="font-size:11px;">'+present+'✓ '+absent+'✗</div>';
+            html+='</div></div>';
+            // Students
+            html+='<table style="width:100%;border-collapse:collapse;">';
+            html+='<thead><tr style="background:var(--surface2);">';
+            html+='<th style="padding:5px 8px;font-size:11px;text-align:left;border-bottom:1px solid var(--border2);">Ad.</th>';
+            html+='<th style="padding:5px 8px;font-size:11px;text-align:left;border-bottom:1px solid var(--border2);">Student</th>';
+            html+='<th style="padding:5px 8px;font-size:11px;text-align:center;border-bottom:1px solid var(--border2);">✓/✗</th>';
+            html+='</tr></thead><tbody>';
+            if(stus.length){
+              stus.forEach(function(s){
+                var rowBg=s.att_status==='present'?'rgba(34,197,94,0.07)':s.att_status==='absent'?'rgba(248,113,113,0.07)':'';
+                html+='<tr style="background:'+rowBg+';border-bottom:1px solid var(--border);">';
+                html+='<td style="padding:5px 8px;font-size:11px;font-family:var(--mono);color:var(--text3);">'+s.admission_id+'</td>';
+                html+='<td style="padding:5px 8px;font-size:12px;">'+(s.is_catchup?'<span class="badge badge-amber" style="font-size:9px;margin-right:4px;">CU</span>':'')+s.student_name+'</td>';
+                html+='<td style="padding:5px 8px;text-align:center;">'+attBadge(s.att_status)+'</td>';
+                html+='</tr>';
+              });
+              // Empty rows up to max
+              for(var i=stus.length;i<ta.max_students;i++){
+                html+='<tr style="border-bottom:1px solid var(--border);"><td style="padding:5px 8px;">&nbsp;</td><td style="padding:5px 8px;">&nbsp;</td><td style="padding:5px 8px;">&nbsp;</td></tr>';
+              }
+            } else {
+              html+='<tr><td colspan="3" style="padding:10px 8px;color:var(--text3);font-size:12px;">No students</td></tr>';
+            }
+            html+='</tbody></table>';
+            html+='</div>';
+          });
+          html+='</div>'; // end grid
+        }
+        html+='</div>'; // end slot card
+      });
+
+      // Day summary table (like Excel summary sheet)
+      html+='<div class="card" style="margin-top:4px;">';
+      html+='<div class="card-header"><div class="card-title">Day summary</div></div>';
+      html+='<div class="table-wrap"><table>';
+      html+='<thead><tr><th>Slot</th><th>Teachers</th><th>Tables used</th><th>Tables free</th><th>Students</th><th>Max (8×5)</th><th>Util %</th></tr></thead>';
+      html+='<tbody>';
+      report.slots.forEach(function(slot){
+        var teachers=[...new Set((slot.tables||[]).map(function(t){return t.teacher_name||'—';}))].join(', ');
+        var free=8-slot.tables_used;
+        var util=Math.round((slot.total_students||0)/40*100);
+        html+='<tr>';
+        html+='<td><strong>'+slot.slot+'</strong></td>';
+        html+='<td style="font-size:12px;">'+teachers+'</td>';
+        html+='<td style="text-align:center;">'+slot.tables_used+'</td>';
+        html+='<td style="text-align:center;color:var(--success-text);">'+free+'</td>';
+        html+='<td style="text-align:center;font-weight:600;">'+slot.total_students+'</td>';
+        html+='<td style="text-align:center;color:var(--text3);">40</td>';
+        html+='<td><strong>'+(util>80?'<span style="color:var(--success-text);">':'<span style="color:var(--text3);">')+util+'%</span></strong></td>';
+        html+='</tr>';
+      });
+      html+='<tr style="background:var(--surface2);font-weight:700;">';
+      html+='<td>DAY TOTAL</td><td></td><td style="text-align:center;">'+report.slots.reduce(function(t,s){return t+s.tables_used;},0)+'</td><td></td>';
+      html+='<td style="text-align:center;">'+grandTotal+'</td><td style="text-align:center;color:var(--text3);">'+( report.slots.length*40)+'</td>';
+      html+='<td><strong>'+Math.round(grandTotal/(report.slots.length*40||1)*100)+'%</strong></td>';
+      html+='</tr>';
+      html+='</tbody></table></div></div>';
+    }
+  }
+
+  // ── SINGLE SESSION ──
+  else{
+    var sessOpts='<option value="">— choose session —</option>';
+    sessions.forEach(function(s){
+      sessOpts+='<option value="'+s.id+'" '+(s.id===selId?'selected':'')+'>'+new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})+' · '+s.slot+' · '+(s.branch_name||'')+' · '+(s.staff_name||'?')+'</option>';
+    });
+    html+='<div class="card" style="margin-bottom:16px;">';
+    html+='<div class="field"><label>Select session</label><select id="sr-select">'+sessOpts+'</select></div>';
+    html+='</div>';
     if(sel){
+      var attRecs=state.data['sr_att_'+selId]||[];
+      var progRecs=state.data['sr_prog_'+selId]||[];
       html+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">';
-      html+='<div class="metric-card"><div class="metric-label">Date</div><div class="metric-value" style="font-size:16px;">'+new Date(sel.date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})+'</div></div>';
-      html+='<div class="metric-card"><div class="metric-label">Slot</div><div class="metric-value" style="font-size:14px;">'+sel.slot+'</div></div>';
+      html+='<div class="metric-card"><div class="metric-label">Date</div><div class="metric-value" style="font-size:14px;">'+new Date(sel.date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})+'</div></div>';
+      html+='<div class="metric-card"><div class="metric-label">Slot</div><div class="metric-value" style="font-size:13px;">'+sel.slot+'</div></div>';
       html+='<div class="metric-card"><div class="metric-label">Present</div><div class="metric-value" style="color:var(--success-text);">'+attRecs.filter(function(a){return a.status==='present';}).length+'/'+attRecs.length+'</div></div>';
-      html+='<div class="metric-card"><div class="metric-label">Progress notes</div><div class="metric-value" style="color:var(--accent-text);">'+progRecs.length+'</div></div>';
+      html+='<div class="metric-card"><div class="metric-label">Notes</div><div class="metric-value" style="color:var(--accent-text);">'+progRecs.length+'</div></div>';
       html+='</div>';
     }
   }
   return html;
 }
 
-
-function renderStaffTimesheets(){
-  const summary=state.data.staff_att_summary||[];
-  const records=state.data.staff_att||[];
-  const tab=state.staffAttTab||'summary';
-  const month=state.staffAttMonth||new Date().toISOString().slice(0,7);
-  const sessions=state.data.sessions||[];
-  const staffList=state.data.staff||[];
-
-  const totalPresent=summary.reduce((s,r)=>s+(r.present||0),0);
-  const totalAbsent=summary.reduce((s,r)=>s+(r.absent||0),0);
-  const totalLate=summary.reduce((s,r)=>s+(r.late||0),0);
-  const totalNoSignOut=summary.reduce((s,r)=>s+(r.no_sign_out||0),0);
-  const totalHours=summary.reduce((s,r)=>s+(parseFloat(r.total_clock_hours)||parseFloat(r.total_hours)||0),0);const totalPaidHours=summary.reduce((s,r)=>s+(parseFloat(r.total_paid_hours)||0),0);
-
-  function statusBadge(s){
-    if(s==='present')  return`<span class="badge badge-success">Present</span>`;
-    if(s==='absent')   return`<span class="badge badge-danger">Absent</span>`;
-    if(s==='late')     return`<span class="badge badge-amber">Late</span>`;
-    if(s==='no_sign_out') return`<span class="badge" style="background:rgba(168,85,247,0.12);color:var(--purple-text);border:1px solid rgba(168,85,247,0.2);">No sign-out</span>`;
-    return`<span class="badge badge-gray">${s}</span>`;
-  }
-
-  return`
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
-    <div><div class="section-title">Staff timesheets</div><div class="section-sub">Sign-in/sign-out records, hours, and absence tracking</div></div>
-    <div style="display:flex;gap:10px;align-items:center;">
-      <input type="month" id="staff-att-month" value="${month}" style="border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;font-family:var(--font);font-size:13px;background:var(--surface2);color:var(--text);outline:none;">
-      <button class="btn btn-primary" data-action="add-staff-att">+ Log attendance</button>
-    </div>
-  </div>
-
-  <div class="metrics-grid">
-    <div class="metric-card"><div class="metric-icon" style="background:var(--success-bg);">${icoCheck(18)}</div><div class="metric-label">Sessions attended</div><div class="metric-value">${totalPresent}</div><div class="metric-sub">This month</div></div>
-    <div class="metric-card"><div class="metric-icon" style="background:var(--danger-bg);">${icoX(18)}</div><div class="metric-label">Absences</div><div class="metric-value" style="color:var(--danger-text);">${totalAbsent}</div><div class="metric-sub">This month</div></div>
-    <div class="metric-card"><div class="metric-icon" style="background:var(--amber-bg);">${icoClock(18)}</div><div class="metric-label">Late arrivals</div><div class="metric-value" style="color:var(--amber-text);">${totalLate}</div><div class="metric-sub">+ ${totalNoSignOut} no sign-out</div></div>
-    <div class="metric-card"><div class="metric-icon" style="background:var(--accent-bg);">${icoClipboard(18)}</div><div class="metric-label">Clock hours</div><div class="metric-value" style="color:var(--text3);">${totalHours.toFixed(1)}</div><div class="metric-sub">Total time logged</div><div class="metric-sub">Logged this month</div></div>
-    <div class="metric-card" style="border-top:3px solid var(--purple);"><div class="metric-label">Paid hours</div><div class="metric-value" style="color:var(--purple-text);">${totalPaidHours.toFixed(1)}</div><div class="metric-sub">After break deductions</div></div>
-  </div>
-
-  <div class="tab-bar">
-    <div class="tab ${tab==='summary'?'active':''}" data-action="staff-att-tab" data-tab="summary">Summary by staff</div>
-    <div class="tab ${tab==='log'?'active':''}" data-action="staff-att-tab" data-tab="log">Full log</div>
-    <div class="tab ${tab==='flags'?'active':''}" data-action="staff-att-tab" data-tab="flags">Flags & alerts</div>
-  </div>
-
-  ${tab==='summary'?`
-  <div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>
-    <thead><tr><th>Staff member</th><th>Branch</th><th>Role</th><th>Present</th><th>Absent</th><th>Late</th><th>No sign-out</th><th>Clock hrs</th><th>Paid hrs</th><th>Actions</th></tr></thead>
-    <tbody>${summary.map(r=>`<tr>
-      <td><div style="display:flex;align-items:center;gap:10px;"><div class="avatar av-teal" style="width:30px;height:30px;font-size:11px;">${avatarInitials(r.name)}</div><strong>${r.name}</strong></div></td>
-      <td><span class="badge badge-accent">${r.branch_name}</span></td>
-      <td>${roleBadge(r.role==='teacher'?'teacher':'receptionist')}</td>
-      <td><span class="badge badge-success">${r.present||0}</span></td>
-      <td><span class="badge ${r.absent>0?'badge-danger':'badge-gray'}">${r.absent||0}</span></td>
-      <td><span class="badge ${r.late>0?'badge-amber':'badge-gray'}">${r.late||0}</span></td>
-      <td><span class="badge ${r.no_sign_out>0?'badge-purple':'badge-gray'}">${r.no_sign_out||0}</span></td>
-      <td><strong style="color:var(--text3);">${r.total_hours||r.total_clock_hours||'0.0'}h</strong></td><td><strong style="color:var(--purple-text);">${r.total_paid_hours!=null?r.total_paid_hours+'h':'—'}</strong></td>
-      <td><button class="btn btn-sm" data-action="export-staff-timesheet" data-id="${r.id}">Export</button></td>
-    </tr>`).join('')||`<tr><td colspan="9"><div class="empty-state">No records for this month</div></td></tr>`}</tbody>
-  </table></div></div>` : ''}
-
-  ${tab==='log'?`
-  <div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>
-    <thead><tr><th>Date</th><th>Staff</th><th>Branch</th><th>Session</th><th>Sign in</th><th>Sign out</th><th>Clock hrs</th><th>Paid hrs</th><th>Status</th><th>Notes</th><th></th></tr></thead>
-    <tbody>${records.map(r=>{
-      const hrs=(r.sign_in&&r.sign_out)?calcHours(r.sign_in,r.sign_out):'—';
-      return`<tr>
-        <td><strong>${new Date(r.date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</strong></td>
-        <td>${r.staff_name}</td>
-        <td><span class="badge badge-accent">${r.branch_name}</span></td>
-        <td style="font-size:12px;color:var(--text3);">${r.slot||r.session_subject||'—'}</td>
-        <td><span style="font-family:var(--mono);font-size:12px;color:var(--success-text);">${r.sign_in||'—'}</span></td>
-        <td><span style="font-family:var(--mono);font-size:12px;color:${r.sign_out?'var(--text2)':'var(--danger-text)'};">${r.sign_out||'Missing'}</span></td>
-        <td style="color:var(--text3);font-size:12px;">${hrs}</td>
-        <td><strong style="color:var(--purple-text);">${r.paid_hours!=null?r.paid_hours+'h':'—'}</strong></td>
-        <td>${statusBadge(r.status)}</td>
-        <td style="font-size:12px;color:var(--text3);max-width:140px;">${r.notes||r.absence_reason||'—'}</td>
-        <td><div class="row-actions">
-          <button class="btn btn-sm" data-action="edit-staff-att" data-id="${r.id}">Edit</button>
-          <button class="btn btn-sm btn-danger" data-action="del-staff-att" data-id="${r.id}">Del</button>
-        </div></td>
-      </tr>`;
-    }).join('')||`<tr><td colspan="10"><div class="empty-state">No records for this month</div></td></tr>`}</tbody>
-  </table></div></div>` : ''}
-
-  ${tab==='flags'?`
-  <div style="display:flex;flex-direction:column;gap:12px;">
-    ${records.filter(r=>r.status==='no_sign_out').length>0?`
-    <div class="card" style="border-left:3px solid var(--purple);">
-      <div class="card-title" style="color:var(--purple-text);margin-bottom:12px;">⚠ No sign-out recorded (${records.filter(r=>r.status==='no_sign_out').length})</div>
-      ${records.filter(r=>r.status==='no_sign_out').map(r=>`
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;">
-        <div><strong>${r.staff_name}</strong> <span style="color:var(--text3);">— ${new Date(r.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}</span></div>
-        <div style="display:flex;gap:8px;align-items:center;"><span style="font-family:var(--mono);font-size:12px;color:var(--success-text);">In: ${r.sign_in||'?'}</span><button class="btn btn-sm" data-action="edit-staff-att" data-id="${r.id}">Add sign-out</button></div>
-      </div>`).join('')}
-    </div>` : ''}
-    ${records.filter(r=>r.status==='absent').length>0?`
-    <div class="card" style="border-left:3px solid var(--danger);">
-      <div class="card-title" style="color:var(--danger-text);margin-bottom:12px;">✕ Absences (${records.filter(r=>r.status==='absent').length})</div>
-      ${records.filter(r=>r.status==='absent').map(r=>`
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;">
-        <div><strong>${r.staff_name}</strong> <span style="color:var(--text3);">— ${new Date(r.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}</span></div>
-        <span style="font-size:12px;color:var(--text3);">${r.absence_reason||'No reason given'}</span>
-      </div>`).join('')}
-    </div>` : ''}
-    ${records.filter(r=>r.status==='late').length>0?`
-    <div class="card" style="border-left:3px solid var(--amber);">
-      <div class="card-title" style="color:var(--amber-text);margin-bottom:12px;">⏰ Late arrivals (${records.filter(r=>r.status==='late').length})</div>
-      ${records.filter(r=>r.status==='late').map(r=>`
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;">
-        <div><strong>${r.staff_name}</strong> <span style="color:var(--text3);">— ${new Date(r.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}</span></div>
-        <span style="font-family:var(--mono);font-size:12px;color:var(--amber-text);">In: ${r.sign_in||'?'}</span>
-      </div>`).join('')}
-    </div>` : ''}
-    ${records.filter(r=>['no_sign_out','absent','late'].includes(r.status)).length===0?`
-    <div class="card" style="text-align:center;padding:48px;"><div style="font-size:28px;margin-bottom:12px;">✓</div><div style="font-size:15px;font-weight:600;color:var(--success-text);">No flags this month</div><div style="font-size:13px;color:var(--text3);margin-top:4px;">All staff attendance records are clean</div></div>` : ''}
-  </div>` : ''}`;
-}
-
-function calcHours(sin, sout){
-  try{
-    const[h1,m1]=sin.split(':').map(Number);
-    const[h2,m2]=sout.split(':').map(Number);
-    const mins=(h2*60+m2)-(h1*60+m1);
-    if(mins<=0)return'—';
-    return(mins/60).toFixed(1)+'h';
-  }catch(e){return'—';}
-}
-
-
-function renderAccountsTab(){
-  const sm=state.data.payment_summary||{};
-  const methods=sm.by_method||[];
-  const byMonth=sm.by_month||[];
-  const allPayments=state.data.payments||[];
-  const colors={cash:'var(--success)',bank_transfer:'var(--accent)',card:'var(--teal)',direct_debit:'var(--purple)',standing_order:'var(--amber)',cheque:'var(--blue)',other:'var(--text3)'};
-  const labels={cash:'Cash',bank_transfer:'Bank Transfer',card:'Card',direct_debit:'Direct Debit',standing_order:'Standing Order',cheque:'Cheque',other:'Other'};
-  const icons={cash:'💵',bank_transfer:'🏦',card:'💳',direct_debit:'🔄',standing_order:'📅',cheque:'📋',other:'💰'};
-
-  // Method cards
-  let cards='';
-  if(!methods.length){
-    cards='<div class="empty-state" style="grid-column:1/-1;padding:40px;">No payments recorded yet</div>';
-  } else {
-    methods.forEach(m=>{
-      cards+=`<div class="metric-card" style="cursor:pointer;border-top:3px solid ${colors[m.method]||'var(--text3)'};" data-action="fin-method-filter" data-method="${m.method}">
-        <div style="font-size:24px;margin-bottom:8px;">${icons[m.method]||'💰'}</div>
-        <div class="metric-label">${labels[m.method]||m.method}</div>
-        <div class="metric-value" style="color:${colors[m.method]||'var(--text)'};">£${(m.total||0).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-        <div class="metric-sub">${m.count} payment${m.count!==1?'s':''}</div>
-      </div>`;
-    });
-  }
-
-  // Monthly breakdown
-  const mts=['cash','bank_transfer','card','direct_debit','standing_order','cheque'];
-  const months={};
-  byMonth.forEach(r=>{if(!months[r.month])months[r.month]={};months[r.month][r.method]=r.total||0;});
-  const sorted=Object.keys(months).sort().reverse();
-  let monthRows='';
-  if(!sorted.length){
-    monthRows='<tr><td colspan="8"><div class="empty-state">No data</div></td></tr>';
-  } else {
-    sorted.forEach(m=>{
-      const row=months[m];
-      const total=mts.reduce((s,mt)=>s+(row[mt]||0),0);
-      monthRows+=`<tr><td><strong>${m}</strong></td>${mts.map(mt=>row[mt]?`<td style="color:var(--success-text);font-weight:500;">£${row[mt].toFixed(2)}</td>`:'<td style="color:var(--text3);">—</td>').join('')}<td><strong>£${total.toFixed(2)}</strong></td></tr>`;
-    });
-  }
-
-  // Detailed ledger for selected method
-  let ledger='';
-  if(state.finMethod){
-    const filtered=allPayments.filter(p=>p.method===state.finMethod);
-    const total=filtered.reduce((s,p)=>s+p.amount,0);
-    const methodLabel=labels[state.finMethod]||state.finMethod;
-    let rows='';
-    filtered.forEach(p=>{
-      rows+=`<tr>
-        <td style="font-family:var(--mono);font-size:12px;">${new Date(p.payment_date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</td>
-        <td><strong>${p.student_name}</strong></td>
-        <td><span class="id-code">${p.admission_id}</span></td>
-        <td><strong style="color:var(--success-text);">£${p.amount.toFixed(2)}</strong></td>
-        <td style="font-family:var(--mono);font-size:12px;color:var(--text3);">${p.reference||'—'}</td>
-        <td style="font-size:12px;color:var(--text3);">${p.notes||'—'}</td>
-      </tr>`;
-    });
-    if(!rows) rows='<tr><td colspan="6"><div class="empty-state">No transactions</div></td></tr>';
-    ledger=`<div class="card" style="border-top:3px solid var(--success);">
-      <div class="card-header">
-        <div><div class="card-title">${methodLabel} — detailed ledger</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:2px;">${filtered.length} transactions · Total: £${total.toFixed(2)}</div></div>
-        <button class="btn btn-sm" data-action="fin-method-filter" data-method="">Clear filter</button>
-      </div>
-      <div class="table-wrap"><table>
-        <thead><tr><th>Date</th><th>Student</th><th>ID</th><th>Amount</th><th>Reference</th><th>Notes</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table></div>
-    </div>`;
-  }
-
-  return `<div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-bottom:24px;">${cards}</div>
-    <div class="card" style="margin-bottom:16px;">
-      <div class="card-header"><div class="card-title">Monthly breakdown by method</div></div>
-      <div class="table-wrap"><table>
-        <thead><tr><th>Month</th><th>Cash</th><th>Bank Transfer</th><th>Card</th><th>Direct Debit</th><th>Standing Order</th><th>Cheque</th><th>Total</th></tr></thead>
-        <tbody>${monthRows}</tbody>
-      </table></div>
-    </div>
-    ${ledger}
-  </div>`;
-}
-
-function renderFinance(){
-  const students=state.data.students||[];
-  const payments=state.data.payments||[];
-  const plans=state.data.instalment_plans||[];
-  const tab=state.finTab||'statement';
-  const selId=state.finStudentId;
-  const stmt=selId?state.data['statement_'+selId]:null;
-
-  const totalReceived=payments.reduce((s,p)=>s+p.amount,0);
-  const totalOutstanding=0; // calculated per statement
-
-  function methodBadge(m){
-    const map={cash:'badge-success',bank_transfer:'badge-blue',cheque:'badge-amber',card:'badge-teal',other:'badge-gray'};
-    const labels={cash:'Cash',bank_transfer:'Bank transfer',cheque:'Cheque',card:'Card',other:'Other'};
-    return`<span class="badge ${map[m]||'badge-gray'}">${labels[m]||m}</span>`;
-  }
-  function planStatusBadge(s){
-    if(s==='active') return`<span class="badge badge-success">Active</span>`;
-    if(s==='completed') return`<span class="badge badge-teal">Completed</span>`;
-    return`<span class="badge badge-danger">Cancelled</span>`;
-  }
-
-  return`
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
-    <div><div class="section-title">Finance</div><div class="section-sub">Statements of account, payments, and instalment plans</div></div>
-    <div style="display:flex;gap:10px;">
-      <button class="btn btn-primary" data-action="add-payment">+ Record payment</button>
-      <button class="btn" data-action="add-instalment-plan">+ Instalment plan</button>
-    </div>
-  </div>
-
-  <div class="metrics-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px;">
-    <div class="metric-card"><div class="metric-icon" style="background:var(--success-bg);">${icoPound(18)}</div><div class="metric-label">Total received</div><div class="metric-value" style="color:var(--success-text);">£${totalReceived.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})}</div><div class="metric-sub">${payments.length} payments</div></div>
-    <div class="metric-card"><div class="metric-icon" style="background:var(--accent-bg);">${icoFinance(18)}</div><div class="metric-label">Instalment plans</div><div class="metric-value" style="color:var(--accent-text);">${plans.filter(p=>p.status==='active').length}</div><div class="metric-sub">Active plans</div></div>
-    <div class="metric-card"><div class="metric-icon" style="background:var(--amber-bg);">${icoClipboard(18)}</div><div class="metric-label">Students with plans</div><div class="metric-value" style="color:var(--amber-text);">${new Set(plans.filter(p=>p.status==='active').map(p=>p.student_id)).size}</div><div class="metric-sub">On instalments</div></div>
-  </div>
-
-  <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);margin-bottom:20px;">
-    <div style="display:flex;margin-bottom:-1px;">
-      <div class="tab ${tab==='statement'?'active':''}" data-action="fin-tab" data-tab="statement">Statement of account</div>
-      <div class="tab ${tab==='accounts'?'active':''}" data-action="fin-tab" data-tab="accounts">Payment accounts</div>
-      <div class="tab ${tab==='payments'?'active':''}" data-action="fin-tab" data-tab="payments">Payment log</div>
-      <div class="tab ${tab==='hq'?renderHQTab():''}${tab==='instalments'?'active':''}" data-action="fin-tab" data-tab="instalments">Instalment plans</div>
-      <div class="tab ${tab==='hq'?'active':''}" data-action="fin-tab" data-tab="hq">HQ Transfers</div>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <input type="month" id="fin-month-filter" value="${state.finMonth||''}" style="border:1px solid var(--border2);border-radius:var(--radius);padding:7px 10px;font-family:var(--font);font-size:13px;background:var(--surface2);color:var(--text);outline:none;">
-      <button class="btn btn-sm" data-action="fin-clear-month">All time</button>
-    </div>
-  </div>
-
-  ${tab==='statement'?`
-  <div class="card" style="margin-bottom:16px;">
-    <div class="card-header"><div class="card-title">Select student</div></div>
-    <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;">
-      <div class="field">
-        <select id="fin-student-select">
-          <option value="">— choose a student —</option>
-          ${students.map(s=>`<option value="${s.id}" ${s.id===selId?'selected':''}>${s.admission_id} — ${s.name} (${s.branch_name})</option>`).join('')}
-        </select>
-      </div>
-      ${selId?`<button class="btn btn-primary" data-action="print-statement" data-id="${selId}">Export statement</button>`:''}
-    </div>
-  </div>
-
-  ${stmt?`
-  <div class="card" style="margin-bottom:16px;">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border);">
-      <div>
-        <div style="font-size:18px;font-weight:700;color:var(--text);">${stmt.student.name}</div>
-        <div style="margin-top:4px;display:flex;gap:8px;align-items:center;">
-          <span class="id-code">${stmt.student.admission_id}</span>
-          <span class="badge badge-gray">${stmt.student.year_group}</span>
-          <span class="badge badge-accent">${stmt.student.branch_name}</span>
-        </div>
-      </div>
-      <div style="text-align:right;">
-        <div style="font-size:12px;color:var(--text3);margin-bottom:4px;">Closing balance</div>
-        <div style="font-size:28px;font-weight:700;color:${stmt.summary.closing_balance>0?'var(--danger-text)':stmt.summary.closing_balance<0?'var(--success-text)':'var(--text)'};">
-          £${Math.abs(stmt.summary.closing_balance).toFixed(2)}
-          ${stmt.summary.closing_balance>0?' <span style="font-size:13px;color:var(--danger-text);">OWING</span>':stmt.summary.closing_balance<0?' <span style="font-size:13px;color:var(--success-text);">CR</span>':''}
-        </div>
-      </div>
-    </div>
-
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
-      <div class="fee-item"><div class="fee-item-label">Total charged</div><div class="fee-item-value" style="color:var(--danger-text);">£${stmt.summary.total_charged.toFixed(2)}</div></div>
-      <div class="fee-item"><div class="fee-item-label">Total paid</div><div class="fee-item-value" style="color:var(--success-text);">£${stmt.summary.total_paid.toFixed(2)}</div></div>
-      <div class="fee-item"><div class="fee-item-label">Balance c/f</div><div class="fee-item-value" style="color:${stmt.summary.closing_balance>0?'var(--danger-text)':stmt.summary.closing_balance<0?'var(--success-text)':'var(--text)'};">£${stmt.summary.closing_balance.toFixed(2)}</div></div>
-    </div>
-
-    <div class="table-wrap"><table>
-      <thead><tr><th>Date</th><th>Description</th><th>Charged (Dr)</th><th>Paid (Cr)</th><th>Balance</th></tr></thead>
-      <tbody>
-        ${stmt.transactions.length?stmt.transactions.map(t=>`<tr>
-          <td style="font-family:var(--mono);font-size:12px;">${new Date(t.date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</td>
-          <td>
-            <span style="font-size:13px;color:var(--text);">${t.description}</span>
-            ${t.notes?`<span style="font-size:11px;color:var(--text3);display:block;">${t.notes}</span>`:''}
-          </td>
-          <td style="text-align:right;color:var(--danger-text);font-weight:500;">${t.debit>0?'£'+t.debit.toFixed(2):'—'}</td>
-          <td style="text-align:right;color:var(--success-text);font-weight:500;">${t.credit>0?'£'+t.credit.toFixed(2):'—'}</td>
-          <td style="text-align:right;font-weight:700;color:${t.balance>0?'var(--danger-text)':t.balance<0?'var(--success-text)':'var(--text)'};">£${t.balance.toFixed(2)}</td>
-        </tr>`).join(''):`<tr><td colspan="5"><div class="empty-state">No transactions yet</div></td></tr>`}
-        <tr style="background:var(--surface2);">
-          <td colspan="2" style="font-weight:700;color:var(--text);text-align:right;">TOTALS</td>
-          <td style="text-align:right;font-weight:700;color:var(--danger-text);">£${stmt.summary.total_charged.toFixed(2)}</td>
-          <td style="text-align:right;font-weight:700;color:var(--success-text);">£${stmt.summary.total_paid.toFixed(2)}</td>
-          <td style="text-align:right;font-weight:700;color:${stmt.summary.closing_balance>0?'var(--danger-text)':'var(--success-text)'};">£${stmt.summary.closing_balance.toFixed(2)}</td>
-        </tr>
-      </tbody>
-    </table></div>
-
-    ${stmt.siblings.length>0?`
-    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
-      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px;">Sibling accounts</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        ${stmt.siblings.map(sib=>`<button class="btn btn-sm" data-action="view-sibling-statement" data-id="${sib.id}"><span class="id-code">${sib.admission_id}</span> ${sib.name}</button>`).join('')}
-      </div>
-    </div>`:''}
-
-    ${stmt.instalment_plans.length>0?`
-    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
-      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px;">Instalment plans</div>
-      ${stmt.instalment_plans.map(p=>`
-      <div class="plan-card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-          <strong style="color:var(--text);">${p.description}</strong>
-          ${planStatusBadge(p.status)}
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
-          <div><div style="font-size:10px;color:var(--text3);">Total</div><div style="font-weight:600;">£${p.total_amount.toFixed(2)}</div></div>
-          <div><div style="font-size:10px;color:var(--text3);">Paid</div><div style="font-weight:600;color:var(--success-text);">£${(p.amount_paid||0).toFixed(2)}</div></div>
-          <div><div style="font-size:10px;color:var(--text3);">Remaining</div><div style="font-weight:600;color:var(--danger-text);">£${(p.amount_remaining||0).toFixed(2)}</div></div>
-          <div><div style="font-size:10px;color:var(--text3);">Progress</div><div style="font-weight:600;">${p.paid_count||0}/${p.total_instalments||0} paid</div></div>
-        </div>
-      </div>`).join('')}
-    </div>`:''}
-  </div>
-  `:''}
-  `:''}
-
-  ${tab==='accounts'?renderAccountsTab():''}
-
-    ${tab==='payments'?`
-  <div class="toolbar">
-    <div class="search-wrap"><span class="search-icon">${icoSearch()}</span><input type="text" id="payment-search" placeholder="Search by student name or ID…" style="padding-left:36px;"></div>
-  </div>
-  <div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>
-    <thead><tr><th>Date</th><th>Student</th><th>ID</th><th>Branch</th><th>Amount</th><th>Method</th><th>Reference</th><th>Recorded by</th><th>Notes</th><th></th></tr></thead>
-    <tbody>${payments.map(p=>`<tr>
-      <td style="font-family:var(--mono);font-size:12px;">${new Date(p.payment_date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</td>
-      <td><strong>${p.student_name}</strong></td>
-      <td><span class="id-code">${p.admission_id}</span></td>
-      <td><span class="badge badge-accent">${p.branch_name}</span></td>
-      <td><strong style="color:var(--success-text);">£${p.amount.toFixed(2)}</strong></td>
-      <td>${methodBadge(p.method)}</td>
-      <td style="font-family:var(--mono);font-size:12px;color:var(--text3);">${p.reference||'—'}</td>
-      <td style="font-size:12px;color:var(--text3);">${p.recorded_by_name||'—'}</td>
-      <td style="font-size:12px;color:var(--text3);">${p.notes||'—'}</td>
-      <td><div class="row-actions">
-        <button class="btn btn-sm" data-action="edit-payment" data-id="${p.id}">Edit</button>
-        <button class="btn btn-sm btn-danger" data-action="del-payment" data-id="${p.id}">Del</button>
-      </div></td>
-    </tr>`).join('')||`<tr><td colspan="10"><div class="empty-state">No payments recorded</div></td></tr>`}</tbody>
-  </table></div></div>
-  `:''}
-
-  ${tab==='instalments'?`
-  <div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>
-    <thead><tr><th>Student</th><th>ID</th><th>Description</th><th>Total</th><th>Paid</th><th>Remaining</th><th>Progress</th><th>Status</th><th></th></tr></thead>
-    <tbody>${plans.map(p=>`<tr>
-      <td><strong>${p.student_name}</strong></td>
-      <td><span class="id-code">${p.admission_id}</span></td>
-      <td style="color:var(--text2);">${p.description}</td>
-      <td><strong>£${(p.total_amount||0).toFixed(2)}</strong></td>
-      <td style="color:var(--success-text);font-weight:500;">£${(p.paid_amount||0).toFixed(2)}</td>
-      <td style="color:var(--danger-text);font-weight:500;">£${(p.remaining||0).toFixed(2)}</td>
-      <td><div style="display:flex;align-items:center;gap:8px;"><div class="bar-bg" style="width:80px;"><div class="bar-fill" style="width:${p.total_instalments?(p.paid_count/p.total_instalments*100):0}%;background:var(--success);"></div></div><span style="font-size:12px;color:var(--text3);">${p.paid_count||0}/${p.total_instalments||0}</span></div></td>
-      <td>${planStatusBadge(p.status)}</td>
-      <td><div class="row-actions">
-        <button class="btn btn-sm" data-action="view-plan-statement" data-id="${p.student_id}">Statement</button>
-        <button class="btn btn-sm btn-danger" data-action="del-instalment-plan" data-id="${p.id}">Delete</button>
-      </div></td>
-    </tr>`).join('')||`<tr><td colspan="9"><div class="empty-state">No instalment plans</div></td></tr>`}</tbody>
-  </table></div></div>
-  `:''}`;
-}
-
-
-function renderHQTab(){
-  const transfers = state.data.hq_transfers || [];
-  const summary = state.data.hq_summary || [];
-  const branches = state.data.branches || [];
-  const totalTransferred = transfers.reduce((s,t) => s + t.amount, 0);
-
-  function methodBadge(m){
-    const map = {cash:'badge-success',bank_transfer:'badge-blue',cheque:'badge-amber',other:'badge-gray'};
-    const labels = {cash:'Cash',bank_transfer:'Bank Transfer',cheque:'Cheque',other:'Other'};
-    return '<span class="badge '+( map[m]||'badge-gray')+'">'+( labels[m]||m)+'</span>';
-  }
-
-  return `
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
-    <div>
-      <div style="font-size:16px;font-weight:700;color:var(--text);">HQ Transfer Ledger</div>
-      <div style="font-size:13px;color:var(--text3);margin-top:2px;">Track cash and payments transferred from branches to head office</div>
-    </div>
-    <button class="btn btn-primary" data-action="add-hq-transfer">+ Record transfer to HQ</button>
-  </div>
-
-  <!-- Branch holding summary -->
-  <div class="card" style="margin-bottom:20px;border-top:3px solid var(--accent);">
-    <div class="card-header"><div class="card-title">Branch cash holdings</div><div style="font-size:12px;color:var(--text3);">Cash collected vs transferred to HQ</div></div>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Branch</th><th>Cash collected</th><th>Transferred to HQ</th><th>Held at branch</th><th>Status</th></tr></thead>
-      <tbody>${summary.map(s => {
-        const held = s.held_at_branch || 0;
-        return '<tr>' +
-          '<td><strong>' + s.branch_name + '</strong></td>' +
-          '<td style="color:var(--success-text);font-weight:500;">£' + (s.cash_collected||0).toFixed(2) + '</td>' +
-          '<td style="color:var(--accent-text);font-weight:500;">£' + (s.transferred_to_hq||0).toFixed(2) + '</td>' +
-          '<td><strong style="font-size:16px;color:' + (held > 0 ? 'var(--amber-text)' : 'var(--success-text)') + ';">£' + held.toFixed(2) + '</strong></td>' +
-          '<td>' + (held > 100 ? '<span class="badge badge-amber">Transfer due</span>' : held > 0 ? '<span class="badge badge-gray">Small balance</span>' : '<span class="badge badge-success">All transferred</span>') + '</td>' +
-          '</tr>';
-      }).join('') || '<tr><td colspan="5"><div class="empty-state">No branches set up</div></td></tr>'}
-      <tr style="background:var(--surface2);">
-        <td style="font-weight:700;color:var(--text);">TOTAL</td>
-        <td style="color:var(--success-text);font-weight:700;">£${summary.reduce((s,r)=>s+(r.cash_collected||0),0).toFixed(2)}</td>
-        <td style="color:var(--accent-text);font-weight:700;">£${summary.reduce((s,r)=>s+(r.transferred_to_hq||0),0).toFixed(2)}</td>
-        <td style="font-weight:700;color:var(--amber-text);">£${summary.reduce((s,r)=>s+(r.held_at_branch||0),0).toFixed(2)}</td>
-        <td></td>
-      </tr>
-      </tbody>
-    </table></div>
-  </div>
-
-  <!-- Transfer log -->
-  <div class="card" style="padding:0;overflow:hidden;">
-    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
-      <div class="card-title">Transfer log</div>
-      <span class="badge badge-accent">${transfers.length} transfers · £${totalTransferred.toFixed(2)} total</span>
-    </div>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Date</th><th>Branch</th><th>Amount</th><th>Method</th><th>Reference</th><th>Recorded by</th><th>Notes</th><th></th></tr></thead>
-      <tbody>${transfers.length ? transfers.map(t => '<tr>' +
-        '<td style="font-family:var(--mono);font-size:12px;">' + new Date(t.transfer_date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) + '</td>' +
-        '<td><span class="badge badge-accent">' + t.branch_name + '</span></td>' +
-        '<td><strong style="color:var(--accent-text);font-size:15px;">£' + t.amount.toFixed(2) + '</strong></td>' +
-        '<td>' + methodBadge(t.method) + '</td>' +
-        '<td style="font-family:var(--mono);font-size:12px;color:var(--text3);">' + (t.reference||'—') + '</td>' +
-        '<td style="font-size:12px;color:var(--text3);">' + (t.recorded_by_name||'—') + '</td>' +
-        '<td style="font-size:12px;color:var(--text3);">' + (t.notes||'—') + '</td>' +
-        '<td><button class="btn btn-sm btn-danger" data-action="del-hq-transfer" data-id="' + t.id + '">Del</button></td>' +
-        '</tr>').join('') : '<tr><td colspan="8"><div class="empty-state">No transfers recorded yet</div></td></tr>'}
-      </tbody>
-    </table></div>
-  </div>`;
-}
-
-
-function renderMgmtReports(){
-  const tab=state.mgmtTab||'summary';
-  const summary=state.data.mgmt_summary||{};
-  const daily=state.data.mgmt_daily||{};
-  const monthly=state.data.mgmt_monthly||{};
-  const yearly=state.data.mgmt_yearly||{};
-
-  function pct(a,b){return b?Math.round(a/b*100):0;}
-  function fmtHrs(h){if(!h)return '0h';const hrs=Math.floor(h);const mins=Math.round((h-hrs)*60);return hrs+'h'+(mins?(' '+mins+'m'):'');}
-  function fmtGBP(n){return '£'+(n||0).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2});}
-
-  // Export CSV helper
-  function exportCSV(rows, filename){
-    const csv=rows.map(r=>r.map(c=>(typeof c==='string'&&c.includes(','))?'"'+c+'"':c).join(',')).join('\n');
-    const a=document.createElement('a');
-    a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
-    a.download=filename;a.click();
-  }
-
-  let html='';
-  html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">';
-  html+='<div><div class="section-title">Management reports</div>';
-  html+='<div class="section-sub">Summary, daily, monthly and yearly performance reports</div></div>';
-  html+='</div>';
-
-  // Tab bar
-  html+='<div class="tab-bar" style="margin-bottom:20px;">';
-  html+='<div class="tab '+(tab==='summary'?'active':'')+'" data-action="mgmt-tab" data-tab="summary">Summary</div>';
-  html+='<div class="tab '+(tab==='daily'?'active':'')+'" data-action="mgmt-tab" data-tab="daily">Daily</div>';
-  html+='<div class="tab '+(tab==='monthly'?'active':'')+'" data-action="mgmt-tab" data-tab="monthly">Monthly</div>';
-  html+='<div class="tab '+(tab==='yearly'?'active':'')+'" data-action="mgmt-tab" data-tab="yearly">Yearly</div>';
-  html+='</div>';
-
-  // ── SUMMARY TAB ──
-  if(tab==='summary'){
-    html+='<div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;">';
-    html+='<div class="field" style="margin:0;"><label style="font-size:12px;">Academic year</label>';
-    html+='<select id="mgmt-year-select" style="border:1px solid var(--border2);border-radius:var(--radius);padding:7px 10px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;">';
-    const curYr=new Date().getMonth()>=8?new Date().getFullYear():new Date().getFullYear()-1;
-    for(let y=curYr;y>=curYr-3;y--){
-      html+='<option value="'+y+'" '+(String(state.mgmtYear||curYr)===String(y)?'selected':'')+'>'+(y)+'–'+(y+1)+'</option>';
-    }
-    html+='</select></div>';
-    html+='<button class="btn btn-sm" data-action="export-mgmt-summary">⬇ Export CSV</button>';
-    html+='</div>';
-
-    if(summary.academic_year){
-      html+='<div style="margin-bottom:6px;font-size:13px;color:var(--text3);">Academic year: <strong style="color:var(--text);">'+summary.academic_year+'</strong> ('+summary.yr_from+' to '+summary.yr_to+')</div>';
-      html+='<div class="metrics-grid" style="margin-bottom:20px;">';
-      html+='<div class="metric-card" style="border-top:3px solid var(--accent);"><div class="metric-label">Active students</div><div class="metric-value">'+summary.active_students+'</div><div class="metric-sub">'+summary.new_enrolments+' new this year</div></div>';
-      html+='<div class="metric-card" style="border-top:3px solid var(--teal);"><div class="metric-label">Sessions delivered</div><div class="metric-value">'+summary.total_sessions+'</div><div class="metric-sub">This academic year</div></div>';
-      html+='<div class="metric-card" style="border-top:3px solid var(--success);"><div class="metric-label">Attendance rate</div><div class="metric-value" style="color:var(--success-text);">'+summary.att_rate+'%</div><div class="metric-sub">'+summary.att_present+' present / '+summary.att_total+' marked</div></div>';
-      html+='<div class="metric-card" style="border-top:3px solid var(--purple);"><div class="metric-label">Staff hours</div><div class="metric-value" style="color:var(--purple-text);">'+fmtHrs(summary.total_staff_hours)+'</div><div class="metric-sub">'+summary.staff_count+' staff members</div></div>';
-      html+='<div class="metric-card" style="border-top:3px solid var(--success);"><div class="metric-label">Fees collected</div><div class="metric-value" style="color:var(--success-text);">'+fmtGBP(summary.fees_collected)+'</div><div class="metric-sub">This year</div></div>';
-      html+='<div class="metric-card" style="border-top:3px solid var(--danger);"><div class="metric-label">Outstanding fees</div><div class="metric-value" style="color:var(--danger-text);">'+fmtGBP(summary.fees_outstanding)+'</div><div class="metric-sub">Across all periods</div></div>';
-      html+='<div class="metric-card" style="border-top:3px solid var(--amber);"><div class="metric-label">Catch-ups owed</div><div class="metric-value" style="color:var(--amber-text);">'+summary.catchups_owed+'</div><div class="metric-sub">'+summary.catchups_completed+' completed</div></div>';
-      html+='<div class="metric-card" style="border-top:3px solid var(--blue);"><div class="metric-label">Tests passed</div><div class="metric-value" style="color:var(--blue-text);">'+pct(summary.tests_passed,summary.tests_total)+'%</div><div class="metric-sub">'+summary.tests_passed+' / '+summary.tests_total+' tests</div></div>';
-      html+='</div>';
-    } else {
-      html+='<div class="empty-state" style="padding:40px;">Loading summary data...</div>';
-    }
-  }
-
-  // ── DAILY TAB ──
-  else if(tab==='daily'){
-    html+='<div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;">';
-    html+='<div class="field" style="margin:0;"><label style="font-size:12px;">Date</label><input type="date" id="mgmt-date-select" value="'+(state.mgmtDate||new Date().toISOString().slice(0,10))+'" style="border:1px solid var(--border2);border-radius:var(--radius);padding:7px 10px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;"></div>';
-    html+='<button class="btn btn-sm" data-action="export-mgmt-daily">⬇ Export CSV</button>';
-    html+='</div>';
-
-    const dsess=daily.sessions||[];
-    const dsatt=daily.staff_attendance||[];
-    const dlr=daily.lesson_reports||[];
-    const dcu=daily.catchups||[];
-    const totalPresent=dsess.reduce(function(s,x){return s+(x.present||0);},0);
-    const totalAbsent=dsess.reduce(function(s,x){return s+(x.absent||0);},0);
-    const totalHrs=dsatt.reduce(function(s,x){return s+(x.hours||0);},0);
-    const checked=dlr.filter(function(r){return r.supervisor_checked;}).length;
-
-    html+='<div class="metrics-grid" style="margin-bottom:20px;">';
-    html+='<div class="metric-card"><div class="metric-label">Sessions today</div><div class="metric-value">'+dsess.length+'</div></div>';
-    html+='<div class="metric-card"><div class="metric-label">Students present</div><div class="metric-value" style="color:var(--success-text);">'+totalPresent+'</div></div>';
-    html+='<div class="metric-card"><div class="metric-label">Students absent</div><div class="metric-value" style="color:var(--danger-text);">'+totalAbsent+'</div></div>';
-    html+='<div class="metric-card"><div class="metric-label">Staff hours</div><div class="metric-value" style="color:var(--purple-text);">'+fmtHrs(totalHrs)+'</div></div>';
-    html+='<div class="metric-card"><div class="metric-label">Lesson reports</div><div class="metric-value" style="color:var(--teal-text);">'+checked+'/'+dlr.length+'</div><div class="metric-sub">Supervisor checked</div></div>';
-    html+='<div class="metric-card"><div class="metric-label">Catch-ups today</div><div class="metric-value" style="color:var(--amber-text);">'+dcu.length+'</div></div>';
-    html+='</div>';
-
-    // Sessions table
-    if(dsess.length){
-      html+='<div class="card" style="margin-bottom:16px;"><div class="card-header"><div class="card-title">Sessions</div></div>';
-      html+='<div class="table-wrap"><table><thead><tr><th>Slot</th><th>Teacher</th><th>Cover</th><th>Subject</th><th>Table</th><th>Present</th><th>Absent</th><th>Total marked</th></tr></thead><tbody>';
-      dsess.forEach(function(s){
-        html+='<tr><td>'+s.slot+'</td><td>'+( s.staff_name||'—')+'</td><td>'+(s.cover_name?'<span class="badge badge-amber">'+s.cover_name+'</span>':'—')+'</td><td>'+( s.subject||'—')+'</td><td>'+( s.table_no||'—')+'</td>';
-        html+='<td style="color:var(--success-text);font-weight:600;">'+(s.present||0)+'</td>';
-        html+='<td style="color:var(--danger-text);font-weight:600;">'+(s.absent||0)+'</td>';
-        html+='<td>'+(s.total_marked||0)+'</td></tr>';
-      });
-      html+='</tbody></table></div></div>';
-    }
-
-    // Staff hours table
-    if(dsatt.length){
-      html+='<div class="card"><div class="card-header"><div class="card-title">Staff hours</div></div>';
-      html+='<div class="table-wrap"><table><thead><tr><th>Staff member</th><th>Role</th><th>Sign in</th><th>Sign out</th><th>Hours</th><th>Status</th></tr></thead><tbody>';
-      dsatt.forEach(function(s){
-        html+='<tr><td><strong>'+s.staff_name+'</strong></td><td>'+s.role+'</td>';
-        html+='<td style="font-family:var(--mono);font-size:12px;">'+(s.sign_in||'—')+'</td>';
-        html+='<td style="font-family:var(--mono);font-size:12px;">'+(s.sign_out||'—')+'</td>';
-        html+='<td style="font-weight:600;color:var(--purple-text);">'+fmtHrs(s.hours||0)+'</td>';
-        html+='<td><span class="badge '+(s.status==='present'?'badge-success':s.status==='absent'?'badge-danger':'badge-amber')+'">'+s.status+'</span></td></tr>';
-      });
-      html+='</tbody></table></div></div>';
-    }
-  }
-
-  // ── MONTHLY TAB ──
-  else if(tab==='monthly'){
-    html+='<div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;">';
-    html+='<input type="month" id="mgmt-month-select" value="'+(state.mgmtMonth||new Date().toISOString().slice(0,7))+'" style="border:1px solid var(--border2);border-radius:var(--radius);padding:7px 10px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;">';
-    html+='<button class="btn btn-sm" data-action="export-mgmt-monthly">⬇ Export CSV</button>';
-    html+='</div>';
-
-    const mweekly=monthly.weekly_breakdown||[];
-    const mstaff=monthly.staff_hours||[];
-    const mtests=monthly.tests_by_subject||[];
-    const mcu=monthly.catchups||{};
-    const totalSessions=mweekly.reduce(function(s,w){return s+w.sessions;},0);
-    const totalPresent=mweekly.reduce(function(s,w){return s+(w.present||0);},0);
-    const totalTotal=mweekly.reduce(function(s,w){return s+(w.present||0)+(w.absent||0);},0);
-    const totalHours=mstaff.reduce(function(s,x){return s+(x.hours||0);},0);
-
-    html+='<div class="metrics-grid" style="margin-bottom:20px;">';
-    html+='<div class="metric-card"><div class="metric-label">Sessions</div><div class="metric-value">'+totalSessions+'</div></div>';
-    html+='<div class="metric-card"><div class="metric-label">Attendance rate</div><div class="metric-value" style="color:var(--success-text);">'+pct(totalPresent,totalTotal)+'%</div><div class="metric-sub">'+totalPresent+' / '+totalTotal+' marked</div></div>';
-    html+='<div class="metric-card"><div class="metric-label">New enrolments</div><div class="metric-value" style="color:var(--accent-text);">'+( monthly.new_enrolments||0)+'</div></div>';
-    html+='<div class="metric-card"><div class="metric-label">Staff hours</div><div class="metric-value" style="color:var(--purple-text);">'+fmtHrs(totalHours)+'</div></div>';
-    html+='<div class="metric-card"><div class="metric-label">Fees collected</div><div class="metric-value" style="color:var(--success-text);">'+fmtGBP(monthly.fees_collected||0)+'</div></div>';
-    html+='<div class="metric-card"><div class="metric-label">Fees outstanding</div><div class="metric-value" style="color:var(--danger-text);">'+fmtGBP(monthly.fees_outstanding||0)+'</div></div>';
-    html+='</div>';
-
-    // Weekly breakdown
-    if(mweekly.length){
-      html+='<div class="card" style="margin-bottom:16px;"><div class="card-header"><div class="card-title">Weekly breakdown</div></div>';
-      html+='<div class="table-wrap"><table><thead><tr><th>Week starting</th><th>Sessions</th><th>Present</th><th>Absent</th><th>Att rate</th></tr></thead><tbody>';
-      mweekly.forEach(function(w){
-        const rate=pct(w.present||0,(w.present||0)+(w.absent||0));
-        html+='<tr><td>'+new Date(w.week_start+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})+'</td>';
-        html+='<td>'+w.sessions+'</td>';
-        html+='<td style="color:var(--success-text);font-weight:500;">'+(w.present||0)+'</td>';
-        html+='<td style="color:var(--danger-text);font-weight:500;">'+(w.absent||0)+'</td>';
-        html+='<td><strong>'+(rate||0)+'%</strong></td></tr>';
-      });
-      html+='</tbody></table></div></div>';
-    }
-
-    // Staff hours
-    if(mstaff.length){
-      html+='<div class="card" style="margin-bottom:16px;"><div class="card-header"><div class="card-title">Staff hours this month</div></div>';
-      html+='<div class="table-wrap"><table><thead><tr><th>Staff member</th><th>Role</th><th>Sessions</th><th>Hours</th></tr></thead><tbody>';
-      mstaff.forEach(function(s){
-        html+='<tr><td><strong>'+s.name+'</strong></td><td>'+s.role+'</td><td>'+s.sessions_worked+'</td>';
-        html+='<td><strong style="color:var(--purple-text);">'+fmtHrs(s.hours||0)+'</strong></td></tr>';
-      });
-      const grandTotal=mstaff.reduce(function(t,s){return t+(s.hours||0);},0);
-      html+='<tr style="background:var(--surface2);"><td colspan="3" style="font-weight:700;">TOTAL</td><td><strong style="color:var(--purple-text);">'+fmtHrs(grandTotal)+'</strong></td></tr>';
-      html+='</tbody></table></div></div>';
-    }
-
-    // Tests
-    if(mtests.length){
-      html+='<div class="card"><div class="card-header"><div class="card-title">Test results by subject</div></div>';
-      html+='<div class="table-wrap"><table><thead><tr><th>Subject</th><th>Tests taken</th><th>Passed</th><th>Pass rate</th></tr></thead><tbody>';
-      mtests.forEach(function(t){
-        html+='<tr><td><span class="badge badge-gray">'+t.subject+'</span></td><td>'+t.total+'</td>';
-        html+='<td style="color:var(--success-text);font-weight:500;">'+t.passed+'</td>';
-        html+='<td><strong>'+pct(t.passed,t.total)+'%</strong></td></tr>';
-      });
-      html+='</tbody></table></div></div>';
-    }
-  }
-
-  // ── YEARLY TAB ──
-  else if(tab==='yearly'){
-    html+='<div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;">';
-    html+='<div class="field" style="margin:0;"><label style="font-size:12px;">Academic year</label>';
-    html+='<select id="mgmt-year-select" style="border:1px solid var(--border2);border-radius:var(--radius);padding:7px 10px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;">';
-    const curYr2=new Date().getMonth()>=8?new Date().getFullYear():new Date().getFullYear()-1;
-    for(let y=curYr2;y>=curYr2-3;y--){
-      html+='<option value="'+y+'" '+(String(state.mgmtYear||curYr2)===String(y)?'selected':'')+'>'+(y)+'–'+(y+1)+'</option>';
-    }
-    html+='</select></div>';
-    html+='<button class="btn btn-sm" data-action="export-mgmt-yearly">⬇ Export CSV</button>';
-    html+='</div>';
-
-    const ytrend=yearly.monthly_trend||[];
-    const ystaff=yearly.staff_yearly||[];
-    const yfees=yearly.monthly_fees||[];
-
-    if(yearly.academic_year){
-      html+='<div style="margin-bottom:12px;font-size:13px;color:var(--text3);">Academic year: <strong style="color:var(--text);">'+yearly.academic_year+'</strong></div>';
-    }
-
-    // Monthly trend table
-    if(ytrend.length){
-      html+='<div class="card" style="margin-bottom:16px;"><div class="card-header"><div class="card-title">Monthly attendance trend</div></div>';
-      html+='<div class="table-wrap"><table><thead><tr><th>Month</th><th>Sessions</th><th>Present</th><th>Absent</th><th>Att rate</th></tr></thead><tbody>';
-      ytrend.forEach(function(m){
-        const rate=pct(m.present||0,(m.present||0)+(m.absent||0));
-        html+='<tr><td><strong>'+m.month+'</strong></td><td>'+m.sessions+'</td>';
-        html+='<td style="color:var(--success-text);">'+(m.present||0)+'</td>';
-        html+='<td style="color:var(--danger-text);">'+(m.absent||0)+'</td>';
-        html+='<td><strong>'+(rate||0)+'%</strong></td></tr>';
-      });
-      html+='</tbody></table></div></div>';
-    }
-
-    // Staff yearly hours
-    if(ystaff.length){
-      html+='<div class="card" style="margin-bottom:16px;"><div class="card-header"><div class="card-title">Staff hours — full year</div></div>';
-      html+='<div class="table-wrap"><table><thead><tr><th>Staff member</th><th>Role</th><th>Sessions worked</th><th>Total hours</th></tr></thead><tbody>';
-      ystaff.forEach(function(s){
-        html+='<tr><td><strong>'+s.name+'</strong></td><td>'+s.role+'</td><td>'+s.sessions_worked+'</td>';
-        html+='<td><strong style="color:var(--purple-text);">'+fmtHrs(s.total_hours||0)+'</strong></td></tr>';
-      });
-      const grandTotal=ystaff.reduce(function(t,s){return t+(s.total_hours||0);},0);
-      html+='<tr style="background:var(--surface2);"><td colspan="3" style="font-weight:700;">TOTAL</td><td><strong style="color:var(--purple-text);">'+fmtHrs(grandTotal)+'</strong></td></tr>';
-      html+='</tbody></table></div></div>';
-    }
-
-    // Monthly fees
-    if(yfees.length){
-      html+='<div class="card"><div class="card-header"><div class="card-title">Monthly financial summary</div></div>';
-      html+='<div class="table-wrap"><table><thead><tr><th>Month</th><th>Collected</th><th>Outstanding</th><th>Total</th></tr></thead><tbody>';
-      let totC=0,totO=0;
-      yfees.forEach(function(f){
-        totC+=f.collected;totO+=f.outstanding;
-        html+='<tr><td><strong>'+f.month+'</strong></td>';
-        html+='<td style="color:var(--success-text);font-weight:500;">'+fmtGBP(f.collected)+'</td>';
-        html+='<td style="color:var(--danger-text);font-weight:500;">'+fmtGBP(f.outstanding)+'</td>';
-        html+='<td><strong>'+fmtGBP(f.collected+f.outstanding)+'</strong></td></tr>';
-      });
-      html+='<tr style="background:var(--surface2);"><td style="font-weight:700;">TOTAL</td>';
-      html+='<td style="color:var(--success-text);font-weight:700;">'+fmtGBP(totC)+'</td>';
-      html+='<td style="color:var(--danger-text);font-weight:700;">'+fmtGBP(totO)+'</td>';
-      html+='<td><strong>'+fmtGBP(totC+totO)+'</strong></td></tr>';
-      html+='</tbody></table></div></div>';
-    }
-  }
-
-  return html;
-}
-
-function renderSessionPlan(){
-  const sessions=state.data.sessions||[];
-  const students=state.data.students||[];
-  const staff=state.data.staff||[];
-  const selId=state.planSessionId;
-  const sel=sessions.find(function(s){return s.id===selId;});
-  const assigned=selId?(state.data['plan_students_'+selId]||[]):[];
-  const assignedIds=assigned.map(function(a){return a.student_id;});
-  const planMonth=state.planMonth||'';
-
-  // Filter sessions by month
-  const filteredSessions=planMonth?sessions.filter(function(s){return s.date&&s.date.slice(0,7)===planMonth;}):sessions;
-
-  // Get unique months for filter
-  const months=[...new Set(sessions.map(function(s){return s.date?s.date.slice(0,7):'';}).filter(Boolean))].sort().reverse();
-
-  // Branch students (not yet assigned to this session)
-  const branchStudents=sel?students.filter(function(s){return s.branch_id===sel.branch_id&&s.status==='active';}):[];
-  const unassigned=branchStudents.filter(function(s){return !assignedIds.includes(s.id);});
-
-  let html='';
-  html+='<div class="section-title" style="margin-bottom:4px;">Session planner</div>';
-  html+='<div class="section-sub">Pre-assign students to sessions and manage table capacity</div>';
-
-  // Month filter + session selector
-  html+='<div class="card" style="margin-bottom:16px;">';
-  html+='<div class="form-grid">';
-  html+='<div class="field"><label>Filter by month</label><select id="plan-month-filter">';
-  html+='<option value="">All sessions</option>';
-  months.forEach(function(m){
-    html+='<option value="'+m+'" '+(m===planMonth?'selected':'')+'>'+new Date(m+'-01T00:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'})+'</option>';
-  });
-  html+='</select></div>';
-  html+='<div class="field"><label>Select session to plan</label><select id="plan-session-select">';
-  html+='<option value="">— choose session —</option>';
-  filteredSessions.forEach(function(s){
-    html+='<option value="'+s.id+'" '+(s.id===selId?'selected':'')+'>'+
-      new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})+
-      ' · '+s.slot+' · '+(s.staff_name||'No teacher')+' · '+(s.subject||'—')+'</option>';
-  });
-  html+='</select></div>';
-  html+='</div></div>';
-
-  if(sel){
-    // Session info card
-    html+='<div class="card" style="margin-bottom:16px;border-left:3px solid var(--accent);">';
-    html+='<div class="card-header">';
-    html+='<div>';
-    html+='<div style="font-weight:700;font-size:15px;">'+sel.slot+'</div>';
-    html+='<div style="font-size:12px;color:var(--text3);margin-top:3px;">';
-    html+=new Date(sel.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-    html+=' · Table '+(sel.table_no||'—')+' · '+(sel.subject||'—');
-    html+='</div></div>';
-    html+='<div style="display:flex;gap:8px;align-items:center;">';
-    html+='<span class="badge badge-accent">'+assigned.length+' assigned</span>';
-    html+='<span class="badge badge-gray">'+(6-assigned.length)+' spaces</span>';
-    html+='<button class="btn btn-sm" data-action="set-cover-teacher" data-id="'+sel.id+'">Set cover teacher</button>';
-    html+='</div></div>';
-
-    // Cover teacher notice
-    if(sel.cover_staff_id){
-      const cover=staff.find(function(s){return s.id===sel.cover_staff_id;});
-      html+='<div style="margin-top:10px;padding:8px 12px;background:var(--amber-bg);border-radius:var(--radius);font-size:13px;color:var(--amber-text);">⚠ Cover teacher: <strong>'+(cover?cover.name:'Unknown')+'</strong>'+(sel.cover_notes?' — '+sel.cover_notes:'')+'</div>';
-    }
-    html+='</div>';
-
-    // Two column layout: assigned | available
-    html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
-
-    // Assigned students
-    html+='<div class="card">';
-    html+='<div class="card-header" style="margin-bottom:12px;"><div class="card-title">Assigned students ('+assigned.length+')</div></div>';
-    if(assigned.length){
-      assigned.forEach(function(a){
-        html+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">';
-        html+='<div>';
-        html+='<div style="font-weight:600;font-size:13px;">'+a.student_name+'</div>';
-        html+='<div style="font-size:11px;color:var(--text3);">'+a.admission_id+(a.is_catchup?' · <span style="color:var(--amber-text);">Catch-up</span>':'')+'</div>';
-        html+='</div>';
-        html+='<button class="btn btn-sm btn-danger" data-action="remove-session-student" data-session="'+selId+'" data-student="'+a.student_id+'">Remove</button>';
-        html+='</div>';
-      });
-    } else {
-      html+='<div style="color:var(--text3);font-size:13px;padding:10px 0;">No students assigned yet</div>';
-    }
-    html+='</div>';
-
-    // Available students to add
-    html+='<div class="card">';
-    html+='<div class="card-header" style="margin-bottom:12px;">';
-    html+='<div class="card-title">Available students ('+unassigned.length+')</div>';
-    html+='<button class="btn btn-sm btn-primary" data-action="assign-all-students" data-session="'+selId+'">+ Add all</button>';
-    html+='</div>';
-    html+='<input type="text" id="student-search" placeholder="Search students..." style="width:100%;margin-bottom:10px;border:1px solid var(--border2);border-radius:var(--radius);padding:8px 12px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;">';
-    if(unassigned.length){
-      unassigned.forEach(function(s){
-        html+='<div class="student-row" style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);" data-name="'+s.name.toLowerCase()+'">';
-        html+='<div>';
-        html+='<div style="font-weight:600;font-size:13px;">'+s.name+'</div>';
-        html+='<div style="font-size:11px;color:var(--text3);">'+s.admission_id+' · '+( s.year_group||'—')+'</div>';
-        html+='</div>';
-        html+='<button class="btn btn-sm btn-primary" data-action="add-session-student" data-session="'+selId+'" data-student="'+s.id+'">+ Add</button>';
-        html+='</div>';
-      });
-    } else {
-      html+='<div style="color:var(--text3);font-size:13px;padding:10px 0;">All branch students are assigned</div>';
-    }
-    html+='</div>';
-    html+='</div>'; // end grid
-  }
-  return html;
-}
 
 function renderCatchup(){
   const owed=state.data.catchup_owed||[];
@@ -1951,6 +1196,8 @@ function renderModal(){const m=state.modal;if(m==='add-student'||m==='edit-stude
   if(m==='add-catchup')return modalAddCatchup();
   if(m==='schedule-catchup')return modalScheduleCatchup();
   if(m==='set-cover-teacher')return modalSetCoverTeacher();
+  if(m==='add-table-alloc')return modalAddTableAlloc();
+  if(m==='add-student-to-table')return modalAddStudentToTable();
   if(m==='add-test-record'||m==='edit-test-record')return modalTestRecord();return'';}
 function mWrap(title,body,footer){return`<div class="modal-backdrop" id="modal-backdrop"><div class="modal modal-lg"><div class="modal-header"><div class="modal-title">${title}</div><button class="btn btn-sm" id="modal-close">✕</button></div><div class="modal-body">${body}</div><div class="modal-footer">${footer}</div></div></div>`;}
 
@@ -2346,6 +1593,40 @@ function modalResetPassword(){
   `,footer);
 }
 
+function modalAddTableAlloc(){
+  const sess=state.editTarget||{};
+  const staff=state.data.staff||[];
+  var staffOpts='<option value="">— No teacher assigned yet —</option>';
+  staff.forEach(function(s){staffOpts+='<option value="'+s.id+'">'+s.name+' ('+s.role+')</option>';});
+  const footer='<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Add table</button>';
+  return mWrap('Add table — Session '+sess.session_id,'<div class="form-grid">'+
+    '<div class="field"><label>Table number</label><input type="number" id="f-table-no" min="1" max="8" placeholder="1-8"></div>'+
+    '<div class="field"><label>Subject</label><select id="f-subject"><option value="">— select —</option><option>Maths</option><option>English</option><option>Science</option><option>Other</option></select></div>'+
+    '<div class="field"><label>Teacher</label><select id="f-teacher-id">'+staffOpts+'</select></div>'+
+    '<div class="field"><label>Max students</label><select id="f-max-students"><option value="5">5 (standard)</option><option value="6">6 (short-staffed)</option></select></div>'+
+    '<div class="field" style="grid-column:1/-1;"><label>Notes</label><input type="text" id="f-notes" placeholder="Optional notes"></div>'+
+    '</div>',footer);
+}
+
+function modalAddStudentToTable(){
+  const t=state.editTarget||{};
+  const allocs=state.data['table_allocs_'+t.session_id]||[];
+  const alloc=allocs.find(function(a){return a.id===t.alloc_id;});
+  const assigned=(alloc&&alloc.students)?alloc.students.map(function(s){return s.student_id;}):[];
+  const sess=(state.data.sessions||[]).find(function(s){return s.id===t.session_id;});
+  const branchStudents=(state.data.students||[]).filter(function(s){
+    return s.status==='active'&&(!sess||s.branch_id===sess.branch_id)&&!assigned.includes(s.id);
+  });
+  var studOpts='';
+  branchStudents.forEach(function(s){studOpts+='<option value="'+s.id+'">'+s.admission_id+' — '+s.name+'</option>';});
+  const footer='<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Add student</button>';
+  return mWrap('Add student to Table '+(alloc?alloc.table_no:''),'<div class="form-grid">'+
+    '<div class="field" style="grid-column:1/-1;"><label>Select student</label>'+
+    '<select id="f-student-id" size="8" style="height:200px;">'+studOpts+'</select></div>'+
+    '<div class="field" style="grid-column:1/-1;"><label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="f-is-catchup"> This is a catch-up student</label></div>'+
+    '</div>',footer);
+}
+
 function modalSetCoverTeacher(){
   const sess=state.editTarget||{};
   const staff=state.data.staff||[];
@@ -2519,6 +1800,24 @@ if(m==='add-test-record'||m==='edit-test-record'){
   else await API.put('/api/test-records/'+state.editTarget.id,body);
   toast(m==='add-test-record'?'Test recorded':'Test updated');
 }
+if(m==='add-table-alloc'){
+  const sessId=state.editTarget?.session_id;
+  const tableNo=parseInt(v('f-table-no'));
+  if(!tableNo||tableNo<1||tableNo>8){toast('Table number must be 1-8','error');return;}
+  const body={session_id:sessId,table_no:tableNo,subject:v('f-subject'),teacher_id:parseInt(v('f-teacher-id'))||null,max_students:parseInt(v('f-max-students'))||5,notes:v('f-notes')};
+  await API.post('/api/table-allocations',body);
+  await loadData('table_allocs_'+sessId,'/api/table-allocations/'+sessId);
+  toast('Table '+tableNo+' added');
+}
+if(m==='add-student-to-table'){
+  const t=state.editTarget||{};
+  const stuId=parseInt(v('f-student-id'));
+  if(!stuId){toast('Please select a student','error');return;}
+  const isCU=document.getElementById('f-is-catchup')?.checked||false;
+  await API.post('/api/table-allocations/'+t.alloc_id+'/students',{student_ids:[stuId],is_catchup:isCU});
+  await loadData('table_allocs_'+state.planSessionId,'/api/table-allocations/'+state.planSessionId);
+  toast('Student added to table');
+}
 if(m==='set-cover-teacher'){
   const body={cover_staff_id:parseInt(v('f-cover-staff'))||null,cover_notes:v('f-cover-notes')};
   await API.post('/api/sessions/'+state.editTarget.id+'/cover',body);
@@ -2597,6 +1896,13 @@ document.getElementById('mgmt-month-select')?.addEventListener('change',e=>{
 });
 document.getElementById('mgmt-year-select')?.addEventListener('change',e=>{
   state.mgmtYear=parseInt(e.target.value)||'';refreshPage();
+});
+document.getElementById('tt-student-select')?.addEventListener('change',async e=>{
+  state.timetableStudentId=e.target.value?parseInt(e.target.value):null;
+  if(state.timetableStudentId){
+    await loadData('timetable_'+state.timetableStudentId,'/api/student-timetable',{student_id:state.timetableStudentId});
+  }
+  render();
 });
 document.getElementById('plan-month-filter')?.addEventListener('change',e=>{
   state.planMonth=e.target.value||'';render();
