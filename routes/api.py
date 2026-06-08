@@ -791,16 +791,21 @@ def report_summary():
     att = cur.fetchone()
     att_rate = round(att['present'] / att['total'] * 100) if att['total'] else 0
 
-    # Per branch stats
+    # Per branch stats - use efficient JOINs instead of correlated subqueries
     cur.execute("""
         SELECT b.name, b.id,
-          (SELECT COUNT(*) FROM students WHERE branch_id=b.id AND status='active') as students,
-          (SELECT COUNT(*) FROM sessions WHERE branch_id=b.id) as sessions,
-          (SELECT COUNT(*) FROM attendance a JOIN sessions s ON s.id=a.session_id
-           WHERE s.branch_id=b.id AND a.status='present') as present,
-          (SELECT COUNT(*) FROM attendance a JOIN sessions s ON s.id=a.session_id
-           WHERE s.branch_id=b.id) as att_total
-        FROM branches b ORDER BY b.name
+          COALESCE(stu.c,0) as students,
+          COALESCE(sess.c,0) as sessions,
+          COALESCE(att.present,0) as present,
+          COALESCE(att.total,0) as att_total
+        FROM branches b
+        LEFT JOIN (SELECT branch_id, COUNT(*) as c FROM students WHERE status='active' GROUP BY branch_id) stu ON stu.branch_id=b.id
+        LEFT JOIN (SELECT branch_id, COUNT(*) as c FROM sessions GROUP BY branch_id) sess ON sess.branch_id=b.id
+        LEFT JOIN (SELECT s.branch_id,
+            COUNT(*) FILTER (WHERE a.status='present') as present,
+            COUNT(*) as total
+            FROM attendance a JOIN sessions s ON s.id=a.session_id GROUP BY s.branch_id) att ON att.branch_id=b.id
+        ORDER BY b.name
     """)
     branch_stats = rows(cur)
 
