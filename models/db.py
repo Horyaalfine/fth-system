@@ -151,6 +151,7 @@ DO $$ BEGIN
     ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_science_book TEXT;
     ALTER TABLE students ADD COLUMN IF NOT EXISTS hours_per_week TEXT;
     -- Update payment method constraint to include direct_debit and standing_order
+    -- Student timetable and table allocation tables (handled by CREATE TABLE IF NOT EXISTS)
     -- Session students and catchup tables (handled by CREATE TABLE IF NOT EXISTS)
     ALTER TABLE sessions ADD COLUMN IF NOT EXISTS cover_staff_id INT REFERENCES staff(id) ON DELETE SET NULL;
     ALTER TABLE sessions ADD COLUMN IF NOT EXISTS cover_notes TEXT;
@@ -280,6 +281,49 @@ CREATE TABLE IF NOT EXISTS hq_transfers (
 );
 CREATE INDEX IF NOT EXISTS idx_hq_transfers_branch ON hq_transfers(branch_id);
 CREATE INDEX IF NOT EXISTS idx_hq_transfers_date ON hq_transfers(transfer_date DESC);
+
+-- ── STUDENT TIMETABLE (which slots/subjects a student attends) ──
+CREATE TABLE IF NOT EXISTS student_timetable (
+    id          SERIAL PRIMARY KEY,
+    student_id  INT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    branch_id   INT NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+    day_type    TEXT NOT NULL CHECK (day_type IN ('weekday','saturday','sunday')),
+    slot        TEXT NOT NULL,
+    subject     TEXT NOT NULL,
+    active      BOOLEAN DEFAULT TRUE,
+    notes       TEXT,
+    created_at  TIMESTAMP DEFAULT NOW(),
+    UNIQUE (student_id, day_type, slot, subject)
+);
+CREATE INDEX IF NOT EXISTS idx_st_student ON student_timetable(student_id);
+CREATE INDEX IF NOT EXISTS idx_st_branch  ON student_timetable(branch_id);
+CREATE INDEX IF NOT EXISTS idx_st_slot    ON student_timetable(day_type, slot);
+
+-- ── TABLE ALLOCATION (supervisor assigns table/teacher/students per session) ──
+CREATE TABLE IF NOT EXISTS table_allocations (
+    id          SERIAL PRIMARY KEY,
+    session_id  INT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    table_no    INT NOT NULL,
+    teacher_id  INT REFERENCES staff(id) ON DELETE SET NULL,
+    subject     TEXT,
+    max_students INT DEFAULT 5,
+    notes       TEXT,
+    created_at  TIMESTAMP DEFAULT NOW(),
+    UNIQUE (session_id, table_no)
+);
+CREATE INDEX IF NOT EXISTS idx_ta_session ON table_allocations(session_id);
+
+-- ── TABLE ALLOCATION STUDENTS ──
+CREATE TABLE IF NOT EXISTS table_allocation_students (
+    id              SERIAL PRIMARY KEY,
+    allocation_id   INT NOT NULL REFERENCES table_allocations(id) ON DELETE CASCADE,
+    student_id      INT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    is_catchup      BOOLEAN DEFAULT FALSE,
+    created_at      TIMESTAMP DEFAULT NOW(),
+    UNIQUE (allocation_id, student_id)
+);
+CREATE INDEX IF NOT EXISTS idx_tas_alloc   ON table_allocation_students(allocation_id);
+CREATE INDEX IF NOT EXISTS idx_tas_student ON table_allocation_students(student_id);
 
 -- ── SESSION STUDENTS (pre-assignment) ──
 CREATE TABLE IF NOT EXISTS session_students (
