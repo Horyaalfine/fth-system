@@ -819,6 +819,7 @@ function renderStaffTimesheets(){
 
   ${tab==='summary'?`
   <div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>
+    <div style="margin-bottom:12px;padding:10px 14px;background:rgba(167,139,250,0.1);border-radius:var(--radius);border-left:4px solid var(--purple);font-size:12px;color:var(--text2);"><strong style="color:var(--purple-text);">Unpaid break deductions:</strong> Weekend full day (after 16:15): −1h 30min · Morning (13:15–16:15): −1h 15min · Slot 2 only (11:15–13:15): −15 min · Afternoon only (14:00+, after 16:15): −15 min · Weekdays: none</div>
     <thead><tr><th>Staff member</th><th>Branch</th><th>Role</th><th>Present</th><th>Absent</th><th>Late</th><th>No sign-out</th><th>Clock hrs</th><th>Paid hrs</th><th>Actions</th></tr></thead>
     <tbody>${summary.map(r=>`<tr>
       <td><div style="display:flex;align-items:center;gap:10px;"><div class="avatar av-teal" style="width:30px;height:30px;font-size:11px;">${avatarInitials(r.name)}</div><strong>${r.name}</strong></div></td>
