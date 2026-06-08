@@ -1279,6 +1279,242 @@ def mark_instalment_paid(sid):
     return jsonify({'ok': True})
 
 
+
+# ════════════════════════════════════════════
+#  STUDENT TIMETABLE
+# ════════════════════════════════════════════
+@api_bp.route('/api/student-timetable', methods=['GET'])
+@require_auth
+def get_student_timetable():
+    b = branch_scope()
+    student_id = request.args.get('student_id', type=int)
+    conn = get_conn(); cur = conn.cursor()
+    where = []; params = []
+    if b: where.append("st.branch_id=%s"); params.append(b)
+    if student_id: where.append("st.student_id=%s"); params.append(student_id)
+    wc = ("WHERE " + " AND ".join(where)) if where else ""
+    cur.execute(f"""
+        SELECT st.*, s.name as student_name, s.admission_id, s.year_group
+        FROM student_timetable st
+        JOIN students s ON s.id=st.student_id
+        {wc} ORDER BY s.admission_id, st.day_type, st.slot
+    """, params)
+    data = rows(cur); cur.close(); conn.close()
+    return jsonify(data)
+
+@api_bp.route('/api/student-timetable', methods=['POST'])
+@require_auth
+def save_student_timetable():
+    """Bulk save timetable entries for a student."""
+    d = request.json
+    student_id = d['student_id']
+    entries = d.get('entries', [])
+    conn = get_conn(); cur = conn.cursor()
+    # Remove existing entries for this student
+    cur.execute("DELETE FROM student_timetable WHERE student_id=%s", (student_id,))
+    for e in entries:
+        cur.execute("""
+            INSERT INTO student_timetable (student_id, branch_id, day_type, slot, subject, notes)
+            VALUES (%s,%s,%s,%s,%s,%s)
+            ON CONFLICT (student_id, day_type, slot, subject) DO UPDATE
+            SET active=TRUE, notes=EXCLUDED.notes
+        """, (student_id, e['branch_id'], e['day_type'], e['slot'], e['subject'], e.get('notes','')))
+    conn.commit(); cur.close(); conn.close()
+    log_action('edit', 'student_timetable', student_id)
+    return jsonify({'ok': True, 'saved': len(entries)})
+
+@api_bp.route('/api/student-timetable/<int:tid>', methods=['DELETE'])
+@require_auth
+def delete_timetable_entry(tid):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("DELETE FROM student_timetable WHERE id=%s", (tid,))
+    conn.commit(); cur.close(); conn.close()
+    return jsonify({'ok': True})
+
+# ════════════════════════════════════════════
+#  TABLE ALLOCATIONS
+# ════════════════════════════════════════════
+@api_bp.route('/api/table-allocations/<int:session_id>', methods=['GET'])
+@require_auth
+def get_table_allocations(session_id):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        SELECT ta.*, st.name as teacher_name,
+               COUNT(tas.id) as student_count
+        FROM table_allocations ta
+        LEFT JOIN staff st ON st.id=ta.teacher_id
+        LEFT JOIN table_allocation_students tas ON tas.allocation_id=ta.id
+        WHERE ta.session_id=%s
+        GROUP BY ta.id, st.name
+        ORDER BY ta.table_no
+    """, (session_id,))
+    tables = rows(cur)
+    # Get students per table
+    for t in tables:
+        cur.execute("""
+            SELECT tas.*, s.name as student_name, s.admission_id, s.year_group
+            FROM table_allocation_students tas
+            JOIN students s ON s.id=tas.student_id
+            WHERE tas.allocation_id=%s ORDER BY s.admission_id
+        """, (t['id'],))
+        t['students'] = rows(cur)
+    cur.close(); conn.close()
+    return jsonify(tables)
+
+@api_bp.route('/api/table-allocations', methods=['POST'])
+@require_auth
+def save_table_allocation():
+    d = request.json
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO table_allocations (session_id, table_no, teacher_id, subject, max_students, notes)
+        VALUES (%s,%s,%s,%s,%s,%s)
+        ON CONFLICT (session_id, table_no) DO UPDATE SET
+            teacher_id=EXCLUDED.teacher_id, subject=EXCLUDED.subject,
+            max_students=EXCLUDED.max_students, notes=EXCLUDED.notes
+        RETURNING *
+    """, (d['session_id'], d['table_no'], d.get('teacher_id') or None,
+          d.get('subject',''), d.get('max_students',5), d.get('notes','')))
+    r = row(cur); conn.commit(); cur.close(); conn.close()
+    log_action('edit', 'table_allocations', r['id'])
+    return jsonify(r), 201
+
+@api_bp.route('/api/table-allocations/<int:aid>', methods=['DELETE'])
+@require_auth
+def delete_table_allocation(aid):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("DELETE FROM table_allocations WHERE id=%s", (aid,))
+    conn.commit(); cur.close(); conn.close()
+    return jsonify({'ok': True})
+
+@api_bp.route('/api/table-allocations/<int:aid>/students', methods=['POST'])
+@require_auth
+def add_table_student(aid):
+    d = request.json
+    student_ids = d.get('student_ids', [])
+    conn = get_conn(); cur = conn.cursor()
+    added = 0
+    for sid in student_ids:
+        cur.execute("""
+            INSERT INTO table_allocation_students (allocation_id, student_id, is_catchup)
+            VALUES (%s,%s,%s) ON CONFLICT DO NOTHING
+        """, (aid, sid, d.get('is_catchup', False)))
+        if cur.rowcount: added += 1
+    conn.commit(); cur.close(); conn.close()
+    return jsonify({'added': added})
+
+@api_bp.route('/api/table-allocations/<int:aid>/students/<int:sid>', methods=['DELETE'])
+@require_auth
+def remove_table_student(aid, sid):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("DELETE FROM table_allocation_students WHERE allocation_id=%s AND student_id=%s", (aid, sid))
+    conn.commit(); cur.close(); conn.close()
+    return jsonify({'ok': True})
+
+# ════════════════════════════════════════════
+#  SESSION REPORT (formatted like Excel sample)
+# ════════════════════════════════════════════
+@api_bp.route('/api/session-report/<date_str>', methods=['GET'])
+@require_auth
+def get_session_report(date_str):
+    b = branch_scope()
+    conn = get_conn(); cur = conn.cursor()
+    bp = (b,) if b else ()
+    bw = "AND s.branch_id=%s" if b else ""
+
+    # Get all sessions for the date
+    cur.execute(f"""
+        SELECT s.*, st.name as staff_name, st.subject as staff_subject,
+               b.name as branch_name, cv.name as cover_name
+        FROM sessions s
+        JOIN branches b ON b.id=s.branch_id
+        LEFT JOIN staff st ON st.id=s.staff_id
+        LEFT JOIN staff cv ON cv.id=s.cover_staff_id
+        WHERE s.date=%s {bw} ORDER BY s.slot, st.name
+    """, (date_str,)+bp)
+    sessions = rows(cur)
+
+    # Get attendance + table allocations for each session
+    report_slots = {}
+    for sess in sessions:
+        slot = sess['slot']
+        if slot not in report_slots:
+            report_slots[slot] = {'slot': slot, 'tables': [], 'session_ids': []}
+        report_slots[slot]['session_ids'].append(sess['id'])
+
+        # Get table allocations for this session
+        cur.execute("""
+            SELECT ta.*, st.name as teacher_name,
+                   tas.student_id, s.name as student_name, s.admission_id,
+                   s.year_group, tas.is_catchup,
+                   a.status as att_status, a.notes as att_notes
+            FROM table_allocations ta
+            LEFT JOIN staff st ON st.id=ta.teacher_id
+            LEFT JOIN table_allocation_students tas ON tas.allocation_id=ta.id
+            LEFT JOIN students s ON s.id=tas.student_id
+            LEFT JOIN attendance a ON a.session_id=ta.session_id AND a.student_id=tas.student_id
+            WHERE ta.session_id=%s ORDER BY ta.table_no, s.admission_id
+        """, (sess['id'],))
+        alloc_rows = cur.fetchall()
+
+        # Group by table
+        tables = {}
+        for r in alloc_rows:
+            tid = r['id']
+            if tid not in tables:
+                tables[tid] = {
+                    'table_no': r['table_no'],
+                    'teacher_name': r['teacher_name'] or sess['staff_name'] or '—',
+                    'subject': r['subject'] or sess['staff_subject'] or '—',
+                    'max_students': r['max_students'],
+                    'students': []
+                }
+            if r['student_id']:
+                tables[tid]['students'].append({
+                    'student_id': r['student_id'],
+                    'student_name': r['student_name'],
+                    'admission_id': r['admission_id'],
+                    'year_group': r['year_group'],
+                    'is_catchup': r['is_catchup'],
+                    'att_status': r['att_status'],
+                    'att_notes': r['att_notes'],
+                })
+
+        # Also get attendance-only students (marked but not in table allocation)
+        cur.execute("""
+            SELECT a.*, s.name as student_name, s.admission_id
+            FROM attendance a JOIN students s ON s.id=a.student_id
+            WHERE a.session_id=%s
+        """, (sess['id'],))
+        att_only = rows(cur)
+
+        report_slots[slot]['tables'].extend(list(tables.values()))
+        report_slots[slot]['att_only'] = att_only
+        report_slots[slot]['branch_name'] = sess['branch_name']
+
+    cur.close(); conn.close()
+
+    # Build sorted slot list
+    result = sorted(report_slots.values(), key=lambda x: x['slot'])
+
+    # Summary stats per slot
+    for slot in result:
+        all_students = []
+        for t in slot['tables']:
+            all_students.extend(t['students'])
+        unique_ids = set(s['student_id'] for s in all_students if s.get('student_id'))
+        slot['total_students'] = len(unique_ids)
+        slot['present'] = sum(1 for s in all_students if s.get('att_status')=='present')
+        slot['absent'] = sum(1 for s in all_students if s.get('att_status')=='absent')
+        slot['tables_used'] = len(slot['tables'])
+
+    return jsonify({
+        'date': date_str,
+        'slots': result,
+        'total_tables': 8,
+        'max_per_table': 5,
+    })
+
 # ════════════════════════════════════════════
 #  SESSION STUDENTS (pre-assignment)
 # ════════════════════════════════════════════
