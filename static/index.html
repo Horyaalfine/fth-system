@@ -2075,7 +2075,7 @@ function modalStudent(){
     <div class="form-grid">
       <div class="field"><label>Referred by (name)</label><input type="text" id="f-ref-by" value="${s.referred_by||''}" placeholder="Who referred this family?"></div>
       <div class="field"><label>Referral admission number</label><input type="text" id="f-ref-admid" value="${s.referral_admission||''}" placeholder="e.g. H100"></div>
-      <div class="field"><label>Status</label><select id="f-status"><option value="active" ${!s.status||s.status==='active'?'selected':''}>Active</option><option value="inactive" ${s.status==='inactive'?'selected':''}>Inactive</option></select></div>
+      <div class="field"><label>Status</label><select id="f-status"><option value="active" ${!s.status||s.status==='active'?'selected':''}>Active</option><option value="paused" ${s.status==='paused'?'selected':''}>Paused</option><option value="inactive" ${s.status==='inactive'?'selected':''}>Inactive</option></select></div>
       <div class="field" style="grid-column:1/-1;"><label>Additional notes</label><input type="text" id="f-notes" value="${s.notes||''}" placeholder="Any additional notes"></div>
     </div>
   `,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${s.id?'Save changes':'Enrol student'}</button>`);}
@@ -2093,7 +2093,7 @@ return mWrap(s.id?'Edit staff member':'Add staff member',`
         <option value="admin" ${s.role==='admin'?'selected':''}>Admin support</option></select></div>
 <div class="field"><label>Subject</label><input type="text" id="f-subject" value="${s.subject||''}" placeholder="e.g. Maths, English"></div>
 <div class="field"><label>Contact number</label><input type="text" id="f-contact" value="${s.contact||''}"></div>
-<div class="field"><label>Status</label><select id="f-status"><option value="active" ${!s.status||s.status==='active'?'selected':''}>Active</option><option value="inactive" ${s.status==='inactive'?'selected':''}>Inactive</option></select></div>
+<div class="field"><label>Status</label><select id="f-status"><option value="active" ${!s.status||s.status==='active'?'selected':''}>Active</option><option value="paused" ${s.status==='paused'?'selected':''}>Paused</option><option value="inactive" ${s.status==='inactive'?'selected':''}>Inactive</option></select></div>
 </div>`,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${s.id?'Save changes':'Add staff'}</button>`);}
 
 function modalSession(){const s=state.editTarget||{};const branches=state.data.branches||[];const defBranch=state.currentBranch||branches[0]?.id||'';const staffList=(state.data.staff||[]).filter(st=>['teacher','head_of_centre','supervisor','admin','receptionist'].includes(st.role));const slots=['Slot 1 (09:00-11:00)','Slot 2 (11:30-13:30)','Slot 3 (14:00-16:00)','Slot 4 (16:30-18:30)','Weekday Slot 1 (17:00-19:00)','Weekday Slot 2 (19:00-21:00)'];
