@@ -61,6 +61,11 @@ def log_action(action, table=None, record_id=None):
 
 # ── PAID HOURS HELPER ──
 def calc_paid_hours(sign_in, sign_out, work_date):
+    """Paid hours after unpaid break deductions.
+    Weekend afternoon staff (sign-in >= 14:00): deduct 15min if sign-out > 16:15
+    Weekend full/morning staff: deduct 15min (>11:15), 75min (>13:15), 90min (>16:15)
+    Weekday: no deduction.
+    """
     if not sign_in or not sign_out:
         return None
     try:
@@ -79,14 +84,20 @@ def calc_paid_hours(sign_in, sign_out, work_date):
             else:
                 d = work_date
             if d.weekday() >= 5:  # weekend
-                if so_mins > 16*60+15:   deduct = 90  # full day: -1h30
-                elif so_mins > 13*60+15: deduct = 75  # morning+gap: -1h15
-                elif so_mins > 11*60+15: deduct = 15  # slot2 break: -15min
+                if si_mins >= 14 * 60:  # afternoon only (Slots 3+4)
+                    if so_mins > 16*60+15:
+                        deduct = 15  # Slot 4 break only
+                else:  # full day or morning
+                    if so_mins > 16*60+15:
+                        deduct = 90  # Slot2+gap+Slot4
+                    elif so_mins > 13*60+15:
+                        deduct = 75  # Slot2+gap
+                    elif so_mins > 11*60+15:
+                        deduct = 15  # Slot2 break only
         return round((total_mins - deduct) / 60, 2)
     except Exception:
         return None
 
-# ── HELPERS ──
 def rows(cur): return [dict(r) for r in cur.fetchall()]
 def row(cur):  r = cur.fetchone(); return dict(r) if r else None
 
