@@ -98,71 +98,62 @@ CREATE TABLE IF NOT EXISTS students (
     created_at          TIMESTAMP DEFAULT NOW()
 );
 
--- Migration: add new columns if they don't exist (safe to run multiple times)
-DO $$ BEGIN
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS first_name TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS last_name TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS date_of_birth DATE;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS gender TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS current_school TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS medical_notes TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS sen_notes TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_first_name TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_last_name TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_address TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_telephone TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_mobile TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_email TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_occupation TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer2_first_name TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer2_last_name TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer2_address TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer2_telephone TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer2_mobile TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer2_email TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer2_occupation TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS emergency_name TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS emergency_telephone TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS emergency_relation TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS referred_by TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS referral_admission TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_postcode TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS carer2_postcode TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_maths_board TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_maths_paper TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_maths_exam_date TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_maths_current_grade TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_maths_predicted_grade TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_english_board TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_english_paper TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_english_exam_date TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_english_current_grade TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_english_predicted_grade TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_science_board TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_science_paper TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_science_exam_date TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_science_current_grade TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_science_predicted_grade TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_maths_pct TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_maths_book TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_english_pct TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_english_book TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_science_pct TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_science_book TEXT;
-    ALTER TABLE students ADD COLUMN IF NOT EXISTS hours_per_week TEXT;
-    -- Update payment method constraint to include direct_debit and standing_order
-    -- Student timetable and table allocation tables (handled by CREATE TABLE IF NOT EXISTS)
-    -- Session students and catchup tables (handled by CREATE TABLE IF NOT EXISTS)
-    ALTER TABLE sessions ADD COLUMN IF NOT EXISTS cover_staff_id INT REFERENCES staff(id) ON DELETE SET NULL;
-    ALTER TABLE sessions ADD COLUMN IF NOT EXISTS cover_notes TEXT;
-    -- Make staff_attendance.session_id nullable
-    ALTER TABLE staff_attendance ALTER COLUMN session_id DROP NOT NULL;
-    -- Create hq_transfers if not exists (handled by CREATE TABLE IF NOT EXISTS above)
-    -- Lesson reports and test records (handled by CREATE TABLE IF NOT EXISTS)
-    ALTER TABLE payments DROP CONSTRAINT IF EXISTS payments_method_check;
-    ALTER TABLE payments ADD CONSTRAINT payments_method_check
-        CHECK (method IN ('cash','bank_transfer','cheque','card','direct_debit','standing_order','other'));
-END $$;
+-- Migrations (individual statements - safe to run multiple times)
+ALTER TABLE students ADD COLUMN IF NOT EXISTS first_name TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS last_name TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS date_of_birth DATE;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gender TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS current_school TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS medical_notes TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS sen_notes TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_first_name TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_last_name TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_address TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_telephone TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_mobile TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_email TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_occupation TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS carer2_first_name TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS carer2_last_name TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS carer2_address TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS carer2_telephone TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS carer2_mobile TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS carer2_email TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS carer2_occupation TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS emergency_name TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS emergency_telephone TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS emergency_relation TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS referred_by TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS referral_admission TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_postcode TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS carer2_postcode TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_maths_board TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_maths_paper TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_maths_exam_date TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_maths_current_grade TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_maths_predicted_grade TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_english_board TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_english_paper TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_english_exam_date TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_english_current_grade TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_english_predicted_grade TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_science_board TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_science_paper TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_science_exam_date TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_science_current_grade TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_science_predicted_grade TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_maths_pct TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_maths_book TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_english_pct TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_english_book TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_science_pct TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_science_book TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS hours_per_week TEXT;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS cover_staff_id INT REFERENCES staff(id) ON DELETE SET NULL;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS cover_notes TEXT;
+ALTER TABLE staff_attendance ALTER COLUMN session_id DROP NOT NULL;
+ALTER TABLE payments DROP CONSTRAINT IF EXISTS payments_method_check;
+ALTER TABLE payments ADD CONSTRAINT payments_method_check CHECK (method IN ('cash','bank_transfer','cheque','card','direct_debit','standing_order','other'));
 
 -- ── STAFF ──
 CREATE TABLE IF NOT EXISTS staff (
@@ -419,7 +410,7 @@ CREATE INDEX IF NOT EXISTS idx_test_records_date ON test_records(test_date DESC)
 -- ── STAFF ATTENDANCE ──
 CREATE TABLE IF NOT EXISTS staff_attendance (
     id           SERIAL PRIMARY KEY,
-    session_id   INT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    session_id   INT REFERENCES sessions(id) ON DELETE CASCADE,
     staff_id     INT NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
     branch_id    INT NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
     date         DATE NOT NULL,
