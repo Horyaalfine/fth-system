@@ -480,17 +480,26 @@ ON CONFLICT DO NOTHING;
 
 def init_db():
     """Create all tables and seed initial data."""
-    from werkzeug.security import generate_password_hash
     conn = get_conn()
     cur = conn.cursor()
-
-    # Create schema
-    cur.execute(SCHEMA)
-
-    conn.commit()
+    # Split schema into individual statements and run each one
+    # This means one failing ALTER won't block everything
+    statements = [s.strip() for s in SCHEMA.split(';') if s.strip()]
+    ok = 0
+    for stmt in statements:
+        try:
+            cur.execute(stmt)
+            conn.commit()
+            ok += 1
+        except Exception as e:
+            conn.rollback()
+            # IF NOT EXISTS failures are expected on re-runs - only log real errors
+            err = str(e).lower()
+            if 'already exists' not in err and 'does not exist' not in err:
+                print(f"Schema warning: {e}")
     cur.close()
     conn.close()
-    print("Database initialised successfully.")
+    print(f"Database initialised successfully ({ok}/{len(statements)} statements OK).")
 
 if __name__ == '__main__':
     init_db()
