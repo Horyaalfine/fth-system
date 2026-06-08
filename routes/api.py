@@ -873,28 +873,49 @@ def staff_attendance_summary():
     conn = get_conn(); cur = conn.cursor()
     bw = "AND sa.branch_id=%s" if b else ""
     params = [month] + ([b] if b else [])
-    cur.execute(f"""
-        SELECT
-            st.id, st.name, st.role, st.subject, b.name as branch_name,
-            COUNT(*) FILTER (WHERE sa.status='present') as present,
-            COUNT(*) FILTER (WHERE sa.status='absent') as absent,
-            COUNT(*) FILTER (WHERE sa.status='late') as late,
-            COUNT(*) FILTER (WHERE sa.status='no_sign_out') as no_sign_out,
-            COUNT(*) as total_sessions,
-            SUM(EXTRACT(EPOCH FROM (sa.sign_out - sa.sign_in))/3600)
-                FILTER (WHERE sa.sign_in IS NOT NULL AND sa.sign_out IS NOT NULL) as total_hours
-        FROM staff st
-        JOIN branches b ON b.id=st.branch_id
-        LEFT JOIN staff_attendance sa ON sa.staff_id=st.id
-            AND TO_CHAR(sa.date,'YYYY-MM')=%s {bw}
-        GROUP BY st.id, st.name, st.role, st.subject, b.name
-        ORDER BY st.name
-    """, params)
+    cur.execute(
+        "SELECT st.id, st.name, st.role, st.subject, b.name as branch_name,"
+        " COUNT(*) FILTER (WHERE sa.status='present') as present,"
+        " COUNT(*) FILTER (WHERE sa.status='absent') as absent,"
+        " COUNT(*) FILTER (WHERE sa.status='late') as late,"
+        " COUNT(*) FILTER (WHERE sa.status='no_sign_out') as no_sign_out,"
+        " COUNT(*) as total_sessions"
+        " FROM staff st JOIN branches b ON b.id=st.branch_id"
+        " LEFT JOIN staff_attendance sa ON sa.staff_id=st.id"
+        " AND TO_CHAR(sa.date,'YYYY-MM')=%s " + bw +
+        " GROUP BY st.id, st.name, st.role, st.subject, b.name ORDER BY st.name",
+        params)
     data = rows(cur)
-    for d in data:
-        if d.get('total_hours'): d['total_hours'] = round(float(d['total_hours']), 1)
+    cur.execute(
+        "SELECT sa.staff_id, sa.sign_in, sa.sign_out, sa.date"
+        " FROM staff_attendance sa"
+        " WHERE TO_CHAR(sa.date,'YYYY-MM')=%s"
+        " AND sa.sign_in IS NOT NULL AND sa.sign_out IS NOT NULL"
+        " AND sa.status='present' " + bw,
+        params)
+    records = cur.fetchall()
     cur.close(); conn.close()
+    paid_by_staff = {}
+    clock_by_staff = {}
+    for r in records:
+        sid = r['staff_id']
+        si = str(r['sign_in'])[:5] if r['sign_in'] else None
+        so = str(r['sign_out'])[:5] if r['sign_out'] else None
+        paid = calc_paid_hours(si, so, r['date'])
+        try:
+            si_m = int(si[:2])*60+int(si[3:5])
+            so_m = int(so[:2])*60+int(so[3:5])
+            clock = round((so_m-si_m)/60, 2)
+        except Exception:
+            clock = 0
+        if paid is not None:
+            paid_by_staff[sid] = round((paid_by_staff.get(sid) or 0) + paid, 2)
+        clock_by_staff[sid] = round((clock_by_staff.get(sid) or 0) + clock, 2)
+    for d in data:
+        d['total_clock_hours'] = clock_by_staff.get(d['id'], 0)
+        d['total_paid_hours'] = paid_by_staff.get(d['id'], 0)
     return jsonify(data)
+
 
 @api_bp.route('/api/staff-attendance', methods=['POST'])
 @require_auth
