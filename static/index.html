@@ -255,7 +255,7 @@ table{min-width:480px;}
 <script>
 const API={async call(method,path,body){const opts={method,credentials:'include',headers:{'Content-Type':'application/json'}};if(body)opts.body=JSON.stringify(body);const res=await fetch(path,opts);if(res.status===401){state.currentUser=null;state.parentUser=null;render();return null;}return res.ok?res.json():Promise.reject(await res.json());},get:(p,q)=>API.call('GET',q?p+'?'+new URLSearchParams(q):p),post:(p,body)=>API.call('POST',p,body),put:(p,body)=>API.call('PUT',p,body),delete:(p)=>API.call('DELETE',p)};
 
-let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',planSessionId:null,planMonth:'',mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
+let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',planSessionId:null,planMonth:'',planTab:'allocate',timetableStudentId:null,mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
 
 function toast(msg,type='success'){const el=document.createElement('div');el.className=`toast toast-${type}`;el.innerHTML=(type==='success'?'<span style="color:var(--success)">✓</span> ':'<span style="color:var(--danger)">✕</span> ')+msg;document.getElementById('toasts').appendChild(el);setTimeout(()=>el.remove(),3500);}
 function roleBadge(role){const m={super_admin:['badge-purple','Super admin'],branch_manager:['badge-blue','Branch manager'],teacher:['badge-teal','Teacher'],receptionist:['badge-amber','Receptionist']};const[cls,label]=m[role]||['badge-gray',role];return`<span class="badge ${cls}">${label}</span>`;}
@@ -288,18 +288,18 @@ async function loadData(key,path,params){try{state.data[key]=await API.get(path,
 async function refreshPage(){state.loading=true;render();const b=branchParam();const page=state.page;try{if(page==='dashboard')await Promise.all([loadData('branches','/api/branches'),loadData('summary','/api/reports/summary',b),loadData('audit','/api/audit')]);else if(page==='students')await loadData('students','/api/students',{...b,q:state.studentSearch});else if(page==='staff')await loadData('staff','/api/staff',b);else if(page==='sessions')await loadData('sessions','/api/sessions',b);else if(page==='attendance'){await Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b)]);if(state.attSessionId)await loadData('attendance_'+state.attSessionId,'/api/attendance/'+state.attSessionId);}else if(page==='invoices')await loadData('invoices','/api/invoices',{...b,status:state.invoiceFilter});else if(page==='session_reports'){
   await loadData('sessions','/api/sessions',b);
   const allSessions=state.data.sessions||[];
-  // Auto-select most recent date if none selected
   const dates=[...new Set(allSessions.map(s=>s.date))].sort().reverse();
   if(!state.srDate&&dates.length) state.srDate=dates[0];
-  // Load attendance for all sessions on selected date
   if(state.srDate){
     const dateSessions=allSessions.filter(s=>s.date===state.srDate);
-    await Promise.all(dateSessions.flatMap(s=>[
-      loadData('sr_att_'+s.id,'/api/attendance/'+s.id),
-      loadData('sr_prog_'+s.id,'/api/progress',{session_id:s.id})
-    ]));
+    await Promise.all([
+      loadData('session_report_'+state.srDate,'/api/session-report/'+state.srDate),
+      ...dateSessions.flatMap(s=>[
+        loadData('sr_att_'+s.id,'/api/attendance/'+s.id),
+        loadData('sr_prog_'+s.id,'/api/progress',{session_id:s.id})
+      ])
+    ]);
   }
-  // Also load single session if selected
   if(state.sessionReportId){
     await Promise.all([
       loadData('sr_att_'+state.sessionReportId,'/api/attendance/'+state.sessionReportId),
@@ -341,7 +341,13 @@ else if(page==='session_plan'){
     loadData('branches','/api/branches'),
   ]);
   if(state.planSessionId){
-    await loadData('plan_students_'+state.planSessionId,'/api/session-students/'+state.planSessionId);
+    await Promise.all([
+      loadData('table_allocs_'+state.planSessionId,'/api/table-allocations/'+state.planSessionId),
+      loadData('plan_students_'+state.planSessionId,'/api/session-students/'+state.planSessionId),
+    ]);
+  }
+  if(state.srTab==='daily'&&state.srDate){
+    await loadData('session_report_'+state.srDate,'/api/session-report/'+state.srDate);
   }
 }
 else if(page==='catchup'){
