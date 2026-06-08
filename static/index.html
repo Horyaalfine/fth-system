@@ -2616,6 +2616,7 @@ document.getElementById('sr-date-select')?.addEventListener('change',async e=>{
     const ds=(state.data.sessions||[]).filter(s=>s.date===state.srDate);
     const b=branchParam();
     await Promise.all([
+      loadData('session_report_'+state.srDate,'/api/session-report/'+state.srDate),
       loadData('students','/api/students',b),
       ...ds.flatMap(s=>[
         loadData('sr_att_'+s.id,'/api/attendance/'+s.id),
