@@ -1347,113 +1347,94 @@ function renderMgmtReports(){
 
 function renderSessionPlan(){
   const sessions=state.data.sessions||[];
-  const students=state.data.students||[];
+  const students=(state.data.students||[]).filter(function(s){return s.status==='active';});
   const staff=state.data.staff||[];
   const selId=state.planSessionId;
   const sel=sessions.find(function(s){return s.id===selId;});
-  const assigned=selId?(state.data['plan_students_'+selId]||[]):[];
-  const assignedIds=assigned.map(function(a){return a.student_id;});
+  const allocs=selId?(state.data['table_allocs_'+selId]||[]):[];
+  const planTab=state.planTab||'allocate';
   const planMonth=state.planMonth||'';
-
-  // Filter sessions by month
-  const filteredSessions=planMonth?sessions.filter(function(s){return s.date&&s.date.slice(0,7)===planMonth;}):sessions;
-
-  // Get unique months for filter
   const months=[...new Set(sessions.map(function(s){return s.date?s.date.slice(0,7):'';}).filter(Boolean))].sort().reverse();
-
-  // Branch students (not yet assigned to this session)
-  const branchStudents=sel?students.filter(function(s){return s.branch_id===sel.branch_id&&s.status==='active';}):[];
-  const unassigned=branchStudents.filter(function(s){return !assignedIds.includes(s.id);});
-
-  let html='';
+  const filteredSessions=planMonth?sessions.filter(function(s){return s.date&&s.date.slice(0,7)===planMonth;}):sessions;
+  var html='';
   html+='<div class="section-title" style="margin-bottom:4px;">Session planner</div>';
-  html+='<div class="section-sub">Pre-assign students to sessions and manage table capacity</div>';
-
-  // Month filter + session selector
-  html+='<div class="card" style="margin-bottom:16px;">';
-  html+='<div class="form-grid">';
-  html+='<div class="field"><label>Filter by month</label><select id="plan-month-filter">';
-  html+='<option value="">All sessions</option>';
-  months.forEach(function(m){
-    html+='<option value="'+m+'" '+(m===planMonth?'selected':'')+'>'+new Date(m+'-01T00:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'})+'</option>';
-  });
-  html+='</select></div>';
-  html+='<div class="field"><label>Select session to plan</label><select id="plan-session-select">';
-  html+='<option value="">— choose session —</option>';
-  filteredSessions.forEach(function(s){
-    html+='<option value="'+s.id+'" '+(s.id===selId?'selected':'')+'>'+
-      new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})+
-      ' · '+s.slot+' · '+(s.staff_name||'No teacher')+' · '+(s.subject||'—')+'</option>';
-  });
-  html+='</select></div>';
-  html+='</div></div>';
-
-  if(sel){
-    // Session info card
-    html+='<div class="card" style="margin-bottom:16px;border-left:3px solid var(--accent);">';
-    html+='<div class="card-header">';
-    html+='<div>';
-    html+='<div style="font-weight:700;font-size:15px;">'+sel.slot+'</div>';
-    html+='<div style="font-size:12px;color:var(--text3);margin-top:3px;">';
-    html+=new Date(sel.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-    html+=' · Table '+(sel.table_no||'—')+' · '+(sel.subject||'—');
-    html+='</div></div>';
-    html+='<div style="display:flex;gap:8px;align-items:center;">';
-    html+='<span class="badge badge-accent">'+assigned.length+' assigned</span>';
-    html+='<span class="badge badge-gray">'+(6-assigned.length)+' spaces</span>';
-    html+='<button class="btn btn-sm" data-action="set-cover-teacher" data-id="'+sel.id+'">Set cover teacher</button>';
-    html+='</div></div>';
-
-    // Cover teacher notice
-    if(sel.cover_staff_id){
-      const cover=staff.find(function(s){return s.id===sel.cover_staff_id;});
-      html+='<div style="margin-top:10px;padding:8px 12px;background:var(--amber-bg);border-radius:var(--radius);font-size:13px;color:var(--amber-text);">⚠ Cover teacher: <strong>'+(cover?cover.name:'Unknown')+'</strong>'+(sel.cover_notes?' — '+sel.cover_notes:'')+'</div>';
-    }
-    html+='</div>';
-
-    // Two column layout: assigned | available
-    html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
-
-    // Assigned students
-    html+='<div class="card">';
-    html+='<div class="card-header" style="margin-bottom:12px;"><div class="card-title">Assigned students ('+assigned.length+')</div></div>';
-    if(assigned.length){
-      assigned.forEach(function(a){
-        html+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">';
-        html+='<div>';
-        html+='<div style="font-weight:600;font-size:13px;">'+a.student_name+'</div>';
-        html+='<div style="font-size:11px;color:var(--text3);">'+a.admission_id+(a.is_catchup?' · <span style="color:var(--amber-text);">Catch-up</span>':'')+'</div>';
+  html+='<div class="section-sub">Table allocation and student timetable management</div>';
+  html+='<div class="tab-bar" style="margin-bottom:16px;">';
+  html+='<div class="tab '+(planTab==='allocate'?'active':'')+'" data-action="plan-tab" data-tab="allocate">Table allocation</div>';
+  html+='<div class="tab '+(planTab==='timetable'?'active':'')+'" data-action="plan-tab" data-tab="timetable">Student timetables</div>';
+  html+='</div>';
+  if(planTab==='allocate'){
+    html+='<div class="card" style="margin-bottom:16px;"><div class="form-grid">';
+    html+='<div class="field"><label>Filter by month</label><select id="plan-month-filter"><option value="">All sessions</option>';
+    months.forEach(function(m){html+='<option value="'+m+'" '+(m===planMonth?'selected':'')+'>'+new Date(m+'-01T00:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'})+'</option>';});
+    html+='</select></div>';
+    html+='<div class="field"><label>Select session</label><select id="plan-session-select"><option value="">— choose session —</option>';
+    filteredSessions.forEach(function(s){
+      html+='<option value="'+s.id+'" '+(s.id===selId?'selected':'')+'>'+new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})+' · '+s.slot+' · '+(s.staff_name||'No teacher')+' · '+(s.subject||'—')+'</option>';
+    });
+    html+='</select></div></div></div>';
+    if(sel){
+      html+='<div class="card" style="margin-bottom:16px;border-left:3px solid var(--accent);padding:14px 16px;">';
+      html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
+      html+='<div><div style="font-weight:700;font-size:15px;">'+sel.slot+'</div>';
+      html+='<div style="font-size:12px;color:var(--text3);margin-top:3px;">'+new Date(sel.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+'</div></div>';
+      html+='<div style="display:flex;gap:8px;align-items:center;">';
+      html+='<span class="badge badge-accent">'+allocs.length+' tables</span>';
+      html+='<button class="btn btn-sm btn-primary" data-action="add-table-alloc" data-session="'+selId+'">+ Add table</button>';
+      html+='<button class="btn btn-sm" data-action="set-cover-teacher" data-id="'+sel.id+'">Set cover</button>';
+      html+='</div></div>';
+      if(sel.cover_staff_id){var cover=staff.find(function(s){return s.id===sel.cover_staff_id;});html+='<div style="margin-top:10px;padding:8px 12px;background:var(--amber-bg);border-radius:var(--radius);font-size:13px;color:var(--amber-text);">⚠ Cover: <strong>'+(cover?cover.name:'Unknown')+'</strong>'+(sel.cover_notes?' — '+sel.cover_notes:'')+'</div>';}
+      html+='</div>';
+      if(allocs.length){
+        html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;">';
+        allocs.forEach(function(ta){
+          var stus=ta.students||[];
+          var pct=Math.round(stus.length/ta.max_students*100);
+          var bc=pct>=100?'var(--danger)':pct>=80?'var(--amber)':'var(--success)';
+          html+='<div class="card" style="border-top:3px solid '+bc+';">';
+          html+='<div class="card-header" style="margin-bottom:10px;">';
+          html+='<div><div style="font-weight:700;">Table '+ta.table_no+'</div><div style="font-size:12px;color:var(--text3);">'+(ta.teacher_name||'No teacher')+' · <span class="badge badge-gray">'+(ta.subject||'—')+'</span></div></div>';
+          html+='<div style="display:flex;gap:6px;align-items:center;"><span style="font-size:12px;color:'+(stus.length>=ta.max_students?'var(--danger-text)':'var(--text3)')+';">'+stus.length+'/'+ta.max_students+'</span>';
+          html+='<button class="btn btn-sm btn-primary" data-action="add-student-to-table" data-alloc="'+ta.id+'" data-session="'+selId+'">+ Add</button>';
+          html+='<button class="btn btn-sm btn-danger" data-action="del-table-alloc" data-id="'+ta.id+'">Del</button></div></div>';
+          html+='<div style="height:4px;background:var(--border2);border-radius:2px;margin-bottom:10px;"><div style="width:'+Math.min(pct,100)+'%;height:4px;background:'+bc+';border-radius:2px;"></div></div>';
+          if(stus.length){stus.forEach(function(s){html+='<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);"><div style="display:flex;align-items:center;gap:8px;"><span class="id-code" style="font-size:11px;">'+s.admission_id+'</span><span style="font-size:13px;">'+s.student_name+'</span>'+(s.is_catchup?'<span class="badge badge-amber" style="font-size:10px;">CU</span>':'')+'</div><button class="btn btn-sm btn-danger" data-action="remove-table-student" data-alloc="'+ta.id+'" data-student="'+s.student_id+'" style="padding:2px 6px;font-size:11px;">✕</button></div>';});}
+          else{html+='<div style="color:var(--text3);font-size:13px;padding:6px 0;">No students assigned</div>';}
+          html+='</div>';
+        });
         html+='</div>';
-        html+='<button class="btn btn-sm btn-danger" data-action="remove-session-student" data-session="'+selId+'" data-student="'+a.student_id+'">Remove</button>';
+      } else {html+='<div class="empty-state" style="padding:40px;">No tables allocated yet. Click &quot;+ Add table&quot; to start planning.</div>';}
+    }
+  } else if(planTab==='timetable'){
+    var ttSelId=state.timetableStudentId;
+    var ttSel=students.find(function(s){return s.id===ttSelId;});
+    const SLOTS_WD=['Weekday Slot 1 (17:00-19:00)','Weekday Slot 2 (19:00-21:00)'];
+    const SLOTS_SAT=['Saturday Slot 1 (09:00-11:00)','Saturday Slot 2 (11:15-13:15)','Saturday Slot 3 (14:15-16:15)','Saturday Slot 4 (16:30-18:30)'];
+    const SUBJECTS=['Maths','English','Science','Other'];
+    html+='<div class="card" style="margin-bottom:16px;"><div class="field"><label>Select student</label><select id="tt-student-select"><option value="">— choose student —</option>';
+    students.forEach(function(s){html+='<option value="'+s.id+'" '+(s.id===ttSelId?'selected':'')+'>'+s.admission_id+' — '+s.name+' ('+(s.year_group||'—')+')</option>';});
+    html+='</select></div></div>';
+    if(ttSel){
+      var ttData=state.data['timetable_'+ttSelId]||[];
+      html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
+      ['weekday','saturday'].forEach(function(dtype){
+        var slots=dtype==='weekday'?SLOTS_WD:SLOTS_SAT;
+        var label=dtype==='weekday'?'Weekday sessions':'Saturday sessions';
+        var color=dtype==='weekday'?'var(--accent-text)':'var(--teal-text)';
+        html+='<div class="card"><div style="font-weight:700;margin-bottom:12px;color:'+color+';">'+label+'</div>';
+        slots.forEach(function(slot){
+          var existing=ttData.filter(function(e){return e.slot===slot;});
+          html+='<div style="margin-bottom:12px;padding:10px;background:var(--surface2);border-radius:var(--radius);">';
+          html+='<div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px;">'+slot+'</div>';
+          existing.forEach(function(e){html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><span class="badge badge-accent">'+e.subject+'</span><button class="btn btn-sm btn-danger" data-action="del-timetable-entry" data-id="'+e.id+'" style="padding:2px 6px;font-size:11px;">✕</button></div>';});
+          html+='<div style="display:flex;gap:6px;margin-top:4px;">';
+          SUBJECTS.forEach(function(sub){var has=existing.find(function(e){return e.subject===sub;});if(!has)html+='<button class="btn btn-sm" data-action="add-timetable-entry" data-student="'+ttSelId+'" data-branch="'+ttSel.branch_id+'" data-daytype="'+dtype+'" data-slot="'+slot+'" data-subject="'+sub+'" style="font-size:11px;">+'+sub+'</button>';});
+          html+='</div></div>';
+        });
         html+='</div>';
       });
-    } else {
-      html+='<div style="color:var(--text3);font-size:13px;padding:10px 0;">No students assigned yet</div>';
+      html+='</div>';
     }
-    html+='</div>';
-
-    // Available students to add
-    html+='<div class="card">';
-    html+='<div class="card-header" style="margin-bottom:12px;">';
-    html+='<div class="card-title">Available students ('+unassigned.length+')</div>';
-    html+='<button class="btn btn-sm btn-primary" data-action="assign-all-students" data-session="'+selId+'">+ Add all</button>';
-    html+='</div>';
-    html+='<input type="text" id="student-search" placeholder="Search students..." style="width:100%;margin-bottom:10px;border:1px solid var(--border2);border-radius:var(--radius);padding:8px 12px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;">';
-    if(unassigned.length){
-      unassigned.forEach(function(s){
-        html+='<div class="student-row" style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);" data-name="'+s.name.toLowerCase()+'">';
-        html+='<div>';
-        html+='<div style="font-weight:600;font-size:13px;">'+s.name+'</div>';
-        html+='<div style="font-size:11px;color:var(--text3);">'+s.admission_id+' · '+( s.year_group||'—')+'</div>';
-        html+='</div>';
-        html+='<button class="btn btn-sm btn-primary" data-action="add-session-student" data-session="'+selId+'" data-student="'+s.id+'">+ Add</button>';
-        html+='</div>';
-      });
-    } else {
-      html+='<div style="color:var(--text3);font-size:13px;padding:10px 0;">All branch students are assigned</div>';
-    }
-    html+='</div>';
-    html+='</div>'; // end grid
   }
   return html;
 }
