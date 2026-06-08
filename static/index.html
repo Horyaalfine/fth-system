@@ -2691,6 +2691,7 @@ if(action==='export-mgmt-yearly'){
   const csv=rows.map(r=>r.join(',')).join('\n');
   const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='fth-yearly-'+(y.academic_year||'')+'.csv';a.click();return;}
 if(action==='filter-students'){state.studentFilter=el.dataset.filter;render();return;}
+if(action==='plan-tab'){state.planTab=el.dataset.tab;render();return;}
 if(action==='sr-tab'){state.srTab=el.dataset.tab;render();return;}
 if(action==='lr-tab'){state.lrTab=el.dataset.tab;render();return;}
 if(action==='tr-tab'){state.trTab=el.dataset.tab;render();return;}
