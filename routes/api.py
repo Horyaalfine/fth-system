@@ -860,8 +860,11 @@ def get_staff_attendance():
     data = rows(cur)
     for d in data:
         if d.get('date'):     d['date']     = str(d['date'])
-        if d.get('sign_in'):  d['sign_in']  = str(d['sign_in'])
-        if d.get('sign_out'): d['sign_out'] = str(d['sign_out'])
+        si = str(d['sign_in'])[:5]  if d.get('sign_in')  else None
+        so = str(d['sign_out'])[:5] if d.get('sign_out') else None
+        d['sign_in']  = si
+        d['sign_out'] = so
+        d['paid_hours'] = calc_paid_hours(si, so, d.get('date'))
     cur.close(); conn.close()
     return jsonify(data)
 
