@@ -1092,3 +1092,1775 @@ function renderFinance(){
 }
 
 
+function renderMgmtReports(){
+  const tab=state.mgmtTab||'summary';
+  const summary=state.data.mgmt_summary||{};
+  const daily=state.data.mgmt_daily||{};
+  const monthly=state.data.mgmt_monthly||{};
+  const yearly=state.data.mgmt_yearly||{};
+
+  function pct(a,b){return b?Math.round(a/b*100):0;}
+  function fmtHrs(h){if(!h)return '0h';const hrs=Math.floor(h);const mins=Math.round((h-hrs)*60);return hrs+'h'+(mins?(' '+mins+'m'):'');}
+  function fmtGBP(n){return '£'+(n||0).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2});}
+
+  // Export CSV helper
+  function exportCSV(rows, filename){
+    const csv=rows.map(r=>r.map(c=>(typeof c==='string'&&c.includes(','))?'"'+c+'"':c).join(',')).join('\n');
+    const a=document.createElement('a');
+    a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+    a.download=filename;a.click();
+  }
+
+  let html='';
+  html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">';
+  html+='<div><div class="section-title">Management reports</div>';
+  html+='<div class="section-sub">Summary, daily, monthly and yearly performance reports</div></div>';
+  html+='</div>';
+
+  // Tab bar
+  html+='<div class="tab-bar" style="margin-bottom:20px;">';
+  html+='<div class="tab '+(tab==='summary'?'active':'')+'" data-action="mgmt-tab" data-tab="summary">Summary</div>';
+  html+='<div class="tab '+(tab==='daily'?'active':'')+'" data-action="mgmt-tab" data-tab="daily">Daily</div>';
+  html+='<div class="tab '+(tab==='monthly'?'active':'')+'" data-action="mgmt-tab" data-tab="monthly">Monthly</div>';
+  html+='<div class="tab '+(tab==='yearly'?'active':'')+'" data-action="mgmt-tab" data-tab="yearly">Yearly</div>';
+  html+='</div>';
+
+  // ── SUMMARY TAB ──
+  if(tab==='summary'){
+    html+='<div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;">';
+    html+='<div class="field" style="margin:0;"><label style="font-size:12px;">Academic year</label>';
+    html+='<select id="mgmt-year-select" style="border:1px solid var(--border2);border-radius:var(--radius);padding:7px 10px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;">';
+    const curYr=new Date().getMonth()>=8?new Date().getFullYear():new Date().getFullYear()-1;
+    for(let y=curYr;y>=curYr-3;y--){
+      html+='<option value="'+y+'" '+(String(state.mgmtYear||curYr)===String(y)?'selected':'')+'>'+(y)+'–'+(y+1)+'</option>';
+    }
+    html+='</select></div>';
+    html+='<button class="btn btn-sm" data-action="export-mgmt-summary">⬇ Export CSV</button>';
+    html+='</div>';
+
+    if(summary.academic_year){
+      html+='<div style="margin-bottom:6px;font-size:13px;color:var(--text3);">Academic year: <strong style="color:var(--text);">'+summary.academic_year+'</strong> ('+summary.yr_from+' to '+summary.yr_to+')</div>';
+      html+='<div class="metrics-grid" style="margin-bottom:20px;">';
+      html+='<div class="metric-card" style="border-top:3px solid var(--accent);"><div class="metric-label">Active students</div><div class="metric-value">'+summary.active_students+'</div><div class="metric-sub">'+summary.new_enrolments+' new this year</div></div>';
+      html+='<div class="metric-card" style="border-top:3px solid var(--teal);"><div class="metric-label">Sessions delivered</div><div class="metric-value">'+summary.total_sessions+'</div><div class="metric-sub">This academic year</div></div>';
+      html+='<div class="metric-card" style="border-top:3px solid var(--success);"><div class="metric-label">Attendance rate</div><div class="metric-value" style="color:var(--success-text);">'+summary.att_rate+'%</div><div class="metric-sub">'+summary.att_present+' present / '+summary.att_total+' marked</div></div>';
+      html+='<div class="metric-card" style="border-top:3px solid var(--purple);"><div class="metric-label">Staff hours</div><div class="metric-value" style="color:var(--purple-text);">'+fmtHrs(summary.total_staff_hours)+'</div><div class="metric-sub">'+summary.staff_count+' staff members</div></div>';
+      html+='<div class="metric-card" style="border-top:3px solid var(--success);"><div class="metric-label">Fees collected</div><div class="metric-value" style="color:var(--success-text);">'+fmtGBP(summary.fees_collected)+'</div><div class="metric-sub">This year</div></div>';
+      html+='<div class="metric-card" style="border-top:3px solid var(--danger);"><div class="metric-label">Outstanding fees</div><div class="metric-value" style="color:var(--danger-text);">'+fmtGBP(summary.fees_outstanding)+'</div><div class="metric-sub">Across all periods</div></div>';
+      html+='<div class="metric-card" style="border-top:3px solid var(--amber);"><div class="metric-label">Catch-ups owed</div><div class="metric-value" style="color:var(--amber-text);">'+summary.catchups_owed+'</div><div class="metric-sub">'+summary.catchups_completed+' completed</div></div>';
+      html+='<div class="metric-card" style="border-top:3px solid var(--blue);"><div class="metric-label">Tests passed</div><div class="metric-value" style="color:var(--blue-text);">'+pct(summary.tests_passed,summary.tests_total)+'%</div><div class="metric-sub">'+summary.tests_passed+' / '+summary.tests_total+' tests</div></div>';
+      html+='</div>';
+    } else {
+      html+='<div class="empty-state" style="padding:40px;">Loading summary data...</div>';
+    }
+  }
+
+  // ── DAILY TAB ──
+  else if(tab==='daily'){
+    html+='<div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;">';
+    html+='<div class="field" style="margin:0;"><label style="font-size:12px;">Date</label><input type="date" id="mgmt-date-select" value="'+(state.mgmtDate||new Date().toISOString().slice(0,10))+'" style="border:1px solid var(--border2);border-radius:var(--radius);padding:7px 10px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;"></div>';
+    html+='<button class="btn btn-sm" data-action="export-mgmt-daily">⬇ Export CSV</button>';
+    html+='</div>';
+
+    const dsess=daily.sessions||[];
+    const dsatt=daily.staff_attendance||[];
+    const dlr=daily.lesson_reports||[];
+    const dcu=daily.catchups||[];
+    const totalPresent=dsess.reduce(function(s,x){return s+(x.present||0);},0);
+    const totalAbsent=dsess.reduce(function(s,x){return s+(x.absent||0);},0);
+    const totalHrs=dsatt.reduce(function(s,x){return s+(x.hours||0);},0);
+    const checked=dlr.filter(function(r){return r.supervisor_checked;}).length;
+
+    html+='<div class="metrics-grid" style="margin-bottom:20px;">';
+    html+='<div class="metric-card"><div class="metric-label">Sessions today</div><div class="metric-value">'+dsess.length+'</div></div>';
+    html+='<div class="metric-card"><div class="metric-label">Students present</div><div class="metric-value" style="color:var(--success-text);">'+totalPresent+'</div></div>';
+    html+='<div class="metric-card"><div class="metric-label">Students absent</div><div class="metric-value" style="color:var(--danger-text);">'+totalAbsent+'</div></div>';
+    html+='<div class="metric-card"><div class="metric-label">Staff hours</div><div class="metric-value" style="color:var(--purple-text);">'+fmtHrs(totalHrs)+'</div></div>';
+    html+='<div class="metric-card"><div class="metric-label">Lesson reports</div><div class="metric-value" style="color:var(--teal-text);">'+checked+'/'+dlr.length+'</div><div class="metric-sub">Supervisor checked</div></div>';
+    html+='<div class="metric-card"><div class="metric-label">Catch-ups today</div><div class="metric-value" style="color:var(--amber-text);">'+dcu.length+'</div></div>';
+    html+='</div>';
+
+    // Sessions table
+    if(dsess.length){
+      html+='<div class="card" style="margin-bottom:16px;"><div class="card-header"><div class="card-title">Sessions</div></div>';
+      html+='<div class="table-wrap"><table><thead><tr><th>Slot</th><th>Teacher</th><th>Cover</th><th>Subject</th><th>Table</th><th>Present</th><th>Absent</th><th>Total marked</th></tr></thead><tbody>';
+      dsess.forEach(function(s){
+        html+='<tr><td>'+s.slot+'</td><td>'+( s.staff_name||'—')+'</td><td>'+(s.cover_name?'<span class="badge badge-amber">'+s.cover_name+'</span>':'—')+'</td><td>'+( s.subject||'—')+'</td><td>'+( s.table_no||'—')+'</td>';
+        html+='<td style="color:var(--success-text);font-weight:600;">'+(s.present||0)+'</td>';
+        html+='<td style="color:var(--danger-text);font-weight:600;">'+(s.absent||0)+'</td>';
+        html+='<td>'+(s.total_marked||0)+'</td></tr>';
+      });
+      html+='</tbody></table></div></div>';
+    }
+
+    // Staff hours table
+    if(dsatt.length){
+      html+='<div class="card"><div class="card-header"><div class="card-title">Staff hours</div></div>';
+      html+='<div class="table-wrap"><table><thead><tr><th>Staff member</th><th>Role</th><th>Sign in</th><th>Sign out</th><th>Hours</th><th>Status</th></tr></thead><tbody>';
+      dsatt.forEach(function(s){
+        html+='<tr><td><strong>'+s.staff_name+'</strong></td><td>'+s.role+'</td>';
+        html+='<td style="font-family:var(--mono);font-size:12px;">'+(s.sign_in||'—')+'</td>';
+        html+='<td style="font-family:var(--mono);font-size:12px;">'+(s.sign_out||'—')+'</td>';
+        html+='<td style="font-weight:600;color:var(--purple-text);">'+fmtHrs(s.hours||0)+'</td>';
+        html+='<td><span class="badge '+(s.status==='present'?'badge-success':s.status==='absent'?'badge-danger':'badge-amber')+'">'+s.status+'</span></td></tr>';
+      });
+      html+='</tbody></table></div></div>';
+    }
+  }
+
+  // ── MONTHLY TAB ──
+  else if(tab==='monthly'){
+    html+='<div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;">';
+    html+='<input type="month" id="mgmt-month-select" value="'+(state.mgmtMonth||new Date().toISOString().slice(0,7))+'" style="border:1px solid var(--border2);border-radius:var(--radius);padding:7px 10px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;">';
+    html+='<button class="btn btn-sm" data-action="export-mgmt-monthly">⬇ Export CSV</button>';
+    html+='</div>';
+
+    const mweekly=monthly.weekly_breakdown||[];
+    const mstaff=monthly.staff_hours||[];
+    const mtests=monthly.tests_by_subject||[];
+    const mcu=monthly.catchups||{};
+    const totalSessions=mweekly.reduce(function(s,w){return s+w.sessions;},0);
+    const totalPresent=mweekly.reduce(function(s,w){return s+(w.present||0);},0);
+    const totalTotal=mweekly.reduce(function(s,w){return s+(w.present||0)+(w.absent||0);},0);
+    const totalHours=mstaff.reduce(function(s,x){return s+(x.hours||0);},0);
+
+    html+='<div class="metrics-grid" style="margin-bottom:20px;">';
+    html+='<div class="metric-card"><div class="metric-label">Sessions</div><div class="metric-value">'+totalSessions+'</div></div>';
+    html+='<div class="metric-card"><div class="metric-label">Attendance rate</div><div class="metric-value" style="color:var(--success-text);">'+pct(totalPresent,totalTotal)+'%</div><div class="metric-sub">'+totalPresent+' / '+totalTotal+' marked</div></div>';
+    html+='<div class="metric-card"><div class="metric-label">New enrolments</div><div class="metric-value" style="color:var(--accent-text);">'+( monthly.new_enrolments||0)+'</div></div>';
+    html+='<div class="metric-card"><div class="metric-label">Staff hours</div><div class="metric-value" style="color:var(--purple-text);">'+fmtHrs(totalHours)+'</div></div>';
+    html+='<div class="metric-card"><div class="metric-label">Fees collected</div><div class="metric-value" style="color:var(--success-text);">'+fmtGBP(monthly.fees_collected||0)+'</div></div>';
+    html+='<div class="metric-card"><div class="metric-label">Fees outstanding</div><div class="metric-value" style="color:var(--danger-text);">'+fmtGBP(monthly.fees_outstanding||0)+'</div></div>';
+    html+='</div>';
+
+    // Weekly breakdown
+    if(mweekly.length){
+      html+='<div class="card" style="margin-bottom:16px;"><div class="card-header"><div class="card-title">Weekly breakdown</div></div>';
+      html+='<div class="table-wrap"><table><thead><tr><th>Week starting</th><th>Sessions</th><th>Present</th><th>Absent</th><th>Att rate</th></tr></thead><tbody>';
+      mweekly.forEach(function(w){
+        const rate=pct(w.present||0,(w.present||0)+(w.absent||0));
+        html+='<tr><td>'+new Date(w.week_start+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})+'</td>';
+        html+='<td>'+w.sessions+'</td>';
+        html+='<td style="color:var(--success-text);font-weight:500;">'+(w.present||0)+'</td>';
+        html+='<td style="color:var(--danger-text);font-weight:500;">'+(w.absent||0)+'</td>';
+        html+='<td><strong>'+(rate||0)+'%</strong></td></tr>';
+      });
+      html+='</tbody></table></div></div>';
+    }
+
+    // Staff hours
+    if(mstaff.length){
+      html+='<div class="card" style="margin-bottom:16px;"><div class="card-header"><div class="card-title">Staff hours this month</div></div>';
+      html+='<div class="table-wrap"><table><thead><tr><th>Staff member</th><th>Role</th><th>Sessions</th><th>Hours</th></tr></thead><tbody>';
+      mstaff.forEach(function(s){
+        html+='<tr><td><strong>'+s.name+'</strong></td><td>'+s.role+'</td><td>'+s.sessions_worked+'</td>';
+        html+='<td><strong style="color:var(--purple-text);">'+fmtHrs(s.hours||0)+'</strong></td></tr>';
+      });
+      const grandTotal=mstaff.reduce(function(t,s){return t+(s.hours||0);},0);
+      html+='<tr style="background:var(--surface2);"><td colspan="3" style="font-weight:700;">TOTAL</td><td><strong style="color:var(--purple-text);">'+fmtHrs(grandTotal)+'</strong></td></tr>';
+      html+='</tbody></table></div></div>';
+    }
+
+    // Tests
+    if(mtests.length){
+      html+='<div class="card"><div class="card-header"><div class="card-title">Test results by subject</div></div>';
+      html+='<div class="table-wrap"><table><thead><tr><th>Subject</th><th>Tests taken</th><th>Passed</th><th>Pass rate</th></tr></thead><tbody>';
+      mtests.forEach(function(t){
+        html+='<tr><td><span class="badge badge-gray">'+t.subject+'</span></td><td>'+t.total+'</td>';
+        html+='<td style="color:var(--success-text);font-weight:500;">'+t.passed+'</td>';
+        html+='<td><strong>'+pct(t.passed,t.total)+'%</strong></td></tr>';
+      });
+      html+='</tbody></table></div></div>';
+    }
+  }
+
+  // ── YEARLY TAB ──
+  else if(tab==='yearly'){
+    html+='<div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;">';
+    html+='<div class="field" style="margin:0;"><label style="font-size:12px;">Academic year</label>';
+    html+='<select id="mgmt-year-select" style="border:1px solid var(--border2);border-radius:var(--radius);padding:7px 10px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;">';
+    const curYr2=new Date().getMonth()>=8?new Date().getFullYear():new Date().getFullYear()-1;
+    for(let y=curYr2;y>=curYr2-3;y--){
+      html+='<option value="'+y+'" '+(String(state.mgmtYear||curYr2)===String(y)?'selected':'')+'>'+(y)+'–'+(y+1)+'</option>';
+    }
+    html+='</select></div>';
+    html+='<button class="btn btn-sm" data-action="export-mgmt-yearly">⬇ Export CSV</button>';
+    html+='</div>';
+
+    const ytrend=yearly.monthly_trend||[];
+    const ystaff=yearly.staff_yearly||[];
+    const yfees=yearly.monthly_fees||[];
+
+    if(yearly.academic_year){
+      html+='<div style="margin-bottom:12px;font-size:13px;color:var(--text3);">Academic year: <strong style="color:var(--text);">'+yearly.academic_year+'</strong></div>';
+    }
+
+    // Monthly trend table
+    if(ytrend.length){
+      html+='<div class="card" style="margin-bottom:16px;"><div class="card-header"><div class="card-title">Monthly attendance trend</div></div>';
+      html+='<div class="table-wrap"><table><thead><tr><th>Month</th><th>Sessions</th><th>Present</th><th>Absent</th><th>Att rate</th></tr></thead><tbody>';
+      ytrend.forEach(function(m){
+        const rate=pct(m.present||0,(m.present||0)+(m.absent||0));
+        html+='<tr><td><strong>'+m.month+'</strong></td><td>'+m.sessions+'</td>';
+        html+='<td style="color:var(--success-text);">'+(m.present||0)+'</td>';
+        html+='<td style="color:var(--danger-text);">'+(m.absent||0)+'</td>';
+        html+='<td><strong>'+(rate||0)+'%</strong></td></tr>';
+      });
+      html+='</tbody></table></div></div>';
+    }
+
+    // Staff yearly hours
+    if(ystaff.length){
+      html+='<div class="card" style="margin-bottom:16px;"><div class="card-header"><div class="card-title">Staff hours — full year</div></div>';
+      html+='<div class="table-wrap"><table><thead><tr><th>Staff member</th><th>Role</th><th>Sessions worked</th><th>Total hours</th></tr></thead><tbody>';
+      ystaff.forEach(function(s){
+        html+='<tr><td><strong>'+s.name+'</strong></td><td>'+s.role+'</td><td>'+s.sessions_worked+'</td>';
+        html+='<td><strong style="color:var(--purple-text);">'+fmtHrs(s.total_hours||0)+'</strong></td></tr>';
+      });
+      const grandTotal=ystaff.reduce(function(t,s){return t+(s.total_hours||0);},0);
+      html+='<tr style="background:var(--surface2);"><td colspan="3" style="font-weight:700;">TOTAL</td><td><strong style="color:var(--purple-text);">'+fmtHrs(grandTotal)+'</strong></td></tr>';
+      html+='</tbody></table></div></div>';
+    }
+
+    // Monthly fees
+    if(yfees.length){
+      html+='<div class="card"><div class="card-header"><div class="card-title">Monthly financial summary</div></div>';
+      html+='<div class="table-wrap"><table><thead><tr><th>Month</th><th>Collected</th><th>Outstanding</th><th>Total</th></tr></thead><tbody>';
+      let totC=0,totO=0;
+      yfees.forEach(function(f){
+        totC+=f.collected;totO+=f.outstanding;
+        html+='<tr><td><strong>'+f.month+'</strong></td>';
+        html+='<td style="color:var(--success-text);font-weight:500;">'+fmtGBP(f.collected)+'</td>';
+        html+='<td style="color:var(--danger-text);font-weight:500;">'+fmtGBP(f.outstanding)+'</td>';
+        html+='<td><strong>'+fmtGBP(f.collected+f.outstanding)+'</strong></td></tr>';
+      });
+      html+='<tr style="background:var(--surface2);"><td style="font-weight:700;">TOTAL</td>';
+      html+='<td style="color:var(--success-text);font-weight:700;">'+fmtGBP(totC)+'</td>';
+      html+='<td style="color:var(--danger-text);font-weight:700;">'+fmtGBP(totO)+'</td>';
+      html+='<td><strong>'+fmtGBP(totC+totO)+'</strong></td></tr>';
+      html+='</tbody></table></div></div>';
+    }
+  }
+
+  return html;
+}
+
+function renderSessionPlan(){
+  const sessions=state.data.sessions||[];
+  const students=state.data.students||[];
+  const staff=state.data.staff||[];
+  const selId=state.planSessionId;
+  const sel=sessions.find(function(s){return s.id===selId;});
+  const assigned=selId?(state.data['plan_students_'+selId]||[]):[];
+  const assignedIds=assigned.map(function(a){return a.student_id;});
+  const planMonth=state.planMonth||'';
+
+  // Filter sessions by month
+  const filteredSessions=planMonth?sessions.filter(function(s){return s.date&&s.date.slice(0,7)===planMonth;}):sessions;
+
+  // Get unique months for filter
+  const months=[...new Set(sessions.map(function(s){return s.date?s.date.slice(0,7):'';}).filter(Boolean))].sort().reverse();
+
+  // Branch students (not yet assigned to this session)
+  const branchStudents=sel?students.filter(function(s){return s.branch_id===sel.branch_id&&s.status==='active';}):[];
+  const unassigned=branchStudents.filter(function(s){return !assignedIds.includes(s.id);});
+
+  let html='';
+  html+='<div class="section-title" style="margin-bottom:4px;">Session planner</div>';
+  html+='<div class="section-sub">Pre-assign students to sessions and manage table capacity</div>';
+
+  // Month filter + session selector
+  html+='<div class="card" style="margin-bottom:16px;">';
+  html+='<div class="form-grid">';
+  html+='<div class="field"><label>Filter by month</label><select id="plan-month-filter">';
+  html+='<option value="">All sessions</option>';
+  months.forEach(function(m){
+    html+='<option value="'+m+'" '+(m===planMonth?'selected':'')+'>'+new Date(m+'-01T00:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'})+'</option>';
+  });
+  html+='</select></div>';
+  html+='<div class="field"><label>Select session to plan</label><select id="plan-session-select">';
+  html+='<option value="">— choose session —</option>';
+  filteredSessions.forEach(function(s){
+    html+='<option value="'+s.id+'" '+(s.id===selId?'selected':'')+'>'+
+      new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})+
+      ' · '+s.slot+' · '+(s.staff_name||'No teacher')+' · '+(s.subject||'—')+'</option>';
+  });
+  html+='</select></div>';
+  html+='</div></div>';
+
+  if(sel){
+    // Session info card
+    html+='<div class="card" style="margin-bottom:16px;border-left:3px solid var(--accent);">';
+    html+='<div class="card-header">';
+    html+='<div>';
+    html+='<div style="font-weight:700;font-size:15px;">'+sel.slot+'</div>';
+    html+='<div style="font-size:12px;color:var(--text3);margin-top:3px;">';
+    html+=new Date(sel.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+    html+=' · Table '+(sel.table_no||'—')+' · '+(sel.subject||'—');
+    html+='</div></div>';
+    html+='<div style="display:flex;gap:8px;align-items:center;">';
+    html+='<span class="badge badge-accent">'+assigned.length+' assigned</span>';
+    html+='<span class="badge badge-gray">'+(6-assigned.length)+' spaces</span>';
+    html+='<button class="btn btn-sm" data-action="set-cover-teacher" data-id="'+sel.id+'">Set cover teacher</button>';
+    html+='</div></div>';
+
+    // Cover teacher notice
+    if(sel.cover_staff_id){
+      const cover=staff.find(function(s){return s.id===sel.cover_staff_id;});
+      html+='<div style="margin-top:10px;padding:8px 12px;background:var(--amber-bg);border-radius:var(--radius);font-size:13px;color:var(--amber-text);">⚠ Cover teacher: <strong>'+(cover?cover.name:'Unknown')+'</strong>'+(sel.cover_notes?' — '+sel.cover_notes:'')+'</div>';
+    }
+    html+='</div>';
+
+    // Two column layout: assigned | available
+    html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
+
+    // Assigned students
+    html+='<div class="card">';
+    html+='<div class="card-header" style="margin-bottom:12px;"><div class="card-title">Assigned students ('+assigned.length+')</div></div>';
+    if(assigned.length){
+      assigned.forEach(function(a){
+        html+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">';
+        html+='<div>';
+        html+='<div style="font-weight:600;font-size:13px;">'+a.student_name+'</div>';
+        html+='<div style="font-size:11px;color:var(--text3);">'+a.admission_id+(a.is_catchup?' · <span style="color:var(--amber-text);">Catch-up</span>':'')+'</div>';
+        html+='</div>';
+        html+='<button class="btn btn-sm btn-danger" data-action="remove-session-student" data-session="'+selId+'" data-student="'+a.student_id+'">Remove</button>';
+        html+='</div>';
+      });
+    } else {
+      html+='<div style="color:var(--text3);font-size:13px;padding:10px 0;">No students assigned yet</div>';
+    }
+    html+='</div>';
+
+    // Available students to add
+    html+='<div class="card">';
+    html+='<div class="card-header" style="margin-bottom:12px;">';
+    html+='<div class="card-title">Available students ('+unassigned.length+')</div>';
+    html+='<button class="btn btn-sm btn-primary" data-action="assign-all-students" data-session="'+selId+'">+ Add all</button>';
+    html+='</div>';
+    html+='<input type="text" id="student-search" placeholder="Search students..." style="width:100%;margin-bottom:10px;border:1px solid var(--border2);border-radius:var(--radius);padding:8px 12px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;">';
+    if(unassigned.length){
+      unassigned.forEach(function(s){
+        html+='<div class="student-row" style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);" data-name="'+s.name.toLowerCase()+'">';
+        html+='<div>';
+        html+='<div style="font-weight:600;font-size:13px;">'+s.name+'</div>';
+        html+='<div style="font-size:11px;color:var(--text3);">'+s.admission_id+' · '+( s.year_group||'—')+'</div>';
+        html+='</div>';
+        html+='<button class="btn btn-sm btn-primary" data-action="add-session-student" data-session="'+selId+'" data-student="'+s.id+'">+ Add</button>';
+        html+='</div>';
+      });
+    } else {
+      html+='<div style="color:var(--text3);font-size:13px;padding:10px 0;">All branch students are assigned</div>';
+    }
+    html+='</div>';
+    html+='</div>'; // end grid
+  }
+  return html;
+}
+
+function renderCatchup(){
+  const owed=state.data.catchup_owed||[];
+  const scheduled=state.data.catchup_scheduled||[];
+  const completed=state.data.catchup_completed||[];
+  const sessions=state.data.sessions||[];
+  const students=state.data.students||[];
+  const tab=state.catchupTab||'owed';
+
+  function statusBadge(s){
+    if(s==='owed') return '<span class="badge badge-danger">Owed</span>';
+    if(s==='scheduled') return '<span class="badge badge-amber">Scheduled</span>';
+    if(s==='completed') return '<span class="badge badge-success">Completed</span>';
+    return '<span class="badge badge-gray">'+s+'</span>';
+  }
+
+  function buildTable(list, showActions){
+    if(!list.length) return '<div class="empty-state" style="padding:30px;">No catch-up lessons in this category</div>';
+    let rows='';
+    list.forEach(function(c){
+      rows+='<tr>';
+      rows+='<td><strong>'+c.student_name+'</strong></td>';
+      rows+='<td><span class="id-code">'+c.admission_id+'</span></td>';
+      rows+='<td><span class="badge badge-gray">'+(c.subject||'—')+'</span></td>';
+      rows+='<td style="font-size:12px;">'+(c.missed_date||'—')+'</td>';
+      rows+='<td>'+(c.missed_slot||'—')+'</td>';
+      rows+='<td>'+statusBadge(c.status)+'</td>';
+      rows+='<td style="font-size:12px;color:var(--text3);">'+(c.catchup_date_actual||c.scheduled_date||'—')+'</td>';
+      rows+='<td style="font-size:12px;color:var(--text3);">'+(c.notes||'—')+'</td>';
+      if(showActions){
+        rows+='<td><div class="row-actions">';
+        if(c.status==='owed') rows+='<button class="btn btn-sm btn-primary" data-action="schedule-catchup" data-id="'+c.id+'">Schedule</button>';
+        if(c.status==='scheduled') rows+='<button class="btn btn-sm btn-success" data-action="complete-catchup" data-id="'+c.id+'">Complete</button>';
+        rows+='<button class="btn btn-sm btn-danger" data-action="del-catchup" data-id="'+c.id+'">Del</button>';
+        rows+='</div></td>';
+      } else {
+        rows+='<td></td>';
+      }
+      rows+='</tr>';
+    });
+    return rows;
+  }
+
+  let html='';
+  html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">';
+  html+='<div><div class="section-title">Catch-up lessons</div>';
+  html+='<div class="section-sub">Students who missed sessions and are entitled to catch-up</div></div>';
+  html+='<button class="btn btn-primary" data-action="add-catchup">+ Log catch-up owed</button>';
+  html+='</div>';
+
+  // Summary cards
+  html+='<div class="metrics-grid" style="margin-bottom:20px;">';
+  html+='<div class="metric-card" style="border-top:3px solid var(--danger);"><div class="metric-label">Owed</div><div class="metric-value" style="color:var(--danger-text);">'+owed.length+'</div><div class="metric-sub">Pending scheduling</div></div>';
+  html+='<div class="metric-card" style="border-top:3px solid var(--amber);"><div class="metric-label">Scheduled</div><div class="metric-value" style="color:var(--amber-text);">'+scheduled.length+'</div><div class="metric-sub">Awaiting completion</div></div>';
+  html+='<div class="metric-card" style="border-top:3px solid var(--success);"><div class="metric-label">Completed</div><div class="metric-value" style="color:var(--success-text);">'+completed.length+'</div><div class="metric-sub">Done</div></div>';
+  html+='</div>';
+
+  // Tabs
+  html+='<div class="tab-bar" style="margin-bottom:16px;">';
+  html+='<div class="tab '+(tab==='owed'?'active':'')+'" data-action="catchup-tab" data-tab="owed">Owed ('+owed.length+')</div>';
+  html+='<div class="tab '+(tab==='scheduled'?'active':'')+'" data-action="catchup-tab" data-tab="scheduled">Scheduled ('+scheduled.length+')</div>';
+  html+='<div class="tab '+(tab==='completed'?'active':'')+'" data-action="catchup-tab" data-tab="completed">Completed ('+completed.length+')</div>';
+  html+='</div>';
+
+  const activeList = tab==='owed'?owed:tab==='scheduled'?scheduled:completed;
+  html+='<div class="card" style="padding:0;overflow:hidden;">';
+  html+='<div class="table-wrap"><table>';
+  html+='<thead><tr><th>Student</th><th>ID</th><th>Subject</th><th>Missed date</th><th>Slot</th><th>Status</th><th>Catch-up date</th><th>Notes</th><th></th></tr></thead>';
+  html+='<tbody>'+buildTable(activeList, true)+'</tbody>';
+  html+='</table></div></div>';
+  return html;
+}
+
+function renderLessonReports(){
+  const sessions=state.data.sessions||[];
+  const students=state.data.students||[];
+  const selId=state.lrSessionId;
+  const selSess=sessions.find(s=>s.id===selId);
+  const reports=selId?(state.data['lr_'+selId]||[]):[];
+  const attRecs=selId?(state.data['lr_att_'+selId]||[]):[];
+  const tab=state.lrTab||'report';
+  const branchStudents=selSess?students.filter(s=>s.branch_id===selSess.branch_id&&s.status==='active'):[];
+  const checkedCount=reports.filter(r=>r.supervisor_checked).length;
+  const uncheckedCount=reports.filter(r=>!r.supervisor_checked).length;
+
+  return `
+  <div class="section-title" style="margin-bottom:4px;">Lesson reports</div>
+  <div class="section-sub">Daily lesson log — teacher notes and supervisor checks</div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div class="field"><label>Select session</label>
+    <select id="lr-session-select">
+      <option value="">— choose a session —</option>
+      ${sessions.map(s=>`<option value="${s.id}" ${s.id===selId?'selected':''}>${new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})} · ${s.slot} · ${s.branch_name} · ${s.staff_name||'?'}</option>`).join('')}
+    </select></div>
+  </div>
+
+  ${selSess?`
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
+    <div class="metric-card"><div class="metric-label">Session</div><div class="metric-value" style="font-size:14px;">${new Date(selSess.date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</div></div>
+    <div class="metric-card"><div class="metric-label">Students</div><div class="metric-value">${branchStudents.length}</div></div>
+    <div class="metric-card"><div class="metric-label">Reports logged</div><div class="metric-value" style="color:var(--success-text);">${reports.length}</div></div>
+    <div class="metric-card"><div class="metric-label">Supervisor checks</div><div class="metric-value" style="color:${checkedCount===reports.length&&reports.length>0?'var(--success-text)':'var(--amber-text)'};">${checkedCount}/${reports.length}</div></div>
+  </div>
+
+  <div class="tab-bar">
+    <div class="tab ${tab==='report'?'active':''}" data-action="lr-tab" data-tab="report">Lesson report</div>
+    <div class="tab ${tab==='supervisor'?'active':''}" data-action="lr-tab" data-tab="supervisor">Supervisor check</div>
+  </div>
+
+  ${tab==='report'?`
+  <div style="display:flex;flex-direction:column;gap:12px;">
+    ${branchStudents.map(st=>{
+      const att=attRecs.find(a=>a.student_id===st.id);
+      const rep=reports.find(r=>r.student_id===st.id)||{};
+      const isPresent=att?.status==='present';
+      return `<div class="card" style="border-left:3px solid ${isPresent?'var(--success)':'var(--border)'};">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border);">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div class="avatar av-teal" style="width:32px;height:32px;font-size:11px;">${avatarInitials(st.name)}</div>
+            <div><strong style="font-size:14px;">${st.name}</strong> <span class="id-code">${st.admission_id}</span></div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            ${att?`<span class="badge ${att.status==='present'?'badge-success':'badge-danger'}">${att.status}</span>`:'<span class="badge badge-gray">Not marked</span>'}
+            ${rep.supervisor_checked?'<span class="badge badge-success">✓ Checked</span>':'<span class="badge badge-amber">Pending check</span>'}
+          </div>
+        </div>
+        ${isPresent||rep.classwork_completed?`
+        <div class="form-grid" style="gap:12px;">
+          <div class="field"><label>Classwork completed</label><input type="text" class="lr-classwork" data-student="${st.id}" value="${rep.classwork_completed||''}" placeholder="e.g. Fractions pp.24-26"></div>
+          <div class="field"><label>Homework set</label><input type="text" class="lr-hw-set" data-student="${st.id}" value="${rep.homework_set||''}" placeholder="e.g. pg 27-30 Q1-10"></div>
+          <div class="field" style="grid-column:1/-1;"><label>Diary entry / activity</label><input type="text" class="lr-diary" data-student="${st.id}" value="${rep.diary_entry||''}" placeholder="Brief description of today's lesson activity"></div>
+          <div class="field"><label>What Went Well (WWW)</label><textarea class="lr-www" data-student="${st.id}" rows="2" style="resize:vertical;">${rep.www||''}</textarea></div>
+          <div class="field"><label>Even Better If (EBI)</label><textarea class="lr-ebi" data-student="${st.id}" rows="2" style="resize:vertical;">${rep.ebi||''}</textarea></div>
+          <div class="field"><label>Previous homework marked</label>
+            <select class="lr-hw-marked" data-student="${st.id}">
+              <option value="false" ${!rep.homework_marked?'selected':''}>✗ Not marked</option>
+              <option value="true" ${rep.homework_marked?'selected':''}>✓ Marked</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top:12px;text-align:right;">
+          <button class="btn btn-primary btn-sm" data-action="save-lr" data-student="${st.id}" data-session="${selId}">Save report</button>
+        </div>`:'<div style="padding:8px 0;color:var(--text3);font-size:13px;">Student absent — no report needed</div>'}
+      </div>`;
+    }).join('')}
+  </div>`:''}
+
+  ${tab==='supervisor'?`
+  <div style="display:flex;flex-direction:column;gap:10px;">
+    <div class="highlight-card" style="margin-bottom:8px;">
+      <div style="font-size:13px;color:var(--accent-text);font-weight:600;margin-bottom:6px;">Supervisor check instructions</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.8;">For each student: verify ✓ previous HW was marked · classwork was given · new HW was set · diary is complete. Then tick the supervisor check.</div>
+    </div>
+    ${reports.filter(r=>r.student_id).map(rep=>{
+      const st=branchStudents.find(s=>s.id===rep.student_id);
+      if(!st)return '';
+      return `<div class="card" style="border-left:3px solid ${rep.supervisor_checked?'var(--success)':'var(--amber)'};">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <div style="font-weight:600;font-size:14px;margin-bottom:4px;">${st.name} <span class="id-code">${st.admission_id}</span></div>
+            <div style="font-size:12px;color:var(--text3);margin-bottom:8px;">
+              ${rep.classwork_completed?'<span style="color:var(--success-text);">✓ CW: '+rep.classwork_completed+'</span>':''} 
+              ${rep.homework_marked?'<span style="color:var(--success-text);margin-left:8px;">✓ HW marked</span>':'<span style="color:var(--danger-text);margin-left:8px;">✗ HW not marked</span>'}
+              ${rep.homework_set?'<span style="color:var(--success-text);margin-left:8px;">✓ HW set: '+rep.homework_set+'</span>':''} 
+              ${rep.diary_entry?'<span style="color:var(--success-text);margin-left:8px;">✓ Diary complete</span>':'<span style="color:var(--danger-text);margin-left:8px;">✗ No diary entry</span>'}
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            ${rep.supervisor_checked?
+              `<span class="badge badge-success">✓ Checked by ${rep.supervisor_name||'supervisor'}</span>
+               <button class="btn btn-sm btn-danger" data-action="uncheck-lr" data-id="${rep.id}">Uncheck</button>`:
+              `<button class="btn btn-sm btn-primary" data-action="check-lr" data-id="${rep.id}">✓ Mark as checked</button>`
+            }
+          </div>
+        </div>
+        ${rep.supervisor_notes?`<div style="font-size:12px;color:var(--text3);margin-top:6px;padding-top:6px;border-top:1px solid var(--border);">Note: ${rep.supervisor_notes}</div>`:''}
+      </div>`;
+    }).join('')||'<div class="empty-state">No lesson reports to check for this session. Ask teachers to fill in reports first.</div>'}
+  </div>`:''}
+  `:''}`;
+}
+
+function renderTestRecords(){
+  const students=state.data.students||[];
+  const allTests=state.data.test_records||[];
+  const selStId=state.trStudentId;
+  const selStudent=students.find(s=>s.id===selStId);
+  const studentTests=selStId?(state.data['tr_'+selStId]||[]):allTests;
+  const tab=state.trTab||'records';
+  const b=state.currentBranch;
+
+  function passBadge(passed,score){
+    if(passed===null||passed===undefined)return '';
+    return passed?
+      `<span class="badge badge-success">✓ Pass (${score}%)</span>`:
+      `<span class="badge badge-danger">✗ Needs revision (${score}%)</span>`;
+  }
+
+  return `
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
+    <div><div class="section-title">Test records</div><div class="section-sub">Book/unit test results, revisions, and retests</div></div>
+    <button class="btn btn-primary" data-action="add-test-record">+ Record test</button>
+  </div>
+
+  <div class="tab-bar">
+    <div class="tab ${tab==='records'?'active':''}" data-action="tr-tab" data-tab="records">All tests</div>
+    <div class="tab ${tab==='student'?'active':''}" data-action="tr-tab" data-tab="student">By student</div>
+    <div class="tab ${tab==='needs-revision'?'active':''}" data-action="tr-tab" data-tab="needs-revision">Needs revision</div>
+  </div>
+
+  ${tab==='records'||tab==='needs-revision'?`
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div class="table-wrap"><table>
+      <thead><tr><th>Date</th><th>Student</th><th>ID</th><th>Subject</th><th>Book / Unit</th><th>Score</th><th>Result</th><th>Revision</th><th>Retest</th><th>Action plan</th><th></th></tr></thead>
+      <tbody>${(tab==='needs-revision'?allTests.filter(t=>!t.passed):allTests).map(t=>`<tr>
+        <td style="font-family:var(--mono);font-size:12px;">${new Date(t.test_date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</td>
+        <td><strong>${t.student_name}</strong></td>
+        <td><span class="id-code">${t.admission_id}</span></td>
+        <td><span class="badge badge-gray">${t.subject}</span></td>
+        <td style="color:var(--text2);">${t.book_unit}</td>
+        <td><strong style="font-size:16px;color:${t.passed?'var(--success-text)':'var(--danger-text)'};">${t.score_pct}%</strong></td>
+        <td>${passBadge(t.passed,t.score_pct)}</td>
+        <td>${t.revision_given?'<span class="badge badge-teal">Given</span>':'<span class="badge badge-gray">—</span>'}</td>
+        <td>${t.retest_score_pct!=null?passBadge(t.retest_passed,t.retest_score_pct):'<span style="color:var(--text3);font-size:12px;">—</span>'}</td>
+        <td style="font-size:12px;color:var(--text3);max-width:160px;">${t.action_plan||'—'}</td>
+        <td><div class="row-actions">
+          <button class="btn btn-sm" data-action="edit-test-record" data-id="${t.id}">Edit</button>
+          <button class="btn btn-sm btn-danger" data-action="del-test-record" data-id="${t.id}">Del</button>
+        </div></td>
+      </tr>`).join('')||`<tr><td colspan="11"><div class="empty-state">${tab==='needs-revision'?'No students currently need revision':'No tests recorded yet'}</div></td></tr>`}
+      </tbody>
+    </table></div>
+  </div>`:''}
+
+  ${tab==='student'?`
+  <div class="card" style="margin-bottom:16px;">
+    <div class="field"><label>Select student</label>
+    <select id="tr-student-select">
+      <option value="">— all students —</option>
+      ${students.map(s=>`<option value="${s.id}" ${s.id===selStId?'selected':''}>${s.admission_id} — ${s.name}</option>`).join('')}
+    </select></div>
+  </div>
+  ${selStudent?`
+  <div class="card" style="margin-bottom:16px;border-left:3px solid var(--accent);">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+      <div class="avatar av-teal" style="width:40px;height:40px;font-size:14px;">${avatarInitials(selStudent.name)}</div>
+      <div><div style="font-size:16px;font-weight:700;">${selStudent.name}</div>
+      <div style="margin-top:3px;"><span class="id-code">${selStudent.admission_id}</span> <span class="badge badge-gray">${selStudent.year_group}</span></div></div>
+      <div style="margin-left:auto;text-align:right;">
+        <div style="font-size:12px;color:var(--text3);">Tests passed</div>
+        <div style="font-size:22px;font-weight:700;color:var(--success-text);">${studentTests.filter(t=>t.passed).length}/${studentTests.length}</div>
+      </div>
+    </div>
+    ${studentTests.length?studentTests.map(t=>`
+    <div style="padding:14px;margin-bottom:10px;background:var(--surface2);border-radius:var(--radius);border-left:4px solid ${t.passed?'var(--success)':'var(--danger)'};">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+        <div>
+          <span class="badge badge-gray" style="margin-right:6px;">${t.subject}</span>
+          <strong>${t.book_unit}</strong>
+          <span style="font-size:12px;color:var(--text3);margin-left:8px;">${new Date(t.test_date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span>
+        </div>
+        <div style="font-size:24px;font-weight:700;color:${t.passed?'var(--success-text)':'var(--danger-text)'};">${t.score_pct}%</div>
+      </div>
+      ${!t.passed?`<div style="font-size:12px;margin-bottom:6px;">
+        ${t.revision_given?'<span style="color:var(--teal-text);">✓ Revision given</span>':'<span style="color:var(--amber-text);">⚠ Revision pending</span>'}
+        ${t.retest_score_pct!=null?` · Retest: <strong style="color:${t.retest_passed?'var(--success-text)':'var(--danger-text)'};">${t.retest_score_pct}%</strong> ${t.retest_passed?'✓ Passed':'✗ Failed'}`:' · No retest yet'}
+      </div>`:''}
+      ${t.action_plan?`<div style="font-size:12px;color:var(--text2);padding:6px 10px;background:var(--surface3);border-radius:6px;">📋 ${t.action_plan}</div>`:''}
+    </div>`).join(''):'<p style="color:var(--text3);font-size:13px;padding:10px 0;">No tests recorded for this student yet</p>'}
+  </div>`:''}
+  `:''}`;
+}
+
+function renderReports(){const s=state.data.summary||{};const bs=s.branch_stats||[];const yg=s.year_groups||[];const subj=s.subjects||[];const cols=['var(--accent)','var(--teal)','var(--amber)','var(--pink)'];
+return`
+<div class="section-title" style="margin-bottom:4px;">Analytics</div>
+<div class="section-sub">System-wide performance overview</div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;">
+<div class="metric-card" style="text-align:center;"><div class="metric-value">${s.student_count||0}</div><div class="metric-label" style="margin-top:6px;">Students</div></div>
+<div class="metric-card" style="text-align:center;"><div class="metric-value">${s.session_count||0}</div><div class="metric-label" style="margin-top:6px;">Sessions</div></div>
+<div class="metric-card" style="text-align:center;"><div class="metric-value">${s.att_present||0}</div><div class="metric-label" style="margin-top:6px;">Attendances</div></div>
+<div class="metric-card" style="text-align:center;"><div class="metric-value">${s.att_rate||0}%</div><div class="metric-label" style="margin-top:6px;">Attendance rate</div></div>
+</div>
+<div class="two-col">
+<div class="card">
+<div class="card-title" style="margin-bottom:14px;">Students per branch</div>
+${bs.map((b,i)=>`<div class="bar-row"><span style="min-width:90px;color:var(--text2);font-weight:500;">${b.name}</span><div class="bar-bg"><div class="bar-fill" style="width:${s.student_count?Math.round(b.students/s.student_count*100):0}%;background:${cols[i%cols.length]};"></div></div><span style="min-width:30px;text-align:right;font-weight:700;color:var(--text);">${b.students}</span></div>`).join('')}
+<hr class="divider">
+<div class="card-title" style="margin-bottom:14px;">Year groups</div>
+${yg.map((y,i)=>`<div class="bar-row"><span style="min-width:90px;color:var(--text2);font-size:12px;">${y.year_group||'?'}</span><div class="bar-bg"><div class="bar-fill" style="width:${s.student_count?Math.round(y.c/s.student_count*100):0}%;background:${cols[(i+1)%cols.length]};"></div></div><span style="min-width:30px;text-align:right;font-weight:700;color:var(--text);">${y.c}</span></div>`).join('')}
+</div>
+<div class="card">
+<div class="card-title" style="margin-bottom:14px;">Sessions by subject</div>
+${subj.map((sub,i)=>`<div class="bar-row"><span style="min-width:90px;color:var(--text2);font-weight:500;">${sub.subject||'?'}</span><div class="bar-bg"><div class="bar-fill" style="width:${s.session_count?Math.round(sub.c/s.session_count*100):0}%;background:${cols[(i+2)%cols.length]};"></div></div><span style="min-width:30px;text-align:right;font-weight:700;color:var(--text);">${sub.c}</span></div>`).join('')}
+<hr class="divider">
+<div class="card-title" style="margin-bottom:12px;">Export data</div>
+<div style="display:flex;flex-direction:column;gap:10px;">
+<button class="btn" data-action="export-students">Export students CSV</button>
+<button class="btn" data-action="export-sessions">Export sessions CSV</button>
+</div>
+</div>
+</div>`;}
+
+function renderUsers(){const users=state.data.users||[];
+return`
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
+<div><div class="section-title">User management</div><div class="section-sub">${users.length} accounts across all branches</div></div>
+<button class="btn btn-primary" data-action="add-user">+ Add user</button>
+</div>
+<div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>
+<thead><tr><th>Name</th><th>Email</th><th>Branch</th><th>Role</th><th>Status</th><th>Last login</th><th></th></tr></thead>
+<tbody>${users.map(u=>`<tr>
+<td><div style="display:flex;align-items:center;gap:10px;"><div class="avatar ${avatarClass(u.role)}">${avatarInitials(u.name)}</div><strong>${u.name}</strong></div></td>
+<td style="font-size:12px;color:var(--text3);">${u.email}</td>
+<td><span class="badge badge-accent">${u.branch_name||'All branches'}</span></td>
+<td>${roleBadge(u.role)}</td><td>${statusDot(u.status)}</td>
+<td style="font-size:11px;color:var(--text3);">${u.last_login?new Date(u.last_login).toLocaleDateString('en-GB'):'Never'}</td>
+<td><div class="row-actions"><button class="btn btn-sm" data-action="edit-user" data-id="${u.id}">Edit</button><button class="btn btn-sm" data-action="reset-user-pw" data-id="${u.id}" style="color:var(--amber-text);border-color:var(--amber);">Reset PW</button><button class="btn btn-sm btn-danger" data-action="del-user" data-id="${u.id}">Del</button></div></td>
+</tr>`).join('')}</tbody>
+</table></div></div>`;}
+
+function renderBranches(){const branches=state.data.branches||[];const summary=state.data.summary||{};const bs=summary.branch_stats||[];const cols=['var(--accent)','var(--teal)','var(--amber)','var(--pink)'];
+return`
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
+<div><div class="section-title">Branches</div><div class="section-sub">${branches.length} active branches</div></div>
+<button class="btn btn-primary" data-action="add-branch">+ Add branch</button>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px;">
+${branches.map((b,i)=>{const stat=bs.find(s=>s.id===b.id)||{};return`<div class="card" style="border-top:3px solid ${cols[i%cols.length]};">
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
+<div><div style="font-size:17px;font-weight:700;color:var(--text);">${b.name}</div><div style="font-size:12px;color:var(--text3);margin-top:3px;">Prefix: <span class="id-code">${b.prefix}</span></div></div>
+<span class="badge badge-success">${b.status}</span>
+</div>
+<div style="font-size:13px;color:var(--text2);margin-bottom:14px;">${b.address||'—'}</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+<div class="metric-card" style="padding:12px;"><div class="metric-label">Students</div><div class="metric-value" style="font-size:22px;">${stat.students||0}</div></div>
+<div class="metric-card" style="padding:12px;"><div class="metric-label">Sessions</div><div class="metric-value" style="font-size:22px;">${stat.sessions||0}</div></div>
+</div>
+<div style="font-size:12px;color:var(--text3);margin-bottom:14px;">${b.phone||''} · ${b.email||''}</div>
+<div class="row-actions"><button class="btn btn-sm" data-action="edit-branch" data-id="${b.id}">Edit</button><button class="btn btn-sm btn-danger" data-action="del-branch" data-id="${b.id}">Delete</button></div>
+</div>`;}).join('')}
+</div>`;}
+
+function renderParentPortalAdmin(){const pus=state.data.parent_users||[];const allStudents=state.data.students||[];
+return`
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
+<div><div class="section-title">Parent portal</div><div class="section-sub">Manage parent accounts and access</div></div>
+<button class="btn btn-primary" data-action="add-parent-user">+ Add parent account</button>
+</div>
+<div class="card" style="padding:0;overflow:hidden;margin-bottom:16px;"><div class="table-wrap"><table>
+<thead><tr><th>Parent name</th><th>Email</th><th>Children</th><th>Status</th><th></th></tr></thead>
+<tbody>${pus.map(pu=>{const children=(pu.student_ids||[]).map(sid=>{const s=allStudents.find(st=>st.id===sid);return s?`<span class="id-code">${s.admission_id}</span> ${s.name}`:'?';}).join(', ');return`<tr>
+<td><strong>${pu.name}</strong></td>
+<td style="font-size:12px;color:var(--text3);">${pu.email}</td>
+<td style="font-size:12px;">${children||'—'}</td>
+<td>${statusDot(pu.status)}</td>
+<td><div class="row-actions"><button class="btn btn-sm" data-action="edit-parent-user" data-id="${pu.id}">Edit</button><button class="btn btn-sm btn-danger" data-action="del-parent-user" data-id="${pu.id}">Del</button></div></td>
+</tr>`;}).join('')}</tbody>
+</table></div></div>
+<div class="highlight-card">
+<div style="font-size:13px;font-weight:600;color:var(--accent-text);margin-bottom:8px;">Parent portal demo logins</div>
+<div style="font-size:12px;color:var(--text3);line-height:2;">parent.h100@ftharlesden.co.uk / parent123 &nbsp;·&nbsp; parent.h110@ftharlesden.co.uk / parent123 (3 siblings)</div>
+</div>`;}
+
+function renderAudit(){const audit=state.data.audit||[];
+return`
+<div class="section-title" style="margin-bottom:4px;">Audit log</div>
+<div class="section-sub">Complete record of all system actions</div>
+<div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>
+<thead><tr><th>When</th><th>User</th><th>Action</th><th>Table</th><th>Record</th><th>IP</th></tr></thead>
+<tbody>${audit.length?audit.map(l=>`<tr>
+<td style="font-size:12px;color:var(--text3);white-space:nowrap;">${new Date(l.timestamp).toLocaleString('en-GB')}</td>
+<td style="font-weight:500;">${l.user_name||'—'}</td>
+<td><span class="badge ${l.action.startsWith('add')?'badge-success':l.action.startsWith('del')?'badge-danger':'badge-gray'}">${l.action}</span></td>
+<td style="font-size:12px;color:var(--text2);">${l.table_name||'—'}</td>
+<td><span class="id-code">${l.record_id||'—'}</span></td>
+<td style="font-size:11px;color:var(--text3);">${l.ip_address||'—'}</td>
+</tr>`).join(''):`<tr><td colspan="6"><div class="empty-state">No actions logged yet</div></td></tr>`}</tbody>
+</table></div></div>`;}
+
+function renderParentPortal(){const pu=state.parentUser;const children=state.data.parent_children||[];function childCard(st){const att=state.data['p_att_'+st.id]||[];const invs=state.data['p_inv_'+st.id]||[];const prog=state.data['p_prog_'+st.id]||[];const present=att.filter(a=>a.status==='present').length;const pct=att.length?Math.round(present/att.length*100):0;const outstanding=invs.filter(i=>i.status!=='paid').reduce((s,i)=>s+i.amount,0);
+return`<div class="card" style="margin-bottom:18px;border-left:3px solid var(--accent);">
+<div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--border);">
+<div class="avatar av-teal" style="width:48px;height:48px;font-size:17px;">${avatarInitials(st.name)}</div>
+<div><div style="font-size:18px;font-weight:700;color:var(--text);">${st.name}</div>
+<div style="font-size:13px;color:var(--text3);margin-top:3px;"><span class="id-code">${st.admission_id}</span> · <span class="badge badge-gray">${st.year_group}</span> · <span class="badge badge-accent">${st.branch_name}</span></div></div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:18px;">
+<div class="metric-card"><div class="metric-label">Attendance</div><div class="metric-value" style="font-size:24px;${pct>=75?'color:var(--success-text)':'color:var(--danger-text)'};">${pct}%</div><div class="metric-sub">${present}/${att.length} sessions</div></div>
+<div class="metric-card"><div class="metric-label">Outstanding fees</div><div class="metric-value" style="font-size:24px;${outstanding>0?'color:var(--danger-text)':'color:var(--success-text);'}">£${outstanding}</div><div class="metric-sub">${outstanding>0?'Payment due':'All clear'}</div></div>
+<div class="metric-card"><div class="metric-label">Progress notes</div><div class="metric-value" style="font-size:24px;color:var(--accent-text);">${prog.length}</div><div class="metric-sub">From teachers</div></div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+<div><div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px;">Recent attendance</div>
+${att.slice(0,6).map(a=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;"><span style="color:var(--text2);">${new Date(a.date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})} · <span style="color:var(--text3);">${a.subject}</span></span><span class="badge ${a.status==='present'?'badge-success':'badge-danger'}">${a.status}</span></div>`).join('')||'<p style="color:var(--text3);font-size:13px;padding:10px 0;">No attendance yet</p>'}
+</div>
+<div><div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px;">Teacher notes</div>
+${prog.slice(0,4).map(p=>`<div style="padding:10px 0;border-bottom:1px solid var(--border);"><div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:12px;font-weight:600;color:var(--text2);">${p.subject}</span><span style="font-size:14px;">${stars(p.rating)}</span></div><div style="font-size:12px;color:var(--text2);">${p.comment}</div><div style="font-size:11px;color:var(--text3);margin-top:3px;">${p.staff_name} · ${p.date}</div></div>`).join('')||'<p style="color:var(--text3);font-size:13px;padding:10px 0;">No notes yet</p>'}
+</div>
+</div>
+<div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border);">
+<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px;">Fee invoices</div>
+${invs.map(inv=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;"><span style="color:var(--text2);">${inv.month}</span><strong style="color:var(--text);">£${inv.amount}</strong>${invBadge(inv.status)}<span style="font-size:11px;color:var(--text3);">${inv.paid_date?'Paid '+inv.paid_date:''}</span></div>`).join('')||'<p style="color:var(--text3);font-size:13px;">No invoices yet</p>'}
+</div>
+</div>`;}
+return`
+<div style="background:var(--surface);border-bottom:1px solid var(--border);padding:16px 0;margin-bottom:24px;display:flex;justify-content:space-between;align-items:center;">
+<div><div style="font-size:18px;font-weight:700;color:var(--text);">Welcome, ${pu.name}</div><div style="font-size:13px;color:var(--text3);margin-top:2px;">FT Harlesden Parent Portal</div></div>
+<button class="btn" id="parent-logout-btn">Sign out</button>
+</div>
+${children.map(st=>childCard(st)).join('')}`;}
+
+// MODALS
+function renderModal(){const m=state.modal;if(m==='add-student'||m==='edit-student')return modalStudent();if(m==='add-staff'||m==='edit-staff')return modalStaff();if(m==='add-session'||m==='edit-session')return modalSession();if(m==='add-user'||m==='edit-user')return modalUser();if(m==='add-branch'||m==='edit-branch')return modalBranch();if(m==='edit-invoice')return modalInvoice();if(m==='add-progress')return modalProgress();if(m==='add-parent-user'||m==='edit-parent-user')return modalParentUser();if(m==='add-staff-att'||m==='edit-staff-att')return modalStaffAtt();
+  if(m==='add-payment'||m==='edit-payment')return modalPayment();
+  if(m==='add-instalment-plan')return modalInstalmentPlan();
+  if(m==='add-hq-transfer')return modalHQTransfer();
+  if(m==='change-password')return modalChangePassword();
+  if(m==='reset-user-pw')return modalResetPassword();
+  if(m==='add-catchup')return modalAddCatchup();
+  if(m==='schedule-catchup')return modalScheduleCatchup();
+  if(m==='set-cover-teacher')return modalSetCoverTeacher();
+  if(m==='add-table-alloc')return modalAddTableAlloc();
+  if(m==='add-student-to-table')return modalAddStudentToTable();
+  if(m==='add-test-record'||m==='edit-test-record')return modalTestRecord();return'';}
+function mWrap(title,body,footer){return`<div class="modal-backdrop" id="modal-backdrop"><div class="modal modal-lg"><div class="modal-header"><div class="modal-title">${title}</div><button class="btn btn-sm" id="modal-close">✕</button></div><div class="modal-body">${body}</div><div class="modal-footer">${footer}</div></div></div>`;}
+
+function modalStudent(){
+  const s=state.editTarget||{};
+  const branches=state.data.branches||[];
+  const defBranch=state.currentBranch||branches[0]?.id||'';
+  return mWrap(s.id?'Edit student record':'Enrol new student',`
+    <div style="margin-bottom:16px;padding:10px 14px;background:rgba(99,102,241,0.18);border-radius:var(--radius);border-left:4px solid #6366f1;">
+      <div style="font-size:13px;font-weight:700;color:#a5b4fc;letter-spacing:0.04em;">STUDENT DETAILS</div>
+    </div>
+    <div class="form-grid">
+      <div class="field"><label>First name</label><input type="text" id="f-first-name" value="${s.first_name||''}"></div>
+      <div class="field"><label>Last name</label><input type="text" id="f-last-name" value="${s.last_name||''}"></div>
+
+      <div class="field"><label>Admission ID</label>
+        <div style="display:flex;gap:8px;align-items:flex-start;">
+          <input type="text" id="f-admid" value="${s.admission_id||''}" placeholder="e.g. H100" style="flex:1;">
+          ${!s.id?`<button type="button" class="btn btn-sm" id="btn-auto-id" style="margin-top:0;white-space:nowrap;">Auto-generate</button>`:''}
+        </div>
+        <span class="hint">Enter manually or click Auto-generate. Add a/b suffix for siblings (e.g. H110a)</span></div>
+      <div class="field"><label>Branch</label><select id="f-branch" onchange="onBranchChange(this.value)">${branches.map(b=>`<option value="${b.id}" ${(s.branch_id||defBranch)==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>
+      <div class="field"><label>Date of birth</label><input type="date" id="f-dob" value="${s.date_of_birth||''}"></div>
+      <div class="field"><label>Gender</label><select id="f-gender">
+        <option value="">— select —</option>
+        <option value="Male" ${s.gender==='Male'?'selected':''}>Male</option>
+        <option value="Female" ${s.gender==='Female'?'selected':''}>Female</option>
+        <option value="Other" ${s.gender==='Other'?'selected':''}>Other</option>
+      </select></div>
+      <div class="field"><label>School year</label><select id="f-year">${['Year 1','Year 2','Year 3','Year 4','Year 5','Year 6','Year 7','Year 8','Year 9','Year 10','Year 11','Year 12','Year 13'].map(y=>`<option ${s.year_group===y?'selected':''}>${y}</option>`).join('')}</select></div>
+      <div class="field" style="grid-column:1/-1;"><label>Current school</label><input type="text" id="f-school" value="${s.current_school||''}" placeholder="Name of current school"></div>
+      <div class="field" style="grid-column:1/-1;"><label>Medical conditions / allergies</label><textarea id="f-medical" rows="2" style="resize:vertical;">${s.medical_notes||''}</textarea></div>
+      <div class="field" style="grid-column:1/-1;"><label>Learning needs / SEN</label><textarea id="f-sen" rows="2" style="resize:vertical;">${s.sen_notes||''}</textarea></div>
+    </div>
+
+    <div style="margin:20px 0 12px;padding:10px 14px;background:rgba(45,212,191,0.18);border-radius:var(--radius);border-left:4px solid #2dd4bf;">
+      <div style="font-size:13px;font-weight:700;color:#5eead4;letter-spacing:0.04em;">PARENT / CARER 1</div>
+    </div>
+    <div class="form-grid">
+      <div class="field"><label>First name</label><input type="text" id="f-c1-first" value="${s.carer1_first_name||''}"></div>
+      <div class="field"><label>Last name</label><input type="text" id="f-c1-last" value="${s.carer1_last_name||''}"></div>
+      <div class="field" style="grid-column:1/-1;"><label>Address</label><input type="text" id="f-c1-address" value="${s.carer1_address||''}"></div>
+      <div class="field"><label>Postcode</label><input type="text" id="f-c1-postcode" value="${s.carer1_postcode||''}"></div>
+      <div class="field"><label>Telephone</label><input type="text" id="f-c1-tel" value="${s.carer1_telephone||''}"></div>
+      <div class="field"><label>Mobile</label><input type="text" id="f-c1-mobile" value="${s.carer1_mobile||''}"></div>
+      <div class="field"><label>Email</label><input type="email" id="f-c1-email" value="${s.carer1_email||''}"></div>
+      <div class="field"><label>Occupation</label><input type="text" id="f-c1-occupation" value="${s.carer1_occupation||''}"></div>
+    </div>
+
+    <div style="margin:20px 0 12px;padding:10px 14px;background:rgba(45,212,191,0.12);border-radius:var(--radius);border-left:4px solid #2dd4bf;">
+      <div style="font-size:13px;font-weight:700;color:#5eead4;letter-spacing:0.04em;">PARENT / CARER 2 (optional)</div>
+    </div>
+    <div class="form-grid">
+      <div class="field"><label>First name</label><input type="text" id="f-c2-first" value="${s.carer2_first_name||''}"></div>
+      <div class="field"><label>Last name</label><input type="text" id="f-c2-last" value="${s.carer2_last_name||''}"></div>
+      <div class="field" style="grid-column:1/-1;"><label>Address</label><input type="text" id="f-c2-address" value="${s.carer2_address||''}"></div>
+      <div class="field"><label>Postcode</label><input type="text" id="f-c2-postcode" value="${s.carer2_postcode||''}"></div>
+      <div class="field"><label>Telephone</label><input type="text" id="f-c2-tel" value="${s.carer2_telephone||''}"></div>
+      <div class="field"><label>Mobile</label><input type="text" id="f-c2-mobile" value="${s.carer2_mobile||''}"></div>
+      <div class="field"><label>Email</label><input type="email" id="f-c2-email" value="${s.carer2_email||''}"></div>
+      <div class="field"><label>Occupation</label><input type="text" id="f-c2-occupation" value="${s.carer2_occupation||''}"></div>
+    </div>
+
+    <div style="margin:20px 0 12px;padding:10px 14px;background:rgba(248,113,113,0.18);border-radius:var(--radius);border-left:4px solid #f87171;">
+      <div style="font-size:13px;font-weight:700;color:#fca5a5;letter-spacing:0.04em;">EMERGENCY CONTACT</div>
+    </div>
+    <div class="form-grid">
+      <div class="field"><label>Full name</label><input type="text" id="f-emg-name" value="${s.emergency_name||''}"></div>
+      <div class="field"><label>Telephone / mobile</label><input type="text" id="f-emg-tel" value="${s.emergency_telephone||''}"></div>
+      <div class="field"><label>Relationship to child</label><input type="text" id="f-emg-rel" value="${s.emergency_relation||''}" placeholder="e.g. Aunt, Grandparent"></div>
+    </div>
+
+    <div style="margin:20px 0 12px;padding:10px 14px;background:rgba(96,165,250,0.18);border-radius:var(--radius);border-left:4px solid #60a5fa;">
+      <div style="font-size:13px;font-weight:700;color:#93c5fd;letter-spacing:0.04em;">ASSESSMENT RESULTS</div>
+    </div>
+    <div class="form-grid">
+      <div class="field"><label>Maths %</label><input type="text" id="f-assess-maths-pct" value="${s.assess_maths_pct||''}" placeholder="e.g. 75%"></div>
+      <div class="field"><label>Maths book recommended</label><input type="text" id="f-assess-maths-book" value="${s.assess_maths_book||''}"></div>
+      <div class="field"><label>English %</label><input type="text" id="f-assess-english-pct" value="${s.assess_english_pct||''}" placeholder="e.g. 68%"></div>
+      <div class="field"><label>English book recommended</label><input type="text" id="f-assess-english-book" value="${s.assess_english_book||''}"></div>
+      <div class="field"><label>Science %</label><input type="text" id="f-assess-science-pct" value="${s.assess_science_pct||''}" placeholder="e.g. 72%"></div>
+      <div class="field"><label>Science book recommended</label><input type="text" id="f-assess-science-book" value="${s.assess_science_book||''}"></div>
+      <div class="field"><label>Hours per week</label><input type="text" id="f-hours-per-week" value="${s.hours_per_week||''}" placeholder="e.g. 2"></div>
+    </div>
+
+    <div style="margin:20px 0 12px;padding:10px 14px;background:rgba(96,165,250,0.18);border-radius:var(--radius);border-left:4px solid #60a5fa;">
+      <div style="font-size:13px;font-weight:700;color:#93c5fd;letter-spacing:0.04em;">GCSE EXAM DETAILS (if applicable)</div>
+    </div>
+    <div style="overflow-x:auto;margin-bottom:12px;">
+    <table style="width:100%;font-size:12px;border-collapse:collapse;">
+      <thead><tr>
+        <th style="text-align:left;padding:6px 8px;background:var(--surface3);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:0.06em;">Subject</th>
+        <th style="text-align:left;padding:6px 8px;background:var(--surface3);color:var(--text3);font-size:11px;">Board</th>
+        <th style="text-align:left;padding:6px 8px;background:var(--surface3);color:var(--text3);font-size:11px;">Paper (H/F)</th>
+        <th style="text-align:left;padding:6px 8px;background:var(--surface3);color:var(--text3);font-size:11px;">Exam date</th>
+        <th style="text-align:left;padding:6px 8px;background:var(--surface3);color:var(--text3);font-size:11px;">Current grade</th>
+        <th style="text-align:left;padding:6px 8px;background:var(--surface3);color:var(--text3);font-size:11px;">Predicted grade</th>
+      </tr></thead>
+      <tbody>
+        <tr><td style="padding:4px 8px;color:var(--text2);font-weight:600;">Maths</td>
+          <td style="padding:4px;"><input type="text" id="f-gcse-maths-board" value="${s.gcse_maths_board||''}" style="width:90px;"></td>
+          <td style="padding:4px;"><select id="f-gcse-maths-paper" style="width:70px;"><option value="">—</option><option value="H" ${s.gcse_maths_paper==='H'?'selected':''}>H</option><option value="F" ${s.gcse_maths_paper==='F'?'selected':''}>F</option><option value="N/A" ${s.gcse_maths_paper==='N/A'?'selected':''}>N/A</option></select></td>
+          <td style="padding:4px;"><input type="date" id="f-gcse-maths-date" value="${s.gcse_maths_exam_date||''}" style="width:130px;"></td>
+          <td style="padding:4px;"><input type="text" id="f-gcse-maths-current" value="${s.gcse_maths_current_grade||''}" style="width:60px;" placeholder="e.g. 4"></td>
+          <td style="padding:4px;"><input type="text" id="f-gcse-maths-predicted" value="${s.gcse_maths_predicted_grade||''}" style="width:60px;" placeholder="e.g. 6"></td>
+        </tr>
+        <tr><td style="padding:4px 8px;color:var(--text2);font-weight:600;">English</td>
+          <td style="padding:4px;"><input type="text" id="f-gcse-english-board" value="${s.gcse_english_board||''}" style="width:90px;"></td>
+          <td style="padding:4px;"><select id="f-gcse-english-paper" style="width:70px;"><option value="">—</option><option value="H" ${s.gcse_english_paper==='H'?'selected':''}>H</option><option value="F" ${s.gcse_english_paper==='F'?'selected':''}>F</option><option value="N/A" ${s.gcse_english_paper==='N/A'?'selected':''}>N/A</option></select></td>
+          <td style="padding:4px;"><input type="date" id="f-gcse-english-date" value="${s.gcse_english_exam_date||''}" style="width:130px;"></td>
+          <td style="padding:4px;"><input type="text" id="f-gcse-english-current" value="${s.gcse_english_current_grade||''}" style="width:60px;"></td>
+          <td style="padding:4px;"><input type="text" id="f-gcse-english-predicted" value="${s.gcse_english_predicted_grade||''}" style="width:60px;"></td>
+        </tr>
+        <tr><td style="padding:4px 8px;color:var(--text2);font-weight:600;">Science</td>
+          <td style="padding:4px;"><input type="text" id="f-gcse-science-board" value="${s.gcse_science_board||''}" style="width:90px;"></td>
+          <td style="padding:4px;"><select id="f-gcse-science-paper" style="width:70px;"><option value="">—</option><option value="H" ${s.gcse_science_paper==='H'?'selected':''}>H</option><option value="F" ${s.gcse_science_paper==='F'?'selected':''}>F</option><option value="N/A" ${s.gcse_science_paper==='N/A'?'selected':''}>N/A</option></select></td>
+          <td style="padding:4px;"><input type="date" id="f-gcse-science-date" value="${s.gcse_science_exam_date||''}" style="width:130px;"></td>
+          <td style="padding:4px;"><input type="text" id="f-gcse-science-current" value="${s.gcse_science_current_grade||''}" style="width:60px;"></td>
+          <td style="padding:4px;"><input type="text" id="f-gcse-science-predicted" value="${s.gcse_science_predicted_grade||''}" style="width:60px;"></td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div style="margin:20px 0 12px;padding:10px 14px;background:rgba(251,191,36,0.18);border-radius:var(--radius);border-left:4px solid #fbbf24;">
+      <div style="font-size:13px;font-weight:700;color:#fcd34d;letter-spacing:0.04em;">REFERENCE & OTHER</div>
+    </div>
+    <div class="form-grid">
+      <div class="field"><label>Referred by (name)</label><input type="text" id="f-ref-by" value="${s.referred_by||''}" placeholder="Who referred this family?"></div>
+      <div class="field"><label>Referral admission number</label><input type="text" id="f-ref-admid" value="${s.referral_admission||''}" placeholder="e.g. H100"></div>
+      <div class="field"><label>Status</label><select id="f-status"><option value="active" ${!s.status||s.status==='active'?'selected':''}>Active</option><option value="paused" ${s.status==='paused'?'selected':''}>Paused</option><option value="inactive" ${s.status==='inactive'?'selected':''}>Inactive</option></select></div>
+      <div class="field" style="grid-column:1/-1;"><label>Additional notes</label><input type="text" id="f-notes" value="${s.notes||''}" placeholder="Any additional notes"></div>
+    </div>
+  `,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${s.id?'Save changes':'Enrol student'}</button>`);}
+
+
+function modalStaff(){const s=state.editTarget||{};const branches=state.data.branches||[];const defBranch=state.currentBranch||branches[0]?.id||'';
+return mWrap(s.id?'Edit staff member':'Add staff member',`
+<div class="form-grid">
+<div class="field"><label>Full name</label><input type="text" id="f-name" value="${s.name||''}"></div>
+<div class="field"><label>Branch</label><select id="f-branch">${branches.map(b=>`<option value="${b.id}" ${(s.branch_id||defBranch)==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>
+<div class="field"><label>Role</label><select id="f-role"><option value="teacher" ${s.role==='teacher'||!s.role?'selected':''}>Teacher</option>
+        <option value="head_of_centre" ${s.role==='head_of_centre'?'selected':''}>Head of Centre</option>
+        <option value="supervisor" ${s.role==='supervisor'?'selected':''}>Supervisor</option>
+        <option value="receptionist" ${s.role==='receptionist'?'selected':''}>Receptionist</option>
+        <option value="admin" ${s.role==='admin'?'selected':''}>Admin support</option></select></div>
+<div class="field"><label>Subject</label><input type="text" id="f-subject" value="${s.subject||''}" placeholder="e.g. Maths, English"></div>
+<div class="field"><label>Contact number</label><input type="text" id="f-contact" value="${s.contact||''}"></div>
+<div class="field"><label>Status</label><select id="f-status"><option value="active" ${!s.status||s.status==='active'?'selected':''}>Active</option><option value="paused" ${s.status==='paused'?'selected':''}>Paused</option><option value="inactive" ${s.status==='inactive'?'selected':''}>Inactive</option></select></div>
+</div>`,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${s.id?'Save changes':'Add staff'}</button>`);}
+
+function modalSession(){const s=state.editTarget||{};const branches=state.data.branches||[];const defBranch=state.currentBranch||branches[0]?.id||'';const staffList=(state.data.staff||[]).filter(st=>['teacher','head_of_centre','supervisor','admin','receptionist'].includes(st.role));const slots=['Slot 1 (09:00-11:00)','Slot 2 (11:30-13:30)','Slot 3 (14:00-16:00)','Slot 4 (16:30-18:30)','Weekday Slot 1 (17:00-19:00)','Weekday Slot 2 (19:00-21:00)'];
+return mWrap(s.id?'Edit session':'Add session',`
+<div class="form-grid">
+<div class="field"><label>Date</label><input type="date" id="f-date" value="${s.date||new Date().toISOString().slice(0,10)}"></div>
+<div class="field"><label>Branch</label><select id="f-branch">${branches.map(b=>`<option value="${b.id}" ${(s.branch_id||defBranch)==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>
+<div class="field"><label>Slot</label><select id="f-slot">${slots.map(sl=>`<option ${s.slot===sl?'selected':''}>${sl}</option>`).join('')}</select></div>
+<div class="field"><label>Teacher</label><select id="f-staff">${staffList.map(st=>`<option value="${st.id}" ${s.staff_id===st.id?'selected':''}>${st.name}</option>`).join('')}</select></div>
+<div class="field"><label>Subject</label><select id="f-subject">${['Maths','English','Science','History','Geography','Other'].map(sub=>`<option ${s.subject===sub?'selected':''}>${sub}</option>`).join('')}</select></div>
+<div class="field"><label>Table number</label><input type="number" id="f-table" value="${s.table_no||1}" min="1" max="8"></div>
+</div>`,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${s.id?'Save changes':'Add session'}</button>`);}
+
+function modalUser(){const u=state.editTarget||{};const branches=state.data.branches||[];
+return mWrap(u.id?'Edit user':'Add user',`
+<div class="form-grid">
+<div class="field"><label>Full name</label><input type="text" id="f-name" value="${u.name||''}"></div>
+<div class="field"><label>Email</label><input type="email" id="f-email" value="${u.email||''}"></div>
+<div class="field"><label>Password</label><input type="password" id="f-password" placeholder="${u.id?'Leave blank to keep current':'Set password'}"></div>
+<div class="field"><label>Role</label><select id="f-role">
+        <option value="super_admin" ${u.role==='super_admin'?'selected':''}>Super admin</option>
+        <option value="branch_manager" ${u.role==='branch_manager'?'selected':''}>Branch manager</option>
+        <option value="teacher" ${u.role==='teacher'?'selected':''}>Teacher</option>
+        <option value="head_of_centre" ${u.role==='head_of_centre'?'selected':''}>Head of Centre</option>
+        <option value="supervisor" ${u.role==='supervisor'?'selected':''}>Supervisor</option>
+        <option value="receptionist" ${u.role==='receptionist'?'selected':''}>Receptionist</option>
+        <option value="admin" ${u.role==='admin'?'selected':''}>Admin support</option>
+      </select></div>
+<div class="field"><label>Branch</label><select id="f-branch"><option value="">All branches (admin)</option>${branches.map(b=>`<option value="${b.id}" ${u.branch_id==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>
+<div class="field"><label>Status</label><select id="f-status"><option value="active" ${!u.status||u.status==='active'?'selected':''}>Active</option><option value="inactive" ${u.status==='inactive'?'selected':''}>Inactive</option></select></div>
+</div>`,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${u.id?'Save changes':'Add user'}</button>`);}
+
+function modalBranch(){const b=state.editTarget||{};
+return mWrap(b.id?'Edit branch':'Add branch',`
+<div class="form-grid">
+<div class="field"><label>Branch name</label><input type="text" id="f-name" value="${b.name||''}" placeholder="e.g. Ealing"></div>
+<div class="field"><label>Admission prefix (single letter)</label><input type="text" id="f-prefix" value="${b.prefix||''}" maxlength="1" placeholder="e.g. E"><span class="hint">Students enrolled here will get IDs like E100, E101…</span></div>
+<div class="field" style="grid-column:1/-1;"><label>Address</label><input type="text" id="f-address" value="${b.address||''}"></div>
+<div class="field"><label>Phone</label><input type="text" id="f-phone" value="${b.phone||''}"></div>
+<div class="field"><label>Email</label><input type="email" id="f-email" value="${b.email||''}"></div>
+<div class="field"><label>Status</label><select id="f-status"><option value="active" ${!b.status||b.status==='active'?'selected':''}>Active</option><option value="inactive" ${b.status==='inactive'?'selected':''}>Inactive</option></select></div>
+</div>`,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${b.id?'Save changes':'Add branch'}</button>`);}
+
+function modalInvoice(){const inv=state.editTarget||{};
+return mWrap('Edit invoice',`
+<div style="margin-bottom:16px;padding:12px;background:var(--surface2);border-radius:var(--radius);font-size:13px;color:var(--text2);">Student: <strong style="color:var(--text);">${inv.student_name}</strong> <span class="id-code">${inv.admission_id}</span> — ${inv.month}</div>
+<div class="form-grid">
+<div class="field"><label>Amount (£)</label><input type="number" id="f-amount" value="${inv.amount||120}"></div>
+<div class="field"><label>Status</label><select id="f-inv-status"><option value="due" ${inv.status==='due'?'selected':''}>Due</option><option value="paid" ${inv.status==='paid'?'selected':''}>Paid</option><option value="overdue" ${inv.status==='overdue'?'selected':''}>Overdue</option></select></div>
+<div class="field"><label>Paid date</label><input type="date" id="f-paid-date" value="${inv.paid_date||''}"></div>
+<div class="field"><label>Notes</label><input type="text" id="f-notes" value="${inv.notes||''}" placeholder="e.g. Sibling rate, pro-rata…"></div>
+</div>`,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Save changes</button>`);}
+
+function modalProgress(){const d=state.editTarget||{};const sessId=d.session_id;const sess=(state.data.sessions||[]).find(s=>s.id===sessId);const branchStudents=(state.data.students||[]).filter(s=>sess?s.branch_id===sess.branch_id:true);
+return mWrap('Add progress note',`
+<div class="form-grid">
+<div class="field"><label>Student</label><select id="f-student">${branchStudents.map(s=>`<option value="${s.id}">${s.name} (${s.admission_id})</option>`).join('')}</select></div>
+<div class="field"><label>Subject</label><select id="f-subject">${['Maths','English','Science','History','Geography','Other'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+<div class="field"><label>Rating (1–5 stars)</label><select id="f-rating">${[1,2,3,4,5].map(n=>`<option value="${n}" ${n===4?'selected':''}>${n} star${n>1?'s':''}</option>`).join('')}</select></div>
+<div class="field" style="grid-column:1/-1;"><label>Teacher comment</label><textarea id="f-comment" rows="3" placeholder="Notes on student progress, areas for improvement, homework set…" style="resize:vertical;"></textarea></div>
+</div>`,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Save note</button>`);}
+
+function modalParentUser(){const pu=state.editTarget||{};const allStudents=state.data.students||[];
+return mWrap(pu.id?'Edit parent account':'Add parent account',`
+<div class="form-grid">
+<div class="field"><label>Parent / guardian name</label><input type="text" id="f-name" value="${pu.name||''}"></div>
+<div class="field"><label>Email address</label><input type="email" id="f-email" value="${pu.email||''}"></div>
+<div class="field"><label>Password</label><input type="password" id="f-password" placeholder="${pu.id?'Leave blank to keep current':'Set password'}"></div>
+<div class="field"><label>Status</label><select id="f-status"><option value="active" ${!pu.status||pu.status==='active'?'selected':''}>Active</option><option value="inactive" ${pu.status==='inactive'?'selected':''}>Inactive</option></select></div>
+<div class="field" style="grid-column:1/-1;"><label>Linked students (hold Ctrl/Cmd to select multiple children)</label><select id="f-students" multiple style="height:130px;">${allStudents.map(s=>`<option value="${s.id}" ${(pu.student_ids||[]).includes(s.id)?'selected':''}>${s.name} (${s.admission_id}) — ${s.branch_name||'?'}</option>`).join('')}</select></div>
+</div>`,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${pu.id?'Save changes':'Add account'}</button>`);}
+
+
+function modalStaffAtt(){
+  const r=state.editTarget||{};
+  const staffList=state.data.staff||[];
+  const sessions=state.data.sessions||[];
+  const branches=state.data.branches||[];
+  const defBranch=state.currentBranch||branches[0]?.id||'';
+  return mWrap(r.id?'Edit staff attendance':'Log staff attendance',`
+    <div class="form-grid">
+      <div class="field"><label>Staff member</label><select id="f-staff-id">${staffList.map(s=>`<option value="${s.id}" ${r.staff_id===s.id?'selected':''}>${s.name} — ${s.branch_name||'?'}</option>`).join('')}</select></div>
+      <div class="field"><label>Branch</label><select id="f-branch">${branches.map(b=>`<option value="${b.id}" ${(r.branch_id||defBranch)==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>
+      <div class="field"><label>Session</label><select id="f-session-id"><option value="">— select session (optional) —</option>${sessions.map(s=>`<option value="${s.id}" ${r.session_id===s.id?'selected':''}>${new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})} · ${s.slot} · ${s.branch_name}</option>`).join('')}</select></div>
+      <div class="field"><label>Date</label><input type="date" id="f-date" value="${r.date||new Date().toISOString().slice(0,10)}"></div>
+      <div class="field"><label>Sign in time</label><input type="time" id="f-sign-in" value="${r.sign_in||''}"></div>
+      <div class="field"><label>Sign out time</label><input type="time" id="f-sign-out" value="${r.sign_out||''}"><span class="hint">Leave blank if not yet signed out</span></div>
+      <div class="field"><label>Status</label><select id="f-status">
+        <option value="present" ${!r.status||r.status==='present'?'selected':''}>Present</option>
+        <option value="absent" ${r.status==='absent'?'selected':''}>Absent</option>
+        <option value="late" ${r.status==='late'?'selected':''}>Late</option>
+        <option value="no_sign_out" ${r.status==='no_sign_out'?'selected':''}>No sign-out</option>
+      </select></div>
+      <div class="field"><label>Cover for (if covering another teacher)</label><select id="f-cover"><option value="">Not covering</option>${staffList.map(s=>`<option value="${s.id}" ${r.cover_for===s.id?'selected':''}>${s.name}</option>`).join('')}</select></div>
+      <div class="field"><label>Absence reason</label><input type="text" id="f-absence-reason" value="${r.absence_reason||''}" placeholder="e.g. Sick, Personal, No contact"></div>
+      <div class="field"><label>Notes</label><input type="text" id="f-notes" value="${r.notes||''}" placeholder="Any additional notes"></div>
+    </div>`,
+  `<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${r.id?'Save changes':'Log attendance'}</button>`);
+}
+
+function modalPayment(){
+  const p=state.editTarget||{};
+  const students=state.data.students||[];
+  const branches=state.data.branches||[];
+  const defBranch=state.currentBranch||branches[0]?.id||'';
+  const preselect=state.finStudentId;
+  return mWrap(p.id?'Edit payment':'Record payment',`
+    <div class="form-grid">
+      <div class="field"><label>Student</label><select id="f-student-id">${students.map(s=>`<option value="${s.id}" ${(p.student_id||preselect)===s.id?'selected':''}>${s.admission_id} — ${s.name}</option>`).join('')}</select></div>
+      <div class="field"><label>Branch</label><select id="f-branch">${branches.map(b=>`<option value="${b.id}" ${(p.branch_id||defBranch)==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>
+      <div class="field"><label>Amount (£)</label><input type="number" id="f-amount" value="${p.amount||''}" step="0.01" placeholder="0.00"></div>
+      <div class="field"><label>Payment date</label><input type="date" id="f-date" value="${p.payment_date||new Date().toISOString().slice(0,10)}"></div>
+      <div class="field"><label>Payment method</label><select id="f-method">
+        <option value="cash" ${p.method==='cash'||!p.method?'selected':''}>Cash</option>
+        <option value="bank_transfer" ${p.method==='bank_transfer'?'selected':''}>Bank transfer</option>
+        <option value="card" ${p.method==='card'?'selected':''}>Card</option>
+        <option value="direct_debit" ${p.method==='direct_debit'?'selected':''}>Direct debit</option>
+        <option value="standing_order" ${p.method==='standing_order'?'selected':''}>Standing order</option>
+        <option value="cheque" ${p.method==='cheque'?'selected':''}>Cheque</option>
+        <option value="other" ${p.method==='other'?'selected':''}>Other</option>
+      </select></div>
+      <div class="field"><label>Reference / receipt number</label><input type="text" id="f-reference" value="${p.reference||''}" placeholder="e.g. bank ref, receipt no."></div>
+      <div class="field" style="grid-column:1/-1;"><label>Notes</label><input type="text" id="f-notes" value="${p.notes||''}" placeholder="e.g. Part payment, balance £40 c/f"></div>
+    </div>`,
+  `<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${p.id?'Save changes':'Record payment'}</button>`);
+}
+
+function modalInstalmentPlan(){
+  const students=state.data.students||[];
+  const branches=state.data.branches||[];
+  const defBranch=state.currentBranch||branches[0]?.id||'';
+  const preselect=state.finStudentId;
+  return mWrap('Add instalment plan',`
+    <div class="form-grid">
+      <div class="field"><label>Student</label><select id="f-student-id">${students.map(s=>`<option value="${s.id}" ${preselect===s.id?'selected':''}>${s.admission_id} — ${s.name}</option>`).join('')}</select></div>
+      <div class="field"><label>Branch</label><select id="f-branch">${branches.map(b=>`<option value="${b.id}" ${defBranch==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>
+      <div class="field"><label>Description</label><input type="text" id="f-description" placeholder="e.g. 3-month instalment plan — Maths & English"></div>
+      <div class="field"><label>Total amount (£)</label><input type="number" id="f-total" step="0.01" placeholder="0.00"></div>
+      <div class="field"><label>Start date</label><input type="date" id="f-start" value="${new Date().toISOString().slice(0,10)}"></div>
+      <div class="field"><label>End date</label><input type="date" id="f-end"></div>
+      <div class="field" style="grid-column:1/-1;"><label>Notes</label><input type="text" id="f-notes" placeholder="e.g. Agreed with parent, payment on 1st of each month"></div>
+    </div>
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;">Instalment schedule</div>
+      <div id="instalment-rows">
+        <div class="form-grid" style="margin-bottom:8px;" data-row="0">
+          <div class="field"><label>Due date</label><input type="date" class="sch-date" value="${new Date().toISOString().slice(0,10)}"></div>
+          <div class="field"><label>Amount (£)</label><input type="number" class="sch-amount" step="0.01" placeholder="0.00"></div>
+        </div>
+      </div>
+      <button class="btn btn-sm" type="button" onclick="addInstalmentRow()">+ Add instalment</button>
+    </div>`,
+  `<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Create plan</button>`);
+}
+
+function addInstalmentRow(){
+  const container=document.getElementById('instalment-rows');
+  if(!container)return;
+  const div=document.createElement('div');
+  div.className='form-grid';
+  div.style.marginBottom='8px';
+  div.innerHTML=`<div class="field"><label>Due date</label><input type="date" class="sch-date"></div><div class="field"><label>Amount (£)</label><input type="number" class="sch-amount" step="0.01" placeholder="0.00"></div>`;
+  container.appendChild(div);
+}
+
+function modalHQTransfer(){
+  const branches = state.data.branches || [];
+  const defBranch = state.currentBranch || branches[0]?.id || '';
+  return mWrap('Record transfer to HQ',`
+    <div style="margin-bottom:16px;padding:12px 16px;background:rgba(99,102,241,0.15);border-radius:var(--radius);border-left:4px solid #6366f1;">
+      <div style="font-size:13px;color:var(--accent-text);">Record cash or payment transferred from a branch to head office</div>
+    </div>
+    <div class="form-grid">
+      <div class="field"><label>Branch</label><select id="f-branch">${branches.map(b=>`<option value="${b.id}" ${defBranch==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>
+      <div class="field"><label>Amount (£)</label><input type="number" id="f-amount" step="0.01" placeholder="0.00"></div>
+      <div class="field"><label>Transfer date</label><input type="date" id="f-date" value="${new Date().toISOString().slice(0,10)}"></div>
+      <div class="field"><label>Method</label><select id="f-method">
+        <option value="cash">Cash (hand delivery)</option>
+        <option value="bank_transfer">Bank transfer</option>
+        <option value="cheque">Cheque</option>
+        <option value="other">Other</option>
+      </select></div>
+      <div class="field"><label>Reference</label><input type="text" id="f-reference" placeholder="e.g. bank ref, receipt no."></div>
+      <div class="field" style="grid-column:1/-1;"><label>Notes</label><input type="text" id="f-notes" placeholder="e.g. May week 1 cash collection, Harlesden to HQ"></div>
+    </div>
+  `,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Record transfer</button>`);
+}
+
+function modalTestRecord(){
+  const t=state.editTarget||{};
+  const students=state.data.students||[];
+  const branches=state.data.branches||[];
+  const defBranch=state.currentBranch||branches[0]?.id||'';
+  const preselect=state.trStudentId;
+  return mWrap(t.id?'Edit test record':'Record test',`
+    <div class="form-grid">
+      <div class="field"><label>Student</label><select id="f-student-id">${students.map(s=>`<option value="${s.id}" ${(t.student_id||preselect)===s.id?'selected':''}>${s.admission_id} — ${s.name}</option>`).join('')}</select></div>
+      <div class="field"><label>Branch</label><select id="f-branch">${branches.map(b=>`<option value="${b.id}" ${(t.branch_id||defBranch)==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>
+      <div class="field"><label>Subject</label><select id="f-subject">
+        ${['Maths','English','Science','History','Geography','Other'].map(s=>`<option ${t.subject===s?'selected':''}>${s}</option>`).join('')}
+      </select></div>
+      <div class="field"><label>Book / Unit name</label><input type="text" id="f-book-unit" value="${t.book_unit||''}" placeholder="e.g. KS3 Maths Book 2, Unit 4"></div>
+      <div class="field"><label>Test date</label><input type="date" id="f-test-date" value="${t.test_date||new Date().toISOString().slice(0,10)}"></div>
+      <div class="field"><label>Score %</label><input type="number" id="f-score" value="${t.score_pct||''}" min="0" max="100" step="0.5" placeholder="e.g. 75"></div>
+    </div>
+    <div id="revision-section" style="margin-top:14px;padding:14px;background:var(--danger-bg);border-radius:var(--radius);border:1px solid rgba(239,68,68,0.2);">
+      <div style="font-size:13px;font-weight:600;color:var(--danger-text);margin-bottom:12px;">Score below 70% — revision required</div>
+      <div class="form-grid">
+        <div class="field"><label>Revision given</label><select id="f-revision">
+          <option value="false" ${!t.revision_given?'selected':''}>Not yet given</option>
+          <option value="true" ${t.revision_given?'selected':''}>✓ Revision given</option>
+        </select></div>
+        <div class="field"><label>Retest date</label><input type="date" id="f-retest-date" value="${t.retest_date||''}"></div>
+        <div class="field"><label>Retest score %</label><input type="number" id="f-retest-score" value="${t.retest_score_pct||''}" min="0" max="100" step="0.5" placeholder="Leave blank if not yet done"></div>
+        <div class="field" style="grid-column:1/-1;"><label>Action plan (for parent notification)</label><textarea id="f-action-plan" rows="2" style="resize:vertical;">${t.action_plan||''}</textarea><span class="hint">This will be shown in the parent portal and can be used as a reference for WhatsApp/text messages to parents.</span></div>
+      </div>
+    </div>
+    <div class="field" style="margin-top:12px;"><label>Internal notes</label><input type="text" id="f-notes" value="${t.notes||''}" placeholder="Any internal notes"></div>
+  `,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${t.id?'Save changes':'Record test'}</button>`);}
+
+function modalChangePassword(){
+  return mWrap('Change my password',`
+    <div style="margin-bottom:16px;padding:12px 16px;background:rgba(99,102,241,0.15);border-radius:var(--radius);border-left:4px solid #6366f1;">
+      <div style="font-size:13px;color:var(--accent-text);">Choose a strong password of at least 6 characters.</div>
+    </div>
+    <div class="form-grid">
+      <div class="field" style="grid-column:1/-1;"><label>Current password</label><input type="password" id="f-current-pw" placeholder="Enter your current password"></div>
+      <div class="field" style="grid-column:1/-1;"><label>New password</label><input type="password" id="f-new-pw" placeholder="At least 6 characters"></div>
+      <div class="field" style="grid-column:1/-1;"><label>Confirm new password</label><input type="password" id="f-confirm-pw" placeholder="Type new password again"></div>
+    </div>
+  `,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Update password</button>`);
+}
+
+function modalResetPassword(){
+  const u=state.editTarget||{};
+  const footer='<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Set new password</button>';
+  return mWrap('Reset password — '+(u.name||'user'),`
+    <div style="margin-bottom:16px;padding:12px 16px;background:rgba(251,191,36,0.15);border-radius:var(--radius);border-left:4px solid var(--amber);">
+      <div style="font-size:13px;color:var(--amber-text);">You are resetting the password for <strong>${u.name||'this user'}</strong>. Share the new password with them securely.</div>
+    </div>
+    <div class="form-grid">
+      <div class="field" style="grid-column:1/-1;"><label>New password</label><input type="text" id="f-new-pw" placeholder="At least 6 characters" autocomplete="off"></div>
+    </div>
+  `,footer);
+}
+
+function modalAddTableAlloc(){
+  const sess=state.editTarget||{};
+  const staff=state.data.staff||[];
+  var staffOpts='<option value="">— No teacher assigned yet —</option>';
+  staff.forEach(function(s){staffOpts+='<option value="'+s.id+'">'+s.name+' ('+s.role+')</option>';});
+  const footer='<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Add table</button>';
+  return mWrap('Add table — Session '+sess.session_id,'<div class="form-grid">'+
+    '<div class="field"><label>Table number</label><input type="number" id="f-table-no" min="1" max="8" placeholder="1-8"></div>'+
+    '<div class="field"><label>Subject</label><select id="f-subject"><option value="">— select —</option><option>Maths</option><option>English</option><option>Science</option><option>Other</option></select></div>'+
+    '<div class="field"><label>Teacher</label><select id="f-teacher-id">'+staffOpts+'</select></div>'+
+    '<div class="field"><label>Max students</label><select id="f-max-students"><option value="5">5 (standard)</option><option value="6">6 (short-staffed)</option></select></div>'+
+    '<div class="field" style="grid-column:1/-1;"><label>Notes</label><input type="text" id="f-notes" placeholder="Optional notes"></div>'+
+    '</div>',footer);
+}
+
+function modalAddStudentToTable(){
+  const t=state.editTarget||{};
+  const allocs=state.data['table_allocs_'+t.session_id]||[];
+  const alloc=allocs.find(function(a){return a.id===t.alloc_id;});
+  const assigned=(alloc&&alloc.students)?alloc.students.map(function(s){return s.student_id;}):[];
+  const sess=(state.data.sessions||[]).find(function(s){return s.id===t.session_id;});
+  const branchStudents=(state.data.students||[]).filter(function(s){
+    return s.status==='active'&&(!sess||s.branch_id===sess.branch_id)&&!assigned.includes(s.id);
+  });
+  var studOpts='';
+  branchStudents.forEach(function(s){studOpts+='<option value="'+s.id+'">'+s.admission_id+' — '+s.name+'</option>';});
+  const footer='<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Add student</button>';
+  return mWrap('Add student to Table '+(alloc?alloc.table_no:''),'<div class="form-grid">'+
+    '<div class="field" style="grid-column:1/-1;"><label>Select student</label>'+
+    '<select id="f-student-id" size="8" style="height:200px;">'+studOpts+'</select></div>'+
+    '<div class="field" style="grid-column:1/-1;"><label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="f-is-catchup"> This is a catch-up student</label></div>'+
+    '</div>',footer);
+}
+
+function modalSetCoverTeacher(){
+  const sess=state.editTarget||{};
+  const staff=state.data.staff||[];
+  let staffOpts='<option value="">— No cover needed —</option>';
+  staff.forEach(function(s){staffOpts+='<option value="'+s.id+'" '+(s.id===sess.cover_staff_id?'selected':'')+'>'+s.name+' ('+s.role+')</option>';});
+  const footer='<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Save cover teacher</button>';
+  return mWrap('Set cover teacher','<div class="form-grid">'+
+    '<div class="field" style="grid-column:1/-1;padding:10px 14px;background:var(--amber-bg);border-radius:var(--radius);"><div style="font-size:13px;color:var(--amber-text);">Original teacher: <strong>'+(sess.staff_name||'None')+'</strong></div></div>'+
+    '<div class="field"><label>Cover teacher</label><select id="f-cover-staff">'+staffOpts+'</select></div>'+
+    '<div class="field"><label>Cover notes</label><input type="text" id="f-cover-notes" value="'+(sess.cover_notes||'')+'" placeholder="e.g. Original teacher unwell"></div>'+
+    '</div>',footer);
+}
+
+function modalAddCatchup(){
+  const students=state.data.students||[];
+  const sessions=state.data.sessions||[];
+  const branches=state.data.branches||[];
+  const defBranch=state.currentBranch||branches[0]?.id||'';
+  let studOpts='<option value="">— select student —</option>';
+  students.forEach(function(s){studOpts+='<option value="'+s.id+'">'+s.admission_id+' — '+s.name+'</option>';});
+  let sessOpts='<option value="">— select session (optional) —</option>';
+  sessions.forEach(function(s){sessOpts+='<option value="'+s.id+'">'+new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})+' · '+s.slot+'</option>';});
+  let brOpts='';
+  branches.forEach(function(b){brOpts+='<option value="'+b.id+'" '+(b.id==defBranch?'selected':'')+'>'+b.name+'</option>';});
+  const footer='<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Log catch-up owed</button>';
+  return mWrap('Log catch-up owed','<div class="form-grid">'+
+    '<div class="field"><label>Student</label><select id="f-student-id">'+studOpts+'</select></div>'+
+    '<div class="field"><label>Branch</label><select id="f-branch">'+brOpts+'</select></div>'+
+    '<div class="field"><label>Subject</label><select id="f-subject"><option>Maths</option><option>English</option><option>Science</option><option>Other</option></select></div>'+
+    '<div class="field"><label>Missed date</label><input type="date" id="f-missed-date" value="'+new Date().toISOString().slice(0,10)+'"></div>'+
+    '<div class="field"><label>Missed session (optional)</label><select id="f-missed-session">'+sessOpts+'</select></div>'+
+    '<div class="field"><label>Notified in advance?</label><select id="f-notified"><option value="true">Yes — notified in advance</option><option value="false">No — no notification</option></select></div>'+
+    '<div class="field" style="grid-column:1/-1;"><label>Notification / notes</label><input type="text" id="f-notes" placeholder="e.g. Parent called to say student unwell"></div>'+
+    '</div>',footer);
+}
+
+function modalScheduleCatchup(){
+  const c=state.editTarget||{};
+  const sessions=state.data.sessions||[];
+  let sessOpts='<option value="">— select session —</option>';
+  sessions.forEach(function(s){sessOpts+='<option value="'+s.id+'">'+new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})+' · '+s.slot+'</option>';});
+  const footer='<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Schedule catch-up</button>';
+  return mWrap('Schedule catch-up — '+( c.student_name||''),'<div class="form-grid">'+
+    '<div class="field" style="grid-column:1/-1;padding:10px 14px;background:var(--accent-bg);border-radius:var(--radius);"><div style="font-size:13px;color:var(--accent-text);">Missed: <strong>'+(c.subject||'—')+'</strong> on '+(c.missed_date||'—')+' ('+(c.missed_slot||'—')+')</div></div>'+
+    '<div class="field"><label>Catch-up session</label><select id="f-catchup-session">'+sessOpts+'</select></div>'+
+    '<div class="field"><label>Scheduled date</label><input type="date" id="f-scheduled-date"></div>'+
+    '<div class="field" style="grid-column:1/-1;"><label>Notes</label><input type="text" id="f-notes" value="'+(c.notes||'')+'"></div>'+
+    '</div>',footer);
+}
+
+// SAVE
+async function doSave(){const m=state.modal;const v=id=>document.getElementById(id)?.value;const saveBtn=document.getElementById('modal-save');if(saveBtn)saveBtn.disabled=true;
+try{
+if(m==='add-student'||m==='edit-student'){
+  const fn=(v('f-first-name')||'').trim();
+  const ln=(v('f-last-name')||'').trim();
+  const fullName=(fn+' '+ln).trim();
+  const branch=v('f-branch');
+  const admid=(v('f-admid')||'').trim();
+  // Validate and highlight errors
+  let hasError=false;
+  if(!fn){
+    const el=document.getElementById('f-first-name');
+    if(el){el.style.border='2px solid var(--danger)';el.style.boxShadow='0 0 0 3px rgba(248,113,113,0.2)';}
+    hasError=true;
+  }
+  if(!branch){
+    const el=document.getElementById('f-branch');
+    if(el){el.style.border='2px solid var(--danger)';el.style.boxShadow='0 0 0 3px rgba(248,113,113,0.2)';}
+    hasError=true;
+  }
+  if(!admid){
+    const el=document.getElementById('f-admid');
+    if(el){el.style.border='2px solid var(--danger)';el.style.boxShadow='0 0 0 3px rgba(248,113,113,0.2)';}
+    hasError=true;
+  }
+  if(hasError){toast('Please fill in: First name, Branch, and Admission ID','error');return;}
+  const body={
+    branch_id:parseInt(branch),admission_id:admid,
+    name:fullName||fn,first_name:fn,last_name:ln,
+    date_of_birth:v('f-dob')||null,gender:v('f-gender'),
+    year_group:v('f-year'),current_school:v('f-school'),
+    medical_notes:v('f-medical'),sen_notes:v('f-sen'),
+    carer1_first_name:v('f-c1-first'),carer1_last_name:v('f-c1-last'),
+    carer1_address:v('f-c1-address'),carer1_telephone:v('f-c1-tel'),
+    carer1_mobile:v('f-c1-mobile'),carer1_email:v('f-c1-email'),carer1_occupation:v('f-c1-occupation'),
+    carer2_first_name:v('f-c2-first'),carer2_last_name:v('f-c2-last'),
+    carer2_address:v('f-c2-address'),carer2_telephone:v('f-c2-tel'),
+    carer2_mobile:v('f-c2-mobile'),carer2_email:v('f-c2-email'),carer2_occupation:v('f-c2-occupation'),
+    emergency_name:v('f-emg-name'),emergency_telephone:v('f-emg-tel'),emergency_relation:v('f-emg-rel'),
+    referred_by:v('f-ref-by'),referral_admission:v('f-ref-admid'),
+    carer1_postcode:v('f-c1-postcode'),carer2_postcode:v('f-c2-postcode'),
+    assess_maths_pct:v('f-assess-maths-pct'),assess_maths_book:v('f-assess-maths-book'),
+    assess_english_pct:v('f-assess-english-pct'),assess_english_book:v('f-assess-english-book'),
+    assess_science_pct:v('f-assess-science-pct'),assess_science_book:v('f-assess-science-book'),
+    hours_per_week:v('f-hours-per-week'),
+    gcse_maths_board:v('f-gcse-maths-board'),gcse_maths_paper:v('f-gcse-maths-paper'),
+    gcse_maths_exam_date:v('f-gcse-maths-date'),gcse_maths_current_grade:v('f-gcse-maths-current'),
+    gcse_maths_predicted_grade:v('f-gcse-maths-predicted'),
+    gcse_english_board:v('f-gcse-english-board'),gcse_english_paper:v('f-gcse-english-paper'),
+    gcse_english_exam_date:v('f-gcse-english-date'),gcse_english_current_grade:v('f-gcse-english-current'),
+    gcse_english_predicted_grade:v('f-gcse-english-predicted'),
+    gcse_science_board:v('f-gcse-science-board'),gcse_science_paper:v('f-gcse-science-paper'),
+    gcse_science_exam_date:v('f-gcse-science-date'),gcse_science_current_grade:v('f-gcse-science-current'),
+    gcse_science_predicted_grade:v('f-gcse-science-predicted'),
+    parent_contact:v('f-c1-mobile'),status:v('f-status'),notes:v('f-notes')
+  };
+  if(m==='add-student')await API.post('/api/students',body);
+  else await API.put('/api/students/'+state.editTarget.id,body);
+  toast(m==='add-student'?'Student enrolled':'Student updated');
+}
+else if(m==='add-staff'||m==='edit-staff'){
+  const branchVal=v('f-branch');
+  const nameVal=(v('f-name')||'').trim();
+  if(!nameVal){
+    const el=document.getElementById('f-name');
+    if(el){el.style.border='2px solid var(--danger)';}
+    toast('Name is required','error');return;
+  }
+  if(!branchVal){
+    const el=document.getElementById('f-branch');
+    if(el){el.style.border='2px solid var(--danger)';}
+    toast('Branch is required','error');return;
+  }
+  const body={branch_id:parseInt(branchVal),name:nameVal,role:v('f-role'),subject:v('f-subject'),contact:v('f-contact'),status:v('f-status')};
+  const result=m==='add-staff'?await API.post('/api/staff',body):await API.put('/api/staff/'+state.editTarget.id,body);
+  if(result?.error){toast(result.error,'error');return;}
+  // Update local state immediately so list reflects change without full reload
+  if(result&&state.data.staff){
+    if(m==='add-staff'){state.data.staff.push(result);}
+    else{const idx=state.data.staff.findIndex(s=>s.id===state.editTarget.id);if(idx>=0)state.data.staff[idx]={...state.data.staff[idx],...result};}
+  }
+  toast(m==='add-staff'?'Staff added':'Staff updated');
+}
+else if(m==='add-session'||m==='edit-session'){const body={branch_id:parseInt(v('f-branch')),staff_id:parseInt(v('f-staff'))||null,date:v('f-date'),slot:v('f-slot'),subject:v('f-subject'),table_no:parseInt(v('f-table'))||1};if(!body.date||!body.slot){toast('Date and slot required','error');return;}if(m==='add-session')await API.post('/api/sessions',body);else await API.put('/api/sessions/'+state.editTarget.id,body);toast(m==='add-session'?'Session added':'Session updated');}
+else if(m==='add-user'||m==='edit-user'){const body={name:v('f-name'),email:v('f-email'),role:v('f-role'),branch_id:v('f-branch')?parseInt(v('f-branch')):null,status:v('f-status')};if(v('f-password'))body.password=v('f-password');if(!body.name||!body.email){toast('Name and email required','error');return;}if(m==='add-user'){if(!body.password){toast('Password required','error');return;}await API.post('/api/users',body);}else await API.put('/api/users/'+state.editTarget.id,body);toast(m==='add-user'?'User added':'User updated');}
+else if(m==='add-branch'||m==='edit-branch'){const body={name:v('f-name'),prefix:(v('f-prefix')||'').toUpperCase(),address:v('f-address'),phone:v('f-phone'),email:v('f-email'),status:v('f-status')};if(!body.name||!body.prefix){toast('Name and prefix required','error');return;}if(m==='add-branch')await API.post('/api/branches',body);else await API.put('/api/branches/'+state.editTarget.id,body);toast(m==='add-branch'?'Branch added':'Branch updated');}
+else if(m==='edit-invoice'){await API.put('/api/invoices/'+state.editTarget.id,{amount:parseInt(v('f-amount'))||120,status:v('f-inv-status'),paid_date:v('f-paid-date')||null,notes:v('f-notes')});toast('Invoice updated');}
+else if(m==='add-progress'){const sessId=state.editTarget?.session_id;const sess=(state.data.sessions||[]).find(s=>s.id===sessId);await API.post('/api/progress',{student_id:parseInt(v('f-student')),session_id:sessId,staff_id:sess?.staff_id||null,subject:v('f-subject'),rating:parseInt(v('f-rating'))||4,comment:v('f-comment')});toast('Progress note added');}
+else if(m==='add-parent-user'||m==='edit-parent-user'){const sel=document.getElementById('f-students');const studentIds=sel?Array.from(sel.selectedOptions).map(o=>parseInt(o.value)):[];const body={name:v('f-name'),email:v('f-email'),student_ids:studentIds,status:v('f-status')};if(v('f-password'))body.password=v('f-password');if(!body.name||!body.email){toast('Name and email required','error');return;}if(m==='add-parent-user'){if(!body.password){toast('Password required','error');return;}await API.post('/api/parent-users',body);}else await API.put('/api/parent-users/'+state.editTarget.id,body);toast(m==='add-parent-user'?'Parent account added':'Parent account updated');}
+if(m==='add-staff-att'||m==='edit-staff-att'){
+  const selId=document.getElementById('f-session-id')?.value;
+  const body={staff_id:parseInt(v('f-staff-id')),branch_id:parseInt(v('f-branch')),session_id:selId?parseInt(selId):null,date:v('f-date'),sign_in:v('f-sign-in')||null,sign_out:v('f-sign-out')||null,status:v('f-status'),cover_for:v('f-cover')?parseInt(v('f-cover')):null,absence_reason:v('f-absence-reason'),notes:v('f-notes')};
+  if(!body.staff_id||!body.date){toast('Staff member and date required','error');return;}
+  if(m==='add-staff-att')await API.post('/api/staff-attendance',body);
+  else await API.put('/api/staff-attendance/'+state.editTarget.id,body);
+  toast(m==='add-staff-att'?'Attendance logged':'Record updated');
+}
+if(m==='add-payment'||m==='edit-payment'){
+  const body={student_id:parseInt(v('f-student-id')),branch_id:parseInt(v('f-branch')),amount:parseFloat(v('f-amount')),payment_date:v('f-date'),method:v('f-method'),reference:v('f-reference'),notes:v('f-notes')};
+  if(!body.student_id||!body.amount){toast('Student and amount required','error');return;}
+  if(m==='add-payment')await API.post('/api/payments',body);
+  else await API.put('/api/payments/'+state.editTarget.id,body);
+  toast(m==='add-payment'?'Payment recorded':'Payment updated');
+  if(state.finStudentId){state.data['statement_'+state.finStudentId]=await API.get('/api/statement/'+state.finStudentId).catch(()=>null);}
+}
+if(m==='add-instalment-plan'){
+  const dates=Array.from(document.querySelectorAll('.sch-date')).map(el=>el.value);
+  const amts=Array.from(document.querySelectorAll('.sch-amount')).map(el=>parseFloat(el.value)||0);
+  const schedule=dates.map((d,i)=>({due_date:d,amount:amts[i]})).filter(s=>s.due_date&&s.amount>0);
+  const body={student_id:parseInt(v('f-student-id')),branch_id:parseInt(v('f-branch')),total_amount:parseFloat(v('f-total')),description:v('f-description'),start_date:v('f-start'),end_date:v('f-end')||null,notes:v('f-notes'),schedule};
+  if(!body.student_id||!body.total_amount||!body.description){toast('Student, amount and description required','error');return;}
+  await API.post('/api/instalment-plans',body);
+  toast('Instalment plan created');
+}
+if(m==='add-test-record'||m==='edit-test-record'){
+  const score=parseFloat(v('f-score'));
+  const body={student_id:parseInt(v('f-student-id')),branch_id:parseInt(v('f-branch')),subject:v('f-subject'),book_unit:v('f-book-unit'),test_date:v('f-test-date'),score_pct:score,revision_given:v('f-revision')==='true',retest_date:v('f-retest-date')||null,retest_score_pct:v('f-retest-score')?parseFloat(v('f-retest-score')):null,action_plan:v('f-action-plan'),notes:v('f-notes')};
+  if(!body.student_id||isNaN(body.score_pct)){toast('Student and score required','error');return;}
+  if(m==='add-test-record')await API.post('/api/test-records',body);
+  else await API.put('/api/test-records/'+state.editTarget.id,body);
+  toast(m==='add-test-record'?'Test recorded':'Test updated');
+}
+if(m==='add-table-alloc'){
+  const sessId=state.editTarget?.session_id;
+  const tableNo=parseInt(v('f-table-no'));
+  if(!tableNo||tableNo<1||tableNo>8){toast('Table number must be 1-8','error');return;}
+  const body={session_id:sessId,table_no:tableNo,subject:v('f-subject'),teacher_id:parseInt(v('f-teacher-id'))||null,max_students:parseInt(v('f-max-students'))||5,notes:v('f-notes')};
+  await API.post('/api/table-allocations',body);
+  await loadData('table_allocs_'+sessId,'/api/table-allocations/'+sessId);
+  toast('Table '+tableNo+' added');
+}
+if(m==='add-student-to-table'){
+  const t=state.editTarget||{};
+  const stuId=parseInt(v('f-student-id'));
+  if(!stuId){toast('Please select a student','error');return;}
+  const isCU=document.getElementById('f-is-catchup')?.checked||false;
+  await API.post('/api/table-allocations/'+t.alloc_id+'/students',{student_ids:[stuId],is_catchup:isCU});
+  await loadData('table_allocs_'+state.planSessionId,'/api/table-allocations/'+state.planSessionId);
+  toast('Student added to table');
+}
+if(m==='set-cover-teacher'){
+  const body={cover_staff_id:parseInt(v('f-cover-staff'))||null,cover_notes:v('f-cover-notes')};
+  await API.post('/api/sessions/'+state.editTarget.id+'/cover',body);
+  toast('Cover teacher updated');
+}
+if(m==='add-catchup'){
+  const body={student_id:parseInt(v('f-student-id')),branch_id:parseInt(v('f-branch')),subject:v('f-subject'),missed_date:v('f-missed-date'),missed_session_id:v('f-missed-session')||null,notified_in_advance:v('f-notified')==='true',notification_notes:v('f-notes')};
+  if(!body.student_id||!body.missed_date){toast('Student and missed date required','error');return;}
+  await API.post('/api/catchup',body);
+  toast('Catch-up logged');
+}
+if(m==='schedule-catchup'){
+  const body={status:'scheduled',catchup_session_id:v('f-catchup-session')||null,scheduled_date:v('f-scheduled-date')||null,notes:v('f-notes')};
+  await API.put('/api/catchup/'+state.editTarget.id,body);
+  toast('Catch-up scheduled');
+}
+if(m==='reset-user-pw'){
+  const np=v('f-new-pw');
+  if(!np||np.length<6){toast('Password must be at least 6 characters','error');return;}
+  const r=await API.post('/api/users/'+state.editTarget.id+'/reset-password',{new_password:np});
+  if(r?.error){toast(r.error,'error');return;}
+  toast('Password reset for '+state.editTarget.name+' ✓');
+}
+if(m==='change-password'){
+  const cur=v('f-current-pw');
+  const np=v('f-new-pw');
+  const cp=v('f-confirm-pw');
+  if(!cur||!np||!cp){toast('Please fill in all fields','error');return;}
+  if(np!==cp){
+    document.getElementById('f-confirm-pw').style.border='2px solid var(--danger)';
+    toast('New passwords do not match','error');return;
+  }
+  if(np.length<6){toast('Password must be at least 6 characters','error');return;}
+  const r=await API.post('/api/me/change-password',{current_password:cur,new_password:np});
+  if(r.error){toast(r.error,'error');return;}
+  toast('Password updated successfully ✓');
+}
+if(m==='add-hq-transfer'){
+  const body={branch_id:parseInt(v('f-branch')),amount:parseFloat(v('f-amount')),transfer_date:v('f-date'),method:v('f-method'),reference:v('f-reference'),notes:v('f-notes')};
+  if(!body.branch_id||!body.amount){toast('Branch and amount required','error');return;}
+  await API.post('/api/hq-transfers',body);
+  toast('Transfer recorded');
+}
+closeModal();refreshPage();
+}catch(e){toast(e.error||'Save failed','error');}finally{if(saveBtn)saveBtn.disabled=false;}}
+
+// EVENTS
+function bindNav(){const hb=document.getElementById('hamburger-btn');const sb=document.querySelector('.sidebar');const ov=document.getElementById('sidebar-overlay');if(hb&&sb){hb.onclick=()=>{sb.classList.toggle('open');if(ov)ov.classList.toggle('open');};if(ov)ov.onclick=()=>{sb.classList.remove('open');ov.classList.remove('open');};}document.querySelectorAll('[data-page]').forEach(el=>{el.addEventListener('click',()=>{if(sb)sb.classList.remove('open');if(ov)ov.classList.remove('open');state.page=el.dataset.page;refreshPage();});});document.getElementById('branch-switch')?.addEventListener('change',e=>{state.currentBranch=e.target.value?parseInt(e.target.value):null;refreshPage();});document.getElementById('logout-btn')?.addEventListener('click',async()=>{await API.post('/api/logout');state.currentUser=null;state.page='dashboard';state.data={};render();});}
+
+function bindAll(){bindNav();document.querySelectorAll('[data-action]').forEach(el=>{el.addEventListener('click',e=>handleAction(el.dataset.action,el.dataset.id?parseInt(el.dataset.id):null,el,e));});document.querySelectorAll('[data-nav]').forEach(el=>{el.addEventListener('click',()=>{state.page=el.dataset.nav;if(el.dataset.action){state.modal=el.dataset.action;state.editTarget=null;}refreshPage();});});document.getElementById('modal-close')?.addEventListener('click',closeModal);document.getElementById('modal-cancel')?.addEventListener('click',closeModal);
+// Clear any validation highlights when modal first opens
+document.querySelectorAll('.modal-body input, .modal-body select, .modal-body textarea').forEach(el=>{
+  el.addEventListener('focus',()=>{el.style.border='';el.style.boxShadow='';});
+});document.getElementById('modal-backdrop')?.addEventListener('click',e=>{if(e.target.id==='modal-backdrop')closeModal();});document.getElementById('modal-save')?.addEventListener('click',doSave);document.getElementById('student-search')?.addEventListener('input',e=>{state.studentSearch=e.target.value;refreshPage();});document.getElementById('att-session-select')?.addEventListener('change',async e=>{state.attSessionId=e.target.value?parseInt(e.target.value):null;if(state.attSessionId){state.attRecords[state.attSessionId]={};await loadData('attendance_'+state.attSessionId,'/api/attendance/'+state.attSessionId);const att=state.data['attendance_'+state.attSessionId]||[];att.forEach(a=>{state.attRecords[state.attSessionId][a.student_id]={status:a.status,notes:a.notes||''};});}render();});document.getElementById('staff-att-month')?.addEventListener('change',e=>{state.staffAttMonth=e.target.value;refreshPage();});
+document.getElementById('btn-auto-id')?.addEventListener('click',async()=>{
+  const branchId=document.getElementById('f-branch')?.value;
+  if(!branchId){toast('Select a branch first','error');return;}
+  try{const r=await API.get('/api/students/next-id/'+branchId);document.getElementById('f-admid').value=r.next_id;document.getElementById('f-admid').style.border='';}
+  catch(e){toast('Could not generate ID','error');}
+});
+document.getElementById('f-first-name')?.addEventListener('input',()=>{
+  document.getElementById('f-first-name').style.border='';
+  document.getElementById('f-first-name').style.boxShadow='';
+});
+document.getElementById('fin-month-filter')?.addEventListener('change',e=>{state.finMonth=e.target.value||'';refreshPage();});
+document.getElementById('fin-student-select')?.addEventListener('change',async e=>{
+  state.finStudentId=e.target.value?parseInt(e.target.value):null;
+  if(state.finStudentId){state.data['statement_'+state.finStudentId]=await API.get('/api/statement/'+state.finStudentId).catch(()=>null);}
+  render();
+});
+document.getElementById('mgmt-date-select')?.addEventListener('change',e=>{
+  state.mgmtDate=e.target.value;refreshPage();
+});
+document.getElementById('mgmt-month-select')?.addEventListener('change',e=>{
+  state.mgmtMonth=e.target.value;refreshPage();
+});
+document.getElementById('mgmt-year-select')?.addEventListener('change',e=>{
+  state.mgmtYear=parseInt(e.target.value)||'';refreshPage();
+});
+document.getElementById('tt-student-select')?.addEventListener('change',async e=>{
+  state.timetableStudentId=e.target.value?parseInt(e.target.value):null;
+  if(state.timetableStudentId){
+    await loadData('timetable_'+state.timetableStudentId,'/api/student-timetable',{student_id:state.timetableStudentId});
+  }
+  render();
+});
+document.getElementById('plan-month-filter')?.addEventListener('change',e=>{
+  state.planMonth=e.target.value||'';render();
+});
+document.getElementById('plan-session-select')?.addEventListener('change',async e=>{
+  state.planSessionId=e.target.value?parseInt(e.target.value):null;
+  if(state.planSessionId){
+    await loadData('plan_students_'+state.planSessionId,'/api/session-students/'+state.planSessionId);
+  }
+  render();
+});
+document.getElementById('student-search')?.addEventListener('input',e=>{
+  const q=e.target.value.toLowerCase();
+  document.querySelectorAll('.student-row').forEach(row=>{
+    row.style.display=row.dataset.name.includes(q)?'':'none';
+  });
+});
+document.getElementById('lr-session-select')?.addEventListener('change',async e=>{
+  state.lrSessionId=e.target.value?parseInt(e.target.value):null;
+  state.lrTab='report';
+  if(state.lrSessionId){
+    await Promise.all([
+      loadData('lr_'+state.lrSessionId,'/api/lesson-reports/'+state.lrSessionId),
+      loadData('lr_att_'+state.lrSessionId,'/api/attendance/'+state.lrSessionId)
+    ]);
+  }
+  render();
+});
+document.getElementById('tr-student-select')?.addEventListener('change',async e=>{
+  state.trStudentId=e.target.value?parseInt(e.target.value):null;
+  if(state.trStudentId)await loadData('tr_'+state.trStudentId,'/api/test-records',{student_id:state.trStudentId});
+  render();
+});
+document.getElementById('sr-date-select')?.addEventListener('change',async e=>{
+  state.srDate=e.target.value||'';
+  if(state.srDate){
+    const ds=(state.data.sessions||[]).filter(s=>s.date===state.srDate);
+    const b=branchParam();
+    await Promise.all([
+      loadData('students','/api/students',b),
+      ...ds.flatMap(s=>[
+        loadData('sr_att_'+s.id,'/api/attendance/'+s.id),
+        loadData('sr_prog_'+s.id,'/api/progress',{session_id:s.id})
+      ])
+    ]);
+  }
+  render();
+});
+document.getElementById('sr-select')?.addEventListener('change',async e=>{state.sessionReportId=e.target.value?parseInt(e.target.value):null;if(state.sessionReportId){await Promise.all([loadData('sr_att_'+state.sessionReportId,'/api/attendance/'+state.sessionReportId),loadData('sr_prog_'+state.sessionReportId,'/api/progress',{session_id:state.sessionReportId})]);}render();});}
+
+function bindParentEvents(){document.getElementById('parent-logout-btn')?.addEventListener('click',async()=>{await API.post('/api/logout');state.parentUser=null;state.data={};render();});}
+function closeModal(){state.modal=null;state.editTarget=null;render();}
+
+async function handleAction(action,id,el,e){
+if(action==='add-student'){state.modal='add-student';state.editTarget=null;const branches=state.data.branches||[];const defBranch=state.currentBranch||branches[0]?.id;if(defBranch){try{const r=await API.get('/api/students/next-id/'+defBranch);state.editTarget={admission_id:r.next_id};}catch(err){}}render();return;}
+if(action==='edit-student'){state.modal='edit-student';state.editTarget=(state.data.students||[]).find(s=>s.id===id);render();return;}
+if(action==='del-student'){if(!confirm('Delete this student?'))return;await API.delete('/api/students/'+id);toast('Student deleted');refreshPage();return;}
+if(action==='add-staff'){state.modal='add-staff';state.editTarget=null;render();return;}
+if(action==='edit-staff'){state.modal='edit-staff';state.editTarget=(state.data.staff||[]).find(s=>s.id===id);render();return;}
+if(action==='del-staff'){if(!confirm('Delete?'))return;await API.delete('/api/staff/'+id);toast('Staff deleted');refreshPage();return;}
+if(action==='add-session'){state.modal='add-session';state.editTarget=null;await loadData('staff','/api/staff',branchParam());render();return;}
+if(action==='del-session'){if(!confirm('Delete?'))return;await API.delete('/api/sessions/'+id);toast('Session deleted');refreshPage();return;}
+if(action==='mark-att'){state.page='attendance';state.attSessionId=id;refreshPage();return;}
+if(action==='add-user'){state.modal='add-user';state.editTarget=null;render();return;}
+if(action==='edit-user'){state.modal='edit-user';state.editTarget=(state.data.users||[]).find(u=>u.id===id);render();return;}
+if(action==='del-user'){if(!confirm('Delete?'))return;await API.delete('/api/users/'+id);toast('User deleted');refreshPage();return;}
+if(action==='add-branch'){state.modal='add-branch';state.editTarget=null;render();return;}
+if(action==='edit-branch'){state.modal='edit-branch';state.editTarget=(state.data.branches||[]).find(b=>b.id===id);render();return;}
+if(action==='del-branch'){if(!confirm('Delete branch?'))return;await API.delete('/api/branches/'+id);toast('Branch deleted');refreshPage();return;}
+if(action==='add-parent-user'){state.modal='add-parent-user';state.editTarget=null;render();return;}
+if(action==='edit-parent-user'){state.modal='edit-parent-user';state.editTarget=(state.data.parent_users||[]).find(p=>p.id===id);render();return;}
+if(action==='del-parent-user'){if(!confirm('Delete?'))return;await API.delete('/api/parent-users/'+id);toast('Account deleted');refreshPage();return;}
+if(action==='add-payment'){state.modal='add-payment';state.editTarget=null;render();return;}
+if(action==='edit-payment'){state.modal='edit-payment';state.editTarget=(state.data.payments||[]).find(p=>p.id===id);render();return;}
+if(action==='del-payment'){if(!confirm('Delete this payment?'))return;await API.delete('/api/payments/'+id);toast('Payment deleted');refreshPage();return;}
+if(action==='add-instalment-plan'){state.modal='add-instalment-plan';state.editTarget=null;render();return;}
+if(action==='del-instalment-plan'){if(!confirm('Delete this plan?'))return;await API.delete('/api/instalment-plans/'+id);toast('Plan deleted');refreshPage();return;}
+if(action==='add-test-record'){state.modal='add-test-record';state.editTarget=null;render();return;}
+if(action==='edit-test-record'){state.modal='edit-test-record';state.editTarget=(state.data.test_records||[]).find(t=>t.id===id)||(state.trStudentId?(state.data['tr_'+state.trStudentId]||[]).find(t=>t.id===id):null);render();return;}
+if(action==='del-test-record'){if(!confirm('Delete this test record?'))return;await API.delete('/api/test-records/'+id);toast('Deleted');refreshPage();return;}
+if(action==='mgmt-tab'){
+  state.mgmtTab=el.dataset.tab;
+  refreshPage();return;}
+if(action==='export-mgmt-summary'){
+  const s=state.data.mgmt_summary||{};
+  const rows=[['Metric','Value'],['Academic year',s.academic_year||''],['Active students',s.active_students||0],['New enrolments',s.new_enrolments||0],['Sessions delivered',s.total_sessions||0],['Attendance rate',(s.att_rate||0)+'%'],['Students present',s.att_present||0],['Total marked',s.att_total||0],['Staff members',s.staff_count||0],['Total staff hours',s.total_staff_hours||0],['Fees collected','£'+(s.fees_collected||0)],['Fees outstanding','£'+(s.fees_outstanding||0)],['Catch-ups owed',s.catchups_owed||0],['Catch-ups completed',s.catchups_completed||0],['Tests passed',s.tests_passed||0],['Tests total',s.tests_total||0]];
+  const csv=rows.map(r=>r.join(',')).join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='fth-summary-'+( state.mgmtYear||'current')+'.csv';a.click();return;}
+if(action==='export-mgmt-daily'){
+  const d=state.data.mgmt_daily||{};
+  const rows=[['Slot','Teacher','Cover','Subject','Table','Present','Absent','Total']];
+  (d.sessions||[]).forEach(s=>rows.push([s.slot,s.staff_name||'',s.cover_name||'',s.subject||'',s.table_no||'',s.present||0,s.absent||0,s.total_marked||0]));
+  rows.push([]);rows.push(['Staff member','Role','Sign in','Sign out','Hours','Status']);
+  (d.staff_attendance||[]).forEach(s=>rows.push([s.staff_name,s.role,s.sign_in||'',s.sign_out||'',s.hours||0,s.status]));
+  const csv=rows.map(r=>r.join(',')).join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='fth-daily-'+(state.mgmtDate||'')+'.csv';a.click();return;}
+if(action==='export-mgmt-monthly'){
+  const m=state.data.mgmt_monthly||{};
+  const rows=[['Week starting','Sessions','Present','Absent','Att rate']];
+  (m.weekly_breakdown||[]).forEach(w=>rows.push([w.week_start,w.sessions,w.present||0,w.absent||0,Math.round((w.present||0)/((w.present||0)+(w.absent||0))*100||0)+'%']));
+  rows.push([]);rows.push(['Staff member','Role','Sessions','Hours']);
+  (m.staff_hours||[]).forEach(s=>rows.push([s.name,s.role,s.sessions_worked,s.hours||0]));
+  const csv=rows.map(r=>r.join(',')).join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='fth-monthly-'+(state.mgmtMonth||'')+'.csv';a.click();return;}
+if(action==='export-mgmt-yearly'){
+  const y=state.data.mgmt_yearly||{};
+  const rows=[['Month','Sessions','Present','Absent','Att rate']];
+  (y.monthly_trend||[]).forEach(m=>rows.push([m.month,m.sessions,m.present||0,m.absent||0,Math.round((m.present||0)/((m.present||0)+(m.absent||0))*100||0)+'%']));
+  rows.push([]);rows.push(['Staff member','Role','Sessions worked','Total hours']);
+  (y.staff_yearly||[]).forEach(s=>rows.push([s.name,s.role,s.sessions_worked,s.total_hours||0]));
+  const csv=rows.map(r=>r.join(',')).join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='fth-yearly-'+(y.academic_year||'')+'.csv';a.click();return;}
+if(action==='sr-tab'){state.srTab=el.dataset.tab;render();return;}
+if(action==='lr-tab'){state.lrTab=el.dataset.tab;render();return;}
+if(action==='tr-tab'){state.trTab=el.dataset.tab;render();return;}
+if(action==='save-lr'){
+  const stId=parseInt(el.dataset.student);const sessId=parseInt(el.dataset.session);
+  const cw=document.querySelector(`.lr-classwork[data-student="${stId}"]`)?.value||'';
+  const hwSet=document.querySelector(`.lr-hw-set[data-student="${stId}"]`)?.value||'';
+  const diary=document.querySelector(`.lr-diary[data-student="${stId}"]`)?.value||'';
+  const www=document.querySelector(`.lr-www[data-student="${stId}"]`)?.value||'';
+  const ebi=document.querySelector(`.lr-ebi[data-student="${stId}"]`)?.value||'';
+  const hwMarked=document.querySelector(`.lr-hw-marked[data-student="${stId}"]`)?.value==='true';
+  const sess=(state.data.sessions||[]).find(s=>s.id===sessId);
+  await API.post('/api/lesson-reports',{session_id:sessId,student_id:stId,branch_id:sess?.branch_id,staff_id:sess?.staff_id,date:sess?.date,classwork_completed:cw,homework_marked:hwMarked,homework_set:hwSet,diary_entry:diary,www,ebi});
+  toast('Report saved for '+((state.data.students||[]).find(s=>s.id===stId)?.name||'student'));
+  await loadData('lr_'+sessId,'/api/lesson-reports/'+sessId);render();return;}
+if(action==='check-lr'){
+  await API.post('/api/lesson-reports/'+id+'/supervisor-check',{checked:true});
+  toast('Marked as checked');
+  if(state.lrSessionId)await loadData('lr_'+state.lrSessionId,'/api/lesson-reports/'+state.lrSessionId);
+  render();return;}
+if(action==='uncheck-lr'){
+  await API.post('/api/lesson-reports/'+id+'/supervisor-check',{checked:false});
+  toast('Check removed');
+  if(state.lrSessionId)await loadData('lr_'+state.lrSessionId,'/api/lesson-reports/'+state.lrSessionId);
+  render();return;}
+if(action==='set-cover-teacher'){
+  state.modal='set-cover-teacher';
+  state.editTarget=(state.data.sessions||[]).find(s=>s.id===id);
+  render();return;}
+if(action==='add-session-student'){
+  const sessId=parseInt(el.dataset.session);
+  const stuId=parseInt(el.dataset.student);
+  await API.post('/api/session-students/'+sessId,{student_ids:[stuId]});
+  await loadData('plan_students_'+sessId,'/api/session-students/'+sessId);
+  render();return;}
+if(action==='remove-session-student'){
+  const sessId=parseInt(el.dataset.session);
+  const stuId=parseInt(el.dataset.student);
+  await API.delete('/api/session-students/'+sessId+'/'+stuId);
+  await loadData('plan_students_'+sessId,'/api/session-students/'+sessId);
+  render();return;}
+if(action==='assign-all-students'){
+  const sessId=parseInt(el.dataset.session);
+  const sess=(state.data.sessions||[]).find(s=>s.id===sessId);
+  if(!sess){return;}
+  const branchStudents=(state.data.students||[]).filter(s=>s.branch_id===sess.branch_id&&s.status==='active');
+  const assigned=state.data['plan_students_'+sessId]||[];
+  const assignedIds=assigned.map(a=>a.student_id);
+  const toAdd=branchStudents.filter(s=>!assignedIds.includes(s.id)).map(s=>s.id);
+  if(!toAdd.length){toast('All students already assigned');return;}
+  await API.post('/api/session-students/'+sessId,{student_ids:toAdd});
+  await loadData('plan_students_'+sessId,'/api/session-students/'+sessId);
+  toast(toAdd.length+' students assigned');
+  render();return;}
+if(action==='catchup-tab'){state.catchupTab=el.dataset.tab;render();return;}
+if(action==='add-catchup'){state.modal='add-catchup';state.editTarget=null;render();return;}
+if(action==='schedule-catchup'){
+  const all=[...(state.data.catchup_owed||[]),...(state.data.catchup_scheduled||[])];
+  state.modal='schedule-catchup';state.editTarget=all.find(c=>c.id===id);render();return;}
+if(action==='complete-catchup'){
+  if(!confirm('Mark this catch-up as completed?'))return;
+  await API.put('/api/catchup/'+id,{status:'completed',completed_date:new Date().toISOString().slice(0,10)});
+  toast('Catch-up marked complete ✓');refreshPage();return;}
+if(action==='del-catchup'){
+  if(!confirm('Delete this catch-up record?'))return;
+  await API.delete('/api/catchup/'+id);toast('Deleted');refreshPage();return;}
+if(action==='reset-user-pw'){state.modal='reset-user-pw';state.editTarget=(state.data.users||[]).find(u=>u.id===id);render();return;}
+if(action==='change-password'){state.modal='change-password';state.editTarget=null;render();return;}
+if(action==='add-hq-transfer'){state.modal='add-hq-transfer';state.editTarget=null;render();return;}
+if(action==='del-hq-transfer'){if(!confirm('Delete this transfer record?'))return;await API.delete('/api/hq-transfers/'+id);toast('Transfer deleted');refreshPage();return;}
+if(action==='fin-tab'){state.finTab=el.dataset.tab;render();return;}
+if(action==='fin-method-filter'){state.finMethod=el.dataset.method||null;state.finTab='accounts';render();return;}
+if(action==='fin-clear-month'){state.finMonth='';refreshPage();return;}
+if(action==='view-plan-statement'||action==='view-sibling-statement'){
+  state.finTab='statement';state.finStudentId=id;
+  state.data['statement_'+id]=await API.get('/api/statement/'+id).catch(()=>null);
+  render();return;}
+if(action==='print-statement'){
+  const stmt=state.data['statement_'+id];
+  if(!stmt)return;
+  exportStatement(stmt);return;}
+if(action==='add-staff-att'){state.modal='add-staff-att';state.editTarget=null;render();return;}
+if(action==='edit-staff-att'){state.modal='edit-staff-att';state.editTarget=(state.data.staff_att||[]).find(r=>r.id===id);render();return;}
+if(action==='del-staff-att'){if(!confirm('Delete this record?'))return;await API.delete('/api/staff-attendance/'+id);toast('Record deleted');refreshPage();return;}
+if(action==='staff-att-tab'){state.staffAttTab=el.dataset.tab;render();return;}
+if(action==='export-staff-timesheet'){
+  const sid=id;const records=(state.data.staff_att||[]).filter(r=>r.staff_id===sid);
+  const staff=(state.data.staff||[]).find(s=>s.id===sid);
+  const csv=[['Date','Session','Sign in','Sign out','Hours','Status','Notes','Absence reason'],...records.map(r=>[r.date,r.slot||'',r.sign_in||'',r.sign_out||'',calcHours(r.sign_in,r.sign_out),r.status,r.notes||'',r.absence_reason||''])].map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`${staff?.name||'staff'}_timesheet.csv`;a.click();toast('Timesheet exported');return;
+}
+if(action==='toggle-att'){const sessId=parseInt(el.dataset.session);const stId=parseInt(el.dataset.student);if(!state.attRecords[sessId])state.attRecords[sessId]={};const cur=state.attRecords[sessId][stId]?.status;const nxt=cur==='present'?'absent':cur==='absent'?null:'present';if(nxt===null){delete state.attRecords[sessId][stId];}else{state.attRecords[sessId][stId]={status:nxt,notes:''}}render();return;}
+if(action==='save-att'){const records=Object.entries(state.attRecords[id]||{}).map(([stId,rec])=>({student_id:parseInt(stId),status:rec.status,notes:rec.notes||''}));await API.post('/api/attendance',{session_id:id,records});toast('Attendance saved');return;}
+if(action==='inv-filter'){state.invoiceFilter=el.dataset.filter;refreshPage();return;}
+if(action==='mark-paid'){await API.post('/api/invoices/'+id+'/mark-paid');toast('Invoice marked paid');refreshPage();return;}
+if(action==='edit-invoice'){state.modal='edit-invoice';state.editTarget=(state.data.invoices||[]).find(i=>i.id===id);render();return;}
+if(action==='gen-invoices'){const r=await API.post('/api/invoices/generate',{month:new Date().toISOString().slice(0,7)});toast(`${r.added} invoice(s) generated`);refreshPage();return;}
+if(action==='add-progress'){state.modal='add-progress';state.editTarget={session_id:parseInt(el.dataset.session)};render();return;}
+if(action==='export-sr'){const att=state.data['sr_att_'+id]||[];const csv=[['Student','ID','Status','Notes'],...att.map(a=>[a.student_name,a.admission_id,a.status,a.notes])].map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`session_${id}_report.csv`;a.click();toast('Exported');return;}
+if(action==='export-students'){const s=state.data.students||[];const csv=[['ID','Name','Year','Branch','Parent','Status','Notes'],...s.map(st=>[st.admission_id,st.name,st.year_group,st.branch_name,st.parent_contact,st.status,st.notes])].map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='students.csv';a.click();toast('Exported');return;}
+if(action==='export-sessions'){const s=state.data.sessions||[];const csv=[['Date','Slot','Branch','Teacher','Subject','Table','Present','Total'],...s.map(ss=>[ss.date,ss.slot,ss.branch_name,ss.staff_name,ss.subject,ss.table_no,ss.present_count,ss.total_count])].map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='sessions.csv';a.click();toast('Exported');return;}}
+
+
+function exportStatement(stmt){
+  const lines=[];
+  lines.push(`FT HARLESDEN MANAGEMENT SYSTEM — STATEMENT OF ACCOUNT`);
+  lines.push(``);
+  lines.push(`Student:,${stmt.student.name}`);
+  lines.push(`Admission ID:,${stmt.student.admission_id}`);
+  lines.push(`Branch:,${stmt.student.branch_name}`);
+  lines.push(`Year group:,${stmt.student.year_group}`);
+  lines.push(`Date produced:,${new Date().toLocaleDateString('en-GB')}`);
+  lines.push(``);
+  lines.push(`Date,Description,Charged (Dr),Paid (Cr),Balance`);
+  stmt.transactions.forEach(t=>{
+    lines.push([
+      new Date(t.date+'T00:00:00').toLocaleDateString('en-GB'),
+      `"${t.description}${t.notes?' — '+t.notes:''}"`,
+      t.debit>0?t.debit.toFixed(2):'',
+      t.credit>0?t.credit.toFixed(2):'',
+      t.balance.toFixed(2)
+    ].join(','));
+  });
+  lines.push(``);
+  lines.push(`,,Total charged:,£${stmt.summary.total_charged.toFixed(2)},`);
+  lines.push(`,,Total paid:,£${stmt.summary.total_paid.toFixed(2)},`);
+  lines.push(`,,Closing balance:,£${stmt.summary.closing_balance.toFixed(2)},`);
+  const csv=lines.join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`Statement_${stmt.student.admission_id}_${stmt.student.name.replace(/\s+/g,'_')}.csv`;
+  a.click();
+  toast('Statement exported');
+}
+
+// ICONS
+const ico=(d,sz=16)=>`<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const icoHome=()=>ico('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>');
+const icoUsers=()=>ico('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>');
+const icoUser=()=>ico('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>');
+const icoCal=()=>ico('<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>');
+const icoCheck=()=>ico('<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>');
+const icoPound=()=>ico('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>');
+const icoChart=()=>ico('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>');
+const icoKey=()=>ico('<path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>');
+const icoBranch=()=>ico('<line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>');
+const icoLog=()=>ico('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>');
+const icoDoc=()=>ico('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>');
+const icoHeart=()=>ico('<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>');
+const icoFinance=(sz=16)=>ico('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',sz);
+const icoBook=(sz=16)=>ico('<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',sz);
+const icoGrid=(sz=16)=>ico('<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>',sz);
+const icoTest=(sz=16)=>ico('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/><line x1="9" y1="11" x2="15" y2="11"/>',sz);
+const icoSearch=()=>ico('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>');
+const icoClipboard=(sz=16)=>ico('<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>',sz);
+const icoX=(sz=16)=>ico('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',sz);
+const icoClock=(sz=16)=>ico('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',sz);
+
+// BOOT
+(async()=>{try{const me=await API.get('/api/me');if(me?.type==='staff'){const users=await API.get('/api/users');const u=(users||[]).find(u2=>u2.id===me.user_id);if(u){state.currentUser={...u};state.currentBranch=u.branch_id||null;}}}catch(e){}try{state.data.branches_login=await API.get('/api/branches');}catch(e){}if(state.currentUser)refreshPage();else render();})();
+</script>
+</body>
+</html>
