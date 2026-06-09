@@ -262,7 +262,7 @@ table{min-width:480px;}
 <script>
 const API={async call(method,path,body){const opts={method,credentials:'include',headers:{'Content-Type':'application/json'}};if(body)opts.body=JSON.stringify(body);const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),8000);opts.signal=controller.signal;try{const res=await fetch(path,opts);clearTimeout(timer);if(res.status===401){state.currentUser=null;state.parentUser=null;render();return null;}return res.ok?res.json():Promise.reject(await res.json());}catch(e){clearTimeout(timer);if(e.name==='AbortError')console.warn('Timeout:',path);throw e;}},get:(p,q)=>API.call('GET',q?p+'?'+new URLSearchParams(q):p),post:(p,body)=>API.call('POST',p,body),put:(p,body)=>API.call('PUT',p,body),delete:(p)=>API.call('DELETE',p)};
 
-let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',sessionMonth:'',attDateFilter:'',attSlotFilter:'',attAllSessions:'',attTeacherFilter:'',attStatusFilter:'all',planSessionId:null,planMonth:'',planTab:'allocate',timetableStudentId:null,mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
+let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',sessionMonth:'',sessionSlot:'',sessionTeacher:'',sessionSubject:'',attDateFilter:'',attSlotFilter:'',attAllSessions:'',attTeacherFilter:'',attStatusFilter:'all',planSessionId:null,planMonth:'',planTab:'allocate',timetableStudentId:null,mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
 
 function toast(msg,type='success'){const el=document.createElement('div');el.className=`toast toast-${type}`;el.innerHTML=(type==='success'?'<span style="color:var(--success)">✓</span> ':'<span style="color:var(--danger)">✕</span> ')+msg;document.getElementById('toasts').appendChild(el);setTimeout(()=>el.remove(),3500);}
 function roleBadge(role){const m={super_admin:['badge-purple','Super admin'],branch_manager:['badge-blue','Branch manager'],teacher:['badge-teal','Teacher'],receptionist:['badge-amber','Receptionist']};const[cls,label]=m[role]||['badge-gray',role];return`<span class="badge ${cls}">${label}</span>`;}
@@ -518,42 +518,118 @@ return`
 
 function renderSessions(){
   const sessions=state.data.sessions||[];
-  const sessionMonth=state.sessionMonth||'';
-  const months=[...new Set(sessions.map(s=>s.date?s.date.slice(0,7):'').filter(Boolean))].sort().reverse();
-  const filtered=sessionMonth?sessions.filter(s=>s.date&&s.date.slice(0,7)===sessionMonth):sessions;
+  const sessMonth=state.sessionMonth||'';
+  const sessSlot=state.sessionSlot||'';
+  const sessTeacher=state.sessionTeacher||'';
+  const sessSubject=state.sessionSubject||'';
+
+  // Build filter options from full session list
+  const months=[...new Set(sessions.map(function(s){return s.date?s.date.slice(0,7):'';}).filter(Boolean))].sort().reverse();
+  const slotSrc=sessMonth?sessions.filter(function(s){return s.date&&s.date.slice(0,7)===sessMonth;}):sessions;
+  const slots=[...new Set(slotSrc.map(function(s){return s.slot;}).filter(Boolean))].sort();
+  const teacherSrc=slotSrc.filter(function(s){return !sessSlot||s.slot===sessSlot;});
+  const teacherMap={};
+  teacherSrc.forEach(function(s){if(s.staff_id&&s.staff_name)teacherMap[s.staff_id]=s.staff_name;});
+  const teachers=Object.entries(teacherMap).map(function(e){return{id:e[0],name:e[1]};}).sort(function(a,b){return a.name.localeCompare(b.name);});
+  const subjectSrc=teacherSrc.filter(function(s){return !sessTeacher||String(s.staff_id)===sessTeacher;});
+  const subjects=[...new Set(subjectSrc.map(function(s){return s.subject;}).filter(Boolean))].sort();
+
+  // Apply all filters
+  const filtered=sessions.filter(function(s){
+    if(sessMonth&&(!s.date||s.date.slice(0,7)!==sessMonth))return false;
+    if(sessSlot&&s.slot!==sessSlot)return false;
+    if(sessTeacher&&String(s.staff_id)!==sessTeacher)return false;
+    if(sessSubject&&s.subject!==sessSubject)return false;
+    return true;
+  });
+
   // Group by date
   const byDate={};
-  filtered.forEach(s=>{const d=s.date||'';if(!byDate[d])byDate[d]=[];byDate[d].push(s);});
+  filtered.forEach(function(s){const d=s.date||'';if(!byDate[d])byDate[d]=[];byDate[d].push(s);});
   const dates=Object.keys(byDate).sort().reverse();
-  return`
-<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
-<div><div class="section-title">Sessions</div><div class="section-sub">${filtered.length} session${filtered.length!==1?'s':''} ${sessionMonth?'in '+new Date(sessionMonth+'-01T00:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'}):'total'}</div></div>
-<div style="display:flex;gap:10px;align-items:center;">
-<select id="session-month-filter" style="border:1px solid var(--border2);border-radius:var(--radius);padding:7px 10px;background:var(--surface);color:var(--text);font-family:var(--font);font-size:13px;">
-  <option value="">All months</option>
-  ${months.map(m=>`<option value="${m}" ${m===sessionMonth?'selected':''}>${new Date(m+'-01T00:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'})}</option>`).join('')}
-</select>
-<button class="btn btn-primary" data-action="add-session">+ Add session</button>
-</div>
-</div>
-${dates.length===0?`<div class="empty-state">No sessions found.</div>`:''}
-${dates.map(date=>{
-  const daySessions=byDate[date];
-  const dayLabel=new Date(date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  return`<div style="margin-bottom:6px;padding:6px 2px 2px;"><div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">${dayLabel}</div>
-<div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>
-<thead><tr><th>Slot</th><th>Branch</th><th>Teacher</th><th>Subject</th><th>Table</th><th>Attendance</th><th></th></tr></thead>
-<tbody>${daySessions.map(s=>`<tr>
-<td style="font-size:13px;">${s.slot}</td>
-<td><span class="badge badge-accent">${s.branch_name||'?'}</span></td>
-<td>${s.staff_name||'—'}</td>
-<td><span class="badge badge-gray">${s.subject||'—'}</span></td>
-<td style="color:var(--text3);font-size:13px;">Table ${s.table_no}</td>
-<td><span class="badge ${s.present_count>0?'badge-success':'badge-gray'}">${s.present_count}/${s.total_count} present</span></td>
-<td><div class="row-actions"><button class="btn btn-sm btn-success" data-action="mark-att" data-id="${s.id}">Attendance</button><button class="btn btn-sm btn-danger" data-action="del-session" data-id="${s.id}">Del</button></div></td>
-</tr>`).join('')}</tbody>
-</table></div></div></div>`;
-}).join('')}`;
+
+  // Summary counts
+  const totalPresent=filtered.reduce(function(s,x){return s+(x.present_count||0);},0);
+  const totalStudents=filtered.reduce(function(s,x){return s+(x.total_count||0);},0);
+  const activeFilters=[sessMonth,sessSlot,sessTeacher,sessSubject].filter(Boolean).length;
+
+  var html='';
+  html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">';
+  html+='<div><div class="section-title">Sessions</div>';
+  html+='<div class="section-sub">'+filtered.length+' session'+(filtered.length!==1?'s':'')+' shown'+(activeFilters?' · '+activeFilters+' filter'+(activeFilters>1?'s':'')+' active':'')+' · '+totalPresent+'/'+totalStudents+' attendance</div></div>';
+  html+='<button class="btn btn-primary" data-action="add-session">+ Add session</button>';
+  html+='</div>';
+
+  // Filter bar
+  html+='<div class="card" style="margin-bottom:16px;padding:14px 18px;">';
+  html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:10px;align-items:end;">';
+
+  // Month
+  html+='<div class="field" style="margin:0;"><label>Month</label><select id="session-month-filter">';
+  html+='<option value="">All months</option>';
+  months.forEach(function(m){
+    html+='<option value="'+m+'" '+(m===sessMonth?'selected':'')+'>'+new Date(m+'-01T00:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'})+'</option>';
+  });
+  html+='</select></div>';
+
+  // Slot
+  html+='<div class="field" style="margin:0;"><label>Slot</label><select id="session-slot-filter">';
+  html+='<option value="">All slots</option>';
+  slots.forEach(function(sl){html+='<option value="'+sl+'" '+(sl===sessSlot?'selected':'')+'>'+sl+'</option>';});
+  html+='</select></div>';
+
+  // Teacher
+  html+='<div class="field" style="margin:0;"><label>Teacher</label><select id="session-teacher-filter">';
+  html+='<option value="">All teachers</option>';
+  teachers.forEach(function(t){html+='<option value="'+t.id+'" '+(String(t.id)===sessTeacher?'selected':'')+'>'+t.name+'</option>';});
+  html+='</select></div>';
+
+  // Subject
+  html+='<div class="field" style="margin:0;"><label>Subject</label><select id="session-subject-filter">';
+  html+='<option value="">All subjects</option>';
+  subjects.forEach(function(s){html+='<option value="'+s+'" '+(s===sessSubject?'selected':'')+'>'+s+'</option>';});
+  html+='</select></div>';
+
+  // Clear filters button
+  html+='<div style="padding-bottom:1px;">';
+  if(activeFilters){
+    html+='<button class="btn btn-sm" data-action="session-clear-filters" style="white-space:nowrap;">✕ Clear</button>';
+  }
+  html+='</div>';
+  html+='</div></div>';
+
+  // Results
+  if(dates.length===0){
+    html+='<div class="empty-state" style="padding:40px;">No sessions match these filters.</div>';
+  }
+
+  dates.forEach(function(date){
+    const daySessions=byDate[date];
+    const dayLabel=new Date(date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+    const dayPresent=daySessions.reduce(function(s,x){return s+(x.present_count||0);},0);
+    const dayTotal=daySessions.reduce(function(s,x){return s+(x.total_count||0);},0);
+    html+='<div style="margin-bottom:14px;">';
+    html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+    html+='<div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;">'+dayLabel+'</div>';
+    html+='<div style="font-size:12px;color:var(--text3);">'+daySessions.length+' session'+(daySessions.length>1?'s':'')+' · '+dayPresent+'/'+dayTotal+' present</div>';
+    html+='</div>';
+    html+='<div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>';
+    html+='<thead><tr><th>Slot</th><th>Teacher</th><th>Subject</th><th>Table</th><th>Attendance</th><th></th></tr></thead>';
+    html+='<tbody>';
+    daySessions.forEach(function(s){
+      html+='<tr>';
+      html+='<td style="font-size:13px;">'+s.slot+'</td>';
+      html+='<td>'+( s.staff_name||'—')+'</td>';
+      html+='<td><span class="badge badge-gray">'+(s.subject||'—')+'</span></td>';
+      html+='<td style="color:var(--text3);font-size:13px;">T'+s.table_no+'</td>';
+      html+='<td><span class="badge '+(s.present_count>0?'badge-success':'badge-gray')+'">'+s.present_count+'/'+s.total_count+' present</span></td>';
+      html+='<td><div class="row-actions"><button class="btn btn-sm btn-success" data-action="mark-att" data-id="'+s.id+'">Attendance</button><button class="btn btn-sm btn-danger" data-action="del-session" data-id="'+s.id+'">Del</button></div></td>';
+      html+='</tr>';
+    });
+    html+='</tbody></table></div></div></div>';
+  });
+
+  return html;
 }
 
 function renderAttendance(){
@@ -2902,7 +2978,10 @@ document.getElementById('f-first-name')?.addEventListener('input',()=>{
   document.getElementById('f-first-name').style.boxShadow='';
 });
 document.getElementById('fin-month-filter')?.addEventListener('change',e=>{state.finMonth=e.target.value||'';refreshPage();});
-document.getElementById('session-month-filter')?.addEventListener('change',e=>{state.sessionMonth=e.target.value;render();});
+document.getElementById('session-month-filter')?.addEventListener('change',function(e){state.sessionMonth=e.target.value;state.sessionSlot='';state.sessionTeacher='';state.sessionSubject='';render();});
+document.getElementById('session-slot-filter')?.addEventListener('change',function(e){state.sessionSlot=e.target.value;state.sessionTeacher='';state.sessionSubject='';render();});
+document.getElementById('session-teacher-filter')?.addEventListener('change',function(e){state.sessionTeacher=e.target.value;state.sessionSubject='';render();});
+document.getElementById('session-subject-filter')?.addEventListener('change',function(e){state.sessionSubject=e.target.value;render();});
 document.getElementById('fin-student-select')?.addEventListener('change',async e=>{
   state.finStudentId=e.target.value?parseInt(e.target.value):null;
   if(state.finStudentId){state.data['statement_'+state.finStudentId]=await API.get('/api/statement/'+state.finStudentId).catch(()=>null);}
@@ -3184,6 +3263,7 @@ if(action==='reset-user-pw'){state.modal='reset-user-pw';state.editTarget=(state
 if(action==='change-password'){state.modal='change-password';state.editTarget=null;render();return;}
 if(action==='add-hq-transfer'){state.modal='add-hq-transfer';state.editTarget=null;render();return;}
 if(action==='del-hq-transfer'){if(!confirm('Delete this transfer record?'))return;await API.delete('/api/hq-transfers/'+id);toast('Transfer deleted');refreshPage();return;}
+if(action==='session-clear-filters'){state.sessionMonth='';state.sessionSlot='';state.sessionTeacher='';state.sessionSubject='';render();return;}
 if(action==='fin-tab'){state.finTab=el.dataset.tab;render();return;}
 if(action==='fin-method-filter'){state.finMethod=el.dataset.method||null;state.finTab='accounts';render();return;}
 if(action==='fin-clear-month'){state.finMonth='';refreshPage();return;}
