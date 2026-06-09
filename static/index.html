@@ -1520,7 +1520,7 @@ function renderSessionPlan(){
     // Load all timetable data
     const allTT=state.data.all_timetables||[];
 
-    // Build student → slot → subjects map
+    // Build student → slot → subjects map from timetable entries
     const stuMap={};
     allTT.forEach(function(e){
       if(!stuMap[e.student_id]){
@@ -1530,8 +1530,17 @@ function renderSessionPlan(){
       stuMap[e.student_id].slots[e.slot].push(e.subject);
     });
 
+    // Also include ALL active students even if they have no timetable entries yet
+    const allActiveStudents=students.filter(function(s){return s.status==='active';});
+    allActiveStudents.forEach(function(s){
+      if(!stuMap[s.id]){
+        stuMap[s.id]={name:s.name,admission_id:s.admission_id,year_group:s.year_group,slots:{}};
+      }
+    });
+
     // Sort students by admission_id
     const stuList=Object.values(stuMap).sort(function(a,b){return a.admission_id>b.admission_id?1:-1;});
+    const withEntries=stuList.filter(function(s){return Object.keys(s.slots).length>0;}).length;
 
     if(!stuList.length){
       html+='<div class="empty-state" style="padding:40px;">No timetable entries found. Use the Student timetables tab to assign subjects and slots to each student.</div>';
@@ -1561,7 +1570,7 @@ function renderSessionPlan(){
         html+='</tr>';
       });
       html+='</tbody></table></div>';
-      html+='<div style="margin-top:8px;font-size:12px;color:var(--text3);">'+stuList.length+' students shown · '+allTT.length+' timetable entries total</div>';
+      html+='<div style="margin-top:8px;font-size:12px;color:var(--text3);">'+stuList.length+' students total · '+withEntries+' with timetable entries · '+allTT.length+' slot assignments</div>';
     }
   
   }
