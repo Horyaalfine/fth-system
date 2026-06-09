@@ -2866,14 +2866,22 @@ if(action==='remove-table-student'){
 if(action==='add-timetable-entry'){
   const sid=parseInt(el.dataset.student);
   const entry={branch_id:parseInt(el.dataset.branch),day_type:el.dataset.daytype,slot:el.dataset.slot,subject:el.dataset.subject};
+  // Always fetch fresh from server first to avoid overwriting entries with stale state
+  await loadData('timetable_'+sid,'/api/student-timetable',{student_id:sid});
   const existing=(state.data['timetable_'+sid]||[]).map(function(e){return {branch_id:e.branch_id,day_type:e.day_type,slot:e.slot,subject:e.subject};});
-  existing.push(entry);
+  // Avoid duplicates
+  const isDup=existing.some(function(e){return e.day_type===entry.day_type&&e.slot===entry.slot&&e.subject===entry.subject;});
+  if(!isDup) existing.push(entry);
   await API.post('/api/student-timetable',{student_id:sid,entries:existing});
   await loadData('timetable_'+sid,'/api/student-timetable',{student_id:sid});
   render();return;}
 if(action==='del-timetable-entry'){
   await API.delete('/api/student-timetable/'+id);
-  if(state.timetableStudentId) await loadData('timetable_'+state.timetableStudentId,'/api/student-timetable',{student_id:state.timetableStudentId});
+  if(state.timetableStudentId){
+    await loadData('timetable_'+state.timetableStudentId,'/api/student-timetable',{student_id:state.timetableStudentId});
+    // Refresh overview data too
+    await loadData('all_timetables','/api/student-timetable',{});
+  }
   render();return;}
 if(action==='sr-tab'){state.srTab=el.dataset.tab;render();return;}
 if(action==='lr-tab'){state.lrTab=el.dataset.tab;render();return;}
