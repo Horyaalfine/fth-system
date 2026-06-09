@@ -430,11 +430,16 @@ def get_attendance(session_id):
 @api_bp.route('/api/attendance', methods=['POST'])
 @require_auth
 def save_attendance():
-    """Bulk upsert attendance for a session."""
+    """Bulk upsert attendance for a session. Also deletes records for unmarked students."""
     d = request.json
     session_id = d['session_id']
     records    = d['records']  # [{student_id, status, notes}]
+    delete_ids = d.get('delete_student_ids', [])  # students to unmark (remove from DB)
     conn = get_conn(); cur = conn.cursor()
+    # Delete unmarked students
+    for sid in delete_ids:
+        cur.execute("DELETE FROM attendance WHERE session_id=%s AND student_id=%s", (session_id, sid))
+    # Upsert present/absent records
     for rec in records:
         cur.execute("""
             INSERT INTO attendance (session_id, student_id, status, notes)
