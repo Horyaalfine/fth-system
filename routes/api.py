@@ -1334,6 +1334,58 @@ def delete_timetable_entry(tid):
     conn.commit(); cur.close(); conn.close()
     return jsonify({'ok': True})
 
+
+@api_bp.route('/api/sessions/<int:session_id>/students', methods=['GET'])
+@require_auth
+def get_session_attendance_students(session_id):
+    """Get students for attendance - from table allocations, then session_students, then timetable."""
+    conn = get_conn(); cur = conn.cursor()
+    # Get session info
+    cur.execute("SELECT * FROM sessions WHERE id=%s", (session_id,))
+    sess = row(cur)
+    if not sess:
+        cur.close(); conn.close()
+        return jsonify([])
+    # Source 1: table_allocation_students
+    cur.execute("""
+        SELECT DISTINCT s.id as student_id, s.name as student_name, s.admission_id,
+               ta.table_no, 'allocation' as source
+        FROM table_allocation_students tas
+        JOIN table_allocations ta ON ta.id=tas.allocation_id
+        JOIN students s ON s.id=tas.student_id
+        WHERE ta.session_id=%s
+        ORDER BY ta.table_no, s.admission_id
+    """, (session_id,))
+    alloc_students = rows(cur)
+    if alloc_students:
+        cur.close(); conn.close()
+        return jsonify(alloc_students)
+    # Source 2: session_students
+    cur.execute("""
+        SELECT s.id as student_id, s.name as student_name, s.admission_id,
+               %s as table_no, 'session' as source
+        FROM session_students ss
+        JOIN students s ON s.id=ss.student_id
+        WHERE ss.session_id=%s AND s.status='active'
+        ORDER BY s.admission_id
+    """, (sess.get('table_no',1), session_id))
+    sess_students = rows(cur)
+    if sess_students:
+        cur.close(); conn.close()
+        return jsonify(sess_students)
+    # Source 3: timetable — students scheduled for this slot
+    cur.execute("""
+        SELECT DISTINCT s.id as student_id, s.name as student_name, s.admission_id,
+               %s as table_no, 'timetable' as source
+        FROM student_timetable st
+        JOIN students s ON s.id=st.student_id
+        WHERE st.slot=%s AND s.branch_id=%s AND s.status='active'
+        ORDER BY s.admission_id
+    """, (sess.get('table_no',1), sess['slot'], sess['branch_id']))
+    tt_students = rows(cur)
+    cur.close(); conn.close()
+    return jsonify(tt_students)
+
 # ════════════════════════════════════════════
 #  TABLE ALLOCATIONS
 # ════════════════════════════════════════════
