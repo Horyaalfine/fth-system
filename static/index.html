@@ -174,6 +174,9 @@ select{background:#fffdf7;color:#1a2744;}select option{background:#fffdf7;color:
 .att-cell.present{background:var(--success-bg);border-color:rgba(34,197,94,0.3);}
 .att-cell.absent{background:var(--danger-bg);border-color:rgba(239,68,68,0.3);}
 .att-cell:hover{border-color:var(--accent);transform:translateY(-1px);}
+.att-cell{position:relative;}
+.att-remove{position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;background:var(--danger-bg);color:var(--danger);border:none;cursor:pointer;font-size:10px;line-height:16px;text-align:center;opacity:0;transition:opacity 0.15s;display:flex;align-items:center;justify-content:center;padding:0;}
+.att-cell:hover .att-remove{opacity:1;}
 .att-name{font-size:12px;font-weight:600;color:var(--text);}
 .att-id{font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:2px;}
 .att-status{font-size:10px;margin-top:5px;font-weight:600;letter-spacing:0.05em;}
@@ -720,6 +723,7 @@ function renderAttendance(){
       stuList.forEach(function(st){
         var rec=localA[st.id];
         html2+='<div class="att-cell '+(rec?rec.status:'')+'" data-action="toggle-att" data-student="'+st.id+'" data-session="'+sess.id+'">';
+        html2+='<button class="att-remove" data-action="att-remove-student" data-student="'+st.id+'" data-session="'+sess.id+'" title="Remove from this session">✕</button>';
         html2+='<div class="att-name">'+st.name+'</div>';
         html2+='<div class="att-id">'+st.admission_id+' · T'+st.table_no+'</div>';
         html2+='<div class="att-status" style="color:'+(rec?(rec.status==='present'?'var(--success-text)':'var(--danger-text)'):'var(--text3)')+'">'+( rec?rec.status.toUpperCase():'—')+'</div>';
@@ -766,6 +770,7 @@ function renderAttendance(){
     visibleStudents.forEach(function(st){
       var rec=localAtt[st.id];
       html+='<div class="att-cell '+(rec?rec.status:'')+'" data-action="toggle-att" data-student="'+st.id+'" data-session="'+selId+'">';
+      html+='<button class="att-remove" data-action="att-remove-student" data-student="'+st.id+'" data-session="'+selId+'" title="Remove from this session">✕</button>';
       html+='<div class="att-name">'+st.name+'</div>';
       html+='<div class="att-id">'+st.admission_id+(st.table_no?' · T'+st.table_no:'')+'</div>';
       html+='<div class="att-status" style="color:'+(rec?(rec.status==='present'?'var(--success-text)':'var(--danger-text)'):'var(--text3)')+'">'+( rec?rec.status.toUpperCase():'—')+'</div>';
@@ -3087,6 +3092,27 @@ if(action==='del-timetable-entry'){
   await API.delete('/api/student-timetable/'+id);
   if(state.timetableStudentId) await loadData('timetable_'+state.timetableStudentId,'/api/student-timetable',{student_id:state.timetableStudentId});
   render();return;}
+if(action==='att-remove-student'){
+  e.stopPropagation();
+  const stId=parseInt(el.dataset.student);
+  const sessId=parseInt(el.dataset.session);
+  if(!confirm('Remove this student from this session?'))return;
+  // Delete from attendance DB
+  await API.post('/api/attendance',{session_id:sessId,records:[],delete_student_ids:[stId]});
+  // Delete from table_allocation_students for this session
+  await API.delete('/api/sessions/'+sessId+'/students/'+stId);
+  // Remove from local state
+  if(state.attRecords[sessId])delete state.attRecords[sessId][stId];
+  // Reload
+  await Promise.all([
+    loadData('attendance_'+sessId,'/api/attendance/'+sessId),
+    loadData('sess_students_'+sessId,'/api/sessions/'+sessId+'/students')
+  ]);
+  const att=state.data['attendance_'+sessId]||[];
+  state.attRecords[sessId]={};
+  att.forEach(function(a){state.attRecords[sessId][a.student_id]={status:a.status,notes:a.notes||''};});
+  toast('Student removed from session');render();return;
+}
 if(action==='att-status-filter'){state.attStatusFilter=el.dataset.filter||'all';render();return;}
 if(action==='sr-tab'){state.srTab=el.dataset.tab;render();return;}
 if(action==='lr-tab'){state.lrTab=el.dataset.tab;render();return;}
