@@ -262,7 +262,7 @@ table{min-width:480px;}
 <script>
 const API={async call(method,path,body){const opts={method,credentials:'include',headers:{'Content-Type':'application/json'}};if(body)opts.body=JSON.stringify(body);const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),8000);opts.signal=controller.signal;try{const res=await fetch(path,opts);clearTimeout(timer);if(res.status===401){state.currentUser=null;state.parentUser=null;render();return null;}return res.ok?res.json():Promise.reject(await res.json());}catch(e){clearTimeout(timer);if(e.name==='AbortError')console.warn('Timeout:',path);throw e;}},get:(p,q)=>API.call('GET',q?p+'?'+new URLSearchParams(q):p),post:(p,body)=>API.call('POST',p,body),put:(p,body)=>API.call('PUT',p,body),delete:(p)=>API.call('DELETE',p)};
 
-let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',sessionMonth:'',sessionDay:'',sessionSlot:'',sessionTeacher:'',sessionSubject:'',attDateFilter:'',attSlotFilter:'',attAllSessions:'',attTeacherFilter:'',attStatusFilter:'all',planSessionId:null,planMonth:'',planTab:'allocate',timetableStudentId:null,mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
+let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',sessionMonth:'',sessionDate:'',sessionSlot:'',sessionTeacher:'',sessionSubject:'',attDateFilter:'',attSlotFilter:'',attAllSessions:'',attTeacherFilter:'',attStatusFilter:'all',planSessionId:null,planMonth:'',planTab:'allocate',timetableStudentId:null,mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
 
 function toast(msg,type='success'){const el=document.createElement('div');el.className=`toast toast-${type}`;el.innerHTML=(type==='success'?'<span style="color:var(--success)">✓</span> ':'<span style="color:var(--danger)">✕</span> ')+msg;document.getElementById('toasts').appendChild(el);setTimeout(()=>el.remove(),3500);}
 function roleBadge(role){const m={super_admin:['badge-purple','Super admin'],branch_manager:['badge-blue','Branch manager'],teacher:['badge-teal','Teacher'],receptionist:['badge-amber','Receptionist']};const[cls,label]=m[role]||['badge-gray',role];return`<span class="badge ${cls}">${label}</span>`;}
@@ -519,7 +519,7 @@ return`
 function renderSessions(){
   const sessions=state.data.sessions||[];
   const sessMonth=state.sessionMonth||'';
-  const sessDay=state.sessionDay||'';
+  const sessDate=state.sessionDate||'';
   const sessSlot=state.sessionSlot||'';
   const sessTeacher=state.sessionTeacher||'';
   const sessSubject=state.sessionSubject||'';
@@ -527,41 +527,30 @@ function renderSessions(){
   // ── Step 1: months ──
   const months=[...new Set(sessions.map(function(s){return s.date?s.date.slice(0,7):'';}).filter(Boolean))].sort().reverse();
 
-  // ── Step 2: days of week available in selected month ──
+  // ── Step 2: specific dates available in selected month ──
   const monthSrc=sessMonth?sessions.filter(function(s){return s.date&&s.date.slice(0,7)===sessMonth;}):sessions;
-  // Build unique weekdays with their label and a representative date for sorting
-  const dayMap={};
-  monthSrc.forEach(function(s){
-    if(!s.date)return;
-    const d=new Date(s.date+'T00:00:00');
-    const dayNum=d.getDay(); // 0=Sun,1=Mon...6=Sat
-    const dayLabel=d.toLocaleDateString('en-GB',{weekday:'long'});
-    if(!dayMap[dayLabel])dayMap[dayLabel]=dayNum;
-  });
-  const dayOrder=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-  const days=Object.keys(dayMap).sort(function(a,b){return dayOrder.indexOf(a)-dayOrder.indexOf(b);});
+  const dateSet={};
+  monthSrc.forEach(function(s){if(s.date)dateSet[s.date]=true;});
+  const dates=Object.keys(dateSet).sort().reverse();
 
-  // ── Step 3: slot times available in selected month+day ──
-  const daySrc=monthSrc.filter(function(s){
-    if(!sessDay)return true;
-    return new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long'})===sessDay;
-  });
-  const slots=[...new Set(daySrc.map(function(s){return s.slot;}).filter(Boolean))].sort();
+  // ── Step 3: slot times for selected month+date ──
+  const dateSrc=sessDate?monthSrc.filter(function(s){return s.date===sessDate;}):monthSrc;
+  const slots=[...new Set(dateSrc.map(function(s){return s.slot;}).filter(Boolean))].sort();
 
-  // ── Step 4: teachers in selected month+day+slot ──
-  const slotSrc=daySrc.filter(function(s){return !sessSlot||s.slot===sessSlot;});
+  // ── Step 4: teachers for selected month+date+slot ──
+  const slotSrc=dateSrc.filter(function(s){return !sessSlot||s.slot===sessSlot;});
   const teacherMap={};
   slotSrc.forEach(function(s){if(s.staff_id&&s.staff_name)teacherMap[s.staff_id]=s.staff_name;});
   const teachers=Object.entries(teacherMap).map(function(e){return{id:e[0],name:e[1]};}).sort(function(a,b){return a.name.localeCompare(b.name);});
 
-  // ── Step 5: subjects in selected month+day+slot+teacher ──
+  // ── Step 5: subjects for selected month+date+slot+teacher ──
   const teacherSrc=slotSrc.filter(function(s){return !sessTeacher||String(s.staff_id)===sessTeacher;});
   const subjects=[...new Set(teacherSrc.map(function(s){return s.subject;}).filter(Boolean))].sort();
 
   // ── Apply all filters ──
   const filtered=sessions.filter(function(s){
     if(sessMonth&&(!s.date||s.date.slice(0,7)!==sessMonth))return false;
-    if(sessDay&&new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long'})!==sessDay)return false;
+    if(sessDate&&s.date!==sessDate)return false;
     if(sessSlot&&s.slot!==sessSlot)return false;
     if(sessTeacher&&String(s.staff_id)!==sessTeacher)return false;
     if(sessSubject&&s.subject!==sessSubject)return false;
@@ -571,11 +560,11 @@ function renderSessions(){
   // Group by date
   const byDate={};
   filtered.forEach(function(s){const d=s.date||'';if(!byDate[d])byDate[d]=[];byDate[d].push(s);});
-  const dates=Object.keys(byDate).sort().reverse();
+  const groupedDates=Object.keys(byDate).sort().reverse();
 
   const totalPresent=filtered.reduce(function(s,x){return s+(x.present_count||0);},0);
   const totalStudents=filtered.reduce(function(s,x){return s+(x.total_count||0);},0);
-  const activeFilters=[sessMonth,sessDay,sessSlot,sessTeacher,sessSubject].filter(Boolean).length;
+  const activeFilters=[sessMonth,sessDate,sessSlot,sessTeacher,sessSubject].filter(Boolean).length;
 
   var html='';
   html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">';
@@ -596,10 +585,13 @@ function renderSessions(){
   });
   html+='</select></div>';
 
-  // Day of week
-  html+='<div class="field" style="margin:0;"><label>Day</label><select id="session-day-filter">';
-  html+='<option value="">All days</option>';
-  days.forEach(function(d){html+='<option value="'+d+'" '+(d===sessDay?'selected':'')+'>'+d+'</option>';});
+  // Date — shows day + full date e.g. "Wed, 4 Jun 2026"
+  html+='<div class="field" style="margin:0;"><label>Date</label><select id="session-date-filter">';
+  html+='<option value="">All dates</option>';
+  dates.forEach(function(d){
+    var label=new Date(d+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+    html+='<option value="'+d+'" '+(d===sessDate?'selected':'')+'>'+label+'</option>';
+  });
   html+='</select></div>';
 
   // Slot time
@@ -627,11 +619,11 @@ function renderSessions(){
   html+='</div></div>';
 
   // Results
-  if(dates.length===0){
+  if(groupedDates.length===0){
     html+='<div class="empty-state" style="padding:40px;">No sessions match these filters.</div>';
   }
 
-  dates.forEach(function(date){
+  groupedDates.forEach(function(date){
     const daySessions=byDate[date];
     const dayLabel=new Date(date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
     const dayPresent=daySessions.reduce(function(s,x){return s+(x.present_count||0);},0);
@@ -3004,8 +2996,8 @@ document.getElementById('f-first-name')?.addEventListener('input',()=>{
   document.getElementById('f-first-name').style.boxShadow='';
 });
 document.getElementById('fin-month-filter')?.addEventListener('change',e=>{state.finMonth=e.target.value||'';refreshPage();});
-document.getElementById('session-month-filter')?.addEventListener('change',function(e){state.sessionMonth=e.target.value;state.sessionDay='';state.sessionSlot='';state.sessionTeacher='';state.sessionSubject='';render();});
-document.getElementById('session-day-filter')?.addEventListener('change',function(e){state.sessionDay=e.target.value;state.sessionSlot='';state.sessionTeacher='';state.sessionSubject='';render();});
+document.getElementById('session-month-filter')?.addEventListener('change',function(e){state.sessionMonth=e.target.value;state.sessionDate='';state.sessionSlot='';state.sessionTeacher='';state.sessionSubject='';render();});
+document.getElementById('session-date-filter')?.addEventListener('change',function(e){state.sessionDate=e.target.value;state.sessionSlot='';state.sessionTeacher='';state.sessionSubject='';render();});
 document.getElementById('session-slot-filter')?.addEventListener('change',function(e){state.sessionSlot=e.target.value;state.sessionTeacher='';state.sessionSubject='';render();});
 document.getElementById('session-teacher-filter')?.addEventListener('change',function(e){state.sessionTeacher=e.target.value;state.sessionSubject='';render();});
 document.getElementById('session-subject-filter')?.addEventListener('change',function(e){state.sessionSubject=e.target.value;render();});
@@ -3293,7 +3285,7 @@ if(action==='reset-user-pw'){state.modal='reset-user-pw';state.editTarget=(state
 if(action==='change-password'){state.modal='change-password';state.editTarget=null;render();return;}
 if(action==='add-hq-transfer'){state.modal='add-hq-transfer';state.editTarget=null;render();return;}
 if(action==='del-hq-transfer'){if(!confirm('Delete this transfer record?'))return;await API.delete('/api/hq-transfers/'+id);toast('Transfer deleted');refreshPage();return;}
-if(action==='session-clear-filters'){state.sessionMonth='';state.sessionDay='';state.sessionSlot='';state.sessionTeacher='';state.sessionSubject='';render();return;}
+if(action==='session-clear-filters'){state.sessionMonth='';state.sessionDate='';state.sessionSlot='';state.sessionTeacher='';state.sessionSubject='';render();return;}
 if(action==='fin-tab'){state.finTab=el.dataset.tab;render();return;}
 if(action==='fin-method-filter'){state.finMethod=el.dataset.method||null;state.finTab='accounts';render();return;}
 if(action==='fin-clear-month'){state.finMonth='';refreshPage();return;}
