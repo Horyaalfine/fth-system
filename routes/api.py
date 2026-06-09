@@ -1295,17 +1295,13 @@ def get_student_timetable():
     student_id = request.args.get('student_id', type=int)
     conn = get_conn(); cur = conn.cursor()
     where = []; params = []
-    # Only apply branch filter when fetching a specific student's timetable
-    # For the overview (all students), return all entries so no one is missed
-    if student_id:
-        where.append("st.student_id=%s"); params.append(student_id)
-    elif b:
-        where.append("st.branch_id=%s"); params.append(b)
+    if b: where.append("st.branch_id=%s"); params.append(b)
+    if student_id: where.append("st.student_id=%s"); params.append(student_id)
     wc = ("WHERE " + " AND ".join(where)) if where else ""
     cur.execute(f"""
         SELECT st.*, s.name as student_name, s.admission_id, s.year_group
         FROM student_timetable st
-        JOIN students s ON s.id=st.student_id AND s.status='active'
+        JOIN students s ON s.id=st.student_id
         {wc} ORDER BY s.admission_id, st.day_type, st.slot
     """, params)
     data = rows(cur); cur.close(); conn.close()
@@ -1319,14 +1315,12 @@ def save_student_timetable():
     student_id = d['student_id']
     entries = d.get('entries', [])
     conn = get_conn(); cur = conn.cursor()
-    # Remove existing entries for this student
+    # Delete existing entries and re-insert the full list atomically
     cur.execute("DELETE FROM student_timetable WHERE student_id=%s", (student_id,))
     for e in entries:
         cur.execute("""
             INSERT INTO student_timetable (student_id, branch_id, day_type, slot, subject, notes)
             VALUES (%s,%s,%s,%s,%s,%s)
-            ON CONFLICT (student_id, day_type, slot, subject) DO UPDATE
-            SET active=TRUE, notes=EXCLUDED.notes
         """, (student_id, e['branch_id'], e['day_type'], e['slot'], e['subject'], e.get('notes','')))
     conn.commit(); cur.close(); conn.close()
     log_action('edit', 'student_timetable', student_id)
