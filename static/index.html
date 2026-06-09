@@ -3180,7 +3180,20 @@ if(action==='export-staff-timesheet'){
   const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`${staff?.name||'staff'}_timesheet.csv`;a.click();toast('Timesheet exported');return;
 }
 if(action==='toggle-att'){const sessId=parseInt(el.dataset.session);const stId=parseInt(el.dataset.student);if(!state.attRecords[sessId])state.attRecords[sessId]={};const cur=state.attRecords[sessId][stId]?.status;const nxt=cur==='present'?'absent':cur==='absent'?null:'present';if(nxt===null){delete state.attRecords[sessId][stId];}else{state.attRecords[sessId][stId]={status:nxt,notes:''}}render();return;}
-if(action==='save-att'){const records=Object.entries(state.attRecords[id]||{}).map(([stId,rec])=>({student_id:parseInt(stId),status:rec.status,notes:rec.notes||''}));await API.post('/api/attendance',{session_id:id,records});toast('Attendance saved');return;}
+if(action==='save-att'){
+  const localRecs=state.attRecords[id]||{};
+  const records=Object.entries(localRecs).map(([stId,rec])=>({student_id:parseInt(stId),status:rec.status,notes:rec.notes||''}));
+  // Find students who were previously saved but are now unmarked (not in localRecs)
+  const prevSaved=(state.data['attendance_'+id]||[]).map(function(a){return a.student_id;});
+  const currentMarked=Object.keys(localRecs).map(Number);
+  const deleteIds=prevSaved.filter(function(sid){return!currentMarked.includes(sid);});
+  await API.post('/api/attendance',{session_id:id,records:records,delete_student_ids:deleteIds});
+  // Reload attendance so UI reflects DB state
+  await loadData('attendance_'+id,'/api/attendance/'+id);
+  const att=state.data['attendance_'+id]||[];
+  state.attRecords[id]={};
+  att.forEach(function(a){state.attRecords[id][a.student_id]={status:a.status,notes:a.notes||''};});
+  toast('Attendance saved ✓');render();return;}
 if(action==='inv-filter'){state.invoiceFilter=el.dataset.filter;refreshPage();return;}
 if(action==='mark-paid'){await API.post('/api/invoices/'+id+'/mark-paid');toast('Invoice marked paid');refreshPage();return;}
 if(action==='edit-invoice'){state.modal='edit-invoice';state.editTarget=(state.data.invoices||[]).find(i=>i.id===id);render();return;}
