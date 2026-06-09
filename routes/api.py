@@ -1338,15 +1338,17 @@ def delete_timetable_entry(tid):
 @api_bp.route('/api/sessions/<int:session_id>/students', methods=['GET'])
 @require_auth
 def get_session_attendance_students(session_id):
-    """Get students for attendance - from table allocations, then session_students, then timetable."""
+    """Get students for attendance.
+    Priority: 1) table_allocation_students  2) session_students  3) already-marked attendance records.
+    Never falls back to full timetable/branch list.
+    """
     conn = get_conn(); cur = conn.cursor()
-    # Get session info
     cur.execute("SELECT * FROM sessions WHERE id=%s", (session_id,))
     sess = row(cur)
     if not sess:
         cur.close(); conn.close()
         return jsonify([])
-    # Source 1: table_allocation_students
+    # Source 1: table_allocation_students (Session Planner)
     cur.execute("""
         SELECT DISTINCT s.id as student_id, s.name as student_name, s.admission_id,
                ta.table_no, 'allocation' as source
@@ -1360,7 +1362,7 @@ def get_session_attendance_students(session_id):
     if alloc_students:
         cur.close(); conn.close()
         return jsonify(alloc_students)
-    # Source 2: session_students
+    # Source 2: session_students (directly assigned)
     cur.execute("""
         SELECT s.id as student_id, s.name as student_name, s.admission_id,
                %s as table_no, 'session' as source
@@ -1373,18 +1375,18 @@ def get_session_attendance_students(session_id):
     if sess_students:
         cur.close(); conn.close()
         return jsonify(sess_students)
-    # Source 3: timetable — students scheduled for this slot
+    # Source 3: already-marked attendance records only
     cur.execute("""
-        SELECT DISTINCT s.id as student_id, s.name as student_name, s.admission_id,
-               %s as table_no, 'timetable' as source
-        FROM student_timetable st
-        JOIN students s ON s.id=st.student_id
-        WHERE st.slot=%s AND s.branch_id=%s AND s.status='active'
+        SELECT s.id as student_id, s.name as student_name, s.admission_id,
+               %s as table_no, 'attendance' as source
+        FROM attendance a
+        JOIN students s ON s.id=a.student_id
+        WHERE a.session_id=%s
         ORDER BY s.admission_id
-    """, (sess.get('table_no',1), sess['slot'], sess['branch_id']))
-    tt_students = rows(cur)
+    """, (sess.get('table_no',1), session_id))
+    att_students = rows(cur)
     cur.close(); conn.close()
-    return jsonify(tt_students)
+    return jsonify(att_students)
 
 # ════════════════════════════════════════════
 #  TABLE ALLOCATIONS
