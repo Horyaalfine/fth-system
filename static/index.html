@@ -259,7 +259,7 @@ table{min-width:480px;}
 <script>
 const API={async call(method,path,body){const opts={method,credentials:'include',headers:{'Content-Type':'application/json'}};if(body)opts.body=JSON.stringify(body);const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),8000);opts.signal=controller.signal;try{const res=await fetch(path,opts);clearTimeout(timer);if(res.status===401){state.currentUser=null;state.parentUser=null;render();return null;}return res.ok?res.json():Promise.reject(await res.json());}catch(e){clearTimeout(timer);if(e.name==='AbortError')console.warn('Timeout:',path);throw e;}},get:(p,q)=>API.call('GET',q?p+'?'+new URLSearchParams(q):p),post:(p,body)=>API.call('POST',p,body),put:(p,body)=>API.call('PUT',p,body),delete:(p)=>API.call('DELETE',p)};
 
-let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',sessionMonth:'',attDateFilter:'',attSlotFilter:'',attTeacherFilter:'',attStatusFilter:'all',planSessionId:null,planMonth:'',planTab:'allocate',timetableStudentId:null,mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
+let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',sessionMonth:'',attDateFilter:'',attSlotFilter:'',attAllSessions:'',attTeacherFilter:'',attStatusFilter:'all',planSessionId:null,planMonth:'',planTab:'allocate',timetableStudentId:null,mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
 
 function toast(msg,type='success'){const el=document.createElement('div');el.className=`toast toast-${type}`;el.innerHTML=(type==='success'?'<span style="color:var(--success)">✓</span> ':'<span style="color:var(--danger)">✕</span> ')+msg;document.getElementById('toasts').appendChild(el);setTimeout(()=>el.remove(),3500);}
 function roleBadge(role){const m={super_admin:['badge-purple','Super admin'],branch_manager:['badge-blue','Branch manager'],teacher:['badge-teal','Teacher'],receptionist:['badge-amber','Receptionist']};const[cls,label]=m[role]||['badge-gray',role];return`<span class="badge ${cls}">${label}</span>`;}
@@ -648,8 +648,13 @@ function renderAttendance(){
   html+='</select></div>';
 
   // Session select — narrowed by above
+  var allSessionsId='all:'+filteredSessions.map(function(s){return s.id;}).join(',');
   html+='<div class="field" style="margin:0;"><label>Session <span style="font-size:11px;color:var(--text3);">('+filteredSessions.length+' shown)</span></label><select id="att-session-select">';
   html+='<option value="">— choose a session —</option>';
+  if(filteredSessions.length>1){
+    var allLabel=attDateFilter&&attSlotFilter?'All tables — '+new Date(attDateFilter+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})+' · '+attSlotFilter:attDateFilter?'All sessions — '+new Date(attDateFilter+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'}):'All '+filteredSessions.length+' sessions';
+    html+='<option value="'+allSessionsId+'" '+(state.attAllSessions===allSessionsId?'selected':'')+'>📋 '+allLabel+' ('+filteredSessions.length+' sessions)</option>';
+  }
   filteredSessions.forEach(function(s){
     var dateLabel=new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
     html+='<option value="'+s.id+'" '+(s.id===selId?'selected':'')+'>'+dateLabel+' · '+s.slot+' · T'+s.table_no+' · '+(s.staff_name||'No teacher')+'</option>';
@@ -666,7 +671,75 @@ function renderAttendance(){
   }
   html+='</div>';
 
-  // ── Session card ──
+  // ── All sessions view ──
+  if(state.attAllSessions&&!selSess){
+    const allIds=state.attAllSessions.replace('all:','').split(',').map(Number);
+    const allSessions=allIds.map(function(id){return sessions.find(function(s){return s.id===id;});}).filter(Boolean);
+    // Build merged student list from all table allocs
+    const mergedStudents=[];
+    const seenIds={};
+    var totalPresent=0,totalAbsent=0,totalUnmarked=0;
+    allSessions.forEach(function(sess){
+      const allocs=state.data['table_allocs_'+sess.id]||[];
+      const localA=state.attRecords[sess.id]||{};
+      var stuList=[];
+      if(allocs.length){
+        allocs.forEach(function(ta){(ta.students||[]).forEach(function(ts){if(!seenIds[ts.student_id+'_'+sess.id]){seenIds[ts.student_id+'_'+sess.id]=true;stuList.push({id:ts.student_id,name:ts.student_name,admission_id:ts.admission_id,table_no:ta.table_no,session_id:sess.id,slot:sess.slot,teacher:sess.staff_name||'—'});}});});
+      }
+      stuList.forEach(function(st){
+        const rec=localA[st.id];
+        if(rec&&rec.status==='present')totalPresent++;
+        else if(rec&&rec.status==='absent')totalAbsent++;
+        else totalUnmarked++;
+        mergedStudents.push({...st,rec:rec});
+      });
+    });
+
+    var html2='';
+    if(attDateFilter){
+      html2+='<div class="card" style="margin-bottom:16px;border-left:3px solid var(--accent);">';
+      html2+='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">';
+      html2+='<div><div class="card-title">'+new Date(attDateFilter+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+(attSlotFilter?' · '+attSlotFilter:'')+'</div>';
+      html2+='<div style="font-size:12px;color:var(--text3);margin-top:2px;">'+allSessions.length+' sessions · '+mergedStudents.length+' student seats total</div></div>';
+      html2+='<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+      html2+='<span class="badge badge-success">'+totalPresent+' present</span>';
+      html2+='<span class="badge badge-danger">'+totalAbsent+' absent</span>';
+      html2+='<span class="badge badge-gray">'+totalUnmarked+' unmarked</span>';
+      html2+='</div></div></div>';
+    }
+
+    // Show a card per session
+    allSessions.forEach(function(sess){
+      const allocs=state.data['table_allocs_'+sess.id]||[];
+      const localA=state.attRecords[sess.id]||{};
+      var stuList=[];
+      if(allocs.length){allocs.forEach(function(ta){(ta.students||[]).forEach(function(ts){stuList.push({id:ts.student_id,name:ts.student_name,admission_id:ts.admission_id,table_no:ta.table_no});});});}
+      const p=stuList.filter(function(st){const r=localA[st.id];return r&&r.status==='present';}).length;
+      const a=stuList.filter(function(st){const r=localA[st.id];return r&&r.status==='absent';}).length;
+      const u=stuList.length-p-a;
+      html2+='<div class="card" style="margin-bottom:12px;">';
+      html2+='<div class="card-header">';
+      html2+='<div><div style="font-weight:600;">'+sess.slot+' · Table '+sess.table_no+' · '+(sess.staff_name||'No teacher')+'</div><div style="font-size:12px;color:var(--text3);">'+sess.branch_name+'</div></div>';
+      html2+='<div style="display:flex;gap:8px;align-items:center;">';
+      html2+='<span class="badge badge-success">'+p+' present</span><span class="badge badge-danger">'+a+' absent</span><span class="badge badge-gray">'+u+' unmarked</span>';
+      html2+='<button class="btn btn-sm btn-primary" data-action="save-att" data-id="'+sess.id+'">Save</button>';
+      html2+='</div></div>';
+      html2+='<div class="att-grid">';
+      stuList.forEach(function(st){
+        var rec=localA[st.id];
+        html2+='<div class="att-cell '+(rec?rec.status:'')+'" data-action="toggle-att" data-student="'+st.id+'" data-session="'+sess.id+'">';
+        html2+='<div class="att-name">'+st.name+'</div>';
+        html2+='<div class="att-id">'+st.admission_id+' · T'+st.table_no+'</div>';
+        html2+='<div class="att-status" style="color:'+(rec?(rec.status==='present'?'var(--success-text)':'var(--danger-text)'):'var(--text3)')+'">'+( rec?rec.status.toUpperCase():'—')+'</div>';
+        html2+='</div>';
+      });
+      if(!stuList.length)html2+='<div style="color:var(--text3);font-size:13px;padding:10px;">No table allocations set up</div>';
+      html2+='</div></div>';
+    });
+    html+=html2;
+  }
+
+  // ── Single session card ──
   if(selSess){
     var allocs=state.data['table_allocs_'+selId]||[];
     html+='<div class="card">';
@@ -2791,12 +2864,34 @@ function bindAll(){bindNav();document.querySelectorAll('[data-action]').forEach(
 // Clear any validation highlights when modal first opens
 document.querySelectorAll('.modal-body input, .modal-body select, .modal-body textarea').forEach(el=>{
   el.addEventListener('focus',()=>{el.style.border='';el.style.boxShadow='';});
-});document.getElementById('modal-backdrop')?.addEventListener('click',e=>{if(e.target.id==='modal-backdrop')closeModal();});document.getElementById('modal-save')?.addEventListener('click',doSave);document.getElementById('student-search')?.addEventListener('input',e=>{state.studentSearch=e.target.value;refreshPage();});document.getElementById('att-date-filter')?.addEventListener('change',function(e){state.attDateFilter=e.target.value;state.attSlotFilter='';state.attTeacherFilter='';state.attSessionId=null;render();});
-document.getElementById('att-slot-filter')?.addEventListener('change',function(e){state.attSlotFilter=e.target.value;state.attTeacherFilter='';state.attSessionId=null;render();});
-document.getElementById('att-teacher-filter')?.addEventListener('change',function(e){state.attTeacherFilter=e.target.value;state.attSessionId=null;render();});
+});document.getElementById('modal-backdrop')?.addEventListener('click',e=>{if(e.target.id==='modal-backdrop')closeModal();});document.getElementById('modal-save')?.addEventListener('click',doSave);document.getElementById('student-search')?.addEventListener('input',e=>{state.studentSearch=e.target.value;refreshPage();});document.getElementById('att-date-filter')?.addEventListener('change',function(e){state.attDateFilter=e.target.value;state.attSlotFilter='';state.attTeacherFilter='';state.attSessionId=null;state.attAllSessions='';render();});
+document.getElementById('att-slot-filter')?.addEventListener('change',function(e){state.attSlotFilter=e.target.value;state.attTeacherFilter='';state.attSessionId=null;state.attAllSessions='';render();});
+document.getElementById('att-teacher-filter')?.addEventListener('change',function(e){state.attTeacherFilter=e.target.value;state.attSessionId=null;state.attAllSessions='';render();});
 document.getElementById('att-slot-filter')?.addEventListener('change',function(e){state.attSlotFilter=e.target.value;state.attSessionId=null;render();});
 document.getElementById('att-teacher-filter')?.addEventListener('change',function(e){state.attTeacherFilter=e.target.value;state.attSessionId=null;render();});
-document.getElementById('att-session-select')?.addEventListener('change',async e=>{state.attSessionId=e.target.value?parseInt(e.target.value):null;if(state.attSessionId){state.attRecords[state.attSessionId]={};await Promise.all([loadData('attendance_'+state.attSessionId,'/api/attendance/'+state.attSessionId),loadData('table_allocs_'+state.attSessionId,'/api/table-allocations/'+state.attSessionId)]);const att=state.data['attendance_'+state.attSessionId]||[];att.forEach(a=>{state.attRecords[state.attSessionId][a.student_id]={status:a.status,notes:a.notes||''};});}render();});document.getElementById('staff-att-month')?.addEventListener('change',e=>{state.staffAttMonth=e.target.value;refreshPage();});
+document.getElementById('att-session-select')?.addEventListener('change',async e=>{
+  const val=e.target.value;
+  if(val&&val.startsWith('all:')){
+    // All sessions selected - load all their data
+    state.attAllSessions=val;
+    state.attSessionId=null;
+    const ids=val.replace('all:','').split(',').map(Number);
+    await Promise.all(ids.map(function(id){
+      return Promise.all([
+        loadData('attendance_'+id,'/api/attendance/'+id),
+        loadData('table_allocs_'+id,'/api/table-allocations/'+id)
+      ]).then(function(){
+        if(!state.attRecords[id]){state.attRecords[id]={};}
+        const att=state.data['attendance_'+id]||[];
+        att.forEach(function(a){state.attRecords[id][a.student_id]={status:a.status,notes:a.notes||''};});
+      });
+    }));
+  } else {
+    state.attAllSessions='';
+    state.attSessionId=val?parseInt(val):null;
+    if(state.attSessionId){state.attRecords[state.attSessionId]={};await Promise.all([loadData('attendance_'+state.attSessionId,'/api/attendance/'+state.attSessionId),loadData('table_allocs_'+state.attSessionId,'/api/table-allocations/'+state.attSessionId)]);const att=state.data['attendance_'+state.attSessionId]||[];att.forEach(function(a){state.attRecords[state.attSessionId][a.student_id]={status:a.status,notes:a.notes||''};});}
+  }
+  render();});document.getElementById('staff-att-month')?.addEventListener('change',e=>{state.staffAttMonth=e.target.value;refreshPage();});
 document.getElementById('btn-auto-id')?.addEventListener('click',async()=>{
   const branchId=document.getElementById('f-branch')?.value;
   if(!branchId){toast('Select a branch first','error');return;}
