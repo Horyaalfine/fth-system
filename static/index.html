@@ -1994,12 +1994,13 @@ function renderModal(){const m=state.modal;if(m==='add-student'||m==='edit-stude
   if(m==='add-student-to-table')return modalAddStudentToTable();
   if(m==='add-test-record'||m==='edit-test-record')return modalTestRecord();return'';}
 function mWrap(title,body,footer){return`<div class="modal-backdrop" id="modal-backdrop"><div class="modal modal-lg"><div class="modal-header"><div class="modal-title">${title}</div><button class="btn btn-sm" id="modal-close">✕</button></div><div class="modal-body">${body}</div><div class="modal-footer">${footer}</div></div></div>`;}
+function mWrapDark(title,body,footer){return`<div class="modal-backdrop" id="modal-backdrop"><div class="modal modal-lg" style="background:var(--surface);"><div class="modal-header" style="background:#0f2557;border-bottom:1px solid #2a4d9c;border-radius:var(--radius-xl) var(--radius-xl) 0 0;"><div class="modal-title" style="color:#f9fafb;">${title}</div><button class="btn btn-sm" id="modal-close" style="background:rgba(255,255,255,0.1);color:#f9fafb;border-color:rgba(255,255,255,0.2);">✕</button></div><div class="modal-body">${body}</div><div class="modal-footer">${footer}</div></div></div>`;}
 
 function modalStudent(){
   const s=state.editTarget||{};
   const branches=state.data.branches||[];
   const defBranch=state.currentBranch||branches[0]?.id||'';
-  return mWrap(s.id?'Edit student record':'Enrol new student',`
+  return mWrapDark(s.id?'Edit student record':'Enrol new student',`
     <div style="margin-bottom:16px;padding:10px 14px;background:rgba(99,102,241,0.18);border-radius:var(--radius);border-left:4px solid #6366f1;">
       <div style="font-size:13px;font-weight:700;color:var(--accent);letter-spacing:0.04em;">STUDENT DETAILS</div>
     </div>
