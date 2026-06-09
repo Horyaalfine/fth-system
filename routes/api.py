@@ -130,7 +130,7 @@ def get_branches():
     return jsonify(data)
 
 @api_bp.route('/api/branches', methods=['POST'])
-@require_roles('super_admin')
+@require_roles('super_admin','branch_manager','head_of_centre')
 def add_branch():
     d = request.json
     conn = get_conn(); cur = conn.cursor()
@@ -143,7 +143,7 @@ def add_branch():
     return jsonify(r), 201
 
 @api_bp.route('/api/branches/<int:bid>', methods=['PUT'])
-@require_roles('super_admin')
+@require_roles('super_admin','branch_manager','head_of_centre')
 def update_branch(bid):
     d = request.json
     conn = get_conn(); cur = conn.cursor()
