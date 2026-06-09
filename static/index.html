@@ -262,7 +262,7 @@ table{min-width:480px;}
 <script>
 const API={async call(method,path,body){const opts={method,credentials:'include',headers:{'Content-Type':'application/json'}};if(body)opts.body=JSON.stringify(body);const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),8000);opts.signal=controller.signal;try{const res=await fetch(path,opts);clearTimeout(timer);if(res.status===401){state.currentUser=null;state.parentUser=null;render();return null;}return res.ok?res.json():Promise.reject(await res.json());}catch(e){clearTimeout(timer);if(e.name==='AbortError')console.warn('Timeout:',path);throw e;}},get:(p,q)=>API.call('GET',q?p+'?'+new URLSearchParams(q):p),post:(p,body)=>API.call('POST',p,body),put:(p,body)=>API.call('PUT',p,body),delete:(p)=>API.call('DELETE',p)};
 
-let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',sessionMonth:'',sessionSlot:'',sessionTeacher:'',sessionSubject:'',attDateFilter:'',attSlotFilter:'',attAllSessions:'',attTeacherFilter:'',attStatusFilter:'all',planSessionId:null,planMonth:'',planTab:'allocate',timetableStudentId:null,mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
+let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',sessionMonth:'',sessionDay:'',sessionSlot:'',sessionTeacher:'',sessionSubject:'',attDateFilter:'',attSlotFilter:'',attAllSessions:'',attTeacherFilter:'',attStatusFilter:'all',planSessionId:null,planMonth:'',planTab:'allocate',timetableStudentId:null,mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
 
 function toast(msg,type='success'){const el=document.createElement('div');el.className=`toast toast-${type}`;el.innerHTML=(type==='success'?'<span style="color:var(--success)">✓</span> ':'<span style="color:var(--danger)">✕</span> ')+msg;document.getElementById('toasts').appendChild(el);setTimeout(()=>el.remove(),3500);}
 function roleBadge(role){const m={super_admin:['badge-purple','Super admin'],branch_manager:['badge-blue','Branch manager'],teacher:['badge-teal','Teacher'],receptionist:['badge-amber','Receptionist']};const[cls,label]=m[role]||['badge-gray',role];return`<span class="badge ${cls}">${label}</span>`;}
@@ -519,24 +519,49 @@ return`
 function renderSessions(){
   const sessions=state.data.sessions||[];
   const sessMonth=state.sessionMonth||'';
+  const sessDay=state.sessionDay||'';
   const sessSlot=state.sessionSlot||'';
   const sessTeacher=state.sessionTeacher||'';
   const sessSubject=state.sessionSubject||'';
 
-  // Build filter options from full session list
+  // ── Step 1: months ──
   const months=[...new Set(sessions.map(function(s){return s.date?s.date.slice(0,7):'';}).filter(Boolean))].sort().reverse();
-  const slotSrc=sessMonth?sessions.filter(function(s){return s.date&&s.date.slice(0,7)===sessMonth;}):sessions;
-  const slots=[...new Set(slotSrc.map(function(s){return s.slot;}).filter(Boolean))].sort();
-  const teacherSrc=slotSrc.filter(function(s){return !sessSlot||s.slot===sessSlot;});
-  const teacherMap={};
-  teacherSrc.forEach(function(s){if(s.staff_id&&s.staff_name)teacherMap[s.staff_id]=s.staff_name;});
-  const teachers=Object.entries(teacherMap).map(function(e){return{id:e[0],name:e[1]};}).sort(function(a,b){return a.name.localeCompare(b.name);});
-  const subjectSrc=teacherSrc.filter(function(s){return !sessTeacher||String(s.staff_id)===sessTeacher;});
-  const subjects=[...new Set(subjectSrc.map(function(s){return s.subject;}).filter(Boolean))].sort();
 
-  // Apply all filters
+  // ── Step 2: days of week available in selected month ──
+  const monthSrc=sessMonth?sessions.filter(function(s){return s.date&&s.date.slice(0,7)===sessMonth;}):sessions;
+  // Build unique weekdays with their label and a representative date for sorting
+  const dayMap={};
+  monthSrc.forEach(function(s){
+    if(!s.date)return;
+    const d=new Date(s.date+'T00:00:00');
+    const dayNum=d.getDay(); // 0=Sun,1=Mon...6=Sat
+    const dayLabel=d.toLocaleDateString('en-GB',{weekday:'long'});
+    if(!dayMap[dayLabel])dayMap[dayLabel]=dayNum;
+  });
+  const dayOrder=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const days=Object.keys(dayMap).sort(function(a,b){return dayOrder.indexOf(a)-dayOrder.indexOf(b);});
+
+  // ── Step 3: slot times available in selected month+day ──
+  const daySrc=monthSrc.filter(function(s){
+    if(!sessDay)return true;
+    return new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long'})===sessDay;
+  });
+  const slots=[...new Set(daySrc.map(function(s){return s.slot;}).filter(Boolean))].sort();
+
+  // ── Step 4: teachers in selected month+day+slot ──
+  const slotSrc=daySrc.filter(function(s){return !sessSlot||s.slot===sessSlot;});
+  const teacherMap={};
+  slotSrc.forEach(function(s){if(s.staff_id&&s.staff_name)teacherMap[s.staff_id]=s.staff_name;});
+  const teachers=Object.entries(teacherMap).map(function(e){return{id:e[0],name:e[1]};}).sort(function(a,b){return a.name.localeCompare(b.name);});
+
+  // ── Step 5: subjects in selected month+day+slot+teacher ──
+  const teacherSrc=slotSrc.filter(function(s){return !sessTeacher||String(s.staff_id)===sessTeacher;});
+  const subjects=[...new Set(teacherSrc.map(function(s){return s.subject;}).filter(Boolean))].sort();
+
+  // ── Apply all filters ──
   const filtered=sessions.filter(function(s){
     if(sessMonth&&(!s.date||s.date.slice(0,7)!==sessMonth))return false;
+    if(sessDay&&new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long'})!==sessDay)return false;
     if(sessSlot&&s.slot!==sessSlot)return false;
     if(sessTeacher&&String(s.staff_id)!==sessTeacher)return false;
     if(sessSubject&&s.subject!==sessSubject)return false;
@@ -548,10 +573,9 @@ function renderSessions(){
   filtered.forEach(function(s){const d=s.date||'';if(!byDate[d])byDate[d]=[];byDate[d].push(s);});
   const dates=Object.keys(byDate).sort().reverse();
 
-  // Summary counts
   const totalPresent=filtered.reduce(function(s,x){return s+(x.present_count||0);},0);
   const totalStudents=filtered.reduce(function(s,x){return s+(x.total_count||0);},0);
-  const activeFilters=[sessMonth,sessSlot,sessTeacher,sessSubject].filter(Boolean).length;
+  const activeFilters=[sessMonth,sessDay,sessSlot,sessTeacher,sessSubject].filter(Boolean).length;
 
   var html='';
   html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">';
@@ -562,7 +586,7 @@ function renderSessions(){
 
   // Filter bar
   html+='<div class="card" style="margin-bottom:16px;padding:14px 18px;">';
-  html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:10px;align-items:end;">';
+  html+='<div style="display:grid;grid-template-columns:repeat(5,1fr) auto;gap:10px;align-items:end;">';
 
   // Month
   html+='<div class="field" style="margin:0;"><label>Month</label><select id="session-month-filter">';
@@ -572,8 +596,14 @@ function renderSessions(){
   });
   html+='</select></div>';
 
-  // Slot
-  html+='<div class="field" style="margin:0;"><label>Slot</label><select id="session-slot-filter">';
+  // Day of week
+  html+='<div class="field" style="margin:0;"><label>Day</label><select id="session-day-filter">';
+  html+='<option value="">All days</option>';
+  days.forEach(function(d){html+='<option value="'+d+'" '+(d===sessDay?'selected':'')+'>'+d+'</option>';});
+  html+='</select></div>';
+
+  // Slot time
+  html+='<div class="field" style="margin:0;"><label>Slot time</label><select id="session-slot-filter">';
   html+='<option value="">All slots</option>';
   slots.forEach(function(sl){html+='<option value="'+sl+'" '+(sl===sessSlot?'selected':'')+'>'+sl+'</option>';});
   html+='</select></div>';
@@ -590,11 +620,9 @@ function renderSessions(){
   subjects.forEach(function(s){html+='<option value="'+s+'" '+(s===sessSubject?'selected':'')+'>'+s+'</option>';});
   html+='</select></div>';
 
-  // Clear filters button
+  // Clear
   html+='<div style="padding-bottom:1px;">';
-  if(activeFilters){
-    html+='<button class="btn btn-sm" data-action="session-clear-filters" style="white-space:nowrap;">✕ Clear</button>';
-  }
+  if(activeFilters){html+='<button class="btn btn-sm" data-action="session-clear-filters" style="white-space:nowrap;">✕ Clear</button>';}
   html+='</div>';
   html+='</div></div>';
 
@@ -614,12 +642,11 @@ function renderSessions(){
     html+='<div style="font-size:12px;color:var(--text3);">'+daySessions.length+' session'+(daySessions.length>1?'s':'')+' · '+dayPresent+'/'+dayTotal+' present</div>';
     html+='</div>';
     html+='<div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>';
-    html+='<thead><tr><th>Slot</th><th>Teacher</th><th>Subject</th><th>Table</th><th>Attendance</th><th></th></tr></thead>';
-    html+='<tbody>';
+    html+='<thead><tr><th>Slot</th><th>Teacher</th><th>Subject</th><th>Table</th><th>Attendance</th><th></th></tr></thead><tbody>';
     daySessions.forEach(function(s){
       html+='<tr>';
       html+='<td style="font-size:13px;">'+s.slot+'</td>';
-      html+='<td>'+( s.staff_name||'—')+'</td>';
+      html+='<td>'+(s.staff_name||'—')+'</td>';
       html+='<td><span class="badge badge-gray">'+(s.subject||'—')+'</span></td>';
       html+='<td style="color:var(--text3);font-size:13px;">T'+s.table_no+'</td>';
       html+='<td><span class="badge '+(s.present_count>0?'badge-success':'badge-gray')+'">'+s.present_count+'/'+s.total_count+' present</span></td>';
@@ -628,7 +655,6 @@ function renderSessions(){
     });
     html+='</tbody></table></div></div></div>';
   });
-
   return html;
 }
 
@@ -2978,7 +3004,11 @@ document.getElementById('f-first-name')?.addEventListener('input',()=>{
   document.getElementById('f-first-name').style.boxShadow='';
 });
 document.getElementById('fin-month-filter')?.addEventListener('change',e=>{state.finMonth=e.target.value||'';refreshPage();});
-document.getElementById('session-month-filter')?.addEventListener('change',function(e){state.sessionMonth=e.target.value;state.sessionSlot='';state.sessionTeacher='';state.sessionSubject='';render();});
+document.getElementById('session-month-filter')?.addEventListener('change',function(e){state.sessionMonth=e.target.value;state.sessionDay='';state.sessionSlot='';state.sessionTeacher='';state.sessionSubject='';render();});
+document.getElementById('session-day-filter')?.addEventListener('change',function(e){state.sessionDay=e.target.value;state.sessionSlot='';state.sessionTeacher='';state.sessionSubject='';render();});
+document.getElementById('session-slot-filter')?.addEventListener('change',function(e){state.sessionSlot=e.target.value;state.sessionTeacher='';state.sessionSubject='';render();});
+document.getElementById('session-teacher-filter')?.addEventListener('change',function(e){state.sessionTeacher=e.target.value;state.sessionSubject='';render();});
+document.getElementById('session-subject-filter')?.addEventListener('change',function(e){state.sessionSubject=e.target.value;render();});
 document.getElementById('session-slot-filter')?.addEventListener('change',function(e){state.sessionSlot=e.target.value;state.sessionTeacher='';state.sessionSubject='';render();});
 document.getElementById('session-teacher-filter')?.addEventListener('change',function(e){state.sessionTeacher=e.target.value;state.sessionSubject='';render();});
 document.getElementById('session-subject-filter')?.addEventListener('change',function(e){state.sessionSubject=e.target.value;render();});
@@ -3263,7 +3293,7 @@ if(action==='reset-user-pw'){state.modal='reset-user-pw';state.editTarget=(state
 if(action==='change-password'){state.modal='change-password';state.editTarget=null;render();return;}
 if(action==='add-hq-transfer'){state.modal='add-hq-transfer';state.editTarget=null;render();return;}
 if(action==='del-hq-transfer'){if(!confirm('Delete this transfer record?'))return;await API.delete('/api/hq-transfers/'+id);toast('Transfer deleted');refreshPage();return;}
-if(action==='session-clear-filters'){state.sessionMonth='';state.sessionSlot='';state.sessionTeacher='';state.sessionSubject='';render();return;}
+if(action==='session-clear-filters'){state.sessionMonth='';state.sessionDay='';state.sessionSlot='';state.sessionTeacher='';state.sessionSubject='';render();return;}
 if(action==='fin-tab'){state.finTab=el.dataset.tab;render();return;}
 if(action==='fin-method-filter'){state.finMethod=el.dataset.method||null;state.finTab='accounts';render();return;}
 if(action==='fin-clear-month'){state.finMonth='';refreshPage();return;}
