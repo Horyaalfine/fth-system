@@ -259,7 +259,7 @@ table{min-width:480px;}
 <script>
 const API={async call(method,path,body){const opts={method,credentials:'include',headers:{'Content-Type':'application/json'}};if(body)opts.body=JSON.stringify(body);const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),8000);opts.signal=controller.signal;try{const res=await fetch(path,opts);clearTimeout(timer);if(res.status===401){state.currentUser=null;state.parentUser=null;render();return null;}return res.ok?res.json():Promise.reject(await res.json());}catch(e){clearTimeout(timer);if(e.name==='AbortError')console.warn('Timeout:',path);throw e;}},get:(p,q)=>API.call('GET',q?p+'?'+new URLSearchParams(q):p),post:(p,body)=>API.call('POST',p,body),put:(p,body)=>API.call('PUT',p,body),delete:(p)=>API.call('DELETE',p)};
 
-let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',planSessionId:null,planMonth:'',planTab:'allocate',timetableStudentId:null,mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
+let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',sessionMonth:'',planSessionId:null,planMonth:'',planTab:'allocate',timetableStudentId:null,mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
 
 function toast(msg,type='success'){const el=document.createElement('div');el.className=`toast toast-${type}`;el.innerHTML=(type==='success'?'<span style="color:var(--success)">✓</span> ':'<span style="color:var(--danger)">✕</span> ')+msg;document.getElementById('toasts').appendChild(el);setTimeout(()=>el.remove(),3500);}
 function roleBadge(role){const m={super_admin:['badge-purple','Super admin'],branch_manager:['badge-blue','Branch manager'],teacher:['badge-teal','Teacher'],receptionist:['badge-amber','Receptionist']};const[cls,label]=m[role]||['badge-gray',role];return`<span class="badge ${cls}">${label}</span>`;}
@@ -396,14 +396,29 @@ async function doParentLogin(){const email=document.getElementById('l-email')?.v
         state.data['p_diary_'+child.id]=await API.get('/api/parent/diary/'+child.id)||[];
         state.data['p_tests_'+child.id]=await API.get('/api/parent/test-records/'+child.id)||[];state.data['p_inv_'+child.id]=await API.get('/api/parent/invoices/'+child.id)||[];state.data['p_prog_'+child.id]=await API.get('/api/parent/progress/'+child.id)||[];}render();}catch(e){document.getElementById('login-err').textContent=e.error||'Login failed';}}
 
-function renderSidebar(){const u=state.currentUser;const isSA=u.role==='super_admin';const pages=[{id:'dashboard',icon:icoHome(),label:'Dashboard'},{id:'students',icon:icoUsers(),label:'Students'},{id:'staff',icon:icoUser(),label:'Staff'},{id:'sessions',icon:icoCal(),label:'Sessions'},{id:'session_plan',icon:icoGrid(),label:'Session planner'},{id:'attendance',icon:icoCheck(),label:'Attendance'},{id:'invoices',icon:icoPound(),label:'Invoices & fees'},{id:'session_reports',icon:icoDoc(),label:'Session reports'},{id:'catchup',icon:icoHeart(),label:'Catch-up lessons'},{id:'lesson_reports',icon:icoBook(),label:'Lesson reports'},{id:'test_records',icon:icoTest(),label:'Test records'},{id:'staff_timesheets',icon:icoClipboard(),label:'Staff timesheets'},{id:'finance',icon:icoFinance(),label:'Finance'},{id:'reports',icon:icoChart(),label:'Analytics'},{id:'mgmt_reports',icon:icoClipboard(),label:'Management reports'}];const adminPages=[{id:'users',icon:icoKey(),label:'User management'},{id:'branches',icon:icoBranch(),label:'Branches'},{id:'parent_portal',icon:icoHeart(),label:'Parent portal'},{id:'audit',icon:icoLog(),label:'Audit log'}];const branches=state.data.branches||[];
+function renderSidebar(){const u=state.currentUser;const isSA=u.role==='super_admin';const pages=[
+  {id:'dashboard',icon:icoHome(),label:'Dashboard',group:'main'},
+  {id:'students',icon:icoUsers(),label:'Students',group:'people'},
+  {id:'staff',icon:icoUser(),label:'Staff',group:'people'},
+  {id:'sessions',icon:icoCal(),label:'Sessions',group:'sessions'},
+  {id:'session_plan',icon:icoGrid(),label:'Session planner',group:'sessions'},
+  {id:'attendance',icon:icoCheck(),label:'Attendance',group:'sessions'},
+  {id:'invoices',icon:icoPound(),label:'Invoices & fees',group:'finance'},
+  {id:'finance',icon:icoFinance(),label:'Finance',group:'finance'},
+  {id:'staff_timesheets',icon:icoClipboard(),label:'Staff timesheets',group:'finance'},
+  {id:'session_reports',icon:icoDoc(),label:'Session reports',group:'reports'},
+  {id:'lesson_reports',icon:icoBook(),label:'Lesson reports',group:'reports'},
+  {id:'catchup',icon:icoHeart(),label:'Catch-up lessons',group:'reports'},
+  {id:'test_records',icon:icoTest(),label:'Test records',group:'reports'},
+  {id:'reports',icon:icoChart(),label:'Analytics',group:'reports'},
+  {id:'mgmt_reports',icon:icoClipboard(),label:'Management reports',group:'reports'},
+];const adminPages=[{id:'users',icon:icoKey(),label:'User management'},{id:'branches',icon:icoBranch(),label:'Branches'},{id:'parent_portal',icon:icoHeart(),label:'Parent portal'},{id:'audit',icon:icoLog(),label:'Audit log'}];const branches=state.data.branches||[];
 return`<div class="sidebar">
 <div class="sidebar-brand"><div class="brand-icon">FT</div><div class="brand-name">FT Harlesden</div><div class="brand-sub">Management System</div></div>
 ${isSA?`<div style="padding:10px 14px 0;"><div class="branch-switcher"><label>Viewing branch</label><select id="branch-switch"><option value="">All branches</option>${branches.map(b=>`<option value="${b.id}" ${state.currentBranch==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div></div>`:''}
 <div class="nav-section">
-<div class="nav-label">Main</div>
-${pages.filter(p=>canAccess(p.id)).map(p=>`<div class="nav-item ${state.page===p.id?'active':''}" data-page="${p.id}">${p.icon} ${p.label}</div>`).join('')}
-${(u.role==='super_admin'||u.role==='branch_manager'||u.role==='head_of_centre')?`<div class="nav-label" style="margin-top:14px;">Admin</div>${adminPages.filter(p=>canAccess(p.id)).map(p=>`<div class="nav-item ${state.page===p.id?'active':''}" data-page="${p.id}">${p.icon} ${p.label}</div>`).join('')}`:''}
+${(()=>{const groups=[{key:'main',label:''},{key:'people',label:'People'},{key:'sessions',label:'Sessions'},{key:'finance',label:'Finance'},{key:'reports',label:'Reports'}];return groups.map(g=>{const items=pages.filter(p=>p.group===g.key&&canAccess(p.id));if(!items.length)return'';return(g.label?`<div class="nav-label" style="margin-top:10px;">${g.label}</div>`:'')+items.map(p=>`<div class="nav-item ${state.page===p.id?'active':''}" data-page="${p.id}">${p.icon} ${p.label}</div>`).join('');}).join('');})()}
+${(u.role==='super_admin'||u.role==='branch_manager'||u.role==='head_of_centre')?`<div class="nav-label" style="margin-top:10px;">Admin</div>${adminPages.filter(p=>canAccess(p.id)).map(p=>`<div class="nav-item ${state.page===p.id?'active':''}" data-page="${p.id}">${p.icon} ${p.label}</div>`).join('')}`:''}
 </div>
 <div class="sidebar-footer">
 <div class="user-chip"><div class="avatar ${avatarClass(u.role)}">${avatarInitials(u.name)}</div><div><div style="font-size:13px;font-weight:600;color:var(--sb-text);">${u.name}</div><div style="margin-top:2px;">${roleBadge(u.role)}</div></div></div>
@@ -498,25 +513,45 @@ return`
 </tr>`).join('')}</tbody>
 </table></div></div>`;}
 
-function renderSessions(){const sessions=state.data.sessions||[];
-return`
+function renderSessions(){
+  const sessions=state.data.sessions||[];
+  const sessionMonth=state.sessionMonth||'';
+  const months=[...new Set(sessions.map(s=>s.date?s.date.slice(0,7):'').filter(Boolean))].sort().reverse();
+  const filtered=sessionMonth?sessions.filter(s=>s.date&&s.date.slice(0,7)===sessionMonth):sessions;
+  // Group by date
+  const byDate={};
+  filtered.forEach(s=>{const d=s.date||'';if(!byDate[d])byDate[d]=[];byDate[d].push(s);});
+  const dates=Object.keys(byDate).sort().reverse();
+  return`
 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
-<div><div class="section-title">Sessions</div><div class="section-sub">${sessions.length} recorded</div></div>
+<div><div class="section-title">Sessions</div><div class="section-sub">${filtered.length} session${filtered.length!==1?'s':''} ${sessionMonth?'in '+new Date(sessionMonth+'-01T00:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'}):'total'}</div></div>
+<div style="display:flex;gap:10px;align-items:center;">
+<select id="session-month-filter" style="border:1px solid var(--border2);border-radius:var(--radius);padding:7px 10px;background:var(--surface);color:var(--text);font-family:var(--font);font-size:13px;">
+  <option value="">All months</option>
+  ${months.map(m=>`<option value="${m}" ${m===sessionMonth?'selected':''}>${new Date(m+'-01T00:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'})}</option>`).join('')}
+</select>
 <button class="btn btn-primary" data-action="add-session">+ Add session</button>
 </div>
+</div>
+${dates.length===0?`<div class="empty-state">No sessions found.</div>`:''}
+${dates.map(date=>{
+  const daySessions=byDate[date];
+  const dayLabel=new Date(date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  return`<div style="margin-bottom:6px;padding:6px 2px 2px;"><div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">${dayLabel}</div>
 <div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>
-<thead><tr><th>Date</th><th>Slot</th><th>Branch</th><th>Teacher</th><th>Subject</th><th>Table</th><th>Attendance</th><th></th></tr></thead>
-<tbody>${sessions.map(s=>`<tr>
-<td><strong>${new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</strong></td>
-<td style="font-size:12px;color:var(--text3);">${s.slot}</td>
+<thead><tr><th>Slot</th><th>Branch</th><th>Teacher</th><th>Subject</th><th>Table</th><th>Attendance</th><th></th></tr></thead>
+<tbody>${daySessions.map(s=>`<tr>
+<td style="font-size:13px;">${s.slot}</td>
 <td><span class="badge badge-accent">${s.branch_name||'?'}</span></td>
 <td>${s.staff_name||'—'}</td>
 <td><span class="badge badge-gray">${s.subject||'—'}</span></td>
-<td style="color:var(--text3);">Table ${s.table_no}</td>
+<td style="color:var(--text3);font-size:13px;">Table ${s.table_no}</td>
 <td><span class="badge ${s.present_count>0?'badge-success':'badge-gray'}">${s.present_count}/${s.total_count} present</span></td>
 <td><div class="row-actions"><button class="btn btn-sm btn-success" data-action="mark-att" data-id="${s.id}">Attendance</button><button class="btn btn-sm btn-danger" data-action="del-session" data-id="${s.id}">Del</button></div></td>
 </tr>`).join('')}</tbody>
-</table></div></div>`;}
+</table></div></div></div>`;
+}).join('')}`;
+}
 
 function renderAttendance(){const sessions=state.data.sessions||[];const students=state.data.students||[];const selId=state.attSessionId;const selSess=sessions.find(s=>s.id===selId);const attData=selId?(state.data['attendance_'+selId]||[]):[];if(selId&&!state.attRecords[selId]){state.attRecords[selId]={};attData.forEach(a=>{state.attRecords[selId][a.student_id]={status:a.status,notes:a.notes||''};});}const localAtt=selId?(state.attRecords[selId]||{}):{};const branchStudents=selSess?students.filter(s=>s.branch_id===selSess.branch_id&&s.status==='active'):[];const presentCount=Object.values(localAtt).filter(a=>a.status==='present').length;const absentCount=Object.values(localAtt).filter(a=>a.status==='absent').length;
 return`
@@ -944,7 +979,7 @@ function renderFinance(){
     <div style="display:flex;gap:10px;">
       <button class="btn btn-primary" data-action="add-payment">+ Record payment</button>
       <button class="btn" data-action="add-instalment-plan">+ Instalment plan</button>
-      ${tab==='hq'?'<button class="btn btn-primary" data-action="add-hq-transfer">+ Record transfer</button>':''}
+      ${tab==='hq'?`<button class="btn btn-primary" data-action="add-hq-transfer">+ Record transfer</button>`:''}
     </div>
   </div>
 
@@ -2642,6 +2677,7 @@ document.getElementById('f-first-name')?.addEventListener('input',()=>{
   document.getElementById('f-first-name').style.boxShadow='';
 });
 document.getElementById('fin-month-filter')?.addEventListener('change',e=>{state.finMonth=e.target.value||'';refreshPage();});
+document.getElementById('session-month-filter')?.addEventListener('change',e=>{state.sessionMonth=e.target.value;render();});
 document.getElementById('fin-student-select')?.addEventListener('change',async e=>{
   state.finStudentId=e.target.value?parseInt(e.target.value):null;
   if(state.finStudentId){state.data['statement_'+state.finStudentId]=await API.get('/api/statement/'+state.finStudentId).catch(()=>null);}
