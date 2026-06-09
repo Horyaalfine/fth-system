@@ -557,104 +557,98 @@ function renderAttendance(){
   const sessions=state.data.sessions||[];
   const students=state.data.students||[];
   const selId=state.attSessionId;
-  const selSess=sessions.find(s=>s.id===selId);
+  const selSess=sessions.find(function(s){return s.id===selId;});
   const attData=selId?(state.data['attendance_'+selId]||[]):[];
-  if(selId&&!state.attRecords[selId]){state.attRecords[selId]={};attData.forEach(a=>{state.attRecords[selId][a.student_id]={status:a.status,notes:a.notes||''};});}
+  if(selId&&!state.attRecords[selId]){state.attRecords[selId]={};attData.forEach(function(a){state.attRecords[selId][a.student_id]={status:a.status,notes:a.notes||''};});}
   const localAtt=selId?(state.attRecords[selId]||{}):{};
 
-  // Filters
   const attSlotFilter=state.attSlotFilter||'';
   const attTeacherFilter=state.attTeacherFilter||'';
   const attStatusFilter=state.attStatusFilter||'all';
 
-  // Build unique slots and teachers from sessions for filter dropdowns
-  const slots=[...new Set(sessions.map(s=>s.slot).filter(Boolean))].sort();
-  const teachers=[...new Map(sessions.filter(s=>s.staff_name).map(s=>[s.staff_id,{id:s.staff_id,name:s.staff_name}])).values()].sort((a,b)=>a.name.localeCompare(b.name));
+  const slots=[...new Set(sessions.map(function(s){return s.slot;}).filter(Boolean))].sort();
+  const teacherMap={};
+  sessions.forEach(function(s){if(s.staff_id&&s.staff_name)teacherMap[s.staff_id]=s.staff_name;});
+  const teachers=Object.entries(teacherMap).map(function(e){return {id:e[0],name:e[1]};}).sort(function(a,b){return a.name.localeCompare(b.name);});
 
-  // Filter sessions for the select dropdown
-  const filteredSessions=sessions.filter(s=>{
+  const filteredSessions=sessions.filter(function(s){
     if(attSlotFilter&&s.slot!==attSlotFilter)return false;
     if(attTeacherFilter&&String(s.staff_id)!==attTeacherFilter)return false;
     return true;
   });
 
-  const branchStudents=selSess?students.filter(s=>s.branch_id===selSess.branch_id&&s.status==='active'):[];
-  const presentCount=Object.values(localAtt).filter(a=>a.status==='present').length;
-  const absentCount=Object.values(localAtt).filter(a=>a.status==='absent').length;
+  const branchStudents=selSess?students.filter(function(s){return s.branch_id===selSess.branch_id&&s.status==='active';}):[];
+  const presentCount=Object.values(localAtt).filter(function(a){return a.status==='present';}).length;
+  const absentCount=Object.values(localAtt).filter(function(a){return a.status==='absent';}).length;
   const unmarkedCount=branchStudents.length-presentCount-absentCount;
 
-  // Filter student cards by status
-  const visibleStudents=branchStudents.filter(st=>{
-    if(attStatusFilter==='all') return true;
+  const visibleStudents=branchStudents.filter(function(st){
+    if(attStatusFilter==='all')return true;
     const rec=localAtt[st.id];
-    if(attStatusFilter==='unmarked') return !rec;
+    if(attStatusFilter==='unmarked')return !rec;
     return rec&&rec.status===attStatusFilter;
   });
 
-  return\`
-<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
-<div><div class="section-title">Attendance</div><div class="section-sub">Select a session then click student cards to toggle</div></div>
-</div>
+  var html='';
+  html+='<div class="section-title" style="margin-bottom:4px;">Attendance</div>';
+  html+='<div class="section-sub">Filter sessions then click student cards to toggle present / absent</div>';
 
-<div class="card" style="margin-bottom:16px;">
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
-    <div class="field" style="margin:0;">
-      <label>Filter by slot</label>
-      <select id="att-slot-filter">
-        <option value="">All slots</option>
-        \${slots.map(sl=>\`<option value="\${sl}" \${sl===attSlotFilter?'selected':''}>\${sl}</option>\`).join('')}
-      </select>
-    </div>
-    <div class="field" style="margin:0;">
-      <label>Filter by teacher</label>
-      <select id="att-teacher-filter">
-        <option value="">All teachers</option>
-        \${teachers.map(t=>\`<option value="\${t.id}" \${String(t.id)===attTeacherFilter?'selected':''}>\${t.name}</option>\`).join('')}
-      </select>
-    </div>
-    <div class="field" style="margin:0;">
-      <label>Select session</label>
-      <select id="att-session-select">
-        <option value="">— choose a session —</option>
-        \${filteredSessions.map(s=>\`<option value="\${s.id}" \${s.id===selId?'selected':'"}>\${new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})} · \${s.slot} · \${s.staff_name||'No teacher'} · \${s.branch_name}</option>\`).join('')}
-      </select>
-    </div>
-  </div>
-</div>
+  html+='<div class="card" style="margin-bottom:16px;">';
+  html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">';
 
-\${selSess?\`
-<div class="card">
-  <div class="card-header">
-    <div>
-      <div class="card-title">\${new Date(selSess.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</div>
-      <div style="font-size:12px;color:var(--text3);margin-top:2px;">\${selSess.slot} · \${selSess.staff_name||'No teacher'} · \${selSess.branch_name}</div>
-    </div>
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-      <span class="badge badge-success">\${presentCount} present</span>
-      <span class="badge badge-danger">\${absentCount} absent</span>
-      <span class="badge badge-gray">\${unmarkedCount} unmarked</span>
-      <button class="btn btn-sm btn-primary" data-action="save-att" data-id="\${selId}">Save attendance</button>
-    </div>
-  </div>
+  html+='<div class="field" style="margin:0;"><label>Filter by slot</label><select id="att-slot-filter">';
+  html+='<option value="">All slots</option>';
+  slots.forEach(function(sl){html+='<option value="'+sl+'" '+(sl===attSlotFilter?'selected':'')+'>'+sl+'</option>';});
+  html+='</select></div>';
 
-  <div style="display:flex;gap:8px;align-items:center;margin:12px 0;flex-wrap:wrap;">
-    <span style="font-size:12px;color:var(--text3);font-weight:600;">Show:</span>
-    \${[['all','All students'],['present','Present only'],['absent','Absent only'],['unmarked','Unmarked only']].map(([val,label])=>\`
-      <button class="btn btn-sm \${attStatusFilter===val?'btn-primary':''}" data-action="att-status-filter" data-filter="\${val}" style="\${attStatusFilter===val?'':'background:var(--surface2);'}">\${label}\${val==='present'?' ('+presentCount+')':val==='absent'?' ('+absentCount+')':val==='unmarked'?' ('+unmarkedCount+')':' ('+branchStudents.length+')'}</button>
-    \`).join('')}
-  </div>
+  html+='<div class="field" style="margin:0;"><label>Filter by teacher</label><select id="att-teacher-filter">';
+  html+='<option value="">All teachers</option>';
+  teachers.forEach(function(t){html+='<option value="'+t.id+'" '+(String(t.id)===attTeacherFilter?'selected':'')+'>'+t.name+'</option>';});
+  html+='</select></div>';
 
-  <p style="font-size:12px;color:var(--text3);margin-bottom:14px;">Click a card to toggle present / absent\${attStatusFilter!=='all'?' · Showing \${visibleStudents.length} of \${branchStudents.length} students':''}</p>
-  <div class="att-grid">
-  \${visibleStudents.map(st=>{const rec=localAtt[st.id];return\`<div class="att-cell \${rec?rec.status:''}" data-action="toggle-att" data-student="\${st.id}" data-session="\${selId}">
-    <div class="att-name">\${st.name}</div>
-    <div class="att-id">\${st.admission_id}</div>
-    <div class="att-status" style="color:\${rec?(rec.status==='present'?'var(--success-text)':'var(--danger-text)'):'var(--text3)'}">\${rec?rec.status.toUpperCase():'—'}</div>
-  </div>\`;}).join('')}
-  \${visibleStudents.length===0?\`<div style="grid-column:1/-1;padding:30px;text-align:center;color:var(--text3);font-size:13px;">No students match this filter</div>\`:''}
-  </div>
-</div>\`:''}
-\`;}
+  html+='<div class="field" style="margin:0;"><label>Select session</label><select id="att-session-select">';
+  html+='<option value="">— choose a session —</option>';
+  filteredSessions.forEach(function(s){
+    html+='<option value="'+s.id+'" '+(s.id===selId?'selected':'')+'>'+new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})+' · '+s.slot+' · '+(s.staff_name||'No teacher')+' · '+s.branch_name+'</option>';
+  });
+  html+='</select></div>';
+  html+='</div></div>';
+
+  if(selSess){
+    html+='<div class="card">';
+    html+='<div class="card-header">';
+    html+='<div><div class="card-title">'+new Date(selSess.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+'</div>';
+    html+='<div style="font-size:12px;color:var(--text3);margin-top:2px;">'+selSess.slot+' · '+(selSess.staff_name||'No teacher')+' · '+selSess.branch_name+'</div></div>';
+    html+='<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">';
+    html+='<span class="badge badge-success">'+presentCount+' present</span>';
+    html+='<span class="badge badge-danger">'+absentCount+' absent</span>';
+    html+='<span class="badge badge-gray">'+unmarkedCount+' unmarked</span>';
+    html+='<button class="btn btn-sm btn-primary" data-action="save-att" data-id="'+selId+'">Save attendance</button>';
+    html+='</div></div>';
+
+    html+='<div style="display:flex;gap:8px;align-items:center;margin:12px 0;flex-wrap:wrap;">';
+    html+='<span style="font-size:12px;color:var(--text3);font-weight:600;">Show:</span>';
+    var filters=[['all','All ('+branchStudents.length+')'],['present','Present ('+presentCount+')'],['absent','Absent ('+absentCount+')'],['unmarked','Unmarked ('+unmarkedCount+')']];
+    filters.forEach(function(f){
+      html+='<button class="btn btn-sm '+(attStatusFilter===f[0]?'btn-primary':'')+'" data-action="att-status-filter" data-filter="'+f[0]+'" style="'+(attStatusFilter===f[0]?'':'background:var(--surface2);')+'">'+f[1]+'</button>';
+    });
+    html+='</div>';
+
+    html+='<p style="font-size:12px;color:var(--text3);margin-bottom:14px;">Click a card to toggle · Showing '+visibleStudents.length+(attStatusFilter!=='all'?' of '+branchStudents.length:'')+' students</p>';
+    html+='<div class="att-grid">';
+    visibleStudents.forEach(function(st){
+      var rec=localAtt[st.id];
+      html+='<div class="att-cell '+(rec?rec.status:'')+'" data-action="toggle-att" data-student="'+st.id+'" data-session="'+selId+'">';
+      html+='<div class="att-name">'+st.name+'</div>';
+      html+='<div class="att-id">'+st.admission_id+'</div>';
+      html+='<div class="att-status" style="color:'+(rec?(rec.status==='present'?'var(--success-text)':'var(--danger-text)'):'var(--text3)')+'">'+( rec?rec.status.toUpperCase():'—')+'</div>';
+      html+='</div>';
+    });
+    if(visibleStudents.length===0){html+='<div style="grid-column:1/-1;padding:30px;text-align:center;color:var(--text3);font-size:13px;">No students match this filter</div>';}
+    html+='</div></div>';
+  }
+  return html;
+}
 
 function renderInvoices(){const invs=state.data.invoices||[];const total=invs.reduce((s,i)=>s+i.amount,0);const paid=invs.filter(i=>i.status==='paid').reduce((s,i)=>s+i.amount,0);const out=invs.filter(i=>i.status!=='paid').reduce((s,i)=>s+i.amount,0);const f=state.invoiceFilter||'all';
 return`
@@ -1591,7 +1585,7 @@ function renderSessionPlan(){
     // Load all timetable data
     const allTT=state.data.all_timetables||[];
 
-    // Build student → slot → subjects map from timetable entries
+    // Build student → slot → subjects map
     const stuMap={};
     allTT.forEach(function(e){
       if(!stuMap[e.student_id]){
@@ -1601,17 +1595,8 @@ function renderSessionPlan(){
       stuMap[e.student_id].slots[e.slot].push(e.subject);
     });
 
-    // Also include ALL active students even if they have no timetable entries yet
-    const allActiveStudents=students.filter(function(s){return s.status==='active';});
-    allActiveStudents.forEach(function(s){
-      if(!stuMap[s.id]){
-        stuMap[s.id]={name:s.name,admission_id:s.admission_id,year_group:s.year_group,slots:{}};
-      }
-    });
-
     // Sort students by admission_id
     const stuList=Object.values(stuMap).sort(function(a,b){return a.admission_id>b.admission_id?1:-1;});
-    const withEntries=stuList.filter(function(s){return Object.keys(s.slots).length>0;}).length;
 
     if(!stuList.length){
       html+='<div class="empty-state" style="padding:40px;">No timetable entries found. Use the Student timetables tab to assign subjects and slots to each student.</div>';
@@ -1641,7 +1626,7 @@ function renderSessionPlan(){
         html+='</tr>';
       });
       html+='</tbody></table></div>';
-      html+='<div style="margin-top:8px;font-size:12px;color:var(--text3);">'+stuList.length+' students total · '+withEntries+' with timetable entries · '+allTT.length+' slot assignments</div>';
+      html+='<div style="margin-top:8px;font-size:12px;color:var(--text3);">'+stuList.length+' students shown · '+allTT.length+' timetable entries total</div>';
     }
   
   }
@@ -2746,9 +2731,10 @@ function bindAll(){bindNav();document.querySelectorAll('[data-action]').forEach(
 // Clear any validation highlights when modal first opens
 document.querySelectorAll('.modal-body input, .modal-body select, .modal-body textarea').forEach(el=>{
   el.addEventListener('focus',()=>{el.style.border='';el.style.boxShadow='';});
-});document.getElementById('modal-backdrop')?.addEventListener('click',e=>{if(e.target.id==='modal-backdrop')closeModal();});document.getElementById('modal-save')?.addEventListener('click',doSave);document.getElementById('student-search')?.addEventListener('input',e=>{state.studentSearch=e.target.value;refreshPage();});document.getElementById('att-slot-filter')?.addEventListener('change',e=>{state.attSlotFilter=e.target.value;state.attSessionId=null;render();});
-document.getElementById('att-slot-filter')?.addEventListener('change',e=>{state.attSlotFilter=e.target.value;state.attSessionId=null;render();});
-document.getElementById('att-teacher-filter')?.addEventListener('change',e=>{state.attTeacherFilter=e.target.value;state.attSessionId=null;render();});
+});document.getElementById('modal-backdrop')?.addEventListener('click',e=>{if(e.target.id==='modal-backdrop')closeModal();});document.getElementById('modal-save')?.addEventListener('click',doSave);document.getElementById('student-search')?.addEventListener('input',e=>{state.studentSearch=e.target.value;refreshPage();});document.getElementById('att-slot-filter')?.addEventListener('change',function(e){state.attSlotFilter=e.target.value;state.attSessionId=null;render();});
+document.getElementById('att-teacher-filter')?.addEventListener('change',function(e){state.attTeacherFilter=e.target.value;state.attSessionId=null;render();});
+document.getElementById('att-slot-filter')?.addEventListener('change',function(e){state.attSlotFilter=e.target.value;state.attSessionId=null;render();});
+document.getElementById('att-teacher-filter')?.addEventListener('change',function(e){state.attTeacherFilter=e.target.value;state.attSessionId=null;render();});
 document.getElementById('att-session-select')?.addEventListener('change',async e=>{state.attSessionId=e.target.value?parseInt(e.target.value):null;if(state.attSessionId){state.attRecords[state.attSessionId]={};await loadData('attendance_'+state.attSessionId,'/api/attendance/'+state.attSessionId);const att=state.data['attendance_'+state.attSessionId]||[];att.forEach(a=>{state.attRecords[state.attSessionId][a.student_id]={status:a.status,notes:a.notes||''};});}render();});document.getElementById('staff-att-month')?.addEventListener('change',e=>{state.staffAttMonth=e.target.value;refreshPage();});
 document.getElementById('btn-auto-id')?.addEventListener('click',async()=>{
   const branchId=document.getElementById('f-branch')?.value;
@@ -2940,10 +2926,8 @@ if(action==='remove-table-student'){
 if(action==='add-timetable-entry'){
   const sid=parseInt(el.dataset.student);
   const entry={branch_id:parseInt(el.dataset.branch),day_type:el.dataset.daytype,slot:el.dataset.slot,subject:el.dataset.subject};
-  // Always fetch fresh from server first to avoid overwriting entries with stale state
   await loadData('timetable_'+sid,'/api/student-timetable',{student_id:sid});
   const existing=(state.data['timetable_'+sid]||[]).map(function(e){return {branch_id:e.branch_id,day_type:e.day_type,slot:e.slot,subject:e.subject};});
-  // Avoid duplicates
   const isDup=existing.some(function(e){return e.day_type===entry.day_type&&e.slot===entry.slot&&e.subject===entry.subject;});
   if(!isDup) existing.push(entry);
   await API.post('/api/student-timetable',{student_id:sid,entries:existing});
@@ -2951,11 +2935,7 @@ if(action==='add-timetable-entry'){
   render();return;}
 if(action==='del-timetable-entry'){
   await API.delete('/api/student-timetable/'+id);
-  if(state.timetableStudentId){
-    await loadData('timetable_'+state.timetableStudentId,'/api/student-timetable',{student_id:state.timetableStudentId});
-    // Refresh overview data too
-    await loadData('all_timetables','/api/student-timetable',{});
-  }
+  if(state.timetableStudentId) await loadData('timetable_'+state.timetableStudentId,'/api/student-timetable',{student_id:state.timetableStudentId});
   render();return;}
 if(action==='att-status-filter'){state.attStatusFilter=el.dataset.filter||'all';render();return;}
 if(action==='sr-tab'){state.srTab=el.dataset.tab;render();return;}
