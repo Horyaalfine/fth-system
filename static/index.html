@@ -940,6 +940,7 @@ function renderFinance(){
     <div style="display:flex;gap:10px;">
       <button class="btn btn-primary" data-action="add-payment">+ Record payment</button>
       <button class="btn" data-action="add-instalment-plan">+ Instalment plan</button>
+      ${tab==='hq'?'<button class="btn btn-primary" data-action="add-hq-transfer">+ Record transfer</button>':''}
     </div>
   </div>
 
@@ -954,7 +955,7 @@ function renderFinance(){
       <div class="tab ${tab==='statement'?'active':''}" data-action="fin-tab" data-tab="statement">Statement of account</div>
       <div class="tab ${tab==='accounts'?'active':''}" data-action="fin-tab" data-tab="accounts">Payment accounts</div>
       <div class="tab ${tab==='payments'?'active':''}" data-action="fin-tab" data-tab="payments">Payment log</div>
-      <div class="tab ${tab==='hq'?renderHQTab():''}${tab==='instalments'?'active':''}" data-action="fin-tab" data-tab="instalments">Instalment plans</div>
+      <div class="tab ${tab==='instalments'?'active':''}" data-action="fin-tab" data-tab="instalments">Instalment plans</div>
       <div class="tab ${tab==='hq'?'active':''}" data-action="fin-tab" data-tab="hq">HQ Transfers</div>
     </div>
     <div style="display:flex;gap:8px;align-items:center;">
@@ -1077,6 +1078,21 @@ function renderFinance(){
         <button class="btn btn-sm btn-danger" data-action="del-payment" data-id="${p.id}">Del</button>
       </div></td>
     </tr>`).join('')||`<tr><td colspan="10"><div class="empty-state">No payments recorded</div></td></tr>`}</tbody>
+  </table></div></div>
+  `:''}
+
+  ${tab==='hq'?`
+  <div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>
+    <thead><tr><th>Date</th><th>Branch</th><th>Amount</th><th>Method</th><th>Reference</th><th>Notes</th><th></th></tr></thead>
+    <tbody>${(state.data.hq_transfers||[]).map(t=>`<tr>
+      <td style="font-family:var(--mono);font-size:12px;">${new Date(t.transfer_date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</td>
+      <td>${t.branch_name||'—'}</td>
+      <td style="font-weight:600;color:var(--success-text);">£${(t.amount||0).toFixed(2)}</td>
+      <td>${t.method||'—'}</td>
+      <td style="font-family:var(--mono);font-size:12px;">${t.reference||'—'}</td>
+      <td style="color:var(--text2);">${t.notes||'—'}</td>
+      <td><button class="btn btn-sm btn-danger" data-action="del-hq-transfer" data-id="${t.id}">Del</button></td>
+    </tr>`).join('')||`<tr><td colspan="7"><div class="empty-state">No transfers recorded</div></td></tr>`}</tbody>
   </table></div></div>
   `:''}
 
