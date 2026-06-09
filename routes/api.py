@@ -1393,6 +1393,20 @@ def get_session_attendance_students(session_id):
     cur.close(); conn.close()
     return jsonify(att_students)
 
+@api_bp.route('/api/sessions/<int:session_id>/students/<int:student_id>', methods=['DELETE'])
+@require_auth
+def remove_student_from_session(session_id, student_id):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute('''
+        DELETE FROM table_allocation_students tas
+        USING table_allocations ta
+        WHERE tas.allocation_id=ta.id AND ta.session_id=%s AND tas.student_id=%s
+    ''', (session_id, student_id))
+    cur.execute("DELETE FROM session_students WHERE session_id=%s AND student_id=%s", (session_id, student_id))
+    conn.commit(); cur.close(); conn.close()
+    log_action('edit', 'sessions', session_id)
+    return jsonify({'ok': True})
+
 # ════════════════════════════════════════════
 #  TABLE ALLOCATIONS
 # ════════════════════════════════════════════
