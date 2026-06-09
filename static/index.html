@@ -289,7 +289,7 @@ function canAccess(page){
 function invBadge(s){if(s==='paid')return`<span class="badge badge-success">Paid</span>`;if(s==='overdue')return`<span class="badge badge-danger">Overdue</span>`;return`<span class="badge badge-amber">Due</span>`;}
 function stars(n){return Array.from({length:5},(_,i)=>`<span style="color:${i<n?'var(--amber)':'var(--surface3)'}">★</span>`).join('');}
 async function loadData(key,path,params){try{state.data[key]=await API.get(path,params||{});}catch(e){state.data[key]=state.data[key]||[];}}
-async function refreshPage(){state.loading=true;render();const b=branchParam();const page=state.page;try{if(page==='dashboard'){const loads=[loadData('branches','/api/branches'),loadData('summary','/api/reports/summary',b)];if(state.currentUser?.role==='super_admin')loads.push(loadData('audit','/api/audit'));await Promise.all(loads);}else if(page==='students')await loadData('students','/api/students',{...b,q:state.studentSearch});else if(page==='staff')await loadData('staff','/api/staff',b);else if(page==='sessions')await loadData('sessions','/api/sessions',b);else if(page==='attendance'){await Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b)]);if(state.attSessionId)await loadData('attendance_'+state.attSessionId,'/api/attendance/'+state.attSessionId);}else if(page==='invoices')await loadData('invoices','/api/invoices',{...b,status:state.invoiceFilter});else if(page==='session_reports'){
+async function refreshPage(){state.loading=true;render();const b=branchParam();const page=state.page;try{if(page==='dashboard'){const loads=[loadData('branches','/api/branches'),loadData('summary','/api/reports/summary',b)];if(state.currentUser?.role==='super_admin')loads.push(loadData('audit','/api/audit'));await Promise.all(loads);}else if(page==='students')await loadData('students','/api/students',{...b,q:state.studentSearch});else if(page==='staff')await loadData('staff','/api/staff',b);else if(page==='sessions')await loadData('sessions','/api/sessions',b);else if(page==='attendance'){await Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b)]);if(state.attSessionId){await Promise.all([loadData('attendance_'+state.attSessionId,'/api/attendance/'+state.attSessionId),loadData('table_allocs_'+state.attSessionId,'/api/table-allocations/'+state.attSessionId)]);}}else if(page==='invoices')await loadData('invoices','/api/invoices',{...b,status:state.invoiceFilter});else if(page==='session_reports'){
   await loadData('sessions','/api/sessions',b);
   const allSessions=state.data.sessions||[];
   const dates=[...new Set(allSessions.map(s=>s.date))].sort().reverse();
@@ -566,23 +566,51 @@ function renderAttendance(){
   const attTeacherFilter=state.attTeacherFilter||'';
   const attStatusFilter=state.attStatusFilter||'all';
 
-  const slots=[...new Set(sessions.map(function(s){return s.slot;}).filter(Boolean))].sort();
+  // Build unique slots with day prefix and teachers from sessions
+  const slotSet={};
+  sessions.forEach(function(s){if(s.slot)slotSet[s.slot]=true;});
+  const slots=Object.keys(slotSet).sort();
+
   const teacherMap={};
   sessions.forEach(function(s){if(s.staff_id&&s.staff_name)teacherMap[s.staff_id]=s.staff_name;});
-  const teachers=Object.entries(teacherMap).map(function(e){return {id:e[0],name:e[1]};}).sort(function(a,b){return a.name.localeCompare(b.name);});
+  const teachers=Object.entries(teacherMap).map(function(e){return{id:e[0],name:e[1]};}).sort(function(a,b){return a.name.localeCompare(b.name);});
 
+  // Filter sessions for dropdown
   const filteredSessions=sessions.filter(function(s){
     if(attSlotFilter&&s.slot!==attSlotFilter)return false;
     if(attTeacherFilter&&String(s.staff_id)!==attTeacherFilter)return false;
     return true;
   });
 
-  const branchStudents=selSess?students.filter(function(s){return s.branch_id===selSess.branch_id&&s.status==='active';}):[];
+  // Students for this session = students in table allocations (if loaded) else all branch students
+  var sessionStudents=[];
+  if(selSess){
+    const allocs=state.data['table_allocs_'+selId]||[];
+    if(allocs.length){
+      // Build from table allocation students
+      const seen={};
+      allocs.forEach(function(ta){
+        (ta.students||[]).forEach(function(ts){
+          if(!seen[ts.student_id]){
+            seen[ts.student_id]=true;
+            // Find full student record
+            const stu=students.find(function(s){return s.id===ts.student_id;});
+            sessionStudents.push({id:ts.student_id,name:ts.student_name,admission_id:ts.admission_id,table_no:ta.table_no});
+          }
+        });
+      });
+      sessionStudents.sort(function(a,b){return a.admission_id>b.admission_id?1:-1;});
+    } else {
+      // Fallback: all active students in the branch
+      sessionStudents=students.filter(function(s){return s.branch_id===selSess.branch_id&&s.status==='active';}).map(function(s){return{id:s.id,name:s.name,admission_id:s.admission_id};});
+    }
+  }
+
   const presentCount=Object.values(localAtt).filter(function(a){return a.status==='present';}).length;
   const absentCount=Object.values(localAtt).filter(function(a){return a.status==='absent';}).length;
-  const unmarkedCount=branchStudents.length-presentCount-absentCount;
+  const unmarkedCount=sessionStudents.length-presentCount-absentCount;
 
-  const visibleStudents=branchStudents.filter(function(st){
+  const visibleStudents=sessionStudents.filter(function(st){
     if(attStatusFilter==='all')return true;
     const rec=localAtt[st.id];
     if(attStatusFilter==='unmarked')return !rec;
@@ -591,7 +619,7 @@ function renderAttendance(){
 
   var html='';
   html+='<div class="section-title" style="margin-bottom:4px;">Attendance</div>';
-  html+='<div class="section-sub">Filter sessions then click student cards to toggle present / absent</div>';
+  html+='<div class="section-sub">Filter sessions below, then click student cards to mark present or absent</div>';
 
   html+='<div class="card" style="margin-bottom:16px;">';
   html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">';
@@ -609,16 +637,22 @@ function renderAttendance(){
   html+='<div class="field" style="margin:0;"><label>Select session</label><select id="att-session-select">';
   html+='<option value="">— choose a session —</option>';
   filteredSessions.forEach(function(s){
-    html+='<option value="'+s.id+'" '+(s.id===selId?'selected':'')+'>'+new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})+' · '+s.slot+' · '+(s.staff_name||'No teacher')+' · '+s.branch_name+'</option>';
+    var dateLabel=new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+    html+='<option value="'+s.id+'" '+(s.id===selId?'selected':'')+'>'+dateLabel+' · '+s.slot+' · Table '+s.table_no+' · '+(s.staff_name||'No teacher')+'</option>';
   });
   html+='</select></div>';
   html+='</div></div>';
 
   if(selSess){
+    var allocs=state.data['table_allocs_'+selId]||[];
+    var loadingAllocs=!state.data['table_allocs_'+selId];
+
     html+='<div class="card">';
     html+='<div class="card-header">';
-    html+='<div><div class="card-title">'+new Date(selSess.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+'</div>';
-    html+='<div style="font-size:12px;color:var(--text3);margin-top:2px;">'+selSess.slot+' · '+(selSess.staff_name||'No teacher')+' · '+selSess.branch_name+'</div></div>';
+    html+='<div>';
+    html+='<div class="card-title">'+new Date(selSess.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+'</div>';
+    html+='<div style="font-size:12px;color:var(--text3);margin-top:2px;">'+selSess.slot+' · Table '+selSess.table_no+' · '+(selSess.staff_name||'No teacher')+' · '+selSess.branch_name+'</div>';
+    html+='</div>';
     html+='<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">';
     html+='<span class="badge badge-success">'+presentCount+' present</span>';
     html+='<span class="badge badge-danger">'+absentCount+' absent</span>';
@@ -626,25 +660,31 @@ function renderAttendance(){
     html+='<button class="btn btn-sm btn-primary" data-action="save-att" data-id="'+selId+'">Save attendance</button>';
     html+='</div></div>';
 
+    // Status filter buttons
     html+='<div style="display:flex;gap:8px;align-items:center;margin:12px 0;flex-wrap:wrap;">';
     html+='<span style="font-size:12px;color:var(--text3);font-weight:600;">Show:</span>';
-    var filters=[['all','All ('+branchStudents.length+')'],['present','Present ('+presentCount+')'],['absent','Absent ('+absentCount+')'],['unmarked','Unmarked ('+unmarkedCount+')']];
-    filters.forEach(function(f){
+    [['all','All ('+sessionStudents.length+')'],['present','Present ('+presentCount+')'],['absent','Absent ('+absentCount+')'],['unmarked','Unmarked ('+unmarkedCount+')']].forEach(function(f){
       html+='<button class="btn btn-sm '+(attStatusFilter===f[0]?'btn-primary':'')+'" data-action="att-status-filter" data-filter="'+f[0]+'" style="'+(attStatusFilter===f[0]?'':'background:var(--surface2);')+'">'+f[1]+'</button>';
     });
     html+='</div>';
 
-    html+='<p style="font-size:12px;color:var(--text3);margin-bottom:14px;">Click a card to toggle · Showing '+visibleStudents.length+(attStatusFilter!=='all'?' of '+branchStudents.length:'')+' students</p>';
+    if(allocs.length===0&&sessionStudents.length===0){
+      html+='<div style="padding:20px;background:var(--warning-bg);border-radius:var(--radius);font-size:13px;color:var(--amber-text);margin-bottom:12px;">⚠ No table allocations found for this session. Set up allocations in the Session planner first, or students will not appear here.</div>';
+    }
+
+    html+='<p style="font-size:12px;color:var(--text3);margin-bottom:14px;">Click a card to toggle · Showing '+visibleStudents.length+(attStatusFilter!=='all'?' of '+sessionStudents.length:'')+' students</p>';
     html+='<div class="att-grid">';
     visibleStudents.forEach(function(st){
       var rec=localAtt[st.id];
       html+='<div class="att-cell '+(rec?rec.status:'')+'" data-action="toggle-att" data-student="'+st.id+'" data-session="'+selId+'">';
       html+='<div class="att-name">'+st.name+'</div>';
-      html+='<div class="att-id">'+st.admission_id+'</div>';
+      html+='<div class="att-id">'+st.admission_id+(st.table_no?' · T'+st.table_no:'')+'</div>';
       html+='<div class="att-status" style="color:'+(rec?(rec.status==='present'?'var(--success-text)':'var(--danger-text)'):'var(--text3)')+'">'+( rec?rec.status.toUpperCase():'—')+'</div>';
       html+='</div>';
     });
-    if(visibleStudents.length===0){html+='<div style="grid-column:1/-1;padding:30px;text-align:center;color:var(--text3);font-size:13px;">No students match this filter</div>';}
+    if(visibleStudents.length===0){
+      html+='<div style="grid-column:1/-1;padding:30px;text-align:center;color:var(--text3);font-size:13px;">No students match this filter</div>';
+    }
     html+='</div></div>';
   }
   return html;
@@ -2735,7 +2775,7 @@ document.querySelectorAll('.modal-body input, .modal-body select, .modal-body te
 document.getElementById('att-teacher-filter')?.addEventListener('change',function(e){state.attTeacherFilter=e.target.value;state.attSessionId=null;render();});
 document.getElementById('att-slot-filter')?.addEventListener('change',function(e){state.attSlotFilter=e.target.value;state.attSessionId=null;render();});
 document.getElementById('att-teacher-filter')?.addEventListener('change',function(e){state.attTeacherFilter=e.target.value;state.attSessionId=null;render();});
-document.getElementById('att-session-select')?.addEventListener('change',async e=>{state.attSessionId=e.target.value?parseInt(e.target.value):null;if(state.attSessionId){state.attRecords[state.attSessionId]={};await loadData('attendance_'+state.attSessionId,'/api/attendance/'+state.attSessionId);const att=state.data['attendance_'+state.attSessionId]||[];att.forEach(a=>{state.attRecords[state.attSessionId][a.student_id]={status:a.status,notes:a.notes||''};});}render();});document.getElementById('staff-att-month')?.addEventListener('change',e=>{state.staffAttMonth=e.target.value;refreshPage();});
+document.getElementById('att-session-select')?.addEventListener('change',async e=>{state.attSessionId=e.target.value?parseInt(e.target.value):null;if(state.attSessionId){state.attRecords[state.attSessionId]={};await Promise.all([loadData('attendance_'+state.attSessionId,'/api/attendance/'+state.attSessionId),loadData('table_allocs_'+state.attSessionId,'/api/table-allocations/'+state.attSessionId)]);const att=state.data['attendance_'+state.attSessionId]||[];att.forEach(a=>{state.attRecords[state.attSessionId][a.student_id]={status:a.status,notes:a.notes||''};});}render();});document.getElementById('staff-att-month')?.addEventListener('change',e=>{state.staffAttMonth=e.target.value;refreshPage();});
 document.getElementById('btn-auto-id')?.addEventListener('click',async()=>{
   const branchId=document.getElementById('f-branch')?.value;
   if(!branchId){toast('Select a branch first','error');return;}
