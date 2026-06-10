@@ -262,7 +262,7 @@ table{min-width:480px;}
 <script>
 const API={async call(method,path,body){const opts={method,credentials:'include',headers:{'Content-Type':'application/json'}};if(body)opts.body=JSON.stringify(body);const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),8000);opts.signal=controller.signal;try{const res=await fetch(path,opts);clearTimeout(timer);if(res.status===401){state.currentUser=null;state.parentUser=null;render();return null;}return res.ok?res.json():Promise.reject(await res.json());}catch(e){clearTimeout(timer);if(e.name==='AbortError')console.warn('Timeout:',path);throw e;}},get:(p,q)=>API.call('GET',q?p+'?'+new URLSearchParams(q):p),post:(p,body)=>API.call('POST',p,body),put:(p,body)=>API.call('PUT',p,body),delete:(p)=>API.call('DELETE',p)};
 
-let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',sessionMonth:'',sessionDate:'',sessionSlot:'',sessionTeacher:'',sessionSubject:'',attDateFilter:'',attSlotFilter:'',attAllSessions:'',attTeacherFilter:'',attStatusFilter:'all',planSessionId:null,planMonth:'',planTab:'allocate',timetableStudentId:null,mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
+let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',tsFilterStaff:'',tsFilterRole:'',tsFilterStatus:'',tsFilterDate:'',lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',sessionMonth:'',sessionDate:'',sessionSlot:'',sessionTeacher:'',sessionSubject:'',attDateFilter:'',attSlotFilter:'',attAllSessions:'',attTeacherFilter:'',attStatusFilter:'all',planSessionId:null,planMonth:'',planTab:'allocate',timetableStudentId:null,mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
 
 function toast(msg,type='success'){const el=document.createElement('div');el.className=`toast toast-${type}`;el.innerHTML=(type==='success'?'<span style="color:var(--success)">✓</span> ':'<span style="color:var(--danger)">✕</span> ')+msg;document.getElementById('toasts').appendChild(el);setTimeout(()=>el.remove(),3500);}
 function roleBadge(role){const m={super_admin:['badge-purple','Super admin'],branch_manager:['badge-blue','Branch manager'],teacher:['badge-teal','Teacher'],receptionist:['badge-amber','Receptionist']};const[cls,label]=m[role]||['badge-gray',role];return`<span class="badge ${cls}">${label}</span>`;}
@@ -1125,6 +1125,31 @@ function renderStaffTimesheets(){
   const totalNoSignOut=summary.reduce((s,r)=>s+(r.no_sign_out||0),0);
   const totalHours=summary.reduce((s,r)=>s+(parseFloat(r.total_clock_hours)||parseFloat(r.total_hours)||0),0);const totalPaidHours=summary.reduce((s,r)=>s+(parseFloat(r.total_paid_hours)||0),0);
 
+  // Filter states
+  const filterStaff=state.tsFilterStaff||'';
+  const filterRole=state.tsFilterRole||'';
+  const filterStatus=state.tsFilterStatus||'';
+  const filterDate=state.tsFilterDate||'';
+
+  // Get unique roles from staff list
+  const roles=[...new Set(staffList.map(s=>s.role).filter(Boolean))].sort();
+
+  // Apply filters to summary
+  const filteredSummary=summary.filter(function(r){
+    if(filterStaff&&!r.name.toLowerCase().includes(filterStaff.toLowerCase())) return false;
+    if(filterRole&&r.role!==filterRole) return false;
+    return true;
+  });
+
+  // Apply filters to records (full log)
+  const filteredRecords=records.filter(function(r){
+    if(filterStaff&&!(r.staff_name||'').toLowerCase().includes(filterStaff.toLowerCase())) return false;
+    if(filterRole&&r.staff_role!==filterRole) return false;
+    if(filterStatus&&r.status!==filterStatus) return false;
+    if(filterDate&&r.date!==filterDate) return false;
+    return true;
+  });
+
   function statusBadge(s){
     if(s==='present')  return`<span class="badge badge-success">Present</span>`;
     if(s==='absent')   return`<span class="badge badge-danger">Absent</span>`;
@@ -1152,7 +1177,7 @@ function renderStaffTimesheets(){
 
   <div class="tab-bar">
     <div class="tab ${tab==='summary'?'active':''}" data-action="staff-att-tab" data-tab="summary">Summary by staff</div>
-    <div class="tab ${tab==='log'?'active':''}" data-action="staff-att-tab" data-tab="log">Full log</div>
+    <div class="tab ${tab==='log'?'active':''}" data-action="staff-att-tab" data-tab="log">Full log (${filteredRecords.length})</div>
     <div class="tab ${tab==='flags'?'active':''}" data-action="staff-att-tab" data-tab="flags">Flags & alerts</div>
   </div>
 
@@ -1160,7 +1185,7 @@ function renderStaffTimesheets(){
   <div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>
     <div style="margin-bottom:12px;padding:10px 14px;background:rgba(167,139,250,0.1);border-radius:var(--radius);border-left:4px solid var(--purple);font-size:12px;color:var(--text2);"><strong style="color:var(--purple-text);">Unpaid break deductions:</strong> Weekend full day (after 16:15): −1h 30min · Morning (13:15–16:15): −1h 15min · Slot 2 only (11:15–13:15): −15 min · Afternoon only (14:00+, after 16:15): −15 min · Weekdays: none</div>
     <thead><tr><th>Staff member</th><th>Branch</th><th>Role</th><th>Present</th><th>Absent</th><th>Late</th><th>No sign-out</th><th>Clock hrs</th><th>Paid hrs</th><th>Actions</th></tr></thead>
-    <tbody>${summary.map(r=>`<tr>
+    <tbody>${filteredSummary.map(r=>`<tr>
       <td><div style="display:flex;align-items:center;gap:10px;"><div class="avatar av-teal" style="width:30px;height:30px;font-size:11px;">${avatarInitials(r.name)}</div><strong>${r.name}</strong></div></td>
       <td><span class="badge badge-accent">${r.branch_name}</span></td>
       <td>${roleBadge(r.role==='teacher'?'teacher':'receptionist')}</td>
@@ -1176,7 +1201,7 @@ function renderStaffTimesheets(){
   ${tab==='log'?`
   <div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>
     <thead><tr><th>Date</th><th>Staff</th><th>Branch</th><th>Session</th><th>Sign in</th><th>Sign out</th><th>Clock hrs</th><th>Paid hrs</th><th>Status</th><th>Notes</th><th></th></tr></thead>
-    <tbody>${records.map(r=>{
+    <tbody>${filteredRecords.map(r=>{
       const hrs=(r.sign_in&&r.sign_out)?calcHours(r.sign_in,r.sign_out):'—';
       return`<tr>
         <td><strong>${new Date(r.date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</strong></td>
@@ -3041,6 +3066,11 @@ document.getElementById('student-search')?.addEventListener('input',e=>{
     row.style.display=row.dataset.name.includes(q)?'':'none';
   });
 });
+document.getElementById('sa-month')?.addEventListener('change',e=>{state.staffAttMonth=e.target.value;refreshPage();});
+document.getElementById('ts-filter-staff')?.addEventListener('input',e=>{state.tsFilterStaff=e.target.value;render();});
+document.getElementById('ts-filter-role')?.addEventListener('change',e=>{state.tsFilterRole=e.target.value;render();});
+document.getElementById('ts-filter-status')?.addEventListener('change',e=>{state.tsFilterStatus=e.target.value;render();});
+document.getElementById('ts-filter-date')?.addEventListener('change',e=>{state.tsFilterDate=e.target.value;render();});
 document.getElementById('lr-session-select')?.addEventListener('change',async e=>{
   state.lrSessionId=e.target.value?parseInt(e.target.value):null;
   state.lrTab='report';
@@ -3300,6 +3330,9 @@ if(action==='print-statement'){
 if(action==='add-staff-att'){state.modal='add-staff-att';state.editTarget=null;render();return;}
 if(action==='edit-staff-att'){state.modal='edit-staff-att';state.editTarget=(state.data.staff_att||[]).find(r=>r.id===id);render();return;}
 if(action==='del-staff-att'){if(!confirm('Delete this record?'))return;await API.delete('/api/staff-attendance/'+id);toast('Record deleted');refreshPage();return;}
+if(action==='ts-clear-filters'){
+  state.tsFilterStaff='';state.tsFilterRole='';state.tsFilterStatus='';state.tsFilterDate='';
+  render();return;}
 if(action==='staff-att-tab'){state.staffAttTab=el.dataset.tab;render();return;}
 if(action==='export-staff-timesheet'){
   const sid=id;const records=(state.data.staff_att||[]).filter(r=>r.staff_id===sid);
