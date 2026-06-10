@@ -263,7 +263,7 @@ table{min-width:480px;}
 <script>
 const API={async call(method,path,body){const opts={method,credentials:'include',headers:{'Content-Type':'application/json'}};if(body)opts.body=JSON.stringify(body);const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),8000);opts.signal=controller.signal;try{const res=await fetch(path,opts);clearTimeout(timer);if(res.status===401){state.currentUser=null;state.parentUser=null;render();return null;}return res.ok?res.json():Promise.reject(await res.json());}catch(e){clearTimeout(timer);if(e.name==='AbortError')console.warn('Timeout:',path);throw e;}},get:(p,q)=>API.call('GET',q?p+'?'+new URLSearchParams(q):p),post:(p,body)=>API.call('POST',p,body),put:(p,body)=>API.call('PUT',p,body),delete:(p)=>API.call('DELETE',p)};
 
-let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',tsFilterStaff:'',tsFilterRole:'',tsFilterStatus:'',tsFilterDate:'',lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',sessionMonth:'',sessionDate:'',sessionSlot:'',sessionTeacher:'',sessionSubject:'',attDateFilter:'',attSlotFilter:'',attAllSessions:'',attTeacherFilter:'',attStatusFilter:'all',planSessionId:null,planMonth:'',planTab:'allocate',timetableStudentId:null,mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
+let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',invTab:'list',invFeeFilter:'all',invMonthFilter:'',tsFilterStaff:'',tsFilterRole:'',tsFilterStatus:'',tsFilterDate:'',lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',sessionMonth:'',sessionDate:'',sessionSlot:'',sessionTeacher:'',sessionSubject:'',attDateFilter:'',attSlotFilter:'',attAllSessions:'',attTeacherFilter:'',attStatusFilter:'all',planSessionId:null,planMonth:'',planTab:'allocate',timetableStudentId:null,mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
 
 function toast(msg,type='success'){const el=document.createElement('div');el.className=`toast toast-${type}`;el.innerHTML=(type==='success'?'<span style="color:var(--success)">✓</span> ':'<span style="color:var(--danger)">✕</span> ')+msg;document.getElementById('toasts').appendChild(el);setTimeout(()=>el.remove(),3500);}
 function roleBadge(role){const m={super_admin:['badge-purple','Super admin'],branch_manager:['badge-blue','Branch manager'],teacher:['badge-teal','Teacher'],receptionist:['badge-amber','Receptionist']};const[cls,label]=m[role]||['badge-gray',role];return`<span class="badge ${cls}">${label}</span>`;}
@@ -877,35 +877,125 @@ function renderAttendance(){
   return html;
 }
 
-function renderInvoices(){const invs=state.data.invoices||[];const total=invs.reduce((s,i)=>s+i.amount,0);const paid=invs.filter(i=>i.status==='paid').reduce((s,i)=>s+i.amount,0);const out=invs.filter(i=>i.status!=='paid').reduce((s,i)=>s+i.amount,0);const f=state.invoiceFilter||'all';
-return`
-<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
-<div><div class="section-title">Invoices & fees</div><div class="section-sub">Monthly fee tracking and management</div></div>
-<button class="btn btn-primary" data-action="gen-invoices">Generate monthly invoices</button>
-<button class="btn btn-primary" data-action="add-fee-invoice">+ Add fee</button>
-</div>
-<div class="metrics-grid" style="grid-template-columns:repeat(4,1fr);">
-<div class="metric-card"><div class="metric-label">Total invoiced</div><div class="metric-value">£${total.toLocaleString()}</div><div class="metric-sub">This period</div></div>
-<div class="metric-card"><div class="metric-label">Collected</div><div class="metric-value" style="color:var(--success-text);">£${paid.toLocaleString()}</div><div class="metric-sub">${total?Math.round(paid/total*100):0}% of total</div></div>
-<div class="metric-card"><div class="metric-label">Outstanding</div><div class="metric-value" style="color:var(--danger-text);">£${out.toLocaleString()}</div><div class="metric-sub">${invs.filter(i=>i.status!=='paid').length} invoices</div></div>
-<div class="metric-card"><div class="metric-label">Overdue</div><div class="metric-value" style="color:var(--danger-text);">${invs.filter(i=>i.status==='overdue').length}</div><div class="metric-sub">Need chasing</div></div>
-</div>
-<div class="toolbar">${['all','paid','due','overdue'].map(fl=>`<button class="btn btn-sm ${f===fl?'btn-primary':''}" data-action="inv-filter" data-filter="${fl}">${fl.charAt(0).toUpperCase()+fl.slice(1)}</button>`).join('')}</div>
-<div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>
-<thead><tr><th>Student</th><th>ID</th><th>Branch</th><th>Month</th><th>Fee type</th><th>Amount</th><th>Status</th><th>Issued</th><th>Paid date</th><th>Notes</th><th></th></tr></thead>
-<tbody>${invs.map(inv=>`<tr>
-<td><strong>${inv.student_name}</strong></td>
-<td><span class="id-code">${inv.admission_id}</span></td>
-<td><span class="badge badge-accent">${inv.branch_name||'?'}</span></td>
-<td style="color:var(--text2);">${inv.month}</td>
-<td><strong style="color:var(--text);">£${inv.amount}</strong></td>
-<td>${invBadge(inv.status)}</td>
-<td style="font-size:12px;color:var(--text3);">${inv.issued||'—'}</td>
-<td style="font-size:12px;color:var(--text3);">${inv.paid_date||'—'}</td>
-<td style="font-size:12px;color:var(--text3);">${inv.notes||'—'}</td>
-<td><div class="row-actions">${inv.status!=='paid'?`<button class="btn btn-sm btn-success" data-action="mark-paid" data-id="${inv.id}">Mark paid</button>`:''}<button class="btn btn-sm" data-action="edit-invoice" data-id="${inv.id}">Edit</button><button class="btn btn-sm btn-danger" data-action="del-invoice" data-id="${inv.id}">Del</button></div></td>
-</tr>`).join('')}</tbody>
-</table></div></div>`;}
+function renderInvoices(){
+  const invs=state.data.invoices||[];
+  const tab=state.invTab||'list';
+  const f=state.invoiceFilter||'all';
+  const feeFilter=state.invFeeFilter||'all';
+  const monthFilter=state.invMonthFilter||'';
+
+  const total=invs.reduce((s,i)=>s+parseFloat(i.amount||0),0);
+  const paid=invs.filter(i=>i.status==='paid').reduce((s,i)=>s+parseFloat(i.amount||0),0);
+  const out=invs.filter(i=>i.status!=='paid').reduce((s,i)=>s+parseFloat(i.amount||0),0);
+
+  const feeLabels={monthly_fee:'Monthly fee',admission_fee:'Admission fee',book_fee:'Book fee',past_papers_fee:'Past papers fee',miscellaneous:'Miscellaneous'};
+  const feeColors={monthly_fee:'var(--accent)',admission_fee:'var(--teal)',book_fee:'var(--purple)',past_papers_fee:'var(--amber-text)',miscellaneous:'var(--text3)'};
+
+  // Get unique months for filter
+  const months=[...new Set(invs.map(i=>i.month).filter(Boolean))].sort().reverse();
+
+  // Apply all filters
+  let filtered=invs;
+  if(f!=='all') filtered=filtered.filter(i=>i.status===f);
+  if(feeFilter!=='all') filtered=filtered.filter(i=>(i.fee_type||'monthly_fee')===feeFilter);
+  if(monthFilter) filtered=filtered.filter(i=>i.month===monthFilter);
+
+  function invBadge(s){
+    return s==='paid'?'<span class="badge badge-success">Paid</span>':
+           s==='overdue'?'<span class="badge badge-danger">Overdue</span>':
+           '<span class="badge badge-amber">Due</span>';}
+
+  function feeBadge(ft){
+    const label=feeLabels[ft||'monthly_fee']||ft||'Monthly fee';
+    const color=feeColors[ft||'monthly_fee']||'var(--text3)';
+    return '<span class="badge" style="color:'+color+';border-color:'+color+';">'+label+'</span>';}
+
+  function buildTable(list){
+    if(!list.length) return '<tr><td colspan="11"><div class="empty-state" style="padding:30px;">No invoices found</div></td></tr>';
+    return list.map(function(inv){
+      return '<tr>'+
+        '<td><strong>'+inv.student_name+'</strong></td>'+
+        '<td><span class="id-code">'+inv.admission_id+'</span></td>'+
+        '<td><span class="badge badge-accent">'+(inv.branch_name||'?')+'</span></td>'+
+        '<td style="color:var(--text2);">'+inv.month+'</td>'+
+        '<td>'+feeBadge(inv.fee_type)+'</td>'+
+        '<td><strong style="color:var(--text);">£'+parseFloat(inv.amount||0).toFixed(2)+'</strong></td>'+
+        '<td>'+invBadge(inv.status)+'</td>'+
+        '<td style="font-size:12px;color:var(--text3);">'+(inv.issued||'—')+'</td>'+
+        '<td style="font-size:12px;color:var(--text3);">'+(inv.paid_date||'—')+'</td>'+
+        '<td style="font-size:12px;color:var(--text3);max-width:160px;overflow:hidden;text-overflow:ellipsis;">'+(inv.notes||inv.description||'—')+'</td>'+
+        '<td><div class="row-actions">'+
+          (inv.status!=='paid'?'<button class="btn btn-sm btn-success" data-action="mark-paid" data-id="'+inv.id+'">Mark paid</button>':'')+
+          '<button class="btn btn-sm" data-action="edit-invoice" data-id="'+inv.id+'">Edit</button>'+
+          '<button class="btn btn-sm btn-danger" data-action="del-invoice" data-id="'+inv.id+'">Del</button>'+
+        '</div></td>'+
+      '</tr>';
+    }).join('');
+  }
+
+  function exportInvoicesExcel(list, filename){
+    const rows=[['Student','Admission ID','Branch','Month','Fee Type','Amount (£)','Status','Issued','Paid Date','Notes/Description']];
+    list.forEach(function(inv){
+      rows.push([inv.student_name,inv.admission_id,inv.branch_name||'',inv.month,feeLabels[inv.fee_type||'monthly_fee']||'Monthly fee',parseFloat(inv.amount||0).toFixed(2),inv.status,inv.issued||'',inv.paid_date||'',inv.notes||inv.description||'']);
+    });
+    exportXLSX(rows, filename, 'Invoices');
+  }
+  window._exportInvExcel=exportInvoicesExcel;
+
+  let html='';
+  html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">';
+  html+='<div><div class="section-title">Invoices & fees</div><div class="section-sub">Fee tracking, editing and management</div></div>';
+  html+='<div style="display:flex;gap:8px;">';
+  html+='<button class="btn btn-primary" data-action="gen-invoices">Generate monthly invoices</button>';
+  html+='<button class="btn btn-primary" data-action="add-fee-invoice">+ Add fee</button>';
+  html+='</div></div>';
+
+  // Metric cards
+  html+='<div class="metrics-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px;">';
+  html+='<div class="metric-card" style="border-top:3px solid var(--accent);"><div class="metric-label">Total invoiced</div><div class="metric-value">£'+total.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div></div>';
+  html+='<div class="metric-card" style="border-top:3px solid var(--success);"><div class="metric-label">Collected</div><div class="metric-value" style="color:var(--success-text);">£'+paid.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div><div class="metric-sub">'+(total?Math.round(paid/total*100):0)+'% of total</div></div>';
+  html+='<div class="metric-card" style="border-top:3px solid var(--danger);"><div class="metric-label">Outstanding</div><div class="metric-value" style="color:var(--danger-text);">£'+out.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div><div class="metric-sub">'+invs.filter(i=>i.status!=='paid').length+' invoices</div></div>';
+  html+='<div class="metric-card" style="border-top:3px solid var(--danger);"><div class="metric-label">Overdue</div><div class="metric-value" style="color:var(--danger-text);">'+invs.filter(i=>i.status==='overdue').length+'</div><div class="metric-sub">Need chasing</div></div>';
+  html+='</div>';
+
+  // Tabs
+  html+='<div class="tab-bar" style="margin-bottom:16px;">';
+  html+='<div class="tab '+(tab==='list'?'active':'')+'" data-action="inv-tab" data-tab="list">All invoices ('+invs.length+')</div>';
+  html+='<div class="tab '+(tab==='generated'?'active':'')+'" data-action="inv-tab" data-tab="generated">Monthly fees ('+invs.filter(i=>(i.fee_type||'monthly_fee')==='monthly_fee').length+')</div>';
+  html+='<div class="tab '+(tab==='other'?'active':'')+'" data-action="inv-tab" data-tab="other">Other fees ('+invs.filter(i=>i.fee_type&&i.fee_type!=='monthly_fee').length+')</div>';
+  html+='</div>';
+
+  // Filter bar
+  html+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">';
+  // Status filter
+  ['all','due','paid','overdue'].forEach(function(fl){
+    html+='<button class="btn btn-sm '+(f===fl?'btn-primary':'')+'" data-action="inv-filter" data-filter="'+fl+'">'+fl.charAt(0).toUpperCase()+fl.slice(1)+'</button>';
+  });
+  html+='<div style="margin-left:8px;display:flex;gap:6px;align-items:center;">';
+  // Month filter
+  html+='<select id="inv-month-filter" style="border:1px solid var(--border2);border-radius:var(--radius);padding:5px 10px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;">';
+  html+='<option value="">All months</option>';
+  months.forEach(function(m){html+='<option value="'+m+'" '+(m===monthFilter?'selected':'')+'>'+m+'</option>';});
+  html+='</select>';
+  // Export button
+  html+='<button class="btn btn-sm" data-action="export-inv-excel">⬇ Export Excel</button>';
+  html+='</div></div>';
+
+  // Determine which invoices to show based on tab
+  let tabInvs=filtered;
+  if(tab==='generated') tabInvs=filtered.filter(i=>(i.fee_type||'monthly_fee')==='monthly_fee');
+  if(tab==='other') tabInvs=filtered.filter(i=>i.fee_type&&i.fee_type!=='monthly_fee');
+
+  // Store for export
+  window._currentFilteredInvoices=tabInvs;
+
+  html+='<div style="margin-bottom:6px;font-size:12px;color:var(--text3);">'+tabInvs.length+' invoice'+(tabInvs.length!==1?'s':'')+' · Total: £'+tabInvs.reduce(function(s,i){return s+parseFloat(i.amount||0);},0).toFixed(2)+'</div>';
+  html+='<div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>';
+  html+='<thead><tr><th>Student</th><th>ID</th><th>Branch</th><th>Month</th><th>Fee type</th><th>Amount</th><th>Status</th><th>Issued</th><th>Paid date</th><th>Notes</th><th></th></tr></thead>';
+  html+='<tbody>'+buildTable(tabInvs)+'</tbody></table></div></div>';
+  return html;
+}
+
 
 function renderSessionReports(){
   const sessions=state.data.sessions||[];
@@ -3253,6 +3343,7 @@ document.getElementById('student-search')?.addEventListener('input',e=>{
   });
 });
 document.getElementById('sa-month')?.addEventListener('change',e=>{state.staffAttMonth=e.target.value;refreshPage();});
+document.getElementById('inv-month-filter')?.addEventListener('change',e=>{state.invMonthFilter=e.target.value;render();});
 document.getElementById('ts-filter-staff')?.addEventListener('change',e=>{state.tsFilterStaff=e.target.value;render();});
 document.getElementById('ts-filter-role')?.addEventListener('change',e=>{state.tsFilterRole=e.target.value;render();});
 document.getElementById('ts-filter-status')?.addEventListener('change',e=>{state.tsFilterStatus=e.target.value;render();});
@@ -3534,7 +3625,14 @@ if(action==='save-att'){
   state.attRecords[id]={};
   att.forEach(function(a){state.attRecords[id][a.student_id]={status:a.status,notes:a.notes||''};});
   toast('Attendance saved ✓');render();return;}
+if(action==='inv-tab'){state.invTab=el.dataset.tab;render();return;}
 if(action==='inv-filter'){state.invoiceFilter=el.dataset.filter;refreshPage();return;}
+if(action==='export-inv-excel'){
+  const list=window._currentFilteredInvoices||[];
+  const feeLabels={monthly_fee:'Monthly fee',admission_fee:'Admission fee',book_fee:'Book fee',past_papers_fee:'Past papers fee',miscellaneous:'Miscellaneous'};
+  const rows=[['Student','Admission ID','Branch','Month','Fee Type','Amount (£)','Status','Issued','Paid Date','Notes']];
+  list.forEach(function(inv){rows.push([inv.student_name,inv.admission_id,inv.branch_name||'',inv.month,feeLabels[inv.fee_type||'monthly_fee']||'Monthly fee',parseFloat(inv.amount||0).toFixed(2),inv.status,inv.issued||'',inv.paid_date||'',inv.notes||inv.description||'']);});
+  exportXLSX(rows,'fth-invoices.xlsx','Invoices');return;}
 if(action==='del-invoice'){
   if(!confirm('Delete this invoice? This cannot be undone.'))return;
   await API.delete('/api/invoices/'+id);
