@@ -466,7 +466,8 @@ def get_invoices():
     if status and status != 'all': where.append("i.status=%s"); params.append(status)
     wc = ('WHERE ' + ' AND '.join(where)) if where else ''
     cur.execute(f"""
-        SELECT i.*, s.name as student_name, s.admission_id, b.name as branch_name
+        SELECT i.*, s.name as student_name, s.admission_id, b.name as branch_name,
+               COALESCE(i.fee_type,'monthly_fee') as fee_type
         FROM invoices i JOIN students s ON s.id=i.student_id
         JOIN branches b ON b.id=i.branch_id
         {wc} ORDER BY i.issued DESC
@@ -477,6 +478,30 @@ def get_invoices():
         if d.get('paid_date'): d['paid_date'] = str(d['paid_date'])
     cur.close(); conn.close()
     return jsonify(data)
+
+@api_bp.route('/api/invoices', methods=['POST'])
+@require_auth
+def add_invoice():
+    d = request.json
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        cur.execute("""
+            INSERT INTO invoices (student_id, branch_id, amount, month, status,
+                                  due_date, notes, fee_type, description)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *
+        """, (d['student_id'], d['branch_id'], d['amount'], d['month'],
+                d.get('status','due'), d.get('due_date') or None,
+                d.get('notes',''), d.get('fee_type','monthly_fee'),
+                d.get('description','')))
+        r = row(cur); conn.commit()
+        if r:
+            if r.get('issued'): r['issued'] = str(r['issued'])
+        cur.close(); conn.close()
+        log_action('add', 'invoices', r['id'] if r else 0)
+        return jsonify(r), 201
+    except Exception as e:
+        conn.rollback(); cur.close(); conn.close()
+        return jsonify({'error': str(e)}), 400
 
 @api_bp.route('/api/invoices/generate', methods=['POST'])
 @require_auth
