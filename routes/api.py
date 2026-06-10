@@ -534,15 +534,29 @@ def update_invoice(iid):
     d = request.json
     conn = get_conn(); cur = conn.cursor()
     cur.execute("""
-        UPDATE invoices SET amount=%s, status=%s, paid_date=%s, notes=%s
+        UPDATE invoices SET amount=%s, status=%s, month=%s,
+            fee_type=%s, due_date=%s, paid_date=%s, notes=%s, description=%s
         WHERE id=%s RETURNING *
-    """, (d.get('amount',120), d['status'], d.get('paid_date') or None, d.get('notes',''), iid))
+    """, (d.get('amount',0), d.get('status','due'), d.get('month'),
+            d.get('fee_type','monthly_fee'),
+            d.get('due_date') or None, d.get('paid_date') or None,
+            d.get('notes',''), d.get('description',''), iid))
     r = row(cur); conn.commit(); cur.close(); conn.close()
     if r:
         if r.get('issued'):    r['issued']    = str(r['issued'])
         if r.get('paid_date'): r['paid_date'] = str(r['paid_date'])
+        if r.get('due_date'):  r['due_date']  = str(r['due_date'])
     log_action('edit', 'invoices', iid)
     return jsonify(r)
+
+@api_bp.route('/api/invoices/<int:iid>', methods=['DELETE'])
+@require_auth
+def delete_invoice(iid):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("DELETE FROM invoices WHERE id=%s", (iid,))
+    conn.commit(); cur.close(); conn.close()
+    log_action('delete', 'invoices', iid)
+    return jsonify({'ok': True})
 
 @api_bp.route('/api/invoices/<int:iid>/mark-paid', methods=['POST'])
 @require_auth
