@@ -255,6 +255,7 @@ table{min-width:480px;}
 .row-actions{flex-direction:column;gap:3px;}
 }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 <div id="app"></div><div class="sidebar-overlay" id="sidebar-overlay"></div>
@@ -945,13 +946,8 @@ function renderSessionReports(){
       rows.push(['SLOT TOTAL: '+slot.slot,'','','',slot.total_students||0]);
       rows.push([]);
     });
-    const csv=rows.map(function(r){return r.map(function(c){return typeof c==='string'&&c.includes(',')?'"'+c+'"':c;}).join(',');}).join('\n');
-    const a=document.createElement('a');
-    a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
-    a.download='fth-session-report-'+selDate+'.csv';
-    a.click();
-  }
-  window._exportDailyReport=exportDailyReport;
+    exportXLSX(rows, 'fth-session-report-'+selDate+'.xlsx', 'Session Report');
+  }  window._exportDailyReport=exportDailyReport;
 
   var html='';
   html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">';
@@ -975,7 +971,7 @@ function renderSessionReports(){
       html+='<option value="'+d+'" '+(d===selDate?'selected':'')+'>'+new Date(d+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+'</option>';
     });
     html+='</select></div>';
-    html+='<button class="btn btn-sm" onclick="window._exportDailyReport()">⬇ Export CSV</button>';
+    html+='<button class="btn btn-sm" onclick="window._exportDailyReport()">⬇ Export Excel</button>';
     html+='</div>';
 
     if(!selDate){
@@ -1629,7 +1625,7 @@ function renderMgmtReports(){
       html+='<option value="'+y+'" '+(String(state.mgmtYear||curYr)===String(y)?'selected':'')+'>'+(y)+'–'+(y+1)+'</option>';
     }
     html+='</select></div>';
-    html+='<button class="btn btn-sm" data-action="export-mgmt-summary">⬇ Export CSV</button>';
+    html+='<button class="btn btn-sm" data-action="export-mgmt-summary">⬇ Export Excel</button>';
     html+='</div>';
 
     if(summary.academic_year){
@@ -1653,7 +1649,7 @@ function renderMgmtReports(){
   else if(tab==='daily'){
     html+='<div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;">';
     html+='<div class="field" style="margin:0;"><label style="font-size:12px;">Date</label><input type="date" id="mgmt-date-select" value="'+(state.mgmtDate||new Date().toISOString().slice(0,10))+'" style="border:1px solid var(--border2);border-radius:var(--radius);padding:7px 10px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;"></div>';
-    html+='<button class="btn btn-sm" data-action="export-mgmt-daily">⬇ Export CSV</button>';
+    html+='<button class="btn btn-sm" data-action="export-mgmt-daily">⬇ Export Excel</button>';
     html+='</div>';
 
     const dsess=daily.sessions||[];
@@ -1706,7 +1702,7 @@ function renderMgmtReports(){
   else if(tab==='monthly'){
     html+='<div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;">';
     html+='<input type="month" id="mgmt-month-select" value="'+(state.mgmtMonth||new Date().toISOString().slice(0,7))+'" style="border:1px solid var(--border2);border-radius:var(--radius);padding:7px 10px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;">';
-    html+='<button class="btn btn-sm" data-action="export-mgmt-monthly">⬇ Export CSV</button>';
+    html+='<button class="btn btn-sm" data-action="export-mgmt-monthly">⬇ Export Excel</button>';
     html+='</div>';
 
     const mweekly=monthly.weekly_breakdown||[];
@@ -1778,7 +1774,7 @@ function renderMgmtReports(){
       html+='<option value="'+y+'" '+(String(state.mgmtYear||curYr2)===String(y)?'selected':'')+'>'+(y)+'–'+(y+1)+'</option>';
     }
     html+='</select></div>';
-    html+='<button class="btn btn-sm" data-action="export-mgmt-yearly">⬇ Export CSV</button>';
+    html+='<button class="btn btn-sm" data-action="export-mgmt-yearly">⬇ Export Excel</button>';
     html+='</div>';
 
     const ytrend=yearly.monthly_trend||[];
@@ -1934,7 +1930,7 @@ function renderSessionPlan(){
     // ── ALL STUDENTS TIMETABLE OVERVIEW ──
     html+='<div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">';
     html+='<div style="font-size:13px;color:var(--text3);">All active students with their scheduled subjects and slots</div>';
-    html+='<button class="btn btn-sm" data-action="export-timetable-csv">⬇ Export CSV</button>';
+    html+='<button class="btn btn-sm" data-action="export-timetable-csv">⬇ Export Excel</button>';
     html+='</div>';
 
     const SLOTS_ALL=[
@@ -3304,32 +3300,28 @@ if(action==='mgmt-tab'){
 if(action==='export-mgmt-summary'){
   const s=state.data.mgmt_summary||{};
   const rows=[['Metric','Value'],['Academic year',s.academic_year||''],['Active students',s.active_students||0],['New enrolments',s.new_enrolments||0],['Sessions delivered',s.total_sessions||0],['Attendance rate',(s.att_rate||0)+'%'],['Students present',s.att_present||0],['Total marked',s.att_total||0],['Staff members',s.staff_count||0],['Total staff hours',s.total_staff_hours||0],['Fees collected','£'+(s.fees_collected||0)],['Fees outstanding','£'+(s.fees_outstanding||0)],['Catch-ups owed',s.catchups_owed||0],['Catch-ups completed',s.catchups_completed||0],['Tests passed',s.tests_passed||0],['Tests total',s.tests_total||0]];
-  const csv=rows.map(r=>r.join(',')).join('\n');
-  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='fth-summary-'+( state.mgmtYear||'current')+'.csv';a.click();return;}
+  exportXLSX(rows, 'fth-summary.xlsx', 'Summary');return;}
 if(action==='export-mgmt-daily'){
   const d=state.data.mgmt_daily||{};
   const rows=[['Slot','Teacher','Cover','Subject','Table','Present','Absent','Total']];
   (d.sessions||[]).forEach(s=>rows.push([s.slot,s.staff_name||'',s.cover_name||'',s.subject||'',s.table_no||'',s.present||0,s.absent||0,s.total_marked||0]));
   rows.push([]);rows.push(['Staff member','Role','Sign in','Sign out','Hours','Status']);
   (d.staff_attendance||[]).forEach(s=>rows.push([s.staff_name,s.role,s.sign_in||'',s.sign_out||'',s.hours||0,s.status]));
-  const csv=rows.map(r=>r.join(',')).join('\n');
-  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='fth-daily-'+(state.mgmtDate||'')+'.csv';a.click();return;}
+  exportXLSX(rows, 'fth-daily.xlsx', 'Daily');return;}
 if(action==='export-mgmt-monthly'){
   const m=state.data.mgmt_monthly||{};
   const rows=[['Week starting','Sessions','Present','Absent','Att rate']];
   (m.weekly_breakdown||[]).forEach(w=>rows.push([w.week_start,w.sessions,w.present||0,w.absent||0,Math.round((w.present||0)/((w.present||0)+(w.absent||0))*100||0)+'%']));
   rows.push([]);rows.push(['Staff member','Role','Sessions','Hours']);
   (m.staff_hours||[]).forEach(s=>rows.push([s.name,s.role,s.sessions_worked,s.hours||0]));
-  const csv=rows.map(r=>r.join(',')).join('\n');
-  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='fth-monthly-'+(state.mgmtMonth||'')+'.csv';a.click();return;}
+  exportXLSX(rows, 'fth-monthly.xlsx', 'Monthly');return;}
 if(action==='export-mgmt-yearly'){
   const y=state.data.mgmt_yearly||{};
   const rows=[['Month','Sessions','Present','Absent','Att rate']];
   (y.monthly_trend||[]).forEach(m=>rows.push([m.month,m.sessions,m.present||0,m.absent||0,Math.round((m.present||0)/((m.present||0)+(m.absent||0))*100||0)+'%']));
   rows.push([]);rows.push(['Staff member','Role','Sessions worked','Total hours']);
   (y.staff_yearly||[]).forEach(s=>rows.push([s.name,s.role,s.sessions_worked,s.total_hours||0]));
-  const csv=rows.map(r=>r.join(',')).join('\n');
-  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='fth-yearly-'+(y.academic_year||'')+'.csv';a.click();return;}
+  exportXLSX(rows, 'fth-yearly.xlsx', 'Yearly');return;}
 if(action==='filter-students'){state.studentFilter=el.dataset.filter;render();return;}
 if(action==='export-timetable-csv'){
   const allTT=state.data.all_timetables||[];
@@ -3348,10 +3340,7 @@ if(action==='export-timetable-csv'){
   Object.values(stuMap).sort((a,b)=>a.id>b.id?1:-1).forEach(function(s){
     rows.push([s.id,s.name,s.year||''].concat(SLOTS.map(function(sl){return (s.slots[sl]||[]).join('+')||'';})));
   });
-  const csv=rows.map(r=>r.map(c=>c.includes?c.includes(',')&&c.length?'"'+c+'"':c:c).join(',')).join('\n');
-  const a=document.createElement('a');
-  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
-  a.download='fth-student-timetables.csv';a.click();return;}
+  exportXLSX(rows, 'fth-student-timetables.xlsx', 'Timetables');return;}
 if(action==='plan-tab'){state.planTab=el.dataset.tab;render();return;}
 if(action==='add-table-alloc'){
   const sessId=parseInt(el.dataset.session);
@@ -3525,8 +3514,29 @@ if(action==='add-fee-invoice'){state.modal='add-fee-invoice';state.editTarget=nu
 if(action==='gen-invoices'){const r=await API.post('/api/invoices/generate',{month:new Date().toISOString().slice(0,7)});toast(`${r.added} invoice(s) generated`);refreshPage();return;}
 if(action==='add-progress'){state.modal='add-progress';state.editTarget={session_id:parseInt(el.dataset.session)};render();return;}
 if(action==='export-sr'){const att=state.data['sr_att_'+id]||[];const csv=[['Student','ID','Status','Notes'],...att.map(a=>[a.student_name,a.admission_id,a.status,a.notes])].map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`session_${id}_report.csv`;a.click();toast('Exported');return;}
-if(action==='export-students'){const s=state.data.students||[];const csv=[['ID','Name','Year','Branch','Parent','Status','Notes'],...s.map(st=>[st.admission_id,st.name,st.year_group,st.branch_name,st.parent_contact,st.status,st.notes])].map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='students.csv';a.click();toast('Exported');return;}
-if(action==='export-sessions'){const s=state.data.sessions||[];const csv=[['Date','Slot','Branch','Teacher','Subject','Table','Present','Total'],...s.map(ss=>[ss.date,ss.slot,ss.branch_name,ss.staff_name,ss.subject,ss.table_no,ss.present_count,ss.total_count])].map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='sessions.csv';a.click();toast('Exported');return;}}
+if(action==='export-students'){
+  const s=state.data.students||[];
+  const rows=[
+    ['Admission ID','First Name','Last Name','Full Name','Year Group','Branch','Gender','DOB','School','Status','Parent 1 Name','Parent 1 Tel','Parent 1 Email','Parent 2 Name','Parent 2 Tel','Parent 2 Email','Emergency Name','Emergency Tel','Medical Notes','SEN Notes','Notes'],
+    ...s.map(st=>[
+      st.admission_id, st.first_name||'', st.last_name||'', st.name, st.year_group||'',
+      st.branch_name, st.gender||'', st.date_of_birth||'', st.current_school||'', st.status,
+      (st.carer1_first_name||'')+' '+(st.carer1_last_name||''), st.carer1_mobile||st.carer1_telephone||'', st.carer1_email||'',
+      (st.carer2_first_name||'')+' '+(st.carer2_last_name||''), st.carer2_mobile||st.carer2_telephone||'', st.carer2_email||'',
+      st.emergency_name||'', st.emergency_telephone||'',
+      st.medical_notes||'', st.sen_notes||'', st.notes||''
+    ])
+  ];
+  exportXLSX(rows, 'fth-students.xlsx', 'Students');
+  return;}
+if(action==='export-sessions'){
+  const s=state.data.sessions||[];
+  const rows=[
+    ['Date','Slot','Branch','Teacher','Cover Teacher','Subject','Table No','Present','Absent','Total Marked'],
+    ...s.map(ss=>[ss.date,ss.slot,ss.branch_name,ss.staff_name||'',ss.cover_name||'',ss.subject||'',ss.table_no||'',ss.present||0,ss.absent||0,(ss.present||0)+(ss.absent||0)])
+  ];
+  exportXLSX(rows, 'fth-sessions.xlsx', 'Sessions');
+  return;}}
 
 
 function exportStatement(stmt){
