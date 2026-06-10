@@ -903,7 +903,7 @@ return`
 <td style="font-size:12px;color:var(--text3);">${inv.issued||'—'}</td>
 <td style="font-size:12px;color:var(--text3);">${inv.paid_date||'—'}</td>
 <td style="font-size:12px;color:var(--text3);">${inv.notes||'—'}</td>
-<td><div class="row-actions">${inv.status!=='paid'?`<button class="btn btn-sm btn-success" data-action="mark-paid" data-id="${inv.id}">Mark paid</button>`:''}<button class="btn btn-sm" data-action="edit-invoice" data-id="${inv.id}">Edit</button></div></td>
+<td><div class="row-actions">${inv.status!=='paid'?`<button class="btn btn-sm btn-success" data-action="mark-paid" data-id="${inv.id}">Mark paid</button>`:''}<button class="btn btn-sm" data-action="edit-invoice" data-id="${inv.id}">Edit</button><button class="btn btn-sm btn-danger" data-action="del-invoice" data-id="${inv.id}">Del</button></div></td>
 </tr>`).join('')}</tbody>
 </table></div></div>`;}
 
@@ -2641,14 +2641,34 @@ function modalAddFeeInvoice(){
 }
 
 function modalInvoice(){const inv=state.editTarget||{};
+const feeLabels={monthly_fee:'Monthly fee',admission_fee:'Admission fee',book_fee:'Book fee',past_papers_fee:'Past papers fee',miscellaneous:'Miscellaneous'};
 return mWrap('Edit invoice',`
-<div style="margin-bottom:16px;padding:12px;background:var(--surface2);border-radius:var(--radius);font-size:13px;color:var(--text2);">Student: <strong style="color:var(--text);">${inv.student_name}</strong> <span class="id-code">${inv.admission_id}</span> — ${inv.month}</div>
+<div style="margin-bottom:16px;padding:12px;background:var(--surface2);border-radius:var(--radius);font-size:13px;color:var(--text2);">
+  Student: <strong style="color:var(--text);">${inv.student_name}</strong> <span class="id-code">${inv.admission_id}</span> — ${inv.month}
+</div>
 <div class="form-grid">
-<div class="field"><label>Amount (£)</label><input type="number" id="f-amount" value="${inv.amount||120}"></div>
-<div class="field"><label>Status</label><select id="f-inv-status"><option value="due" ${inv.status==='due'?'selected':''}>Due</option><option value="paid" ${inv.status==='paid'?'selected':''}>Paid</option><option value="overdue" ${inv.status==='overdue'?'selected':''}>Overdue</option></select></div>
-<div class="field"><label>Paid date</label><input type="date" id="f-paid-date" value="${inv.paid_date||''}"></div>
-<div class="field"><label>Notes</label><input type="text" id="f-notes" value="${inv.notes||''}" placeholder="e.g. Sibling rate, pro-rata…"></div>
-</div>`,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Save changes</button>`);}
+  <div class="field"><label>Fee type</label>
+    <select id="f-fee-type">
+      <option value="monthly_fee" ${(inv.fee_type||'monthly_fee')==='monthly_fee'?'selected':''}>Monthly fee</option>
+      <option value="admission_fee" ${inv.fee_type==='admission_fee'?'selected':''}>Admission fee</option>
+      <option value="book_fee" ${inv.fee_type==='book_fee'?'selected':''}>Book fee</option>
+      <option value="past_papers_fee" ${inv.fee_type==='past_papers_fee'?'selected':''}>Past papers fee</option>
+      <option value="miscellaneous" ${inv.fee_type==='miscellaneous'?'selected':''}>Miscellaneous</option>
+    </select>
+  </div>
+  <div class="field"><label>Amount (£)</label><input type="number" id="f-amount" value="${inv.amount||0}" step="0.01" min="0"></div>
+  <div class="field"><label>Month</label><input type="month" id="f-month" value="${inv.month||''}"></div>
+  <div class="field"><label>Status</label>
+    <select id="f-inv-status">
+      <option value="due" ${inv.status==='due'?'selected':''}>Due</option>
+      <option value="paid" ${inv.status==='paid'?'selected':''}>Paid</option>
+      <option value="overdue" ${inv.status==='overdue'?'selected':''}>Overdue</option>
+    </select>
+  </div>
+  <div class="field"><label>Due date</label><input type="date" id="f-due-date" value="${inv.due_date||''}"></div>
+  <div class="field"><label>Paid date</label><input type="date" id="f-paid-date" value="${inv.paid_date||''}"></div>
+  <div class="field" style="grid-column:1/-1;"><label>Description / notes</label><input type="text" id="f-notes" value="${inv.notes||inv.description||''}" placeholder="e.g. Sibling rate, pro-rata, KS3 Maths book…"></div>
+</div>`,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-danger" id="modal-delete" style="margin-right:auto;">Delete invoice</button><button class="btn btn-primary" id="modal-save">Save changes</button>`);}
 
 function modalProgress(){const d=state.editTarget||{};const sessId=d.session_id;const sess=(state.data.sessions||[]).find(s=>s.id===sessId);const branchStudents=(state.data.students||[]).filter(s=>sess?s.branch_id===sess.branch_id:true);
 return mWrap('Add progress note',`
@@ -3141,7 +3161,14 @@ function bindAll(){bindNav();document.querySelectorAll('[data-action]').forEach(
 // Clear any validation highlights when modal first opens
 document.querySelectorAll('.modal-body input, .modal-body select, .modal-body textarea').forEach(el=>{
   el.addEventListener('focus',()=>{el.style.border='';el.style.boxShadow='';});
-});document.getElementById('modal-backdrop')?.addEventListener('click',e=>{if(e.target.id==='modal-backdrop')closeModal();});document.getElementById('modal-save')?.addEventListener('click',doSave);document.getElementById('student-search')?.addEventListener('input',e=>{state.studentSearch=e.target.value;refreshPage();});document.getElementById('att-date-filter')?.addEventListener('change',function(e){state.attDateFilter=e.target.value;state.attSlotFilter='';state.attTeacherFilter='';state.attSessionId=null;state.attAllSessions='';render();});
+});document.getElementById('modal-backdrop')?.addEventListener('click',e=>{if(e.target.id==='modal-backdrop')closeModal();});document.getElementById('modal-save')?.addEventListener('click',doSave);
+document.getElementById('modal-delete')?.addEventListener('click',async function(){
+  if(!state.editTarget?.id) return;
+  if(!confirm('Delete this invoice? This cannot be undone.')) return;
+  await API.delete('/api/invoices/'+state.editTarget.id);
+  toast('Invoice deleted');
+  closeModal();refreshPage();
+});document.getElementById('student-search')?.addEventListener('input',e=>{state.studentSearch=e.target.value;refreshPage();});document.getElementById('att-date-filter')?.addEventListener('change',function(e){state.attDateFilter=e.target.value;state.attSlotFilter='';state.attTeacherFilter='';state.attSessionId=null;state.attAllSessions='';render();});
 document.getElementById('att-slot-filter')?.addEventListener('change',function(e){state.attSlotFilter=e.target.value;state.attTeacherFilter='';state.attSessionId=null;state.attAllSessions='';render();});
 document.getElementById('att-teacher-filter')?.addEventListener('change',function(e){state.attTeacherFilter=e.target.value;state.attSessionId=null;state.attAllSessions='';render();});
 document.getElementById('att-slot-filter')?.addEventListener('change',function(e){state.attSlotFilter=e.target.value;state.attSessionId=null;render();});
@@ -3508,6 +3535,10 @@ if(action==='save-att'){
   att.forEach(function(a){state.attRecords[id][a.student_id]={status:a.status,notes:a.notes||''};});
   toast('Attendance saved ✓');render();return;}
 if(action==='inv-filter'){state.invoiceFilter=el.dataset.filter;refreshPage();return;}
+if(action==='del-invoice'){
+  if(!confirm('Delete this invoice? This cannot be undone.'))return;
+  await API.delete('/api/invoices/'+id);
+  toast('Invoice deleted');refreshPage();return;}
 if(action==='mark-paid'){await API.post('/api/invoices/'+id+'/mark-paid');toast('Invoice marked paid');refreshPage();return;}
 if(action==='edit-invoice'){state.modal='edit-invoice';state.editTarget=(state.data.invoices||[]).find(i=>i.id===id);render();return;}
 if(action==='add-fee-invoice'){state.modal='add-fee-invoice';state.editTarget=null;render();return;}
