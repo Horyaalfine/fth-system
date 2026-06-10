@@ -1182,32 +1182,41 @@ function renderStaffTimesheets(){
     <div class="tab ${tab==='flags'?'active':''}" data-action="staff-att-tab" data-tab="flags">Flags & alerts</div>
   </div>
 
-  ` +
-  // Filter bar
-  '<div class="card" style="margin-bottom:14px;padding:12px 16px;">'+
-  '<div class="form-grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;align-items:end;">'+
-  '<div class="field" style="margin:0;"><label style="font-size:11px;">Month</label>'+
-  '<input type="month" id="sa-month" value="'+month+'" style="width:100%;border:1px solid var(--border2);border-radius:var(--radius);padding:6px 10px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;"></div>'+
-  '<div class="field" style="margin:0;"><label style="font-size:11px;">Staff name</label>'+
-  '<select id="ts-filter-staff" style="width:100%;border:1px solid var(--border2);border-radius:var(--radius);padding:6px 10px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;">'+
-  '<option value="">All staff</option>'+
-  staffList.map(function(s){return '<option value="'+s.name+'" '+(s.name===filterStaff?'selected':'')+'>'+s.name+'</option>';}).join('')+
-  '</select></div>'+
-  '<div class="field" style="margin:0;"><label style="font-size:11px;">Role</label>'+
-  '<select id="ts-filter-role" style="width:100%;border:1px solid var(--border2);border-radius:var(--radius);padding:6px 10px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;">'+
-  '<option value="">All roles</option>'+
-  roles.map(function(r){return '<option value="'+r+'" '+(r===filterRole?'selected':'')+'>'+r+'</option>';}).join('')+
-  '</select></div>'+
-  '<div class="field" style="margin:0;"><label style="font-size:11px;">Status</label>'+
-  '<select id="ts-filter-status" style="width:100%;border:1px solid var(--border2);border-radius:var(--radius);padding:6px 10px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;">'+
-  '<option value="">All statuses</option>'+
-  ['present','absent','late','no_sign_out'].map(function(s){return '<option value="'+s+'" '+(s===filterStatus?'selected':'')+'>'+s.replace('_',' ')+'</option>';}).join('')+
-  '</select></div>'+
-  '<div class="field" style="margin:0;"><label style="font-size:11px;">Date (log)</label>'+
-  '<input type="date" id="ts-filter-date" value="'+filterDate+'" style="width:100%;border:1px solid var(--border2);border-radius:var(--radius);padding:6px 10px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;"></div>'+
-  '<div style="display:flex;align-items:flex-end;"><button class="btn btn-sm" data-action="ts-clear-filters" style="width:100%;">✕ Clear</button></div>'+
-  '</div></div>'+
-  `
+  <div class="card" style="margin-bottom:14px;padding:12px 16px;">
+    <div class="form-grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;align-items:end;">
+      <div class="field" style="margin:0;"><label style="font-size:11px;">Month</label>
+        <input type="month" id="sa-month" value="${month}" style="width:100%;border:1px solid var(--border2);border-radius:var(--radius);padding:6px 10px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;">
+      </div>
+      <div class="field" style="margin:0;"><label style="font-size:11px;">Staff member</label>
+        <select id="ts-filter-staff" style="width:100%;border:1px solid var(--border2);border-radius:var(--radius);padding:6px 10px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;">
+          <option value="">All staff</option>
+          ${staffList.map(s=>`<option value="${s.name}" ${s.name===filterStaff?'selected':''}>${s.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field" style="margin:0;"><label style="font-size:11px;">Role</label>
+        <select id="ts-filter-role" style="width:100%;border:1px solid var(--border2);border-radius:var(--radius);padding:6px 10px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;">
+          <option value="">All roles</option>
+          ${roles.map(r=>`<option value="${r}" ${r===filterRole?'selected':''}>${r}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field" style="margin:0;"><label style="font-size:11px;">Status</label>
+        <select id="ts-filter-status" style="width:100%;border:1px solid var(--border2);border-radius:var(--radius);padding:6px 10px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;">
+          <option value="">All statuses</option>
+          <option value="present" ${filterStatus==='present'?'selected':''}>Present</option>
+          <option value="absent" ${filterStatus==='absent'?'selected':''}>Absent</option>
+          <option value="late" ${filterStatus==='late'?'selected':''}>Late</option>
+          <option value="no_sign_out" ${filterStatus==='no_sign_out'?'selected':''}>No sign-out</option>
+        </select>
+      </div>
+      <div class="field" style="margin:0;"><label style="font-size:11px;">Specific date</label>
+        <input type="date" id="ts-filter-date" value="${filterDate}" style="width:100%;border:1px solid var(--border2);border-radius:var(--radius);padding:6px 10px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;">
+      </div>
+      <div style="display:flex;align-items:flex-end;">
+        <button class="btn btn-sm" data-action="ts-clear-filters" style="width:100%;">✕ Clear</button>
+      </div>
+    </div>
+  </div>
+
   ${tab==='summary'?`
   <div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>
     <div style="margin-bottom:12px;padding:10px 14px;background:rgba(167,139,250,0.1);border-radius:var(--radius);border-left:4px solid var(--purple);font-size:12px;color:var(--text2);"><strong style="color:var(--purple-text);">Unpaid break deductions:</strong> Weekend full day (after 16:15): −1h 30min · Morning (13:15–16:15): −1h 15min · Slot 2 only (11:15–13:15): −15 min · Afternoon only (14:00+, after 16:15): −15 min · Weekdays: none</div>
