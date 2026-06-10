@@ -466,8 +466,10 @@ def get_invoices():
     if status and status != 'all': where.append("i.status=%s"); params.append(status)
     wc = ('WHERE ' + ' AND '.join(where)) if where else ''
     cur.execute(f"""
-        SELECT i.*, s.name as student_name, s.admission_id, b.name as branch_name,
-               COALESCE(i.fee_type,'monthly_fee') as fee_type
+        SELECT i.id, i.student_id, i.branch_id, i.amount, i.month,
+               i.status, i.issued, i.paid_date, i.notes, i.due_date,
+               s.name as student_name, s.admission_id, b.name as branch_name,
+               'monthly_fee' as fee_type, '' as description
         FROM invoices i JOIN students s ON s.id=i.student_id
         JOIN branches b ON b.id=i.branch_id
         {wc} ORDER BY i.issued DESC
