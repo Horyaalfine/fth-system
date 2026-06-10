@@ -3144,7 +3144,21 @@ else if(m==='add-fee-invoice'){
   if(r?.error){toast(r.error,'error');return;}
   toast(feeLabels[feeType]+' invoice issued — £'+amount.toFixed(2));
 }
-if(m==='edit-invoice'){await API.put('/api/invoices/'+state.editTarget.id,{amount:parseInt(v('f-amount'))||120,status:v('f-inv-status'),paid_date:v('f-paid-date')||null,notes:v('f-notes')});toast('Invoice updated');}
+if(m==='edit-invoice'){
+  const body={
+    amount:parseFloat(v('f-amount'))||0,
+    status:v('f-inv-status'),
+    month:v('f-month')||state.editTarget.month,
+    fee_type:v('f-fee-type')||'monthly_fee',
+    due_date:v('f-due-date')||null,
+    paid_date:v('f-paid-date')||null,
+    notes:v('f-notes'),
+    description:v('f-notes')
+  };
+  const r=await API.put('/api/invoices/'+state.editTarget.id,body);
+  if(r?.error){toast(r.error,'error');return;}
+  toast('Invoice updated');
+}
 else if(m==='add-progress'){const sessId=state.editTarget?.session_id;const sess=(state.data.sessions||[]).find(s=>s.id===sessId);await API.post('/api/progress',{student_id:parseInt(v('f-student')),session_id:sessId,staff_id:sess?.staff_id||null,subject:v('f-subject'),rating:parseInt(v('f-rating'))||4,comment:v('f-comment')});toast('Progress note added');}
 else if(m==='add-parent-user'||m==='edit-parent-user'){const sel=document.getElementById('f-students');const studentIds=sel?Array.from(sel.selectedOptions).map(o=>parseInt(o.value)):[];const body={name:v('f-name'),email:v('f-email'),student_ids:studentIds,status:v('f-status')};if(v('f-password'))body.password=v('f-password');if(!body.name||!body.email){toast('Name and email required','error');return;}if(m==='add-parent-user'){if(!body.password){toast('Password required','error');return;}await API.post('/api/parent-users',body);}else await API.put('/api/parent-users/'+state.editTarget.id,body);toast(m==='add-parent-user'?'Parent account added':'Parent account updated');}
 if(m==='add-staff-att'||m==='edit-staff-att'){
