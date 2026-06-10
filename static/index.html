@@ -1137,14 +1137,14 @@ function renderStaffTimesheets(){
 
   // Apply filters to summary
   const filteredSummary=summary.filter(function(r){
-    if(filterStaff&&!r.name.toLowerCase().includes(filterStaff.toLowerCase())) return false;
+    if(filterStaff&&r.name!==filterStaff) return false;
     if(filterRole&&r.role!==filterRole) return false;
     return true;
   });
 
   // Apply filters to records (full log)
   const filteredRecords=records.filter(function(r){
-    if(filterStaff&&!(r.staff_name||'').toLowerCase().includes(filterStaff.toLowerCase())) return false;
+    if(filterStaff&&(r.staff_name||'')!==filterStaff) return false;
     if(filterRole&&r.staff_role!==filterRole) return false;
     if(filterStatus&&r.status!==filterStatus) return false;
     if(filterDate&&r.date!==filterDate) return false;
@@ -1189,7 +1189,10 @@ function renderStaffTimesheets(){
   '<div class="field" style="margin:0;"><label style="font-size:11px;">Month</label>'+
   '<input type="month" id="sa-month" value="'+month+'" style="width:100%;border:1px solid var(--border2);border-radius:var(--radius);padding:6px 10px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;"></div>'+
   '<div class="field" style="margin:0;"><label style="font-size:11px;">Staff name</label>'+
-  '<input type="text" id="ts-filter-staff" value="'+filterStaff+'" placeholder="Search..." style="width:100%;border:1px solid var(--border2);border-radius:var(--radius);padding:6px 10px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;"></div>'+
+  '<select id="ts-filter-staff" style="width:100%;border:1px solid var(--border2);border-radius:var(--radius);padding:6px 10px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;">'+
+  '<option value="">All staff</option>'+
+  staffList.map(function(s){return '<option value="'+s.name+'" '+(s.name===filterStaff?'selected':'')+'>'+s.name+'</option>';}).join('')+
+  '</select></div>'+
   '<div class="field" style="margin:0;"><label style="font-size:11px;">Role</label>'+
   '<select id="ts-filter-role" style="width:100%;border:1px solid var(--border2);border-radius:var(--radius);padding:6px 10px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;">'+
   '<option value="">All roles</option>'+
@@ -3141,7 +3144,7 @@ document.getElementById('student-search')?.addEventListener('input',e=>{
   });
 });
 document.getElementById('sa-month')?.addEventListener('change',e=>{state.staffAttMonth=e.target.value;refreshPage();});
-document.getElementById('ts-filter-staff')?.addEventListener('input',e=>{state.tsFilterStaff=e.target.value;render();});
+document.getElementById('ts-filter-staff')?.addEventListener('change',e=>{state.tsFilterStaff=e.target.value;render();});
 document.getElementById('ts-filter-role')?.addEventListener('change',e=>{state.tsFilterRole=e.target.value;render();});
 document.getElementById('ts-filter-status')?.addEventListener('change',e=>{state.tsFilterStatus=e.target.value;render();});
 document.getElementById('ts-filter-date')?.addEventListener('change',e=>{state.tsFilterDate=e.target.value;render();});
