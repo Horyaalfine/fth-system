@@ -1227,6 +1227,83 @@ function renderStaffTimesheets(){
 
   ${tab==='log'?`
   <div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>
+    <thead><tr>
+      <th>Date</th><th>Staff</th><th>Branch</th><th>Role</th>
+      <th>Sign in</th><th>Sign out</th><th>Clock hrs</th><th>Paid hrs</th>
+      <th>Status</th><th>Session</th><th>Notes</th><th></th>
+    </tr></thead>
+    <tbody>${(function(){
+      if(!filteredRecords.length) return '<tr><td colspan="12"><div class="empty-state">No records for this period</div></td></tr>';
+
+      // Group by date+staff for summary rows
+      const groups={};
+      const groupOrder=[];
+      filteredRecords.forEach(function(r){
+        const key=r.date+'|'+r.staff_name;
+        if(!groups[key]){groups[key]=[];groupOrder.push(key);}
+        groups[key].push(r);
+      });
+
+      let html='';
+      groupOrder.forEach(function(key){
+        const recs=groups[key];
+        const first=recs[0];
+        const totalClock=recs.reduce(function(t,r){
+          if(!r.sign_in||!r.sign_out) return t;
+          try{const a=r.sign_in.slice(0,5).split(':');const b=r.sign_out.slice(0,5).split(':');return t+(parseInt(b[0])*60+parseInt(b[1]))-(parseInt(a[0])*60+parseInt(a[1]));}catch(e){return t;}
+        },0);
+        const totalPaid=recs.reduce(function(t,r){return t+(r.paid_hours||0);},0);
+        const clkStr=totalClock>0?(Math.floor(totalClock/60)+'h'+(totalClock%60?(' '+totalClock%60+'m'):'')):'—';
+        const multiDay=recs.length>1;
+
+        if(multiDay){
+          // Summary row for multiple records on same date
+          html+='<tr style="background:var(--surface2);">';
+          html+='<td><strong>'+new Date(first.date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})+'</strong></td>';
+          html+='<td><strong>'+first.staff_name+'</strong></td>';
+          html+='<td><span class="badge badge-accent">'+first.branch_name+'</span></td>';
+          html+='<td style="font-size:12px;color:var(--text3);">'+first.staff_role+'</td>';
+          html+='<td style="font-size:12px;color:var(--text3);" colspan="2">'+recs.length+' records</td>';
+          html+='<td style="color:var(--text3);font-size:12px;">'+clkStr+'</td>';
+          html+='<td><strong style="color:var(--purple-text);">'+(totalPaid>0?totalPaid.toFixed(2)+'h':'—')+'</strong></td>';
+          html+='<td colspan="3"></td><td></td>';
+          html+='</tr>';
+        }
+
+        // Individual rows
+        recs.forEach(function(r){
+          const hrs=(r.sign_in&&r.sign_out)?(function(){
+            try{const a=r.sign_in.slice(0,5).split(':');const b=r.sign_out.slice(0,5).split(':');
+            const m=(parseInt(b[0])*60+parseInt(b[1]))-(parseInt(a[0])*60+parseInt(a[1]));
+            return Math.floor(m/60)+'h'+(m%60?(' '+m%60+'m'):'');}catch(e){return '—';}
+          })():'—';
+          const rowStyle=multiDay?'padding-left:20px;':'' ;
+          const noSO=r.sign_in&&!r.sign_out;
+          html+='<tr style="'+(noSO?'background:rgba(167,139,250,0.08);':'')+'">';
+          html+='<td style="'+rowStyle+'">'+(multiDay?'↳ ':'<strong>')+new Date(r.date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})+(multiDay?'':'</strong>')+'</td>';
+          html+='<td>'+(multiDay?'<span style="color:var(--text3);font-size:12px;">'+r.staff_name+'</span>':'<strong>'+r.staff_name+'</strong>')+'</td>';
+          html+='<td><span class="badge badge-accent">'+r.branch_name+'</span></td>';
+          html+='<td style="font-size:12px;color:var(--text3);">'+r.staff_role+'</td>';
+          html+='<td><span style="font-family:var(--mono);font-size:12px;color:var(--success-text);">'+(r.sign_in||'—')+'</span></td>';
+          html+='<td><span style="font-family:var(--mono);font-size:12px;color:'+(r.sign_out?'var(--text2)':'var(--danger-text)')+';">'+(r.sign_out||'<strong>Missing</strong>')+'</span></td>';
+          html+='<td style="color:var(--text3);font-size:12px;">'+hrs+'</td>';
+          html+='<td><strong style="color:var(--purple-text);">'+(r.paid_hours!=null?r.paid_hours+'h':'—')+'</strong></td>';
+          html+='<td>'+((r.status==='present'?'<span class="badge badge-success">Present</span>':r.status==='absent'?'<span class="badge badge-danger">Absent</span>':r.status==='late'?'<span class="badge badge-amber">Late</span>':'<span class="badge badge-gray">'+r.status+'</span>'))+'</td>';
+          html+='<td style="font-size:11px;color:var(--text3);">'+(r.slot||r.session_subject||'—')+'</td>';
+          html+='<td style="font-size:12px;color:var(--text3);">'+(r.notes||'—')+'</td>';
+          html+='<td><div class="row-actions">';
+          html+='<button class="btn btn-sm" data-action="edit-staff-att" data-id="'+r.id+'">Edit</button>';
+          html+='<button class="btn btn-sm btn-danger" data-action="del-staff-att" data-id="'+r.id+'">Del</button>';
+          html+='</div></td>';
+          html+='</tr>';
+        });
+      });
+      return html;
+    })()}</tbody>
+  </table></div></div>` : ''}
+
+  ${tab==='log'?`
+  <div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>
     <thead><tr><th>Date</th><th>Staff</th><th>Branch</th><th>Session</th><th>Sign in</th><th>Sign out</th><th>Clock hrs</th><th>Paid hrs</th><th>Status</th><th>Notes</th><th></th></tr></thead>
     <tbody>${filteredRecords.map(r=>{
       const hrs=(r.sign_in&&r.sign_out)?calcHours(r.sign_in,r.sign_out):'—';
