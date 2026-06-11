@@ -888,8 +888,8 @@ function renderInvoices(){
   const paid=invs.filter(i=>i.status==='paid').reduce((s,i)=>s+parseFloat(i.amount||0),0);
   const out=invs.filter(i=>i.status!=='paid').reduce((s,i)=>s+parseFloat(i.amount||0),0);
 
-  const feeLabels={monthly_fee:'Monthly fee',admission_fee:'Admission fee',book_fee:'Book fee',past_papers_fee:'Past papers fee',miscellaneous:'Miscellaneous'};
-  const feeColors={monthly_fee:'var(--accent)',admission_fee:'var(--teal)',book_fee:'var(--purple)',past_papers_fee:'var(--amber-text)',miscellaneous:'var(--text3)'};
+  const feeLabels={monthly_fee:'Monthly fee',opening_balance:'Opening balance',admission_fee:'Admission fee',book_fee:'Book fee',past_papers_fee:'Past papers fee',miscellaneous:'Miscellaneous'};
+  const feeColors={monthly_fee:'var(--accent)',opening_balance:'var(--danger)',admission_fee:'var(--teal)',book_fee:'var(--purple)',past_papers_fee:'var(--amber-text)',miscellaneous:'var(--text3)'};
 
   // Get unique months for filter
   const months=[...new Set(invs.map(i=>i.month).filter(Boolean))].sort().reverse();
@@ -2864,6 +2864,7 @@ function modalAddFeeInvoice(){
     '<div class="field"><label>Branch</label><select id="f-branch">'+brOpts+'</select></div>'+
     '<div class="field"><label>Fee type</label><select id="f-fee-type">'+
       '<option value="monthly_fee">Monthly fee</option>'+
+      '<option value="opening_balance">Opening balance (brought forward)</option>'+
       '<option value="admission_fee">Admission fee</option>'+
       '<option value="book_fee">Book fee</option>'+
       '<option value="past_papers_fee">Past papers fee</option>'+
@@ -2878,7 +2879,7 @@ function modalAddFeeInvoice(){
 
 function modalMarkPaid(){
   const inv=state.editTarget||{};
-  const feeLabels={monthly_fee:'Monthly fee',admission_fee:'Admission fee',book_fee:'Book fee',past_papers_fee:'Past papers fee',miscellaneous:'Miscellaneous'};
+  const feeLabels={monthly_fee:'Monthly fee',opening_balance:'Opening balance',admission_fee:'Admission fee',book_fee:'Book fee',past_papers_fee:'Past papers fee',miscellaneous:'Miscellaneous'};
   const total=parseFloat(inv.amount||0);
   const alreadyPaid=parseFloat(inv.amount_paid||0);
   const balance=Math.round((total-alreadyPaid)*100)/100;
@@ -2907,7 +2908,7 @@ function modalMarkPaid(){
 }
 
 function modalInvoice(){const inv=state.editTarget||{};
-const feeLabels={monthly_fee:'Monthly fee',admission_fee:'Admission fee',book_fee:'Book fee',past_papers_fee:'Past papers fee',miscellaneous:'Miscellaneous'};
+const feeLabels={monthly_fee:'Monthly fee',opening_balance:'Opening balance',admission_fee:'Admission fee',book_fee:'Book fee',past_papers_fee:'Past papers fee',miscellaneous:'Miscellaneous'};
 return mWrap('Edit invoice',`
 <div style="margin-bottom:16px;padding:12px;background:var(--surface2);border-radius:var(--radius);font-size:13px;color:var(--text2);">
   Student: <strong style="color:var(--text);">${inv.student_name}</strong> <span class="id-code">${inv.admission_id}</span> — ${inv.month}
@@ -2916,6 +2917,7 @@ return mWrap('Edit invoice',`
   <div class="field"><label>Fee type</label>
     <select id="f-fee-type">
       <option value="monthly_fee" ${(inv.fee_type||'monthly_fee')==='monthly_fee'?'selected':''}>Monthly fee</option>
+      <option value="opening_balance" ${inv.fee_type==='opening_balance'?'selected':''}>Opening balance</option>
       <option value="admission_fee" ${inv.fee_type==='admission_fee'?'selected':''}>Admission fee</option>
       <option value="book_fee" ${inv.fee_type==='book_fee'?'selected':''}>Book fee</option>
       <option value="past_papers_fee" ${inv.fee_type==='past_papers_fee'?'selected':''}>Past papers fee</option>
@@ -3033,7 +3035,7 @@ function modalPayment(){
   const invoices=state.data.invoices||[];
   const defBranch=state.currentBranch||branches[0]?.id||'';
   const preselect=p.student_id||state.finStudentId;
-  const feeLabels={monthly_fee:'Monthly fee',admission_fee:'Admission fee',book_fee:'Book fee',past_papers_fee:'Past papers fee',miscellaneous:'Miscellaneous'};
+  const feeLabels={monthly_fee:'Monthly fee',opening_balance:'Opening balance',admission_fee:'Admission fee',book_fee:'Book fee',past_papers_fee:'Past papers fee',miscellaneous:'Miscellaneous'};
   const dueInvoices=invoices.filter(i=>i.status!=='paid'&&(!preselect||i.student_id===preselect));
   return mWrap(p.id?'Edit payment':'Record payment',`
     <div class="form-grid">
@@ -3359,7 +3361,7 @@ else if(m==='add-fee-invoice'){
   if(!stuId){toast('Please select a student','error');return;}
   if(!amount||amount<=0){toast('Please enter a valid amount','error');return;}
   if(!month){toast('Please select a month','error');return;}
-  const feeLabels={monthly_fee:'Monthly fee',admission_fee:'Admission fee',book_fee:'Book fee',past_papers_fee:'Past papers fee',miscellaneous:'Miscellaneous'};
+  const feeLabels={monthly_fee:'Monthly fee',opening_balance:'Opening balance',admission_fee:'Admission fee',book_fee:'Book fee',past_papers_fee:'Past papers fee',miscellaneous:'Miscellaneous'};
   const body={
     student_id:stuId, branch_id:brId, amount:amount,
     month:month, fee_type:feeType,
@@ -3935,7 +3937,7 @@ if(action==='inv-tab'){state.invTab=el.dataset.tab;render();return;}
 if(action==='inv-filter'){state.invoiceFilter=el.dataset.filter;render();return;}
 if(action==='export-inv-excel'){
   const list=window._currentFilteredInvoices||[];
-  const feeLabels={monthly_fee:'Monthly fee',admission_fee:'Admission fee',book_fee:'Book fee',past_papers_fee:'Past papers fee',miscellaneous:'Miscellaneous'};
+  const feeLabels={monthly_fee:'Monthly fee',opening_balance:'Opening balance',admission_fee:'Admission fee',book_fee:'Book fee',past_papers_fee:'Past papers fee',miscellaneous:'Miscellaneous'};
   const rows=[['Student','Admission ID','Branch','Month','Fee Type','Amount (£)','Status','Issued','Paid Date','Notes']];
   list.forEach(function(inv){rows.push([inv.student_name,inv.admission_id,inv.branch_name||'',inv.month,feeLabels[inv.fee_type||'monthly_fee']||'Monthly fee',parseFloat(inv.amount||0).toFixed(2),inv.status,inv.issued||'',inv.paid_date||'',inv.notes||inv.description||'']);});
   exportXLSX(rows,'fth-invoices.xlsx','Invoices');return;}
