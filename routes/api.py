@@ -1147,6 +1147,86 @@ def get_payments():
     cur.close(); conn.close()
     return jsonify(data)
 
+
+@api_bp.route('/api/adjustments', methods=['GET'])
+@require_auth
+def get_adjustments():
+    b = branch_scope()
+    student_id = request.args.get('student_id')
+    conn = get_conn(); cur = conn.cursor()
+    where = []; params = []
+    if b:          where.append("a.branch_id=%s"); params.append(b)
+    if student_id: where.append("a.student_id=%s"); params.append(int(student_id))
+    wc = ('WHERE '+' AND '.join(where)) if where else ''
+    cur.execute(f"""
+        SELECT a.*, s.name as student_name, s.admission_id, b.name as branch_name,
+               u.name as recorded_by_name
+        FROM adjustments a
+        JOIN students s ON s.id=a.student_id
+        JOIN branches b ON b.id=a.branch_id
+        LEFT JOIN users u ON u.id=a.recorded_by
+        {wc} ORDER BY a.adj_date DESC, a.created_at DESC
+    """, params)
+    data = rows(cur)
+    for d in data:
+        if d.get('adj_date'): d['adj_date'] = str(d['adj_date'])
+        if d.get('amount') is not None: d['amount'] = float(d['amount'])
+    cur.close(); conn.close()
+    return jsonify(data)
+
+@api_bp.route('/api/adjustments', methods=['POST'])
+@require_auth
+def add_adjustment():
+    d = request.json
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        cur.execute("""
+            INSERT INTO adjustments (student_id, branch_id, amount, adj_type, adj_date, notes, recorded_by)
+            VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING *
+        """, (d['student_id'], d['branch_id'], d['amount'], d.get('adj_type','discount'),
+                d.get('adj_date') or None, d.get('notes',''), session.get('user_id')))
+        r = row(cur); conn.commit()
+    except Exception as e:
+        conn.rollback(); cur.close(); conn.close()
+        return jsonify({'error': str(e)}), 400
+    cur.close(); conn.close()
+    if r:
+        if r.get('adj_date'): r['adj_date'] = str(r['adj_date'])
+        if r.get('amount') is not None: r['amount'] = float(r['amount'])
+    log_action('add', 'adjustments', r['id'] if r else 0)
+    return jsonify(r), 201
+
+@api_bp.route('/api/adjustments/<int:aid>', methods=['PUT'])
+@require_auth
+def update_adjustment(aid):
+    d = request.json
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        cur.execute("""
+            UPDATE adjustments SET amount=%s, adj_type=%s, adj_date=%s, notes=%s
+            WHERE id=%s RETURNING *
+        """, (d['amount'], d.get('adj_type','discount'), d.get('adj_date') or None,
+                d.get('notes',''), aid))
+        r = row(cur); conn.commit()
+    except Exception as e:
+        conn.rollback(); cur.close(); conn.close()
+        return jsonify({'error': str(e)}), 400
+    cur.close(); conn.close()
+    if r:
+        if r.get('adj_date'): r['adj_date'] = str(r['adj_date'])
+        if r.get('amount') is not None: r['amount'] = float(r['amount'])
+    log_action('edit', 'adjustments', aid)
+    return jsonify(r)
+
+@api_bp.route('/api/adjustments/<int:aid>', methods=['DELETE'])
+@require_auth
+def delete_adjustment(aid):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("DELETE FROM adjustments WHERE id=%s", (aid,))
+    conn.commit(); cur.close(); conn.close()
+    log_action('delete', 'adjustments', aid)
+    return jsonify({'ok': True})
+
 @api_bp.route('/api/payments', methods=['POST'])
 @require_auth
 def add_payment():
