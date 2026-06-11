@@ -539,15 +539,20 @@ def generate_invoices():
 def update_invoice(iid):
     d = request.json
     conn = get_conn(); cur = conn.cursor()
-    cur.execute("""
-        UPDATE invoices SET amount=%s, amount_paid=%s, status=%s, month=%s,
-            fee_type=%s, due_date=%s, paid_date=%s, notes=%s, description=%s
-        WHERE id=%s RETURNING *
-    """, (d.get('amount',0), d.get('amount_paid',0), d.get('status','due'), d.get('month'),
-            d.get('fee_type','monthly_fee'),
-            d.get('due_date') or None, d.get('paid_date') or None,
-            d.get('notes',''), d.get('description',''), iid))
-    r = row(cur); conn.commit(); cur.close(); conn.close()
+    try:
+        cur.execute("""
+            UPDATE invoices SET amount=%s, amount_paid=%s, status=%s, month=%s,
+                fee_type=%s, due_date=%s, paid_date=%s, notes=%s, description=%s
+            WHERE id=%s RETURNING *
+        """, (d.get('amount',0), d.get('amount_paid',0), d.get('status','due'), d.get('month'),
+                d.get('fee_type','monthly_fee'),
+                d.get('due_date') or None, d.get('paid_date') or None,
+                d.get('notes',''), d.get('description',''), iid))
+        r = row(cur); conn.commit()
+    except Exception as e:
+        conn.rollback(); cur.close(); conn.close()
+        return jsonify({'error': str(e)}), 400
+    cur.close(); conn.close()
     if r:
         if r.get('issued'):    r['issued']    = str(r['issued'])
         if r.get('paid_date'): r['paid_date'] = str(r['paid_date'])
