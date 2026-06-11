@@ -1343,9 +1343,22 @@ def get_statement(student_id):
     """, (student_id,))
     instalments = rows(cur)
 
+    # Adjustments (discounts/credits = positive debit reduces balance via negative amount, or credit field)
+    cur.execute("""
+        SELECT id, adj_date as date, 'adjustment' as type,
+               CASE WHEN amount >= 0 THEN 'Adjustment — ' || adj_type
+                    ELSE 'Adjustment — ' || adj_type || ' (credit)' END
+               || CASE WHEN notes != '' THEN ': ' || notes ELSE '' END as description,
+               CASE WHEN amount >= 0 THEN amount ELSE 0 END as debit,
+               CASE WHEN amount < 0 THEN -amount ELSE 0 END as credit,
+               adj_type as status, notes
+        FROM adjustments WHERE student_id=%s ORDER BY adj_date
+    """, (student_id,))
+    adjustments_list = rows(cur)
+
     # Combine and sort all transactions
     all_txns = []
-    for t in invoices + payments_list + instalments:
+    for t in invoices + payments_list + instalments + adjustments_list:
         t['date'] = str(t['date']) if t.get('date') else ''
         t['debit'] = float(t.get('debit') or 0)
         t['credit'] = float(t.get('credit') or 0)
@@ -1353,16 +1366,30 @@ def get_statement(student_id):
 
     all_txns.sort(key=lambda x: x['date'])
 
-    # Calculate running balance
-    balance = 0.0
+    # Opening balance as the starting line
+    opening_balance = float(student.get('opening_balance') or 0)
+    balance = opening_balance
+    if opening_balance != 0:
+        all_txns.insert(0, {
+            'id': 0, 'date': '', 'type': 'opening_balance',
+            'description': 'Opening balance (brought forward)',
+            'debit': opening_balance if opening_balance > 0 else 0,
+            'credit': -opening_balance if opening_balance < 0 else 0,
+            'status': '', 'notes': '', 'balance': round(opening_balance, 2)
+        })
+
+    # Calculate running balance for the rest
     for t in all_txns:
+        if t['type'] == 'opening_balance':
+            continue
         balance += t['debit'] - t['credit']
         t['balance'] = round(balance, 2)
 
     # Summary
     total_charged = sum(t['debit'] for t in all_txns)
     total_paid    = sum(t['credit'] for t in all_txns)
-    closing_balance = round(total_charged - total_paid, 2)
+    closing_balance = round(opening_balance + total_charged - total_paid - opening_balance + opening_balance, 2)
+    closing_balance = round(balance, 2)
 
     # Instalment plans
     cur.execute("""
@@ -1394,6 +1421,8 @@ def get_statement(student_id):
 
     for f in ['created_at']:
         if student.get(f): student[f] = str(student[f])
+    if student.get('opening_balance') is not None:
+        student['opening_balance'] = float(student['opening_balance'])
 
     return jsonify({
         'student': student,
