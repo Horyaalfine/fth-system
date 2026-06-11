@@ -502,6 +502,9 @@ def add_invoice():
         r = row(cur); conn.commit()
         if r:
             if r.get('issued'): r['issued'] = str(r['issued'])
+            if r.get('due_date'): r['due_date'] = str(r['due_date'])
+            if r.get('amount') is not None:      r['amount']      = float(r['amount'])
+            if r.get('amount_paid') is not None: r['amount_paid'] = float(r['amount_paid'])
         cur.close(); conn.close()
         log_action('add', 'invoices', r['id'] if r else 0)
         return jsonify(r), 201
@@ -557,6 +560,8 @@ def update_invoice(iid):
         if r.get('issued'):    r['issued']    = str(r['issued'])
         if r.get('paid_date'): r['paid_date'] = str(r['paid_date'])
         if r.get('due_date'):  r['due_date']  = str(r['due_date'])
+        if r.get('amount') is not None:      r['amount']      = float(r['amount'])
+        if r.get('amount_paid') is not None: r['amount_paid'] = float(r['amount_paid'])
     log_action('edit', 'invoices', iid)
     return jsonify(r)
 
