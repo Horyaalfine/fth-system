@@ -1678,7 +1678,7 @@ function renderFinance(){
       <thead><tr><th>Date</th><th>Description</th><th>Charged (Dr)</th><th>Paid (Cr)</th><th>Balance</th></tr></thead>
       <tbody>
         ${stmt.transactions.length?stmt.transactions.map(t=>`<tr>
-          <td style="font-family:var(--mono);font-size:12px;">${new Date(t.date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</td>
+          <td style="font-family:var(--mono);font-size:12px;">${t.date?new Date(t.date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'—'}</td>
           <td>
             <span style="font-size:13px;color:var(--text);">${t.description}</span>
             ${t.notes?`<span style="font-size:11px;color:var(--text3);display:block;">${t.notes}</span>`:''}
