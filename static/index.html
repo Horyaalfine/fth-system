@@ -2979,6 +2979,35 @@ function modalStaffAtt(){
   `<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${r.id?'Save changes':'Log attendance'}</button>`);
 }
 
+function modalAdjustment(){
+  const a=state.editTarget||{};
+  const students=state.data.students||[];
+  const branches=state.data.branches||[];
+  const defBranch=state.currentBranch||branches[0]?.id||'';
+  const preselect=a.student_id||state.finStudentId;
+  const isCredit=a.amount<0;
+  const footer='<button class="btn" id="modal-cancel">Cancel</button>'+(a.id?'<button class="btn btn-danger" id="modal-delete" style="margin-right:auto;">Delete</button>':'')+'<button class="btn btn-primary" id="modal-save">Save</button>';
+  return mWrap(a.id?'Edit adjustment':'Add adjustment','<div class="form-grid">'+
+    '<div class="field"><label>Student</label><select id="f-student-id">'+students.map(s=>'<option value="'+s.id+'" '+((a.student_id||preselect)===s.id?'selected':'')+'>'+s.admission_id+' — '+s.name+'</option>').join('')+'</select></div>'+
+    '<div class="field"><label>Branch</label><select id="f-branch">'+branches.map(b=>'<option value="'+b.id+'" '+((a.branch_id||defBranch)==b.id?'selected':'')+'>'+b.name+'</option>').join('')+'</select></div>'+
+    '<div class="field"><label>Type</label><select id="f-adj-type">'+
+      '<option value="discount" '+(a.adj_type==='discount'?'selected':'')+'>Discount (reduces amount owed)</option>'+
+      '<option value="credit" '+(a.adj_type==='credit'?'selected':'')+'>Credit (goodwill credit to account)</option>'+
+      '<option value="correction" '+(a.adj_type==='correction'?'selected':'')+'>Correction</option>'+
+      '<option value="write_off" '+(a.adj_type==='write_off'?'selected':'')+'>Write-off (bad debt)</option>'+
+      '<option value="other" '+(a.adj_type==='other'?'selected':'')+'>Other</option>'+
+    '</select></div>'+
+    '<div class="field"><label>Amount (£)</label><input type="number" id="f-amount" value="'+(a.id?Math.abs(a.amount):'')+'" step="0.01" min="0" placeholder="0.00"></div>'+
+    '<div class="field"><label>Direction</label><select id="f-adj-direction">'+
+      '<option value="reduce" '+(!isCredit?'selected':'')+'>Reduces balance owed (e.g. discount, write-off)</option>'+
+      '<option value="increase" '+(isCredit?'selected':'')+'>Increases balance owed (rare — use for corrections)</option>'+
+    '</select></div>'+
+    '<div class="field"><label>Date</label><input type="date" id="f-date" value="'+(a.adj_date||new Date().toISOString().slice(0,10))+'"></div>'+
+    '<div class="field" style="grid-column:1/-1;"><label>Notes</label><input type="text" id="f-notes" value="'+(a.notes||'')+'" placeholder="e.g. Sibling discount, goodwill gesture, fee correction..."></div>'+
+    '</div>'+
+    '<div style="margin-top:10px;font-size:11px;color:var(--text3);">Most discounts/write-offs should use \'Reduces balance owed\' — this lowers what the student owes (shown as a credit on their statement).</div>',footer);
+}
+
 function modalPayment(){
   const p=state.editTarget||{};
   const students=state.data.students||[];
