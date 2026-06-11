@@ -894,11 +894,30 @@ function renderInvoices(){
   // Get unique months for filter
   const months=[...new Set(invs.map(i=>i.month).filter(Boolean))].sort().reverse();
 
+  const searchTerm=(state.invSearch||'').trim().toLowerCase();
+
   // Apply all filters
   let filtered=invs;
   if(f!=='all') filtered=filtered.filter(i=>i.status===f);
   if(feeFilter!=='all') filtered=filtered.filter(i=>(i.fee_type||'monthly_fee')===feeFilter);
   if(monthFilter) filtered=filtered.filter(i=>i.month===monthFilter);
+  if(searchTerm) filtered=filtered.filter(i=>
+    (i.student_name||'').toLowerCase().includes(searchTerm) ||
+    (i.admission_id||'').toLowerCase().includes(searchTerm)
+  );
+
+  // Sort by admission ID (natural sort: H103, H103a, H104, H104a...)
+  filtered=[...filtered].sort((a,b)=>{
+    const re=/^([A-Za-z]*)(\d+)([A-Za-z]*)$/;
+    const ma=(a.admission_id||'').match(re), mb=(b.admission_id||'').match(re);
+    if(ma&&mb){
+      if(ma[1]!==mb[1]) return ma[1]<mb[1]?-1:1;
+      const na=parseInt(ma[2]), nb=parseInt(mb[2]);
+      if(na!==nb) return na-nb;
+      return ma[3]<mb[3]?-1:ma[3]>mb[3]?1:0;
+    }
+    return (a.admission_id||'').localeCompare(b.admission_id||'');
+  });
 
   function invBadge(s){
     return s==='paid'?'<span class="badge badge-success">Paid</span>':
