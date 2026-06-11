@@ -987,6 +987,11 @@ function renderInvoices(){
   html+='<div class="tab '+(tab==='other'?'active':'')+'" data-action="inv-tab" data-tab="other">Other fees ('+invs.filter(i=>i.fee_type&&i.fee_type!=='monthly_fee').length+')</div>';
   html+='</div>';
 
+  // Search bar
+  html+='<div style="margin-bottom:10px;">';
+  html+='<input type="text" id="inv-search" value="'+(state.invSearch||'')+'" placeholder="Search by student name or admission ID (e.g. H103a)..." style="width:100%;max-width:400px;border:1px solid var(--border2);border-radius:var(--radius);padding:7px 12px;background:var(--surface2);color:var(--text);font-family:var(--font);font-size:13px;">';
+  html+='</div>';
+
   // Filter bar
   html+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">';
   // Status filter
