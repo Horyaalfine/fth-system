@@ -2940,10 +2940,10 @@ function modalPayment(){
     <div class="form-grid">
       <div class="field"><label>Student</label><select id="f-student-id">${students.map(s=>`<option value="${s.id}" ${(p.student_id||preselect)===s.id?'selected':''}>${s.admission_id} — ${s.name}</option>`).join('')}</select></div>
       <div class="field"><label>Branch</label><select id="f-branch">${branches.map(b=>`<option value="${b.id}" ${(p.branch_id||defBranch)==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>
-      ${!p.id?`<div class="field" style="grid-column:1/-1;"><label>Apply to invoice (optional)</label><select id="f-apply-invoice">
+      <div class="field" style="grid-column:1/-1;"><label>Apply to invoice ${p.id?'(optional — link this payment to an invoice)':'(optional)'}</label><select id="f-apply-invoice">
         <option value="">— General payment, not linked to an invoice —</option>
         ${dueInvoices.map(i=>`<option value="${i.id}" data-amount="${i.amount}">${i.admission_id} — ${i.student_name} — ${feeLabels[i.fee_type||'monthly_fee']} — ${i.month} — £${parseFloat(i.amount).toFixed(2)} (${i.status})</option>`).join('')}
-      </select><div style="font-size:11px;color:var(--text3);margin-top:4px;">If selected, this invoice will be marked as paid automatically.</div></div>`:''}
+      </select><div style="font-size:11px;color:var(--text3);margin-top:4px;">If selected, this invoice will be marked as paid (using this payment's amount and date).</div></div>
       <div class="field"><label>Amount (£)</label><input type="number" id="f-amount" value="${p.amount||''}" step="0.01" placeholder="0.00"></div>
       <div class="field"><label>Payment date</label><input type="date" id="f-date" value="${p.payment_date||new Date().toISOString().slice(0,10)}"></div>
       <div class="field"><label>Payment method</label><select id="f-method">
