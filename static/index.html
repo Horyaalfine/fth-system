@@ -263,6 +263,24 @@ table{min-width:480px;}
 <script>
 const API={async call(method,path,body){const opts={method,credentials:'include',headers:{'Content-Type':'application/json'}};if(body)opts.body=JSON.stringify(body);const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),8000);opts.signal=controller.signal;try{const res=await fetch(path,opts);clearTimeout(timer);if(res.status===401){state.currentUser=null;state.parentUser=null;render();return null;}return res.ok?res.json():Promise.reject(await res.json());}catch(e){clearTimeout(timer);if(e.name==='AbortError')console.warn('Timeout:',path);throw e;}},get:(p,q)=>API.call('GET',q?p+'?'+new URLSearchParams(q):p),post:(p,body)=>API.call('POST',p,body),put:(p,body)=>API.call('PUT',p,body),delete:(p)=>API.call('DELETE',p)};
 
+function exportXLSX(rows, filename, sheetName){
+  try{
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const colWidths = rows[0].map(function(_, ci){
+      let maxLen = 10;
+      rows.forEach(function(r){ const v=r[ci]; const len=(v==null?'':String(v)).length; if(len>maxLen) maxLen=len; });
+      return {wch: Math.min(40, maxLen)};
+    });
+    ws['!cols'] = colWidths;
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, sheetName||'Sheet1');
+    XLSX.writeFile(wb, filename);
+  }catch(e){
+    console.error('Excel export failed:',e);
+    if(typeof toast==='function') toast('Export failed: '+(e.message||e),'error');
+  }
+}
+
 let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',invTab:'list',invFeeFilter:'all',invMonthFilter:'',tsFilterStaff:'',tsFilterRole:'',tsFilterStatus:'',tsFilterDate:'',lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',sessionMonth:'',sessionDate:'',sessionSlot:'',sessionTeacher:'',sessionSubject:'',attDateFilter:'',attSlotFilter:'',attAllSessions:'',attTeacherFilter:'',attStatusFilter:'all',planSessionId:null,planMonth:'',planTab:'allocate',timetableStudentId:null,mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
 
 function toast(msg,type='success'){const el=document.createElement('div');el.className=`toast toast-${type}`;el.innerHTML=(type==='success'?'<span style="color:var(--success)">✓</span> ':'<span style="color:var(--danger)">✕</span> ')+msg;document.getElementById('toasts').appendChild(el);setTimeout(()=>el.remove(),3500);}
