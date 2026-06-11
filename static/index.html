@@ -3539,10 +3539,12 @@ document.getElementById('f-apply-invoice')?.addEventListener('change',e=>{
   const amt=opt?opt.getAttribute('data-amount'):null;
   if(amt) document.getElementById('f-amount').value=amt;
 });
-document.getElementById('f-student-id')?.addEventListener('change',e=>{
-  state.editTarget={...(state.editTarget||{}),student_id:parseInt(e.target.value)};
-  render();
-});
+if(state.modal==='add-payment'||state.modal==='edit-payment'){
+  document.getElementById('f-student-id')?.addEventListener('change',e=>{
+    state.editTarget={...(state.editTarget||{}),student_id:parseInt(e.target.value)};
+    render();
+  });
+}
 document.getElementById('inv-month-filter')?.addEventListener('change',e=>{state.invMonthFilter=e.target.value;render();});
 document.getElementById('inv-search')?.addEventListener('input',e=>{state.invSearch=e.target.value;render();});
 document.getElementById('ts-filter-staff')?.addEventListener('change',e=>{state.tsFilterStaff=e.target.value;render();});
