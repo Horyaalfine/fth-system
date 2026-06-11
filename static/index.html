@@ -2581,6 +2581,7 @@ ${children.map(st=>childCard(st)).join('')}`;}
 
 // MODALS
 function renderModal(){const m=state.modal;if(m==='add-student'||m==='edit-student')return modalStudent();if(m==='add-staff'||m==='edit-staff')return modalStaff();if(m==='add-session'||m==='edit-session')return modalSession();if(m==='add-user'||m==='edit-user')return modalUser();if(m==='add-branch'||m==='edit-branch')return modalBranch();if(m==='edit-invoice')return modalInvoice();
+  if(m==='mark-paid')return modalMarkPaid();
   if(m==='add-fee-invoice')return modalAddFeeInvoice();if(m==='add-progress')return modalProgress();if(m==='add-parent-user'||m==='edit-parent-user')return modalParentUser();if(m==='add-staff-att'||m==='edit-staff-att')return modalStaffAtt();
   if(m==='add-payment'||m==='edit-payment')return modalPayment();
   if(m==='add-instalment-plan')return modalInstalmentPlan();
@@ -2811,6 +2812,28 @@ function modalAddFeeInvoice(){
     '<div class="field"><label>Month</label><input type="month" id="f-month" value="'+today+'"></div>'+
     '<div class="field"><label>Due date</label><input type="date" id="f-due-date" value="'+new Date().toISOString().slice(0,10)+'"></div>'+
     '<div class="field" style="grid-column:1/-1;"><label>Description / notes</label><input type="text" id="f-notes" placeholder="e.g. KS3 Maths book set, Admission pack, Bond papers..."></div>'+
+    '</div>',footer);
+}
+
+function modalMarkPaid(){
+  const inv=state.editTarget||{};
+  const feeLabels={monthly_fee:'Monthly fee',admission_fee:'Admission fee',book_fee:'Book fee',past_papers_fee:'Past papers fee',miscellaneous:'Miscellaneous'};
+  const footer='<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Mark paid</button>';
+  return mWrap('Mark invoice as paid','<div style="margin-bottom:16px;padding:12px;background:var(--surface2);border-radius:var(--radius);font-size:13px;color:var(--text2);">'+
+    'Student: <strong style="color:var(--text);">'+inv.student_name+'</strong> <span class="id-code">'+inv.admission_id+'</span><br>'+
+    (feeLabels[inv.fee_type||'monthly_fee']||'Monthly fee')+' — '+inv.month+' — <strong style="color:var(--success-text);">£'+parseFloat(inv.amount||0).toFixed(2)+'</strong>'+
+    '</div><div class="form-grid">'+
+    '<div class="field"><label>Payment method</label><select id="f-pay-method">'+
+      '<option value="cash">Cash 💵</option>'+
+      '<option value="bank_transfer">Bank transfer 🏦</option>'+
+      '<option value="card">Card 💳</option>'+
+      '<option value="direct_debit">Direct debit 🔄</option>'+
+      '<option value="standing_order">Standing order 📅</option>'+
+      '<option value="cheque">Cheque 📋</option>'+
+      '<option value="other">Other 💰</option>'+
+    '</select></div>'+
+    '<div class="field"><label>Reference (optional)</label><input type="text" id="f-pay-reference" placeholder="e.g. cheque no., bank ref"></div>'+
+    '<div class="field" style="grid-column:1/-1;"><label>Notes (optional)</label><input type="text" id="f-pay-notes" placeholder="Any additional notes"></div>'+
     '</div>',footer);
 }
 
@@ -3227,6 +3250,12 @@ else if(m==='add-fee-invoice'){
   const r=await API.post('/api/invoices',body);
   if(r?.error){toast(r.error,'error');return;}
   toast(feeLabels[feeType]+' invoice issued — £'+amount.toFixed(2));
+}
+if(m==='mark-paid'){
+  const body={method:v('f-pay-method'),reference:v('f-pay-reference'),notes:v('f-pay-notes')};
+  const r=await API.post('/api/invoices/'+state.editTarget.id+'/mark-paid',body);
+  if(r?.error){toast(r.error,'error');return;}
+  toast('Invoice marked paid — payment recorded');
 }
 if(m==='edit-invoice'){
   const body={
@@ -3735,7 +3764,10 @@ if(action==='del-invoice'){
   if(!confirm('Delete this invoice? This cannot be undone.'))return;
   await API.delete('/api/invoices/'+id);
   toast('Invoice deleted');refreshPage();return;}
-if(action==='mark-paid'){await API.post('/api/invoices/'+id+'/mark-paid');toast('Invoice marked paid');refreshPage();return;}
+if(action==='mark-paid'){
+  state.modal='mark-paid';
+  state.editTarget=(state.data.invoices||[]).find(i=>i.id===id);
+  render();return;}
 if(action==='edit-invoice'){state.modal='edit-invoice';state.editTarget=(state.data.invoices||[]).find(i=>i.id===id);render();return;}
 if(action==='add-fee-invoice'){state.modal='add-fee-invoice';state.editTarget=null;render();return;}
 if(action==='gen-invoices'){const r=await API.post('/api/invoices/generate',{month:new Date().toISOString().slice(0,7)});toast(`${r.added} invoice(s) generated`);refreshPage();return;}
