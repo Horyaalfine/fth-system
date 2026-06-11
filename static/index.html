@@ -902,6 +902,7 @@ function renderInvoices(){
 
   function invBadge(s){
     return s==='paid'?'<span class="badge badge-success">Paid</span>':
+           s==='partial'?'<span class="badge badge-blue">Partial</span>':
            s==='overdue'?'<span class="badge badge-danger">Overdue</span>':
            '<span class="badge badge-amber">Due</span>';}
 
@@ -919,13 +920,15 @@ function renderInvoices(){
         '<td><span class="badge badge-accent">'+(inv.branch_name||'?')+'</span></td>'+
         '<td style="color:var(--text2);">'+inv.month+'</td>'+
         '<td>'+feeBadge(inv.fee_type)+'</td>'+
-        '<td><strong style="color:var(--text);">£'+parseFloat(inv.amount||0).toFixed(2)+'</strong></td>'+
+        '<td><strong style="color:var(--text);">£'+parseFloat(inv.amount||0).toFixed(2)+'</strong>'+
+          (inv.status==='partial'?'<div style="font-size:11px;color:var(--text3);">Paid £'+parseFloat(inv.amount_paid||0).toFixed(2)+' · Bal £'+parseFloat(inv.balance||0).toFixed(2)+'</div>':'')+
+        '</td>'+
         '<td>'+invBadge(inv.status)+'</td>'+
         '<td style="font-size:12px;color:var(--text3);">'+(inv.issued||'—')+'</td>'+
         '<td style="font-size:12px;color:var(--text3);">'+(inv.paid_date||'—')+'</td>'+
         '<td style="font-size:12px;color:var(--text3);max-width:160px;overflow:hidden;text-overflow:ellipsis;">'+(inv.notes||inv.description||'—')+'</td>'+
         '<td><div class="row-actions">'+
-          (inv.status!=='paid'?'<button class="btn btn-sm btn-success" data-action="mark-paid" data-id="'+inv.id+'">Mark paid</button>':'')+
+          (inv.status!=='paid'?'<button class="btn btn-sm btn-success" data-action="mark-paid" data-id="'+inv.id+'">'+(inv.status==='partial'?'Add payment':'Mark paid')+'</button>':'')+
           '<button class="btn btn-sm" data-action="edit-invoice" data-id="'+inv.id+'">Edit</button>'+
           '<button class="btn btn-sm btn-danger" data-action="del-invoice" data-id="'+inv.id+'">Del</button>'+
         '</div></td>'+
@@ -968,7 +971,7 @@ function renderInvoices(){
   // Filter bar
   html+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">';
   // Status filter
-  ['all','due','paid','overdue'].forEach(function(fl){
+  ['all','due','partial','paid','overdue'].forEach(function(fl){
     html+='<button class="btn btn-sm '+(f===fl?'btn-primary':'')+'" data-action="inv-filter" data-filter="'+fl+'">'+fl.charAt(0).toUpperCase()+fl.slice(1)+'</button>';
   });
   html+='<div style="margin-left:8px;display:flex;gap:6px;align-items:center;">';
@@ -2818,11 +2821,19 @@ function modalAddFeeInvoice(){
 function modalMarkPaid(){
   const inv=state.editTarget||{};
   const feeLabels={monthly_fee:'Monthly fee',admission_fee:'Admission fee',book_fee:'Book fee',past_papers_fee:'Past papers fee',miscellaneous:'Miscellaneous'};
-  const footer='<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Mark paid</button>';
-  return mWrap('Mark invoice as paid','<div style="margin-bottom:16px;padding:12px;background:var(--surface2);border-radius:var(--radius);font-size:13px;color:var(--text2);">'+
+  const total=parseFloat(inv.amount||0);
+  const alreadyPaid=parseFloat(inv.amount_paid||0);
+  const balance=Math.round((total-alreadyPaid)*100)/100;
+  const footer='<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Record payment</button>';
+  return mWrap('Record invoice payment','<div style="margin-bottom:16px;padding:12px;background:var(--surface2);border-radius:var(--radius);font-size:13px;color:var(--text2);">'+
     'Student: <strong style="color:var(--text);">'+inv.student_name+'</strong> <span class="id-code">'+inv.admission_id+'</span><br>'+
-    (feeLabels[inv.fee_type||'monthly_fee']||'Monthly fee')+' — '+inv.month+' — <strong style="color:var(--success-text);">£'+parseFloat(inv.amount||0).toFixed(2)+'</strong>'+
+    (feeLabels[inv.fee_type||'monthly_fee']||'Monthly fee')+' — '+inv.month+'<br>'+
+    'Total: <strong>£'+total.toFixed(2)+'</strong>'+
+    (alreadyPaid>0?' &nbsp;·&nbsp; Already paid: <strong style="color:var(--success-text);">£'+alreadyPaid.toFixed(2)+'</strong>':'')+
+    ' &nbsp;·&nbsp; Balance due: <strong style="color:var(--danger-text);">£'+balance.toFixed(2)+'</strong>'+
     '</div><div class="form-grid">'+
+    '<div class="field"><label>Amount to record (£)</label><input type="number" id="f-pay-amount" value="'+balance.toFixed(2)+'" step="0.01" min="0.01" max="'+balance.toFixed(2)+'">'+
+    '<div style="font-size:11px;color:var(--text3);margin-top:4px;">Enter less than the balance to record a part payment — the invoice will show as Partial with the remaining balance.</div></div>'+
     '<div class="field"><label>Payment method</label><select id="f-pay-method">'+
       '<option value="cash">Cash 💵</option>'+
       '<option value="bank_transfer">Bank transfer 🏦</option>'+
@@ -3259,10 +3270,12 @@ else if(m==='add-fee-invoice'){
   toast(feeLabels[feeType]+' invoice issued — £'+amount.toFixed(2));
 }
 if(m==='mark-paid'){
-  const body={method:v('f-pay-method'),reference:v('f-pay-reference'),notes:v('f-pay-notes')};
+  const amt=parseFloat(v('f-pay-amount'));
+  if(!amt||amt<=0){toast('Enter a valid amount','error');return;}
+  const body={amount:amt,method:v('f-pay-method'),reference:v('f-pay-reference'),notes:v('f-pay-notes')};
   const r=await API.post('/api/invoices/'+state.editTarget.id+'/mark-paid',body);
   if(r?.error){toast(r.error,'error');return;}
-  toast('Invoice marked paid — payment recorded');
+  toast(r.status==='paid'?'Invoice marked paid — payment recorded':'Part payment recorded — balance £'+r.balance.toFixed(2)+' remaining');
 }
 if(m==='edit-invoice'){
   const body={
