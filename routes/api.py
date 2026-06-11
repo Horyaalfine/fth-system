@@ -476,6 +476,12 @@ def get_invoices():
     for d in data:
         if d.get('issued'):    d['issued']    = str(d['issued'])
         if d.get('paid_date'): d['paid_date'] = str(d['paid_date'])
+        if d.get('due_date'):  d['due_date']  = str(d['due_date'])
+        amt = float(d.get('amount') or 0)
+        paid = float(d.get('amount_paid') or 0)
+        d['amount'] = amt
+        d['amount_paid'] = paid
+        d['balance'] = round(amt - paid, 2)
     cur.close(); conn.close()
     return jsonify(data)
 
@@ -569,9 +575,29 @@ def mark_invoice_paid(iid):
         cur.close(); conn.close()
         return jsonify({'error': 'Invoice not found'}), 404
 
+    total_amount = float(inv['amount'])
+    already_paid = float(inv.get('amount_paid') or 0)
+    # Allow specifying a payment amount (for partial payments); default = remaining balance
+    pay_amount = d.get('amount')
+    if pay_amount is None:
+        pay_amount = total_amount - already_paid
+    pay_amount = round(float(pay_amount), 2)
+    if pay_amount <= 0:
+        cur.close(); conn.close()
+        return jsonify({'error': 'Payment amount must be greater than zero'}), 400
+
+    new_paid = round(already_paid + pay_amount, 2)
+    if new_paid >= total_amount:
+        new_status = 'paid'
+        new_paid = total_amount
+    else:
+        new_status = 'partial'
+
     cur.execute("""
-        UPDATE invoices SET status='paid', paid_date=CURRENT_DATE WHERE id=%s RETURNING *
-    """, (iid,))
+        UPDATE invoices SET status=%s, amount_paid=%s,
+            paid_date=CASE WHEN %s='paid' THEN CURRENT_DATE ELSE paid_date END
+        WHERE id=%s RETURNING *
+    """, (new_status, new_paid, new_status, iid))
     r = row(cur); conn.commit()
 
     # Also create a payment record so Finance totals match
@@ -581,14 +607,15 @@ def mark_invoice_paid(iid):
     cur.execute("""
         INSERT INTO payments (student_id, branch_id, amount, payment_date, method, reference, notes, recorded_by)
         VALUES (%s,%s,%s,CURRENT_DATE,%s,%s,%s,%s) RETURNING id
-    """, (inv['student_id'], inv['branch_id'], inv['amount'], method, reference,
-            notes or f"Invoice #{iid} ({inv.get('month','')})", session.get('user_id')))
+    """, (inv['student_id'], inv['branch_id'], pay_amount, method, reference,
+            notes or f"Invoice #{iid} ({inv.get('month','')})" + (' (partial)' if new_status=='partial' else ''),
+            session.get('user_id')))
     payment_id = cur.fetchone()['id']
     conn.commit()
     cur.close(); conn.close()
     log_action('edit', 'invoices', iid)
     log_action('add', 'payments', payment_id)
-    return jsonify({'ok': True, 'payment_id': payment_id})
+    return jsonify({'ok': True, 'payment_id': payment_id, 'status': new_status, 'amount_paid': new_paid, 'balance': round(total_amount - new_paid, 2)})
 
 # ════════════════════════════════════════════
 #  PROGRESS NOTES
