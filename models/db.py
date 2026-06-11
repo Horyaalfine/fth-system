@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS students (
     parent_contact      TEXT,
     status              TEXT NOT NULL DEFAULT 'active',
     notes               TEXT,
+    opening_balance     NUMERIC(10,2) NOT NULL DEFAULT 0,
     created_at          TIMESTAMP DEFAULT NOW()
 );
 
@@ -226,6 +227,18 @@ CREATE TABLE IF NOT EXISTS payments (
     payment_date   DATE NOT NULL DEFAULT CURRENT_DATE,
     method         TEXT NOT NULL DEFAULT 'cash' CHECK (method IN ('cash','bank_transfer','cheque','card','direct_debit','standing_order','other')),
     reference      TEXT,
+    notes          TEXT,
+    recorded_by    INT REFERENCES users(id) ON DELETE SET NULL,
+    created_at     TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS adjustments (
+    id             SERIAL PRIMARY KEY,
+    student_id     INT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    branch_id      INT NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+    amount         NUMERIC(10,2) NOT NULL,
+    adj_type       TEXT NOT NULL DEFAULT 'discount' CHECK (adj_type IN ('discount','credit','correction','write_off','other')),
+    adj_date       DATE NOT NULL DEFAULT CURRENT_DATE,
     notes          TEXT,
     recorded_by    INT REFERENCES users(id) ON DELETE SET NULL,
     created_at     TIMESTAMP DEFAULT NOW()
