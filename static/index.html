@@ -371,7 +371,7 @@ else if(page==='test_records'){
   await Promise.all([loadData('students','/api/students',b),loadData('test_records','/api/test-records',b)]);
   if(state.trStudentId) await loadData('tr_'+state.trStudentId,'/api/test-records',{student_id:state.trStudentId});
 }
-else if(page==='staff_timesheets'){await Promise.all([loadData('sessions','/api/sessions',b),loadData('staff','/api/staff',b),loadData('staff_att_summary','/api/staff-attendance/summary',{...b,month:state.staffAttMonth||new Date().toISOString().slice(0,7)}),loadData('staff_att','/api/staff-attendance',{...b,month:state.staffAttMonth||new Date().toISOString().slice(0,7)})]);}else if(page==='finance'){const mp=state.finMonth?{month:state.finMonth}:{};await Promise.all([loadData('students','/api/students',b),loadData('invoices','/api/invoices',b),loadData('payments','/api/payments',{...b,...mp}),loadData('instalment_plans','/api/instalment-plans',b),loadData('payment_summary','/api/payments/summary',{...b,...mp}),
+else if(page==='staff_timesheets'){await Promise.all([loadData('sessions','/api/sessions',b),loadData('staff','/api/staff',b),loadData('staff_att_summary','/api/staff-attendance/summary',{...b,month:state.staffAttMonth||new Date().toISOString().slice(0,7)}),loadData('staff_att','/api/staff-attendance',{...b,month:state.staffAttMonth||new Date().toISOString().slice(0,7)})]);}else if(page==='finance'){const mp=state.finMonth?{month:state.finMonth}:{};await Promise.all([loadData('students','/api/students',b),loadData('invoices','/api/invoices',b),loadData('adjustments','/api/adjustments',b),loadData('payments','/api/payments',{...b,...mp}),loadData('instalment_plans','/api/instalment-plans',b),loadData('payment_summary','/api/payments/summary',{...b,...mp}),
     loadData('hq_transfers','/api/hq-transfers',b),
     loadData('hq_summary','/api/hq-transfers/summary')]);if(state.finStudentId)state.data['statement_'+state.finStudentId]=await API.get('/api/statement/'+state.finStudentId).catch(()=>null);}else if(page==='reports')await loadData('summary','/api/reports/summary',b);else if(page==='users')await loadData('users','/api/users');else if(page==='branches')await Promise.all([loadData('branches','/api/branches'),loadData('summary','/api/reports/summary')]);else if(page==='parent_portal'){await Promise.all([loadData('parent_users','/api/parent-users'),loadData('students','/api/students')]);}else if(page==='audit')await loadData('audit','/api/audit');}catch(e){console.error('refreshPage error:',e);}finally{state.loading=false;render();}}
 
@@ -2637,6 +2637,7 @@ ${children.map(st=>childCard(st)).join('')}`;}
 // MODALS
 function renderModal(){const m=state.modal;if(m==='add-student'||m==='edit-student')return modalStudent();if(m==='add-staff'||m==='edit-staff')return modalStaff();if(m==='add-session'||m==='edit-session')return modalSession();if(m==='add-user'||m==='edit-user')return modalUser();if(m==='add-branch'||m==='edit-branch')return modalBranch();if(m==='edit-invoice')return modalInvoice();
   if(m==='mark-paid')return modalMarkPaid();
+  if(m==='add-adjustment'||m==='edit-adjustment')return modalAdjustment();
   if(m==='add-fee-invoice')return modalAddFeeInvoice();if(m==='add-progress')return modalProgress();if(m==='add-parent-user'||m==='edit-parent-user')return modalParentUser();if(m==='add-staff-att'||m==='edit-staff-att')return modalStaffAtt();
   if(m==='add-payment'||m==='edit-payment')return modalPayment();
   if(m==='add-instalment-plan')return modalInstalmentPlan();
@@ -3352,6 +3353,23 @@ else if(m==='add-fee-invoice'){
   if(r?.error){toast(r.error,'error');return;}
   toast(feeLabels[feeType]+' invoice issued — £'+amount.toFixed(2));
 }
+if(m==='add-adjustment'||m==='edit-adjustment'){
+  let amt=parseFloat(v('f-amount'));
+  if(!amt||amt<=0){toast('Enter a valid amount','error');return;}
+  if(v('f-adj-direction')==='reduce') amt=-Math.abs(amt);
+  else amt=Math.abs(amt);
+  const body={
+    student_id:parseInt(v('f-student-id')),
+    branch_id:parseInt(v('f-branch')),
+    amount:amt,
+    adj_type:v('f-adj-type'),
+    adj_date:v('f-date'),
+    notes:v('f-notes')
+  };
+  if(m==='add-adjustment')await API.post('/api/adjustments',body);
+  else await API.put('/api/adjustments/'+state.editTarget.id,body);
+  toast(m==='add-adjustment'?'Adjustment added':'Adjustment updated');
+}
 if(m==='mark-paid'){
   const amt=parseFloat(v('f-pay-amount'));
   if(!amt||amt<=0){toast('Enter a valid amount','error');return;}
@@ -3502,6 +3520,12 @@ document.querySelectorAll('.modal-body input, .modal-body select, .modal-body te
 });document.getElementById('modal-backdrop')?.addEventListener('click',e=>{if(e.target.id==='modal-backdrop')closeModal();});document.getElementById('modal-save')?.addEventListener('click',doSave);
 document.getElementById('modal-delete')?.addEventListener('click',async function(){
   if(!state.editTarget?.id) return;
+  if(state.modal==='edit-adjustment'){
+    if(!confirm('Delete this adjustment?')) return;
+    await API.delete('/api/adjustments/'+state.editTarget.id);
+    toast('Adjustment deleted');
+    closeModal();refreshPage();return;
+  }
   if(!confirm('Delete this invoice? This cannot be undone.')) return;
   await API.delete('/api/invoices/'+state.editTarget.id);
   toast('Invoice deleted');
@@ -3897,6 +3921,12 @@ if(action==='del-invoice'){
   if(!confirm('Delete this invoice? This cannot be undone.'))return;
   await API.delete('/api/invoices/'+id);
   toast('Invoice deleted');refreshPage();return;}
+if(action==='add-adjustment'){state.modal='add-adjustment';state.editTarget=null;render();return;}
+if(action==='edit-adjustment'){state.modal='edit-adjustment';state.editTarget=(state.data.adjustments||[]).find(a=>a.id===id);render();return;}
+if(action==='del-adjustment'){
+  if(!confirm('Delete this adjustment?'))return;
+  await API.delete('/api/adjustments/'+id);
+  toast('Adjustment deleted');refreshPage();return;}
 if(action==='mark-paid'){
   state.modal='mark-paid';
   state.editTarget=(state.data.invoices||[]).find(i=>i.id===id);
