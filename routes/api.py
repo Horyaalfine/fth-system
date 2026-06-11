@@ -1316,7 +1316,15 @@ def get_statement(student_id):
     # All invoices (charges)
     cur.execute("""
         SELECT id, issued as date, 'invoice' as type,
-               'Tuition fee — ' || month as description,
+               CASE COALESCE(fee_type,'monthly_fee')
+                   WHEN 'monthly_fee' THEN 'Tuition fee — ' || month
+                   WHEN 'opening_balance' THEN 'Opening balance (brought forward)'
+                   WHEN 'admission_fee' THEN 'Admission fee'
+                   WHEN 'book_fee' THEN 'Book fee'
+                   WHEN 'past_papers_fee' THEN 'Past papers fee'
+                   ELSE 'Miscellaneous fee'
+               END
+               || CASE WHEN COALESCE(description,'')!='' THEN ' — ' || description ELSE '' END as description,
                amount as debit, 0 as credit, status, notes
         FROM invoices WHERE student_id=%s ORDER BY issued
     """, (student_id,))
