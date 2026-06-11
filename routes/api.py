@@ -561,13 +561,34 @@ def delete_invoice(iid):
 @api_bp.route('/api/invoices/<int:iid>/mark-paid', methods=['POST'])
 @require_auth
 def mark_invoice_paid(iid):
+    d = request.json or {}
     conn = get_conn(); cur = conn.cursor()
+    cur.execute("SELECT * FROM invoices WHERE id=%s", (iid,))
+    inv = row(cur)
+    if not inv:
+        cur.close(); conn.close()
+        return jsonify({'error': 'Invoice not found'}), 404
+
     cur.execute("""
         UPDATE invoices SET status='paid', paid_date=CURRENT_DATE WHERE id=%s RETURNING *
     """, (iid,))
-    r = row(cur); conn.commit(); cur.close(); conn.close()
+    r = row(cur); conn.commit()
+
+    # Also create a payment record so Finance totals match
+    method = d.get('method', 'cash')
+    reference = d.get('reference', '')
+    notes = d.get('notes', '')
+    cur.execute("""
+        INSERT INTO payments (student_id, branch_id, amount, payment_date, method, reference, notes, recorded_by)
+        VALUES (%s,%s,%s,CURRENT_DATE,%s,%s,%s,%s) RETURNING id
+    """, (inv['student_id'], inv['branch_id'], inv['amount'], method, reference,
+            notes or f"Invoice #{iid} ({inv.get('month','')})", session.get('user_id')))
+    payment_id = cur.fetchone()['id']
+    conn.commit()
+    cur.close(); conn.close()
     log_action('edit', 'invoices', iid)
-    return jsonify({'ok': True})
+    log_action('add', 'payments', payment_id)
+    return jsonify({'ok': True, 'payment_id': payment_id})
 
 # ════════════════════════════════════════════
 #  PROGRESS NOTES
