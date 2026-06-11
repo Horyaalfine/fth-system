@@ -1,12 +1,23 @@
 import os
+from decimal import Decimal
 from flask import Flask, send_from_directory, request
+from flask.json.provider import DefaultJSONProvider
 from flask_cors import CORS
 from dotenv import load_dotenv
 from datetime import timedelta
 
 load_dotenv()
 
+class DecimalJSONProvider(DefaultJSONProvider):
+    """Convert Decimal (from PostgreSQL NUMERIC columns) to float for JSON output."""
+    @staticmethod
+    def default(obj):
+        if isinstance(obj, Decimal):
+            return float(obj)
+        return DefaultJSONProvider.default(obj)
+
 app = Flask(__name__, static_folder='static')
+app.json = DecimalJSONProvider(app)
 app.secret_key = os.environ.get('SECRET_KEY', 'fth-secret-2026')
 app.permanent_session_lifetime = timedelta(hours=8)
 app.config['SESSION_COOKIE_SECURE'] = False
