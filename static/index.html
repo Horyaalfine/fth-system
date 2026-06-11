@@ -1622,6 +1622,7 @@ function renderFinance(){
       <div class="tab ${tab==='payments'?'active':''}" data-action="fin-tab" data-tab="payments">Payment log</div>
       <div class="tab ${tab==='instalments'?'active':''}" data-action="fin-tab" data-tab="instalments">Instalment plans</div>
       <div class="tab ${tab==='hq'?'active':''}" data-action="fin-tab" data-tab="hq">HQ Transfers</div>
+      <div class="tab ${tab==='adjustments'?'active':''}" data-action="fin-tab" data-tab="adjustments">Adjustments</div>
     </div>
     <div style="display:flex;gap:8px;align-items:center;">
       <input type="month" id="fin-month-filter" value="${state.finMonth||''}" style="border:1px solid var(--border2);border-radius:var(--radius);padding:7px 10px;font-family:var(--font);font-size:13px;background:var(--surface2);color:var(--text);outline:none;">
