@@ -1466,6 +1466,90 @@ function calcHours(sin, sout){
 }
 
 
+function renderAccountsTab(){
+  const sm=state.data.payment_summary||{};
+  const methods=sm.by_method||[];
+  const byMonth=sm.by_month||[];
+  const allPayments=state.data.payments||[];
+  const colors={cash:'var(--success)',bank_transfer:'var(--accent)',card:'var(--teal)',direct_debit:'var(--purple)',standing_order:'var(--amber)',cheque:'var(--blue)',other:'var(--text3)'};
+  const labels={cash:'Cash',bank_transfer:'Bank Transfer',card:'Card',direct_debit:'Direct Debit',standing_order:'Standing Order',cheque:'Cheque',other:'Other'};
+  const icons={cash:'💵',bank_transfer:'🏦',card:'💳',direct_debit:'🔄',standing_order:'📅',cheque:'📋',other:'💰'};
+
+  // Method cards
+  let cards='';
+  if(!methods.length){
+    cards='<div class="empty-state" style="grid-column:1/-1;padding:40px;">No payments recorded yet</div>';
+  } else {
+    methods.forEach(m=>{
+      cards+=`<div class="metric-card" style="cursor:pointer;border-top:3px solid ${colors[m.method]||'var(--text3)'};" data-action="fin-method-filter" data-method="${m.method}">
+        <div style="font-size:24px;margin-bottom:8px;">${icons[m.method]||'💰'}</div>
+        <div class="metric-label">${labels[m.method]||m.method}</div>
+        <div class="metric-value" style="color:${colors[m.method]||'var(--text)'};">£${(m.total||0).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+        <div class="metric-sub">${m.count} payment${m.count!==1?'s':''}</div>
+      </div>`;
+    });
+  }
+
+  // Monthly breakdown
+  const mts=['cash','bank_transfer','card','direct_debit','standing_order','cheque'];
+  const months={};
+  byMonth.forEach(r=>{if(!months[r.month])months[r.month]={};months[r.month][r.method]=r.total||0;});
+  const sorted=Object.keys(months).sort().reverse();
+  let monthRows='';
+  if(!sorted.length){
+    monthRows='<tr><td colspan="8"><div class="empty-state">No data</div></td></tr>';
+  } else {
+    sorted.forEach(m=>{
+      const row=months[m];
+      const total=mts.reduce((s,mt)=>s+(row[mt]||0),0);
+      monthRows+=`<tr><td><strong>${m}</strong></td>${mts.map(mt=>row[mt]?`<td style="color:var(--success-text);font-weight:500;">£${row[mt].toFixed(2)}</td>`:'<td style="color:var(--text3);">—</td>').join('')}<td><strong>£${total.toFixed(2)}</strong></td></tr>`;
+    });
+  }
+
+  // Detailed ledger for selected method
+  let ledger='';
+  if(state.finMethod){
+    const filtered=allPayments.filter(p=>p.method===state.finMethod);
+    const total=filtered.reduce((s,p)=>s+p.amount,0);
+    const methodLabel=labels[state.finMethod]||state.finMethod;
+    let rows='';
+    filtered.forEach(p=>{
+      rows+=`<tr>
+        <td style="font-family:var(--mono);font-size:12px;">${new Date(p.payment_date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</td>
+        <td><strong>${p.student_name}</strong></td>
+        <td><span class="id-code">${p.admission_id}</span></td>
+        <td><strong style="color:var(--success-text);">£${p.amount.toFixed(2)}</strong></td>
+        <td style="font-family:var(--mono);font-size:12px;color:var(--text3);">${p.reference||'—'}</td>
+        <td style="font-size:12px;color:var(--text3);">${p.notes||'—'}</td>
+      </tr>`;
+    });
+    if(!rows) rows='<tr><td colspan="6"><div class="empty-state">No transactions</div></td></tr>';
+    ledger=`<div class="card" style="border-top:3px solid var(--success);">
+      <div class="card-header">
+        <div><div class="card-title">${methodLabel} — detailed ledger</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px;">${filtered.length} transactions · Total: £${total.toFixed(2)}</div></div>
+        <button class="btn btn-sm" data-action="fin-method-filter" data-method="">Clear filter</button>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Date</th><th>Student</th><th>ID</th><th>Amount</th><th>Reference</th><th>Notes</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+    </div>`;
+  }
+
+  return `<div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-bottom:24px;">${cards}</div>
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-header"><div class="card-title">Monthly breakdown by method</div></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Month</th><th>Cash</th><th>Bank Transfer</th><th>Card</th><th>Direct Debit</th><th>Standing Order</th><th>Cheque</th><th>Total</th></tr></thead>
+        <tbody>${monthRows}</tbody>
+      </table></div>
+    </div>
+    ${ledger}
+  </div>`;
+}
+
 function renderFinance(){
   const students=state.data.students||[];
   const payments=state.data.payments||[];
