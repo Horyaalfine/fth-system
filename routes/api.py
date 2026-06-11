@@ -296,6 +296,27 @@ def update_student(sid):
     except Exception as e:
         conn.rollback(); cur.close(); conn.close()
         return jsonify({'error': str(e)}), 400
+
+@api_bp.route('/api/students/<int:sid>/opening-balance', methods=['PUT'])
+@require_auth
+def update_opening_balance(sid):
+    d = request.json
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        cur.execute("""
+            UPDATE students SET opening_balance=%s WHERE id=%s
+            RETURNING id, opening_balance
+        """, (d.get('opening_balance', 0), sid))
+        r = row(cur); conn.commit()
+    except Exception as e:
+        conn.rollback(); cur.close(); conn.close()
+        return jsonify({'error': str(e)}), 400
+    cur.close(); conn.close()
+    if r and r.get('opening_balance') is not None:
+        r['opening_balance'] = float(r['opening_balance'])
+    log_action('edit', 'students', sid)
+    return jsonify(r)
+
 @api_bp.route('/api/students/<int:sid>', methods=['DELETE'])
 @require_auth
 def delete_student(sid):
