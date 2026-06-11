@@ -3310,12 +3310,24 @@ if(m==='add-payment'||m==='edit-payment'){
   if(!body.student_id||!body.amount){toast('Student and amount required','error');return;}
   if(m==='add-payment')await API.post('/api/payments',body);
   else await API.put('/api/payments/'+state.editTarget.id,body);
-  // If an invoice was selected, mark it as paid (without creating a duplicate payment)
+  // If an invoice was selected, mark it as paid using THIS payment's amount/date
   const applyInvId=document.getElementById('f-apply-invoice')?.value;
   if(applyInvId){
-    await API.put('/api/invoices/'+applyInvId,{status:'paid',paid_date:body.payment_date});
+    const inv=(state.data.invoices||[]).find(i=>i.id===parseInt(applyInvId));
+    const total=inv?parseFloat(inv.amount||0):body.amount;
+    const newPaid=Math.min(total,body.amount);
+    await API.put('/api/invoices/'+applyInvId,{
+      status: newPaid>=total?'paid':'partial',
+      amount_paid: newPaid,
+      paid_date: body.payment_date,
+      amount: total,
+      fee_type: inv?.fee_type||'monthly_fee',
+      month: inv?.month,
+      due_date: inv?.due_date||null,
+      notes: inv?.notes||inv?.description||''
+    });
   }
-  toast(m==='add-payment'?(applyInvId?'Payment recorded and invoice marked paid':'Payment recorded'):'Payment updated');
+  toast(m==='add-payment'?(applyInvId?'Payment recorded and invoice updated':'Payment recorded'):(applyInvId?'Payment updated and invoice updated':'Payment updated'));
   if(state.finStudentId){state.data['statement_'+state.finStudentId]=await API.get('/api/statement/'+state.finStudentId).catch(()=>null);}
 }
 if(m==='add-instalment-plan'){
