@@ -480,7 +480,7 @@ ${audit.map(l=>`<div style="display:flex;justify-content:space-between;font-size
 <button class="btn btn-primary" data-nav="students" data-action="add-student">+ Enrol new student</button>
 <button class="btn" data-nav="sessions" data-action="add-session">+ Add session</button>
 <button class="btn" data-nav="attendance">Mark attendance</button>
-<button class="btn" data-nav="invoices" data-action="gen-invoices">Generate invoices</button>
+<button class="btn" data-nav="invoices" data-action="add-fee-invoice">Generate invoice</button>
 </div>
 </div>
 </div>
@@ -986,8 +986,7 @@ function renderInvoices(){
   html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">';
   html+='<div><div class="section-title">Invoices & fees</div><div class="section-sub">Fee tracking, editing and management</div></div>';
   html+='<div style="display:flex;gap:8px;">';
-  html+='<button class="btn btn-primary" data-action="gen-invoices">Generate monthly invoices</button>';
-  html+='<button class="btn btn-primary" data-action="add-fee-invoice">+ Add fee</button>';
+  html+='<button class="btn btn-primary" data-action="add-fee-invoice">+ Generate invoice</button>';
   html+='</div></div>';
 
   // Metric cards
