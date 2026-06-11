@@ -3544,6 +3544,7 @@ document.getElementById('f-student-id')?.addEventListener('change',e=>{
   render();
 });
 document.getElementById('inv-month-filter')?.addEventListener('change',e=>{state.invMonthFilter=e.target.value;render();});
+document.getElementById('inv-search')?.addEventListener('input',e=>{state.invSearch=e.target.value;render();});
 document.getElementById('ts-filter-staff')?.addEventListener('change',e=>{state.tsFilterStaff=e.target.value;render();});
 document.getElementById('ts-filter-role')?.addEventListener('change',e=>{state.tsFilterRole=e.target.value;render();});
 document.getElementById('ts-filter-status')?.addEventListener('change',e=>{state.tsFilterStatus=e.target.value;render();});
