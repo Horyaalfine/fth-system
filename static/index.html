@@ -2642,6 +2642,7 @@ ${children.map(st=>childCard(st)).join('')}`;}
 function renderModal(){const m=state.modal;if(m==='add-student'||m==='edit-student')return modalStudent();if(m==='add-staff'||m==='edit-staff')return modalStaff();if(m==='add-session'||m==='edit-session')return modalSession();if(m==='add-user'||m==='edit-user')return modalUser();if(m==='add-branch'||m==='edit-branch')return modalBranch();if(m==='edit-invoice')return modalInvoice();
   if(m==='mark-paid')return modalMarkPaid();
   if(m==='add-adjustment'||m==='edit-adjustment')return modalAdjustment();
+  if(m==='edit-opening-balance')return modalOpeningBalance();
   if(m==='add-fee-invoice')return modalAddFeeInvoice();if(m==='add-progress')return modalProgress();if(m==='add-parent-user'||m==='edit-parent-user')return modalParentUser();if(m==='add-staff-att'||m==='edit-staff-att')return modalStaffAtt();
   if(m==='add-payment'||m==='edit-payment')return modalPayment();
   if(m==='add-instalment-plan')return modalInstalmentPlan();
@@ -2982,6 +2983,18 @@ function modalStaffAtt(){
       <div class="field"><label>Notes</label><input type="text" id="f-notes" value="${r.notes||''}" placeholder="Any additional notes"></div>
     </div>`,
   `<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${r.id?'Save changes':'Log attendance'}</button>`);
+}
+
+function modalOpeningBalance(){
+  const stmt=state.finStudentId?state.data['statement_'+state.finStudentId]:null;
+  const student=stmt?.student||{};
+  const footer='<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Save</button>';
+  return mWrap('Edit opening balance','<div style="margin-bottom:16px;padding:12px;background:var(--surface2);border-radius:var(--radius);font-size:13px;color:var(--text2);">'+
+    'Student: <strong style="color:var(--text);">'+(student.name||'')+'</strong> <span class="id-code">'+(student.admission_id||'')+'</span>'+
+    '</div><div class="form-grid">'+
+    '<div class="field" style="grid-column:1/-1;"><label>Opening balance (£)</label><input type="number" id="f-opening-balance" value="'+(student.opening_balance||0)+'" step="0.01">'+
+    '<div style="font-size:11px;color:var(--text3);margin-top:4px;">Positive = amount owed brought forward from before this system. Negative = credit balance brought forward.</div></div>'+
+    '</div>',footer);
 }
 
 function modalAdjustment(){
@@ -3356,6 +3369,11 @@ else if(m==='add-fee-invoice'){
   const r=await API.post('/api/invoices',body);
   if(r?.error){toast(r.error,'error');return;}
   toast(feeLabels[feeType]+' invoice issued — £'+amount.toFixed(2));
+}
+if(m==='edit-opening-balance'){
+  const ob=parseFloat(v('f-opening-balance'))||0;
+  await API.put('/api/students/'+state.finStudentId+'/opening-balance',{opening_balance:ob});
+  toast('Opening balance updated');
 }
 if(m==='add-adjustment'||m==='edit-adjustment'){
   let amt=parseFloat(v('f-amount'));
@@ -3925,6 +3943,7 @@ if(action==='del-invoice'){
   if(!confirm('Delete this invoice? This cannot be undone.'))return;
   await API.delete('/api/invoices/'+id);
   toast('Invoice deleted');refreshPage();return;}
+if(action==='edit-opening-balance'){state.modal='edit-opening-balance';render();return;}
 if(action==='add-adjustment'){state.modal='add-adjustment';state.editTarget=null;render();return;}
 if(action==='edit-adjustment'){state.modal='edit-adjustment';state.editTarget=(state.data.adjustments||[]).find(a=>a.id===id);render();return;}
 if(action==='del-adjustment'){
