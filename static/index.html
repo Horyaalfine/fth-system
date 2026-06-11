@@ -1762,6 +1762,33 @@ function renderFinance(){
   </table></div></div>
   `:''}
 
+  ${tab==='adjustments'?`
+  <div style="margin-bottom:12px;display:flex;justify-content:flex-end;">
+    <button class="btn btn-primary" data-action="add-adjustment">+ Add adjustment</button>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>
+    <thead><tr><th>Date</th><th>Student</th><th>ID</th><th>Branch</th><th>Type</th><th>Amount</th><th>Notes</th><th>Recorded by</th><th></th></tr></thead>
+    <tbody>${(state.data.adjustments||[]).map(a=>{
+      const adjLabels={discount:'Discount',credit:'Credit',correction:'Correction',write_off:'Write-off',other:'Other'};
+      const isCredit=a.amount<0;
+      return `<tr>
+      <td style="font-family:var(--mono);font-size:12px;">${new Date(a.adj_date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</td>
+      <td><strong>${a.student_name}</strong></td>
+      <td><span class="id-code">${a.admission_id}</span></td>
+      <td><span class="badge badge-accent">${a.branch_name}</span></td>
+      <td><span class="badge ${isCredit?'badge-success':'badge-amber'}">${adjLabels[a.adj_type]||a.adj_type}</span></td>
+      <td style="font-weight:600;color:${isCredit?'var(--success-text)':'var(--danger-text)'};">${isCredit?'-':''}£${Math.abs(a.amount).toFixed(2)}</td>
+      <td style="color:var(--text2);max-width:200px;">${a.notes||'—'}</td>
+      <td style="font-size:12px;color:var(--text3);">${a.recorded_by_name||'—'}</td>
+      <td><div class="row-actions">
+        <button class="btn btn-sm" data-action="edit-adjustment" data-id="${a.id}">Edit</button>
+        <button class="btn btn-sm btn-danger" data-action="del-adjustment" data-id="${a.id}">Del</button>
+      </div></td>
+    </tr>`;}).join('')||`<tr><td colspan="9"><div class="empty-state">No adjustments recorded</div></td></tr>`}</tbody>
+  </table></div></div>
+  <div style="margin-top:8px;font-size:11px;color:var(--text3);">Discounts/corrections/write-offs increase the amount owed reduction; Credits reduce the balance (shown with -£). Use Discount for reduced fees, Credit for goodwill credit, Correction to fix errors, Write-off for bad debt.</div>
+  `:''}
+
   ${tab==='instalments'?`
   <div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>
     <thead><tr><th>Student</th><th>ID</th><th>Description</th><th>Total</th><th>Paid</th><th>Remaining</th><th>Progress</th><th>Status</th><th></th></tr></thead>
