@@ -2869,10 +2869,12 @@ return mWrap('Edit invoice',`
   <div class="field"><label>Status</label>
     <select id="f-inv-status">
       <option value="due" ${inv.status==='due'?'selected':''}>Due</option>
+      <option value="partial" ${inv.status==='partial'?'selected':''}>Partial</option>
       <option value="paid" ${inv.status==='paid'?'selected':''}>Paid</option>
       <option value="overdue" ${inv.status==='overdue'?'selected':''}>Overdue</option>
     </select>
   </div>
+  <div class="field"><label>Amount paid (£)</label><input type="number" id="f-amount-paid" value="${inv.amount_paid||0}" step="0.01" min="0"></div>
   <div class="field"><label>Due date</label><input type="date" id="f-due-date" value="${inv.due_date||''}"></div>
   <div class="field"><label>Paid date</label><input type="date" id="f-paid-date" value="${inv.paid_date||''}"></div>
   <div class="field" style="grid-column:1/-1;"><label>Description / notes</label><input type="text" id="f-notes" value="${inv.notes||inv.description||''}" placeholder="e.g. Sibling rate, pro-rata, KS3 Maths book…"></div>
@@ -3280,6 +3282,7 @@ if(m==='mark-paid'){
 if(m==='edit-invoice'){
   const body={
     amount:parseFloat(v('f-amount'))||0,
+    amount_paid:parseFloat(v('f-amount-paid'))||0,
     status:v('f-inv-status'),
     month:v('f-month')||state.editTarget.month,
     fee_type:v('f-fee-type')||'monthly_fee',
