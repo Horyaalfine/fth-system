@@ -493,6 +493,7 @@ return`
 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
 <div><div class="section-title">Students</div><div class="section-sub">${students.length} enrolled${state.currentBranch?' · '+(state.data.branches||[]).find(b=>b.id===state.currentBranch)?.name||'':' across all branches'}</div></div>
 <button class="btn btn-primary" data-action="add-student">+ Enrol student</button>
+<button class="btn" data-action="export-students" style="margin-left:8px;">⬇ Export Excel</button>
 </div>
 <div class="tab-bar" style="margin-bottom:12px;">
 <div class="tab ${(state.studentFilter||'active')==='active'?'active':''}" data-action="filter-students" data-filter="active">Active</div>
@@ -2540,7 +2541,7 @@ ${subj.map((sub,i)=>`<div class="bar-row"><span style="min-width:90px;color:var(
 <hr class="divider">
 <div class="card-title" style="margin-bottom:12px;">Export data</div>
 <div style="display:flex;flex-direction:column;gap:10px;">
-<button class="btn" data-action="export-students">Export students CSV</button>
+<button class="btn" data-action="export-students">Export students (Excel)</button>
 <button class="btn" data-action="export-sessions">Export sessions CSV</button>
 </div>
 </div>
