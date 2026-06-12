@@ -3980,7 +3980,9 @@ if(action==='gen-invoices'){const r=await API.post('/api/invoices/generate',{mon
 if(action==='add-progress'){state.modal='add-progress';state.editTarget={session_id:parseInt(el.dataset.session)};render();return;}
 if(action==='export-sr'){const att=state.data['sr_att_'+id]||[];const csv=[['Student','ID','Status','Notes'],...att.map(a=>[a.student_name,a.admission_id,a.status,a.notes])].map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`session_${id}_report.csv`;a.click();toast('Exported');return;}
 if(action==='export-students'){
-  const s=state.data.students||[];
+  const allS=state.data.students||[];
+  const sf=state.studentFilter||'active';
+  const s=sf==='all'?allS:allS.filter(function(st){return st.status===sf;});
   const rows=[
     ['Admission ID','First Name','Last Name','Full Name','Year Group','Branch','Gender','DOB','School','Status','Parent 1 Name','Parent 1 Tel','Parent 1 Email','Parent 2 Name','Parent 2 Tel','Parent 2 Email','Emergency Name','Emergency Tel','Medical Notes','SEN Notes','Notes'],
     ...s.map(st=>[
