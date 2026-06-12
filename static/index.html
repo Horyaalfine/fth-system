@@ -265,16 +265,91 @@ const API={async call(method,path,body){const opts={method,credentials:'include'
 
 function exportXLSX(rows, filename, sheetName){
   try{
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    const colWidths = rows[0].map(function(_, ci){
-      let maxLen = 10;
-      rows.forEach(function(r){ const v=r[ci]; const len=(v==null?'':String(v)).length; if(len>maxLen) maxLen=len; });
-      return {wch: Math.min(40, maxLen)};
+    const headers = rows[0];
+    // Detect column types from header names
+    const CUR_RE = /^(amount|total|balance|fee|paid|due|owing|owed|price|rate|cost|hours?|paid\s*hrs?|clock\s*hrs?)/i;
+    const CUR_MATCH = /£|\(£\)|amount|balance|total|collected|outstanding|invoiced|owing|fee/i;
+    const DATE_MATCH = /date|issued|paid date|due date|month|dob|d\.o\.b/i;
+    const colTypes = headers.map(function(h){
+      const hs = String(h||'');
+      if(CUR_MATCH.test(hs)) return 'currency';
+      if(DATE_MATCH.test(hs) && !/month name|month group/i.test(hs)) return 'date';
+      return 'text';
+    });
+
+    // Build worksheet from data, converting types
+    const wsRows = rows.map(function(r, ri){
+      if(ri===0) return r; // header row stays as-is
+      return r.map(function(v, ci){
+        const t = colTypes[ci];
+        if(v==null || v==='' || v==='—') return '';
+        if(t==='currency'){
+          const n = parseFloat(String(v).replace(/[£,]/g,''));
+          return isNaN(n) ? v : n;
+        }
+        if(t==='date'){
+          // YYYY-MM-DD or YYYY-MM -> real Date object
+          const s = String(v);
+          if(/^\d{4}-\d{2}-\d{2}$/.test(s)){
+            const [y,m,d] = s.split('-').map(Number);
+            return new Date(y, m-1, d);
+          }
+          if(/^\d{4}-\d{2}$/.test(s)){
+            const [y,m] = s.split('-').map(Number);
+            return new Date(y, m-1, 1);
+          }
+          return v;
+        }
+        // Try numeric for plain numbers (e.g. counts)
+        if(typeof v==='number') return v;
+        if(/^-?\d+(\.\d+)?$/.test(String(v))) return parseFloat(v);
+        return v;
+      });
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(wsRows);
+
+    // Apply number formats per column
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for(let R=range.s.r+1; R<=range.e.r; R++){
+      for(let C=range.s.c; C<=range.e.c; C++){
+        const addr = XLSX.utils.encode_cell({r:R,c:C});
+        const cell = ws[addr];
+        if(!cell) continue;
+        if(colTypes[C]==='currency' && typeof cell.v==='number'){
+          cell.z = '£#,##0.00';
+        } else if(colTypes[C]==='date' && cell.v instanceof Date){
+          cell.t = 'd';
+          const headerStr = String(headers[C]||'');
+          cell.z = /month/i.test(headerStr) && !/date/i.test(headerStr) ? 'mmm yyyy' : 'dd/mm/yyyy';
+        }
+      }
+    }
+
+    // Bold header row
+    for(let C=range.s.c; C<=range.e.c; C++){
+      const addr = XLSX.utils.encode_cell({r:0,c:C});
+      if(ws[addr]) ws[addr].s = {font:{bold:true}};
+    }
+
+    // Auto column widths
+    const colWidths = headers.map(function(h, ci){
+      let maxLen = String(h||'').length;
+      wsRows.forEach(function(r){
+        const v = r[ci];
+        let len;
+        if(v instanceof Date) len = 10;
+        else if(typeof v==='number') len = colTypes[ci]==='currency' ? String(v.toFixed(2)).length+1 : String(v).length;
+        else len = (v==null?'':String(v)).length;
+        if(len>maxLen) maxLen=len;
+      });
+      return {wch: Math.min(40, maxLen+2)};
     });
     ws['!cols'] = colWidths;
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, sheetName||'Sheet1');
-    XLSX.writeFile(wb, filename);
+    XLSX.writeFile(wb, filename, {cellStyles:true});
   }catch(e){
     console.error('Excel export failed:',e);
     if(typeof toast==='function') toast('Export failed: '+(e.message||e),'error');
