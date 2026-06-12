@@ -3995,6 +3995,39 @@ if(action==='view-plan-statement'||action==='view-sibling-statement'){
   state.finTab='statement';state.finStudentId=id;
   state.data['statement_'+id]=await API.get('/api/statement/'+id).catch(()=>null);
   render();return;}
+if(action==='export-finance-excel'){
+  const tab=state.finTab||'statement';
+  const methodLabels={cash:'Cash',bank_transfer:'Bank transfer',cheque:'Cheque',card:'Card',direct_debit:'Direct debit',standing_order:'Standing order',other:'Other'};
+  const adjLabels={discount:'Discount',credit:'Credit',correction:'Correction',write_off:'Write-off',other:'Other'};
+  if(tab==='payments'){
+    const payments=state.data.payments||[];
+    const rows=[['Date','Student','Admission ID','Branch','Amount','Method','Reference','Recorded by','Notes']];
+    payments.forEach(p=>rows.push([p.payment_date,p.student_name,p.admission_id,p.branch_name,(p.amount||0).toFixed(2),methodLabels[p.method]||p.method,p.reference||'',p.recorded_by_name||'',p.notes||'']));
+    exportXLSX(rows,'fth-payment-log.xlsx','Payments');
+  } else if(tab==='adjustments'){
+    const adjustments=state.data.adjustments||[];
+    const rows=[['Date','Student','Admission ID','Branch','Type','Amount','Notes','Recorded by']];
+    adjustments.forEach(a=>rows.push([a.adj_date,a.student_name,a.admission_id,a.branch_name,adjLabels[a.adj_type]||a.adj_type,(a.amount<0?'-':'')+'£'+Math.abs(a.amount).toFixed(2),a.notes||'',a.recorded_by_name||'']));
+    exportXLSX(rows,'fth-adjustments.xlsx','Adjustments');
+  } else if(tab==='hq'){
+    const transfers=state.data.hq_transfers||[];
+    const rows=[['Date','Branch','Amount','Method','Reference','Notes']];
+    transfers.forEach(t=>rows.push([t.transfer_date,t.branch_name,(t.amount||0).toFixed(2),methodLabels[t.method]||t.method||'',t.reference||'',t.notes||'']));
+    exportXLSX(rows,'fth-hq-transfers.xlsx','HQ Transfers');
+  } else if(tab==='instalments'){
+    const plans=state.data.instalment_plans||[];
+    const rows=[['Student','Admission ID','Description','Total','Paid','Remaining','Instalments paid','Instalments total','Status']];
+    plans.forEach(p=>rows.push([p.student_name,p.admission_id,p.description,(p.total_amount||0).toFixed(2),(p.paid_amount||0).toFixed(2),(p.remaining||0).toFixed(2),p.paid_count||0,p.total_instalments||0,p.status]));
+    exportXLSX(rows,'fth-instalment-plans.xlsx','Instalment plans');
+  } else if(tab==='accounts'){
+    const summary=state.data.payment_summary||[];
+    const rows=[['Payment method','Total','Count']];
+    (summary.by_method||summary||[]).forEach(m=>rows.push([methodLabels[m.method]||m.method,(m.total||0).toFixed(2),m.count||0]));
+    exportXLSX(rows,'fth-payment-accounts.xlsx','Accounts');
+  } else {
+    toast('Nothing to export for this tab','error');return;
+  }
+  toast('Exported');return;}
 if(action==='print-statement'){
   const stmt=state.data['statement_'+id];
   if(!stmt)return;
