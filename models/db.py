@@ -202,7 +202,7 @@ CREATE TABLE IF NOT EXISTS invoices (
     issued     DATE NOT NULL DEFAULT CURRENT_DATE,
     paid_date  DATE,
     notes      TEXT,
-    UNIQUE (student_id, month)
+    UNIQUE (student_id, month, fee_type)
 );
 
 -- ── PROGRESS NOTES ──
