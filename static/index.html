@@ -268,7 +268,7 @@ function exportXLSX(rows, filename, sheetName){
     const headers = rows[0];
     // Detect column types from header names
     const CUR_RE = /^(amount|total|balance|fee|paid|due|owing|owed|price|rate|cost|hours?|paid\s*hrs?|clock\s*hrs?)/i;
-    const CUR_MATCH = /£|\(£\)|amount|balance|total|collected|outstanding|invoiced|owing|fee/i;
+    const CUR_MATCH = /£|\(£\)|amount|balance|total|collected|outstanding|invoiced|owing|fee|charged|\(dr\)|\(cr\)|received/i;
     const DATE_MATCH = /date|issued|paid date|due date|month|dob|d\.o\.b/i;
     const colTypes = headers.map(function(h){
       const hs = String(h||'');
