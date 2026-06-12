@@ -1696,6 +1696,7 @@ function renderFinance(){
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
     <div><div class="section-title">Finance</div><div class="section-sub">Statements of account, payments, and instalment plans</div></div>
     <div style="display:flex;gap:10px;">
+      ${tab!=='statement'?`<button class="btn" data-action="export-finance-excel">⬇ Export Excel</button>`:''}
       <button class="btn btn-primary" data-action="add-payment">+ Record payment</button>
       <button class="btn" data-action="add-instalment-plan">+ Instalment plan</button>
       ${tab==='hq'?`<button class="btn btn-primary" data-action="add-hq-transfer">+ Record transfer</button>`:''}
