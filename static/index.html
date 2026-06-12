@@ -4082,36 +4082,29 @@ if(action==='export-sessions'){
 
 
 function exportStatement(stmt){
-  const lines=[];
-  lines.push(`FT HARLESDEN MANAGEMENT SYSTEM — STATEMENT OF ACCOUNT`);
-  lines.push(``);
-  lines.push(`Student:,${stmt.student.name}`);
-  lines.push(`Admission ID:,${stmt.student.admission_id}`);
-  lines.push(`Branch:,${stmt.student.branch_name}`);
-  lines.push(`Year group:,${stmt.student.year_group}`);
-  lines.push(`Date produced:,${new Date().toLocaleDateString('en-GB')}`);
-  lines.push(``);
-  lines.push(`Date,Description,Charged (Dr),Paid (Cr),Balance`);
+  const rows=[];
+  rows.push(['FT Harlesden — Statement of account']);
+  rows.push(['Student',stmt.student.name]);
+  rows.push(['Admission ID',stmt.student.admission_id]);
+  rows.push(['Branch',stmt.student.branch_name]);
+  rows.push(['Year group',stmt.student.year_group||'']);
+  rows.push(['Date produced',new Date().toLocaleDateString('en-GB')]);
+  rows.push([]);
+  rows.push(['Date','Description','Charged (Dr)','Paid (Cr)','Balance']);
   stmt.transactions.forEach(t=>{
-    lines.push([
-      new Date(t.date+'T00:00:00').toLocaleDateString('en-GB'),
-      `"${t.description}${t.notes?' — '+t.notes:''}"`,
+    rows.push([
+      t.date||'',
+      t.description+(t.notes?' — '+t.notes:''),
       t.debit>0?t.debit.toFixed(2):'',
       t.credit>0?t.credit.toFixed(2):'',
       t.balance.toFixed(2)
-    ].join(','));
+    ]);
   });
-  lines.push(``);
-  lines.push(`,,Total charged:,£${stmt.summary.total_charged.toFixed(2)},`);
-  lines.push(`,,Total paid:,£${stmt.summary.total_paid.toFixed(2)},`);
-  lines.push(`,,Closing balance:,£${stmt.summary.closing_balance.toFixed(2)},`);
-  const csv=lines.join('\n');
-  const blob=new Blob([csv],{type:'text/csv'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url;
-  a.download=`Statement_${stmt.student.admission_id}_${stmt.student.name.replace(/\s+/g,'_')}.csv`;
-  a.click();
+  rows.push([]);
+  rows.push(['','','Total charged',stmt.summary.total_charged.toFixed(2),'']);
+  rows.push(['','','Total paid',stmt.summary.total_paid.toFixed(2),'']);
+  rows.push(['','','Closing balance',stmt.summary.closing_balance.toFixed(2),'']);
+  exportXLSX(rows, `Statement_${stmt.student.admission_id}_${stmt.student.name.replace(/\s+/g,'_')}.xlsx`, 'Statement');
   toast('Statement exported');
 }
 
