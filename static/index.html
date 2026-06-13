@@ -2593,7 +2593,12 @@ function renderTestRecords(){
   `:''}`;
 }
 
-function renderReports(){const s=state.data.summary||{};const bs=s.branch_stats||[];const yg=s.year_groups||[];const subj=s.subjects||[];const cols=['var(--accent)','var(--teal)','var(--amber)','var(--pink)'];
+function renderReports(){const s=state.data.summary||{};const bs=s.branch_stats||[];const yg=[...(s.year_groups||[])].sort((a,b)=>{
+  const na=parseInt((a.year_group||'').match(/\d+/)?.[0]||999);
+  const nb=parseInt((b.year_group||'').match(/\d+/)?.[0]||999);
+  if(na!==nb) return na-nb;
+  return (a.year_group||'').localeCompare(b.year_group||'');
+});const subj=s.subjects||[];const cols=['var(--accent)','var(--teal)','var(--amber)','var(--pink)'];
 return`
 <div class="section-title" style="margin-bottom:4px;">Analytics</div>
 <div class="section-sub">System-wide performance overview</div>
