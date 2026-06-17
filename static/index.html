@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FT Harlesden — Management System</title>
+<title>FTApp — Management System</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -475,7 +475,7 @@ if(state.currentUser&&state.currentUser.role!=='super_admin'&&!state.currentUser
 }app.innerHTML=`<div class="app">${renderSidebar()}<div class="main">${renderTopbar()}<div class="content">${renderPage()}</div></div></div>${state.modal?renderModal():''}`;bindAll();}
 
 function renderLogin(){return`<div class="login-wrap"><div class="login-card">
-<div class="login-logo-wrap"><div class="login-logo-icon">FT</div><div class="login-logo">FT Harlesden</div></div>
+<div class="login-logo-wrap"><div class="login-logo-icon">FT</div><div class="login-logo">FTApp</div></div>
 <div class="login-sub">Tuition Management System — sign in to continue</div>
 <div class="login-field"><label>Email address</label><input type="email" id="l-email" placeholder="you@ftharlesden.co.uk"></div>
 <div class="login-field"><label>Password</label><input type="password" id="l-pass" placeholder="••••••••"></div>
@@ -511,7 +511,7 @@ function renderSidebar(){const u=state.currentUser;const isSA=u.role==='super_ad
   {id:'mgmt_reports',icon:icoClipboard(),label:'Management reports',group:'reports'},
 ];const adminPages=[{id:'users',icon:icoKey(),label:'User management'},{id:'branches',icon:icoBranch(),label:'Branches'},{id:'parent_portal',icon:icoHeart(),label:'Parent portal'},{id:'audit',icon:icoLog(),label:'Audit log'}];const branches=state.data.branches||[];
 return`<div class="sidebar">
-<div class="sidebar-brand"><div class="brand-icon">FT</div><div class="brand-name">FT Harlesden</div><div class="brand-sub">Management System</div></div>
+<div class="sidebar-brand"><div class="brand-icon">FT</div><div class="brand-name">FTApp</div><div class="brand-sub">Management System</div></div>
 ${isSA?`<div style="padding:10px 14px 0;"><div class="branch-switcher"><label>Viewing branch</label><select id="branch-switch"><option value="">All branches</option>${branches.map(b=>`<option value="${b.id}" ${state.currentBranch==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div></div>`:''}
 <div class="nav-section">
 ${(()=>{const groups=[{key:'main',label:''},{key:'people',label:'People'},{key:'sessions',label:'Sessions'},{key:'finance',label:'Finance'},{key:'reports',label:'Reports'}];return groups.map(g=>{const items=pages.filter(p=>p.group===g.key&&canAccess(p.id));if(!items.length)return'';return(g.label?`<div class="nav-label" style="margin-top:10px;">${g.label}</div>`:'')+items.map(p=>`<div class="nav-item ${state.page===p.id?'active':''}" data-page="${p.id}">${p.icon} ${p.label}</div>`).join('');}).join('');})()}
@@ -1133,7 +1133,7 @@ function renderSessionReports(){
   }
 
   function exportDailyReport(){
-    const rows=[['FT Harlesden — Session Report | '+selDate],[]];
+    const rows=[['FTApp — Session Report | '+selDate],[]];
     (report.slots||[]).forEach(function(slot){
       rows.push(['SLOT: '+slot.slot]);
       rows.push(['Table','Teacher','Subject','#','Student ID','Student Name','Attendance','Notes']);
@@ -2732,7 +2732,7 @@ ${invs.map(inv=>`<div style="display:flex;justify-content:space-between;align-it
 </div>`;}
 return`
 <div style="background:var(--surface);border-bottom:1px solid var(--border);padding:16px 0;margin-bottom:24px;display:flex;justify-content:space-between;align-items:center;">
-<div><div style="font-size:18px;font-weight:700;color:var(--text);">Welcome, ${pu.name}</div><div style="font-size:13px;color:var(--text3);margin-top:2px;">FT Harlesden Parent Portal</div></div>
+<div><div style="font-size:18px;font-weight:700;color:var(--text);">Welcome, ${pu.name}</div><div style="font-size:13px;color:var(--text3);margin-top:2px;">FTApp Parent Portal</div></div>
 <button class="btn" id="parent-logout-btn">Sign out</button>
 </div>
 ${children.map(st=>childCard(st)).join('')}`;}
@@ -4122,7 +4122,7 @@ if(action==='export-sessions'){
 
 function exportStatement(stmt){
   const rows=[];
-  rows.push(['FT Harlesden — Statement of account']);
+  rows.push(['FTApp — Statement of account']);
   rows.push(['Student',stmt.student.name]);
   rows.push(['Admission ID',stmt.student.admission_id]);
   rows.push(['Branch',stmt.student.branch_name]);
