@@ -44,7 +44,7 @@ def serve(path):
 
 @app.route('/health')
 def health():
-    return {'status': 'ok', 'service': 'FT Harlesden API'}
+    return {'status': 'ok', 'service': 'FTApp API'}
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
