@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS users (
     name          TEXT NOT NULL,
     email         TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
-    role          TEXT NOT NULL CHECK (role IN ('super_admin','branch_manager','teacher','receptionist')),
+    role          TEXT NOT NULL CHECK (role IN ('super_admin','branch_manager','head_of_centre','supervisor','teacher','receptionist','admin')),
     status        TEXT NOT NULL DEFAULT 'active',
     last_login    TIMESTAMP,
     created_at    TIMESTAMP DEFAULT NOW()
