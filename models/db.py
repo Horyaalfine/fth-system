@@ -469,6 +469,9 @@ CREATE INDEX IF NOT EXISTS idx_instalment_schedule_student ON instalment_schedul
 CREATE INDEX IF NOT EXISTS idx_staff_att_session ON staff_attendance(session_id);
 CREATE INDEX IF NOT EXISTS idx_staff_att_staff ON staff_attendance(staff_id);
 CREATE INDEX IF NOT EXISTS idx_staff_att_date ON staff_attendance(date);
+
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('super_admin','branch_manager','head_of_centre','supervisor','teacher','receptionist','admin'));
 """
 
 SEED = """
