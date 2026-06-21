@@ -3796,6 +3796,14 @@ function bindParentEvents(){document.getElementById('parent-logout-btn')?.addEve
 function closeModal(){state.modal=null;state.editTarget=null;render();}
 
 async function handleAction(action,id,el,e){
+if(state.currentUser?.role==='reports_viewer'){
+  const allowedPrefixes=['export','inv-filter','inv-tab','fin-tab','fin-clear-month','mgmt-tab','filter','sort','search','print-statement','tr-tab','att-tab','session-report-tab','sr-tab'];
+  const isAllowed=allowedPrefixes.some(p=>action===p||action.startsWith(p+'-')||action.startsWith(p));
+  if(!isAllowed){
+    toast('Your account has read-only access to reports.','error');
+    return;
+  }
+}
 if(action==='add-student'){state.modal='add-student';state.editTarget=null;const branches=state.data.branches||[];const defBranch=state.currentBranch||branches[0]?.id;if(defBranch){try{const r=await API.get('/api/students/next-id/'+defBranch);state.editTarget={admission_id:r.next_id};}catch(err){}}render();return;}
 if(action==='edit-student'){state.modal='edit-student';state.editTarget=(state.data.students||[]).find(s=>s.id===id);render();return;}
 if(action==='del-student'){if(!confirm('Delete this student?'))return;await API.delete('/api/students/'+id);toast('Student deleted');refreshPage();return;}
