@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS users (
     name          TEXT NOT NULL,
     email         TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
-    role          TEXT NOT NULL CHECK (role IN ('super_admin','branch_manager','head_of_centre','supervisor','teacher','receptionist','admin')),
+    role          TEXT NOT NULL CHECK (role IN ('super_admin','branch_manager','head_of_centre','supervisor','teacher','receptionist','admin','reports_viewer')),
     status        TEXT NOT NULL DEFAULT 'active',
     last_login    TIMESTAMP,
     created_at    TIMESTAMP DEFAULT NOW()
@@ -471,7 +471,7 @@ CREATE INDEX IF NOT EXISTS idx_staff_att_staff ON staff_attendance(staff_id);
 CREATE INDEX IF NOT EXISTS idx_staff_att_date ON staff_attendance(date);
 
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('super_admin','branch_manager','head_of_centre','supervisor','teacher','receptionist','admin'));
+ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('super_admin','branch_manager','head_of_centre','supervisor','teacher','receptionist','admin','reports_viewer'));
 """
 
 SEED = """
