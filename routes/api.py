@@ -36,10 +36,10 @@ def require_parent(f):
     return decorated
 
 def branch_scope():
-    """Return branch_id filter: None if super_admin viewing all, else branch_id."""
+    """Return branch_id filter: None if super_admin/reports_viewer viewing all, else branch_id."""
     role = session.get('role')
-    if role == 'super_admin':
-        # Super admin can filter by query param or see all
+    if role in ('super_admin', 'reports_viewer'):
+        # Can filter by query param or see all branches
         b = request.args.get('branch_id')
         return int(b) if b else None
     return session.get('branch_id')
