@@ -395,7 +395,7 @@ function canAccess(page){
   if(r==='teacher') return['dashboard','sessions','attendance','session_reports','lesson_reports','test_records','staff_timesheets'].includes(page);
   if(r==='receptionist') return['dashboard','students','sessions','attendance','invoices','finance'].includes(page);
   if(r==='admin') return['dashboard','students','sessions','attendance','invoices'].includes(page);
-  if(r==='reports_viewer') return['dashboard','session_reports','test_records','attendance','invoices','finance','reports','mgmt_reports'].includes(page);
+  if(r==='reports_viewer') return['dashboard','students','session_reports','test_records','attendance','invoices','finance','reports','mgmt_reports'].includes(page);
   return false;
 }
 function invBadge(s){if(s==='paid')return`<span class="badge badge-success">Paid</span>`;if(s==='overdue')return`<span class="badge badge-danger">Overdue</span>`;return`<span class="badge badge-amber">Due</span>`;}
