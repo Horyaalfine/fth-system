@@ -254,6 +254,20 @@ table{min-width:480px;}
 .login-card{margin:20px 14px;padding:22px 18px;}
 .row-actions{flex-direction:column;gap:3px;}
 }
+
+/* Reports viewer: read-only role - hide all write-action controls */
+body.readonly-user [data-action^="add-"],
+body.readonly-user [data-action^="edit-"],
+body.readonly-user [data-action^="del-"],
+body.readonly-user [data-action^="mark-"],
+body.readonly-user [data-action^="apply-"],
+body.readonly-user [data-action^="generate-"],
+body.readonly-user [data-action^="schedule-"],
+body.readonly-user [data-action^="complete-"],
+body.readonly-user [data-action^="reset-"],
+body.readonly-user [data-action="change-password"]{
+  display:none !important;
+}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -469,7 +483,7 @@ else if(page==='staff_timesheets'){await Promise.all([loadData('sessions','/api/
     loadData('hq_transfers','/api/hq-transfers',b),
     loadData('hq_summary','/api/hq-transfers/summary')]);if(state.finStudentId)state.data['statement_'+state.finStudentId]=await API.get('/api/statement/'+state.finStudentId).catch(()=>null);}else if(page==='reports')await loadData('summary','/api/reports/summary',b);else if(page==='users')await loadData('users','/api/users');else if(page==='branches')await Promise.all([loadData('branches','/api/branches'),loadData('summary','/api/reports/summary')]);else if(page==='parent_portal'){await Promise.all([loadData('parent_users','/api/parent-users'),loadData('students','/api/students')]);}else if(page==='audit')await loadData('audit','/api/audit');}catch(e){console.error('refreshPage error:',e);}finally{state.loading=false;render();}}
 
-function render(){const app=document.getElementById('app');if(!state.currentUser&&!state.parentUser){app.innerHTML=renderLogin();bindLoginEvents();return;}if(state.parentUser&&!state.currentUser){app.innerHTML=`<div style="max-width:900px;margin:0 auto;padding:28px;">${renderParentPortal()}</div>`;bindParentEvents();return;}if(state.loading){app.innerHTML=`<div class="app">${renderSidebar()}<div class="main">${renderTopbar()}<div class="loading"><div class="spinner"></div>Loading…<div style="font-size:12px;color:var(--text3);margin-top:8px;">If this takes more than 10 seconds, try refreshing</div></div></div></div>`;bindNav();return;}
+function render(){document.body.classList.toggle('readonly-user',state.currentUser?.role==='reports_viewer');const app=document.getElementById('app');if(!state.currentUser&&!state.parentUser){app.innerHTML=renderLogin();bindLoginEvents();return;}if(state.parentUser&&!state.currentUser){app.innerHTML=`<div style="max-width:900px;margin:0 auto;padding:28px;">${renderParentPortal()}</div>`;bindParentEvents();return;}if(state.loading){app.innerHTML=`<div class="app">${renderSidebar()}<div class="main">${renderTopbar()}<div class="loading"><div class="spinner"></div>Loading…<div style="font-size:12px;color:var(--text3);margin-top:8px;">If this takes more than 10 seconds, try refreshing</div></div></div></div>`;bindNav();return;}
 // Guard: non-super-admin must have a branch assigned
 if(state.currentUser&&state.currentUser.role!=='super_admin'&&!state.currentUser.branch_id){
   app.innerHTML=`<div class="app">${renderSidebar()}<div class="main">${renderTopbar()}<div class="content"><div class="empty-state" style="padding:60px;"><div style="font-size:48px;margin-bottom:16px;">⚠️</div><div style="font-size:18px;font-weight:600;color:var(--text);margin-bottom:8px;">No branch assigned</div><div style="color:var(--text3);">Your account has not been assigned to a branch. Please contact your system administrator to assign you to a branch before you can use the system.</div></div></div></div></div>`;bindNav();return;
