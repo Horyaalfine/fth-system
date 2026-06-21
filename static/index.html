@@ -485,7 +485,7 @@ else if(page==='staff_timesheets'){await Promise.all([loadData('sessions','/api/
 
 function render(){document.body.classList.toggle('readonly-user',state.currentUser?.role==='reports_viewer');const app=document.getElementById('app');if(!state.currentUser&&!state.parentUser){app.innerHTML=renderLogin();bindLoginEvents();return;}if(state.parentUser&&!state.currentUser){app.innerHTML=`<div style="max-width:900px;margin:0 auto;padding:28px;">${renderParentPortal()}</div>`;bindParentEvents();return;}if(state.loading){app.innerHTML=`<div class="app">${renderSidebar()}<div class="main">${renderTopbar()}<div class="loading"><div class="spinner"></div>Loading…<div style="font-size:12px;color:var(--text3);margin-top:8px;">If this takes more than 10 seconds, try refreshing</div></div></div></div>`;bindNav();return;}
 // Guard: non-super-admin must have a branch assigned
-if(state.currentUser&&state.currentUser.role!=='super_admin'&&!state.currentUser.branch_id){
+if(state.currentUser&&state.currentUser.role!=='super_admin'&&state.currentUser.role!=='reports_viewer'&&!state.currentUser.branch_id){
   app.innerHTML=`<div class="app">${renderSidebar()}<div class="main">${renderTopbar()}<div class="content"><div class="empty-state" style="padding:60px;"><div style="font-size:48px;margin-bottom:16px;">⚠️</div><div style="font-size:18px;font-weight:600;color:var(--text);margin-bottom:8px;">No branch assigned</div><div style="color:var(--text3);">Your account has not been assigned to a branch. Please contact your system administrator to assign you to a branch before you can use the system.</div></div></div></div></div>`;bindNav();return;
 }app.innerHTML=`<div class="app">${renderSidebar()}<div class="main">${renderTopbar()}<div class="content">${renderPage()}</div></div></div>${state.modal?renderModal():''}`;bindAll();}
 
@@ -509,7 +509,7 @@ async function doParentLogin(){const email=document.getElementById('l-email')?.v
         state.data['p_diary_'+child.id]=await API.get('/api/parent/diary/'+child.id)||[];
         state.data['p_tests_'+child.id]=await API.get('/api/parent/test-records/'+child.id)||[];state.data['p_inv_'+child.id]=await API.get('/api/parent/invoices/'+child.id)||[];state.data['p_prog_'+child.id]=await API.get('/api/parent/progress/'+child.id)||[];}render();}catch(e){document.getElementById('login-err').textContent=e.error||'Login failed';}}
 
-function renderSidebar(){const u=state.currentUser;const isSA=u.role==='super_admin';const pages=[
+function renderSidebar(){const u=state.currentUser;const isSA=u.role==='super_admin'||u.role==='reports_viewer';const pages=[
   {id:'dashboard',icon:icoHome(),label:'Dashboard',group:'main'},
   {id:'students',icon:icoUsers(),label:'Students',group:'people'},
   {id:'staff',icon:icoUser(),label:'Staff',group:'people'},
