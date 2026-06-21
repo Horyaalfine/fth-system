@@ -26,6 +26,18 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 CORS(app, supports_credentials=True, origins='*')
 
+from flask import session, jsonify
+
+@app.before_request
+def block_readonly_writes():
+    """Reports-viewer role: read-only access. Block any non-GET request to
+    /api/ endpoints, except auth routes (login/logout) which must always work."""
+    if request.path.startswith('/api/') and request.method != 'GET':
+        if request.path in ('/api/login', '/api/logout', '/api/parent-login'):
+            return
+        if session.get('role') == 'reports_viewer':
+            return jsonify({'error': 'Your account has read-only access to reports.'}), 403
+
 from routes.auth import auth_bp
 from routes.api import api_bp
 app.register_blueprint(auth_bp)
