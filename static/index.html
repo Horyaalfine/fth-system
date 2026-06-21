@@ -2932,6 +2932,7 @@ return mWrap(u.id?'Edit user':'Add user',`
         <option value="supervisor" ${u.role==='supervisor'?'selected':''}>Supervisor</option>
         <option value="receptionist" ${u.role==='receptionist'?'selected':''}>Receptionist</option>
         <option value="admin" ${u.role==='admin'?'selected':''}>Admin support</option>
+        <option value="reports_viewer" ${u.role==='reports_viewer'?'selected':''}>Reports viewer (read-only)</option>
       </select></div>
 <div class="field"><label>Branch</label><select id="f-branch" ${(!u.id&&!u.role)||u.role==='super_admin'?'disabled':''}><option value="" ${!u.branch_id?'selected':''}>All branches (admin)</option>${branches.map(b=>`<option value="${b.id}" ${u.branch_id==b.id?'selected':''}>${b.name}</option>`).join('')}</select><div style="font-size:11px;color:var(--text3);margin-top:4px;">Super admin always has access to all branches.</div></div>
 <div class="field"><label>Status</label><select id="f-status"><option value="active" ${!u.status||u.status==='active'?'selected':''}>Active</option><option value="inactive" ${u.status==='inactive'?'selected':''}>Inactive</option></select></div>
