@@ -1,3 +1,4 @@
+import datetime
 import os
 from decimal import Decimal
 from flask import Flask, send_from_directory, request
@@ -9,11 +10,13 @@ from datetime import timedelta
 load_dotenv()
 
 class DecimalJSONProvider(DefaultJSONProvider):
-    """Convert Decimal (from PostgreSQL NUMERIC columns) to float for JSON output."""
+    """Convert Decimal and date/datetime (from PostgreSQL) to JSON-safe types."""
     @staticmethod
     def default(obj):
         if isinstance(obj, Decimal):
             return float(obj)
+        if isinstance(obj, (datetime.date, datetime.datetime)):
+            return obj.isoformat()
         return DefaultJSONProvider.default(obj)
 
 app = Flask(__name__, static_folder='static')
