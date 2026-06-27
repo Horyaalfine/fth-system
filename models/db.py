@@ -470,6 +470,31 @@ CREATE INDEX IF NOT EXISTS idx_staff_att_session ON staff_attendance(session_id)
 CREATE INDEX IF NOT EXISTS idx_staff_att_staff ON staff_attendance(staff_id);
 CREATE INDEX IF NOT EXISTS idx_staff_att_date ON staff_attendance(date);
 
+
+ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_postcode TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS carer2_postcode TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_maths_board TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_maths_paper TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_maths_exam_date TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_maths_current_grade TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_maths_predicted_grade TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_english_board TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_english_paper TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_english_exam_date TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_english_current_grade TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_english_predicted_grade TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_science_board TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_science_paper TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_science_exam_date TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_science_current_grade TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS gcse_science_predicted_grade TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_maths_pct TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_maths_book TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_english_pct TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_english_book TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_science_pct TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_science_book TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS hours_per_week TEXT;
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
 ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('super_admin','branch_manager','head_of_centre','supervisor','teacher','receptionist','admin','reports_viewer'));
 """
