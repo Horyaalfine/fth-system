@@ -203,6 +203,16 @@ def get_next_id(branch_id):
     conn.close()
     return jsonify({'next_id': nid})
 
+@api_bp.route('/api/debug/student-columns')
+@require_auth
+def debug_student_columns():
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""SELECT column_name FROM information_schema.columns
+                   WHERE table_name='students' ORDER BY ordinal_position""")
+    cols = [r['column_name'] for r in cur.fetchall()]
+    cur.close(); conn.close()
+    return jsonify({'columns': cols, 'count': len(cols)})
+
 def get_student_fields(d):
     dob = d.get('date_of_birth') or None
     # Ensure required fields have fallbacks
