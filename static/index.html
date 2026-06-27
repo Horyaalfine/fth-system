@@ -3411,7 +3411,7 @@ if(m==='add-student'||m==='edit-student'){
   const body={
     branch_id:parseInt(branch),admission_id:admid,
     name:fullName||fn,first_name:fn,last_name:ln,
-    date_of_birth:v('f-dob')||null,gender:v('f-gender'),
+    date_of_birth:(()=>{const d=v('f-dob');console.log('DOB field value:',d,'element:',document.getElementById('f-dob'));return d||null;})(),gender:v('f-gender'),
     year_group:v('f-year'),current_school:v('f-school'),
     medical_notes:v('f-medical'),sen_notes:v('f-sen'),
     carer1_first_name:v('f-c1-first'),carer1_last_name:v('f-c1-last'),
