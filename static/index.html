@@ -3438,9 +3438,15 @@ if(m==='add-student'||m==='edit-student'){
     gcse_science_predicted_grade:v('f-gcse-science-predicted'),
     parent_contact:v('f-c1-mobile'),status:v('f-status'),notes:v('f-notes')
   };
-  if(m==='add-student')await API.post('/api/students',body);
-  else await API.put('/api/students/'+state.editTarget.id,body);
-  toast(m==='add-student'?'Student enrolled':'Student updated');
+  try{
+    if(m==='add-student')await API.post('/api/students',body);
+    else await API.put('/api/students/'+state.editTarget.id,body);
+    toast(m==='add-student'?'Student enrolled':'Student updated');
+  }catch(err){
+    toast(err?.error||'Save failed — please try again','error');
+    console.error('Student save error:',err);
+    return;
+  }
 }
 else if(m==='add-staff'||m==='edit-staff'){
   const branchVal=v('f-branch');
