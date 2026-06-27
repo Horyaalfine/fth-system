@@ -2792,7 +2792,7 @@ function modalStudent(){
         </div>
         <span class="hint">Enter manually or click Auto-generate. Add a/b suffix for siblings (e.g. H110a)</span></div>
       <div class="field"><label>Branch</label><select id="f-branch" onchange="onBranchChange(this.value)">${branches.map(b=>`<option value="${b.id}" ${(s.branch_id||defBranch)==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>
-      <div class="field"><label>Date of birth</label><input type="date" id="f-dob" value="${s.date_of_birth||''}"></div>
+      <div class="field"><label>Date of birth</label><input type="date" id="f-dob" value="${(s.date_of_birth||'').slice(0,10)}"></div>
       <div class="field"><label>Gender</label><select id="f-gender">
         <option value="">— select —</option>
         <option value="Male" ${s.gender==='Male'?'selected':''}>Male</option>
