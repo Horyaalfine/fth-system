@@ -225,6 +225,32 @@ def debug_student_dob(sid):
                     'date_of_birth': str(r['date_of_birth']) if r['date_of_birth'] else None,
                     'dob_type': type(r['date_of_birth']).__name__})
 
+@api_bp.route('/api/debug/test-save-dob/<int:sid>', methods=['POST'])
+@require_auth
+def debug_test_save_dob(sid):
+    """Test endpoint: save a DOB directly and read it back"""
+    dob = request.json.get('dob')
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        cur.execute("UPDATE students SET date_of_birth=%s WHERE id=%s RETURNING id, first_name, date_of_birth", [dob, sid])
+        r = cur.fetchone()
+        conn.commit()
+        cur.close(); conn.close()
+        return jsonify({'saved': True, 'dob_sent': dob, 'dob_in_db': str(r['date_of_birth']) if r and r['date_of_birth'] else None, 'row_found': r is not None})
+    except Exception as e:
+        conn.rollback(); cur.close(); conn.close()
+        return jsonify({'error': str(e)}), 400
+
+def debug_student_dob(sid):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("SELECT id, first_name, date_of_birth FROM students WHERE id=%s", [sid])
+    r = cur.fetchone()
+    cur.close(); conn.close()
+    if not r: return jsonify({'error': 'not found'}), 404
+    return jsonify({'id': r['id'], 'first_name': r['first_name'], 
+                    'date_of_birth': str(r['date_of_birth']) if r['date_of_birth'] else None,
+                    'dob_type': type(r['date_of_birth']).__name__})
+
 def debug_student_columns():
     conn = get_conn(); cur = conn.cursor()
     cur.execute("""SELECT column_name FROM information_schema.columns
