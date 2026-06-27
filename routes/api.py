@@ -213,6 +213,26 @@ def debug_student_columns():
     cur.close(); conn.close()
     return jsonify({'columns': cols, 'count': len(cols)})
 
+@api_bp.route('/api/debug/student-dob/<int:sid>')
+@require_auth
+def debug_student_dob(sid):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("SELECT id, first_name, date_of_birth FROM students WHERE id=%s", [sid])
+    r = cur.fetchone()
+    cur.close(); conn.close()
+    if not r: return jsonify({'error': 'not found'}), 404
+    return jsonify({'id': r['id'], 'first_name': r['first_name'], 
+                    'date_of_birth': str(r['date_of_birth']) if r['date_of_birth'] else None,
+                    'dob_type': type(r['date_of_birth']).__name__})
+
+def debug_student_columns():
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""SELECT column_name FROM information_schema.columns
+                   WHERE table_name='students' ORDER BY ordinal_position""")
+    cols = [r['column_name'] for r in cur.fetchall()]
+    cur.close(); conn.close()
+    return jsonify({'columns': cols, 'count': len(cols)})
+
 def get_student_fields(d):
     dob = d.get('date_of_birth') or None
     # Ensure required fields have fallbacks
