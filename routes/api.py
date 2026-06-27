@@ -316,8 +316,11 @@ def update_student(sid):
         fields = get_student_fields(d)
         set_clause = ','.join([f"{k}=%s" for k in fields.keys()])
         vals = list(fields.values()) + [sid]
+        print(f"DEBUG update_student sid={sid} dob={fields.get('date_of_birth')} fields={list(fields.keys())[:5]}")
         cur.execute(f"UPDATE students SET {set_clause} WHERE id=%s RETURNING *", vals)
-        r = row(cur); conn.commit(); cur.close(); conn.close()
+        r = row(cur)
+        print(f"DEBUG update_student RETURNING r={r is not None} dob_in_r={r.get('date_of_birth') if r else 'NO ROW'}")
+        conn.commit(); cur.close(); conn.close()
         if r:
             if r.get('date_of_birth'): r['date_of_birth'] = str(r['date_of_birth'])
             if r.get('created_at'): r['created_at'] = str(r['created_at'])
@@ -325,6 +328,8 @@ def update_student(sid):
         return jsonify(r)
     except Exception as e:
         conn.rollback(); cur.close(); conn.close()
+        import traceback; traceback.print_exc()
+        print(f"DEBUG update_student ERROR: {e}")
         return jsonify({'error': str(e)}), 400
 
 @api_bp.route('/api/students/<int:sid>/opening-balance', methods=['PUT'])
