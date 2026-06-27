@@ -203,62 +203,6 @@ def get_next_id(branch_id):
     conn.close()
     return jsonify({'next_id': nid})
 
-@api_bp.route('/api/debug/student-columns')
-@require_auth
-def debug_student_columns():
-    conn = get_conn(); cur = conn.cursor()
-    cur.execute("""SELECT column_name FROM information_schema.columns
-                   WHERE table_name='students' ORDER BY ordinal_position""")
-    cols = [r['column_name'] for r in cur.fetchall()]
-    cur.close(); conn.close()
-    return jsonify({'columns': cols, 'count': len(cols)})
-
-@api_bp.route('/api/debug/student-dob/<int:sid>')
-@require_auth
-def debug_student_dob(sid):
-    conn = get_conn(); cur = conn.cursor()
-    cur.execute("SELECT id, first_name, date_of_birth FROM students WHERE id=%s", [sid])
-    r = cur.fetchone()
-    cur.close(); conn.close()
-    if not r: return jsonify({'error': 'not found'}), 404
-    return jsonify({'id': r['id'], 'first_name': r['first_name'], 
-                    'date_of_birth': str(r['date_of_birth']) if r['date_of_birth'] else None,
-                    'dob_type': type(r['date_of_birth']).__name__})
-
-@api_bp.route('/api/debug/test-save-dob/<int:sid>', methods=['POST'])
-@require_auth
-def debug_test_save_dob(sid):
-    """Test endpoint: save a DOB directly and read it back"""
-    dob = request.json.get('dob')
-    conn = get_conn(); cur = conn.cursor()
-    try:
-        cur.execute("UPDATE students SET date_of_birth=%s WHERE id=%s RETURNING id, first_name, date_of_birth", [dob, sid])
-        r = cur.fetchone()
-        conn.commit()
-        cur.close(); conn.close()
-        return jsonify({'saved': True, 'dob_sent': dob, 'dob_in_db': str(r['date_of_birth']) if r and r['date_of_birth'] else None, 'row_found': r is not None})
-    except Exception as e:
-        conn.rollback(); cur.close(); conn.close()
-        return jsonify({'error': str(e)}), 400
-
-def debug_student_dob(sid):
-    conn = get_conn(); cur = conn.cursor()
-    cur.execute("SELECT id, first_name, date_of_birth FROM students WHERE id=%s", [sid])
-    r = cur.fetchone()
-    cur.close(); conn.close()
-    if not r: return jsonify({'error': 'not found'}), 404
-    return jsonify({'id': r['id'], 'first_name': r['first_name'], 
-                    'date_of_birth': str(r['date_of_birth']) if r['date_of_birth'] else None,
-                    'dob_type': type(r['date_of_birth']).__name__})
-
-def debug_student_columns():
-    conn = get_conn(); cur = conn.cursor()
-    cur.execute("""SELECT column_name FROM information_schema.columns
-                   WHERE table_name='students' ORDER BY ordinal_position""")
-    cols = [r['column_name'] for r in cur.fetchall()]
-    cur.close(); conn.close()
-    return jsonify({'columns': cols, 'count': len(cols)})
-
 def get_student_fields(d):
     dob = d.get('date_of_birth') or None
     # Ensure required fields have fallbacks
@@ -342,11 +286,8 @@ def update_student(sid):
         fields = get_student_fields(d)
         set_clause = ','.join([f"{k}=%s" for k in fields.keys()])
         vals = list(fields.values()) + [sid]
-        print(f"DEBUG update_student sid={sid} dob={fields.get('date_of_birth')} fields={list(fields.keys())[:5]}")
         cur.execute(f"UPDATE students SET {set_clause} WHERE id=%s RETURNING *", vals)
-        r = row(cur)
-        print(f"DEBUG update_student RETURNING r={r is not None} dob_in_r={r.get('date_of_birth') if r else 'NO ROW'}")
-        conn.commit(); cur.close(); conn.close()
+        r = row(cur); conn.commit(); cur.close(); conn.close()
         if r:
             if r.get('date_of_birth'): r['date_of_birth'] = str(r['date_of_birth'])
             if r.get('created_at'): r['created_at'] = str(r['created_at'])
@@ -354,8 +295,6 @@ def update_student(sid):
         return jsonify(r)
     except Exception as e:
         conn.rollback(); cur.close(); conn.close()
-        import traceback; traceback.print_exc()
-        print(f"DEBUG update_student ERROR: {e}")
         return jsonify({'error': str(e)}), 400
 
 @api_bp.route('/api/students/<int:sid>/opening-balance', methods=['PUT'])
@@ -1165,7 +1104,6 @@ def save_staff_attendance():
         return jsonify(r), 201
     except Exception as e:
         conn.rollback(); cur.close(); conn.close()
-        import traceback; traceback.print_exc()
         return jsonify({'error': str(e)}), 400
 
 
