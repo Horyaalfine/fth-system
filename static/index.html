@@ -563,7 +563,7 @@ ${audit.map(l=>`<div style="display:flex;justify-content:space-between;font-size
 <div class="highlight-card" style="margin-bottom:16px;">
 <div style="font-size:13px;font-weight:600;color:var(--accent-text);margin-bottom:6px;">Outstanding fees</div>
 <div style="font-size:32px;font-weight:700;color:var(--text);">£${(s.outstanding_fees||0).toLocaleString()}</div>
-<div style="font-size:12px;color:var(--text3);margin-top:4px;">Across all branches</div>
+<div style="font-size:12px;color:var(--text3);margin-top:4px;">${state.currentBranch?'This branch only':'Across all branches'}</div>
 </div>
 <div class="card">
 <div class="card-title" style="margin-bottom:12px;">Quick actions</div>
