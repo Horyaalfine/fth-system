@@ -914,22 +914,27 @@ def report_summary():
     att = cur.fetchone()
     att_rate = round(att['present'] / att['total'] * 100) if att['total'] else 0
 
-    # Per branch stats - use efficient JOINs instead of correlated subqueries
-    cur.execute("""
+    # Per branch stats — filter to the user's branch when scoped
+    branch_filter = "WHERE b.id=%s" if b else ""
+    branch_params = (b,) if b else ()
+    stu_filter  = "WHERE status='active' AND branch_id=%s" if b else "WHERE status='active'"
+    sess_filter = "WHERE branch_id=%s" if b else ""
+    cur.execute(f"""
         SELECT b.name, b.id,
           COALESCE(stu.c,0) as students,
           COALESCE(sess.c,0) as sessions,
           COALESCE(att.present,0) as present,
           COALESCE(att.total,0) as att_total
         FROM branches b
-        LEFT JOIN (SELECT branch_id, COUNT(*) as c FROM students WHERE status='active' GROUP BY branch_id) stu ON stu.branch_id=b.id
-        LEFT JOIN (SELECT branch_id, COUNT(*) as c FROM sessions GROUP BY branch_id) sess ON sess.branch_id=b.id
+        LEFT JOIN (SELECT branch_id, COUNT(*) as c FROM students {stu_filter} GROUP BY branch_id) stu ON stu.branch_id=b.id
+        LEFT JOIN (SELECT branch_id, COUNT(*) as c FROM sessions {sess_filter} GROUP BY branch_id) sess ON sess.branch_id=b.id
         LEFT JOIN (SELECT s.branch_id,
             COUNT(*) FILTER (WHERE a.status='present') as present,
             COUNT(*) as total
             FROM attendance a JOIN sessions s ON s.id=a.session_id GROUP BY s.branch_id) att ON att.branch_id=b.id
+        {branch_filter}
         ORDER BY b.name
-    """)
+    """, branch_params * 3 if b else ())
     branch_stats = rows(cur)
 
     # Year group breakdown
