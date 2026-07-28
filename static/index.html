@@ -2934,7 +2934,7 @@ return mWrap(s.id?'Edit session':'Add session',`
 <div class="field"><label>Slot</label><select id="f-slot">${slots.map(sl=>`<option ${s.slot===sl?'selected':''}>${sl}</option>`).join('')}</select></div>
 <div class="field"><label>Teacher</label><select id="f-staff">${staffList.map(st=>`<option value="${st.id}" ${s.staff_id===st.id?'selected':''}>${st.name}</option>`).join('')}</select></div>
 <div class="field"><label>Subject</label><select id="f-subject">${['Maths','English','Science','History','Geography','Other'].map(sub=>`<option ${s.subject===sub?'selected':''}>${sub}</option>`).join('')}</select></div>
-<div class="field"><label>Table number</label><input type="number" id="f-table" value="${s.table_no||1}" min="1" max="8"></div>
+<!-- table_no auto-generated on save -->
 </div>`,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${s.id?'Save changes':'Add session'}</button>`);}
 
 function modalUser(){const u=state.editTarget||{};const branches=state.data.branches||[];
@@ -3476,7 +3476,36 @@ else if(m==='add-staff'||m==='edit-staff'){
   }
   toast(m==='add-staff'?'Staff added':'Staff updated');
 }
-else if(m==='add-session'||m==='edit-session'){const body={branch_id:parseInt(v('f-branch')),staff_id:parseInt(v('f-staff'))||null,date:v('f-date'),slot:v('f-slot'),subject:v('f-subject'),table_no:parseInt(v('f-table'))||1};if(!body.date||!body.slot){toast('Date and slot required','error');return;}if(m==='add-session')await API.post('/api/sessions',body);else await API.put('/api/sessions/'+state.editTarget.id,body);toast(m==='add-session'?'Session added':'Session updated');}
+else if(m==='add-session'||m==='edit-session'){
+  const branchId=parseInt(v('f-branch'));
+  const staffId=parseInt(v('f-staff'))||null;
+  const date=v('f-date');
+  const slot=v('f-slot');
+  const subject=v('f-subject');
+  if(!date||!slot){toast('Date and slot required','error');return;}
+
+  // Auto-generate table number: find next available for this date+slot+branch
+  const existingSessions=(state.data.sessions||[]).filter(function(s){
+    return s.date===date&&s.slot===slot&&s.branch_id===branchId&&(m==='add-session'||s.id!==state.editTarget.id);
+  });
+  const usedTables=existingSessions.map(function(s){return s.table_no;});
+  let nextTable=1;
+  while(usedTables.includes(nextTable)&&nextTable<=8)nextTable++;
+  if(nextTable>8){toast('All 8 tables are already assigned for this slot','error');return;}
+
+  // Warn if teacher already assigned in this slot on same date
+  if(staffId){
+    const teacherConflict=existingSessions.find(function(s){return s.staff_id===staffId;});
+    if(teacherConflict){
+      if(!confirm('⚠ Warning: '+teacherConflict.staff_name+' is already assigned to Table '+teacherConflict.table_no+' in this slot. Continue anyway?')){return;}
+    }
+  }
+
+  const body={branch_id:branchId,staff_id:staffId,date:date,slot:slot,subject:subject,table_no:nextTable};
+  if(m==='add-session')await API.post('/api/sessions',body);
+  else{body.table_no=state.editTarget.table_no;await API.put('/api/sessions/'+state.editTarget.id,body);}
+  toast(m==='add-session'?'Session added (Table '+nextTable+')':'Session updated');
+}
 else if(m==='add-user'||m==='edit-user'){const body={name:v('f-name'),email:v('f-email'),role:v('f-role'),branch_id:v('f-branch')?parseInt(v('f-branch')):null,status:v('f-status')};if(v('f-password'))body.password=v('f-password');if(!body.name||!body.email){toast('Name and email required','error');return;}if(m==='add-user'){if(!body.password){toast('Password required','error');return;}await API.post('/api/users',body);}else await API.put('/api/users/'+state.editTarget.id,body);toast(m==='add-user'?'User added':'User updated');}
 else if(m==='add-branch'||m==='edit-branch'){const body={name:v('f-name'),prefix:(v('f-prefix')||'').toUpperCase(),address:v('f-address'),phone:v('f-phone'),email:v('f-email'),status:v('f-status')};if(!body.name||!body.prefix){toast('Name and prefix required','error');return;}if(m==='add-branch')await API.post('/api/branches',body);else await API.put('/api/branches/'+state.editTarget.id,body);toast(m==='add-branch'?'Branch added':'Branch updated');}
 else if(m==='add-fee-invoice'){
@@ -3611,6 +3640,22 @@ if(m==='add-student-to-table'){
   const stuId=parseInt(v('f-student-id'));
   if(!stuId){toast('Please select a student','error');return;}
   const isCU=document.getElementById('f-is-catchup')?.checked||false;
+
+  // Block: check if student already on another table in this session
+  const allAllocs=state.data['table_allocs_'+state.planSessionId]||[];
+  let alreadyOnTable=null;
+  allAllocs.forEach(function(ta){
+    if(ta.id!==t.alloc_id){
+      (ta.students||[]).forEach(function(s){
+        if(s.student_id===stuId)alreadyOnTable=ta.table_no;
+      });
+    }
+  });
+  if(alreadyOnTable!==null){
+    toast('⛔ This student is already on Table '+alreadyOnTable+' in this session','error');
+    return;
+  }
+
   await API.post('/api/table-allocations/'+t.alloc_id+'/students',{student_ids:[stuId],is_catchup:isCU});
   await loadData('table_allocs_'+state.planSessionId,'/api/table-allocations/'+state.planSessionId);
   toast('Student added to table');
