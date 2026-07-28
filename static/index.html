@@ -3779,17 +3779,13 @@ closeModal();refreshPage();
 
 // EVENTS
 function bindNav(){const hb=document.getElementById('hamburger-btn');const sb=document.querySelector('.sidebar');const ov=document.getElementById('sidebar-overlay');if(hb&&sb){hb.onclick=()=>{sb.classList.toggle('open');if(ov)ov.classList.toggle('open');};if(ov)ov.onclick=()=>{sb.classList.remove('open');ov.classList.remove('open');};}document.querySelectorAll('[data-page]').forEach(el=>{
-  function navTo(){
+  el.addEventListener('click',function(e){
+    e.stopPropagation();
+    if(sb)sb.classList.remove('open');
+    if(ov)ov.classList.remove('open');
     state.page=el.dataset.page;
-    // Close sidebar after a tiny delay so touch doesn't get cancelled
-    setTimeout(function(){
-      if(sb)sb.classList.remove('open');
-      if(ov)ov.classList.remove('open');
-    },50);
     refreshPage();
-  }
-  el.addEventListener('click',function(e){e.preventDefault();navTo();});
-  el.addEventListener('touchend',function(e){e.preventDefault();navTo();});
+  });
 });document.getElementById('branch-switch')?.addEventListener('change',e=>{state.currentBranch=e.target.value?parseInt(e.target.value):null;refreshPage();});document.getElementById('logout-btn')?.addEventListener('click',async()=>{await API.post('/api/logout');state.currentUser=null;state.page='dashboard';state.data={};render();});}
 
 function bindAll(){bindNav();document.querySelectorAll('[data-action]').forEach(el=>{el.addEventListener('click',e=>handleAction(el.dataset.action,el.dataset.id?parseInt(el.dataset.id):null,el,e));});document.querySelectorAll('[data-nav]').forEach(el=>{el.addEventListener('click',()=>{state.page=el.dataset.nav;if(el.dataset.action){state.modal=el.dataset.action;state.editTarget=null;}refreshPage();});});document.getElementById('modal-close')?.addEventListener('click',closeModal);document.getElementById('modal-cancel')?.addEventListener('click',closeModal);
@@ -4334,6 +4330,20 @@ const icoSearch=()=>ico('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2
 const icoClipboard=(sz=16)=>ico('<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>',sz);
 const icoX=(sz=16)=>ico('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',sz);
 const icoClock=(sz=16)=>ico('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',sz);
+
+// PERSISTENT DELEGATED NAV - survives re-renders, works on mobile touch
+document.addEventListener('click',function(e){
+  const navEl=e.target.closest('[data-page]');
+  if(navEl&&!e._navHandled){
+    e._navHandled=true;
+    const sb=document.querySelector('.sidebar');
+    const ov=document.getElementById('sidebar-overlay');
+    if(sb)sb.classList.remove('open');
+    if(ov)ov.classList.remove('open');
+    state.page=navEl.dataset.page;
+    refreshPage();
+  }
+},{passive:false});
 
 // BOOT
 (async()=>{try{const me=await API.get('/api/me');if(me?.type==='staff'){const users=await API.get('/api/users');const u=(users||[]).find(u2=>u2.id===me.user_id);if(u){state.currentUser={...u};state.currentBranch=u.branch_id||null;}}}catch(e){}try{state.data.branches_login=await API.get('/api/branches');}catch(e){}if(state.currentUser)refreshPage();else render();})();
