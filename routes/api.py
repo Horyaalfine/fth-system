@@ -1712,14 +1712,34 @@ def add_table_student(aid):
     d = request.json
     student_ids = d.get('student_ids', [])
     conn = get_conn(); cur = conn.cursor()
+    # Get session_id for this allocation to check cross-table duplicates
+    cur.execute("SELECT session_id, table_no FROM table_allocations WHERE id=%s", (aid,))
+    alloc = row(cur)
+    if not alloc:
+        cur.close(); conn.close()
+        return jsonify({'error': 'Allocation not found'}), 404
     added = 0
+    blocked = []
     for sid in student_ids:
+        # Check if student already on another table in this session
+        cur.execute("""
+            SELECT ta.table_no FROM table_allocation_students tas
+            JOIN table_allocations ta ON ta.id=tas.allocation_id
+            WHERE ta.session_id=%s AND tas.student_id=%s AND ta.id!=%s
+        """, (alloc['session_id'], sid, aid))
+        conflict = row(cur)
+        if conflict:
+            blocked.append({'student_id': sid, 'table_no': conflict['table_no']})
+            continue
         cur.execute("""
             INSERT INTO table_allocation_students (allocation_id, student_id, is_catchup)
             VALUES (%s,%s,%s) ON CONFLICT DO NOTHING
         """, (aid, sid, d.get('is_catchup', False)))
         if cur.rowcount: added += 1
     conn.commit(); cur.close(); conn.close()
+    if blocked:
+        return jsonify({'added': added, 'blocked': blocked,
+                        'error': f'{len(blocked)} student(s) already on another table in this session'}), 409
     return jsonify({'added': added})
 
 @api_bp.route('/api/table-allocations/<int:aid>/students/<int:sid>', methods=['DELETE'])
