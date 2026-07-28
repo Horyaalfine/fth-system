@@ -379,7 +379,7 @@ function roleBadge(role){const m={super_admin:['badge-purple','Super admin'],bra
 function statusDot(s){return s==='active'?`<span class="dot dot-green"></span><span style="color:var(--success-text)">Active</span>`:`<span class="dot dot-red"></span><span style="color:var(--danger-text)">Inactive</span>`;}
 function avatarInitials(name){return(name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();}
 function isSuperAdmin(){return state.currentUser&&(state.currentUser.role==='super_admin'||state.currentUser.role==='reports_viewer');}
-function branchField(branches,defBranch){if(!isSuperAdmin())return'<!-- branch auto-set -->';const brOpts=branches.map(function(b){return'<option value="'+b.id+'" '+(defBranch==b.id?'selected':'')+'>'+b.name+'</option>';}).join('');returnbranchField(branches,defBranch);}
+function branchField(branches,defBranch){if(!isSuperAdmin())return'';const brOpts=branches.map(function(b){return'<option value="'+b.id+'" '+(defBranch==b.id?'selected':'')+'>'+b.name+'</option>';}).join('');return'<div class="field"><label>Branch</label><select id="f-branch">'+brOpts+'</select></div>';}
 function getBranchId(branches,defBranch){if(!isSuperAdmin())return defBranch;return parseInt(document.getElementById('f-branch')?.value)||defBranch;}
 function avatarClass(role){return{super_admin:'av-purple',branch_manager:'av-blue',head_of_centre:'av-blue',supervisor:'av-teal',teacher:'av-teal',receptionist:'av-amber',admin:'av-gray',reports_viewer:'av-gray'}[role]||'av-blue';}
 function branchParam(){
