@@ -121,6 +121,31 @@ def next_admission_id(conn, branch_id):
 # ════════════════════════════════════════════
 #  BRANCHES
 # ════════════════════════════════════════════
+
+@api_bp.route('/api/admin/migrate-slots', methods=['POST'])
+@require_auth
+def migrate_slots():
+    """One-time migration: rename old slot names to new standardised names."""
+    renames = {
+        'Slot 1 (09:00-11:00)': 'Saturday Slot 1 (09:00-11:00)',
+        'Slot 2 (11:30-13:30)': 'Saturday Slot 2 (11:15-13:15)',
+        'Slot 3 (14:00-16:00)': 'Saturday Slot 3 (14:15-16:15)',
+        'Slot 4 (16:30-18:30)': 'Saturday Slot 4 (16:30-18:30)',
+        'Weekday Slot 1 (17:00-19:00)': 'Weekday Slot 2 (17:00-19:00)',
+        'Weekday Slot 2 (19:00-21:00)': 'Weekday Slot 3 (19:00-21:00)',
+    }
+    conn = get_conn(); cur = conn.cursor()
+    total = 0
+    results = {}
+    for old, new in renames.items():
+        cur.execute("UPDATE sessions SET slot=%s WHERE slot=%s", (new, old))
+        cur.execute("UPDATE student_timetable SET slot=%s WHERE slot=%s", (new, old))
+        n = cur.rowcount
+        if n: results[old] = {'new': new, 'updated': n}
+        total += n
+    conn.commit(); cur.close(); conn.close()
+    return jsonify({'ok': True, 'total_updated': total, 'details': results})
+
 @api_bp.route('/api/branches', methods=['GET'])
 @require_auth
 def get_branches():
