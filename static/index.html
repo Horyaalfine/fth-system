@@ -36,7 +36,7 @@ html{scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
 body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:16px;line-height:1.6;min-height:100vh;-webkit-font-smoothing:antialiased;}
 body::before{content:'';position:fixed;top:0;left:0;right:0;height:100vh;background:radial-gradient(ellipse 80% 50% at 20% 0%,rgba(37,99,235,0.04) 0%,transparent 60%),radial-gradient(ellipse 60% 40% at 80% 100%,rgba(13,148,136,0.03) 0%,transparent 60%);pointer-events:none;z-index:0;}
 .app{display:flex;min-height:100vh;position:relative;z-index:1;}
-.sidebar{width:240px;background:var(--sb-bg);border-right:1px solid var(--sb-border);display:flex;flex-direction:column;flex-shrink:0;position:fixed;top:0;bottom:0;left:0;overflow-y:auto;}
+.sidebar{width:240px;background:var(--sb-bg);border-right:1px solid var(--sb-border);display:flex;flex-direction:column;flex-shrink:0;position:fixed;top:0;bottom:0;left:0;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 .main{margin-left:240px;flex:1;min-height:100vh;display:flex;flex-direction:column;}
 .topbar{background:rgba(245,240,232,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 28px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;}
 .content{padding:28px;}
@@ -52,7 +52,7 @@ body::before{content:'';position:fixed;top:0;left:0;right:0;height:100vh;backgro
 .branch-switcher select option{background:var(--sb-surface2);color:var(--sb-text);}
 .nav-section{padding:12px 10px 0;flex:1;}
 .nav-label{font-size:10px;color:var(--sb-text3);font-weight:600;letter-spacing:0.1em;text-transform:uppercase;padding:0 10px;margin:12px 0 4px;}
-.nav-item{display:flex;align-items:center;gap:10px;padding:10px 13px;border-radius:var(--radius);cursor:pointer;color:var(--sb-text2);font-size:14px;font-weight:400;transition:all 0.15s;margin-bottom:2px;border:1px solid transparent;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:12px 13px;border-radius:var(--radius);cursor:pointer;color:var(--sb-text2);font-size:14px;font-weight:400;transition:all 0.15s;margin-bottom:2px;border:1px solid transparent;touch-action:manipulation;-webkit-tap-highlight-color:rgba(37,99,235,0.2);user-select:none;}
 .nav-item:hover{background:var(--sb-surface2);color:var(--sb-text);border-color:var(--sb-border);}
 .nav-item.active{background:rgba(37,99,235,0.2);color:#93c5fd;font-weight:500;border-color:rgba(37,99,235,0.3);}
 .nav-item svg{flex-shrink:0;opacity:0.7;}
@@ -3778,7 +3778,19 @@ closeModal();refreshPage();
 }catch(e){toast(e.error||'Save failed','error');}finally{if(saveBtn)saveBtn.disabled=false;}}
 
 // EVENTS
-function bindNav(){const hb=document.getElementById('hamburger-btn');const sb=document.querySelector('.sidebar');const ov=document.getElementById('sidebar-overlay');if(hb&&sb){hb.onclick=()=>{sb.classList.toggle('open');if(ov)ov.classList.toggle('open');};if(ov)ov.onclick=()=>{sb.classList.remove('open');ov.classList.remove('open');};}document.querySelectorAll('[data-page]').forEach(el=>{el.addEventListener('click',()=>{if(sb)sb.classList.remove('open');if(ov)ov.classList.remove('open');state.page=el.dataset.page;refreshPage();});});document.getElementById('branch-switch')?.addEventListener('change',e=>{state.currentBranch=e.target.value?parseInt(e.target.value):null;refreshPage();});document.getElementById('logout-btn')?.addEventListener('click',async()=>{await API.post('/api/logout');state.currentUser=null;state.page='dashboard';state.data={};render();});}
+function bindNav(){const hb=document.getElementById('hamburger-btn');const sb=document.querySelector('.sidebar');const ov=document.getElementById('sidebar-overlay');if(hb&&sb){hb.onclick=()=>{sb.classList.toggle('open');if(ov)ov.classList.toggle('open');};if(ov)ov.onclick=()=>{sb.classList.remove('open');ov.classList.remove('open');};}document.querySelectorAll('[data-page]').forEach(el=>{
+  function navTo(){
+    state.page=el.dataset.page;
+    // Close sidebar after a tiny delay so touch doesn't get cancelled
+    setTimeout(function(){
+      if(sb)sb.classList.remove('open');
+      if(ov)ov.classList.remove('open');
+    },50);
+    refreshPage();
+  }
+  el.addEventListener('click',function(e){e.preventDefault();navTo();});
+  el.addEventListener('touchend',function(e){e.preventDefault();navTo();});
+});document.getElementById('branch-switch')?.addEventListener('change',e=>{state.currentBranch=e.target.value?parseInt(e.target.value):null;refreshPage();});document.getElementById('logout-btn')?.addEventListener('click',async()=>{await API.post('/api/logout');state.currentUser=null;state.page='dashboard';state.data={};render();});}
 
 function bindAll(){bindNav();document.querySelectorAll('[data-action]').forEach(el=>{el.addEventListener('click',e=>handleAction(el.dataset.action,el.dataset.id?parseInt(el.dataset.id):null,el,e));});document.querySelectorAll('[data-nav]').forEach(el=>{el.addEventListener('click',()=>{state.page=el.dataset.nav;if(el.dataset.action){state.modal=el.dataset.action;state.editTarget=null;}refreshPage();});});document.getElementById('modal-close')?.addEventListener('click',closeModal);document.getElementById('modal-cancel')?.addEventListener('click',closeModal);
 // Clear any validation highlights when modal first opens
