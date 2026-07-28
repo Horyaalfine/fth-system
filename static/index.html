@@ -378,6 +378,9 @@ function toast(msg,type='success'){const el=document.createElement('div');el.cla
 function roleBadge(role){const m={super_admin:['badge-purple','Super admin'],branch_manager:['badge-blue','Branch manager'],head_of_centre:['badge-blue','Head of Centre'],supervisor:['badge-teal','Supervisor'],teacher:['badge-teal','Teacher'],receptionist:['badge-amber','Receptionist'],admin:['badge-gray','Admin support'],reports_viewer:['badge-gray','Reports viewer']};const[cls,label]=m[role]||['badge-gray',role];return`<span class="badge ${cls}">${label}</span>`;}
 function statusDot(s){return s==='active'?`<span class="dot dot-green"></span><span style="color:var(--success-text)">Active</span>`:`<span class="dot dot-red"></span><span style="color:var(--danger-text)">Inactive</span>`;}
 function avatarInitials(name){return(name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();}
+function isSuperAdmin(){return state.currentUser&&(state.currentUser.role==='super_admin'||state.currentUser.role==='reports_viewer');}
+function branchField(branches,defBranch){if(!isSuperAdmin())return'<!-- branch auto-set -->';const brOpts=branches.map(function(b){return'<option value="'+b.id+'" '+(defBranch==b.id?'selected':'')+'>'+b.name+'</option>';}).join('');returnbranchField(branches,defBranch);}
+function getBranchId(branches,defBranch){if(!isSuperAdmin())return defBranch;return parseInt(document.getElementById('f-branch')?.value)||defBranch;}
 function avatarClass(role){return{super_admin:'av-purple',branch_manager:'av-blue',head_of_centre:'av-blue',supervisor:'av-teal',teacher:'av-teal',receptionist:'av-amber',admin:'av-gray',reports_viewer:'av-gray'}[role]||'av-blue';}
 function branchParam(){
   if(state.currentBranch) return {branch_id:state.currentBranch};
@@ -683,7 +686,7 @@ function renderSessions(){
   html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">';
   html+='<div><div class="section-title">Sessions</div>';
   html+='<div class="section-sub">'+filtered.length+' session'+(filtered.length!==1?'s':'')+' shown'+(activeFilters?' · '+activeFilters+' filter'+(activeFilters>1?'s':'')+' active':'')+' · '+totalPresent+'/'+totalStudents+' attendance</div></div>';
-  html+='<button class="btn btn-primary" data-action="add-session">+ Add session</button>';
+  html+='<button class="btn btn-primary" data-action="add-session">+ Add session</button><button class="btn" data-action="gen-weekly-sessions" style="margin-left:8px;">📅 Weekly</button>';
   html+='</div>';
 
   // Filter bar
@@ -2756,7 +2759,8 @@ return`
 ${children.map(st=>childCard(st)).join('')}`;}
 
 // MODALS
-function renderModal(){const m=state.modal;if(m==='add-student'||m==='edit-student')return modalStudent();if(m==='add-staff'||m==='edit-staff')return modalStaff();if(m==='add-session'||m==='edit-session')return modalSession();if(m==='add-user'||m==='edit-user')return modalUser();if(m==='add-branch'||m==='edit-branch')return modalBranch();if(m==='edit-invoice')return modalInvoice();
+function renderModal(){const m=state.modal;if(m==='add-student'||m==='edit-student')return modalStudent();if(m==='add-staff'||m==='edit-staff')return modalStaff();if(m==='add-session'||m==='edit-session')return modalSession();
+if(m==='gen-weekly-sessions')return modalWeeklySessions();if(m==='add-user'||m==='edit-user')return modalUser();if(m==='add-branch'||m==='edit-branch')return modalBranch();if(m==='edit-invoice')return modalInvoice();
   if(m==='mark-paid')return modalMarkPaid();
   if(m==='add-adjustment'||m==='edit-adjustment')return modalAdjustment();
   if(m==='edit-opening-balance')return modalOpeningBalance();
@@ -2915,7 +2919,7 @@ function modalStaff(){const s=state.editTarget||{};const branches=state.data.bra
 return mWrap(s.id?'Edit staff member':'Add staff member',`
 <div class="form-grid">
 <div class="field"><label>Full name</label><input type="text" id="f-name" value="${s.name||''}"></div>
-<div class="field"><label>Branch</label><select id="f-branch">${branches.map(b=>`<option value="${b.id}" ${(s.branch_id||defBranch)==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>
+${branchField(branches,s.branch_id||defBranch)}
 <div class="field"><label>Role</label><select id="f-role"><option value="teacher" ${s.role==='teacher'||!s.role?'selected':''}>Teacher</option>
         <option value="head_of_centre" ${s.role==='head_of_centre'?'selected':''}>Head of Centre</option>
         <option value="supervisor" ${s.role==='supervisor'?'selected':''}>Supervisor</option>
@@ -2926,16 +2930,56 @@ return mWrap(s.id?'Edit staff member':'Add staff member',`
 <div class="field"><label>Status</label><select id="f-status"><option value="active" ${!s.status||s.status==='active'?'selected':''}>Active</option><option value="paused" ${s.status==='paused'?'selected':''}>Paused</option><option value="inactive" ${s.status==='inactive'?'selected':''}>Inactive</option></select></div>
 </div>`,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${s.id?'Save changes':'Add staff'}</button>`);}
 
-function modalSession(){const s=state.editTarget||{};const branches=state.data.branches||[];const defBranch=state.currentBranch||branches[0]?.id||'';const staffList=(state.data.staff||[]).filter(st=>['teacher','head_of_centre','supervisor','admin','receptionist'].includes(st.role));const slots=['Slot 1 (09:00-11:00)','Slot 2 (11:30-13:30)','Slot 3 (14:00-16:00)','Slot 4 (16:30-18:30)','Weekday Slot 1 (17:00-19:00)','Weekday Slot 2 (19:00-21:00)'];
+function modalSession(){const s=state.editTarget||{};const branches=state.data.branches||[];const defBranch=state.currentBranch||branches[0]?.id||'';const staffList=(state.data.staff||[]).filter(st=>['teacher','head_of_centre','supervisor','admin','receptionist'].includes(st.role));const slots=['Saturday Slot 1 (09:00-11:00)','Saturday Slot 2 (11:15-13:15)','Saturday Slot 3 (14:15-16:15)','Saturday Slot 4 (16:30-18:30)','Weekday Slot 1 (12:00-16:00)','Weekday Slot 2 (17:00-19:00)','Weekday Slot 3 (19:00-21:00)'];
 return mWrap(s.id?'Edit session':'Add session',`
 <div class="form-grid">
 <div class="field"><label>Date</label><input type="date" id="f-date" value="${s.date||new Date().toISOString().slice(0,10)}"></div>
-<div class="field"><label>Branch</label><select id="f-branch">${branches.map(b=>`<option value="${b.id}" ${(s.branch_id||defBranch)==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>
+${branchField(branches,s.branch_id||defBranch)}
 <div class="field"><label>Slot</label><select id="f-slot">${slots.map(sl=>`<option ${s.slot===sl?'selected':''}>${sl}</option>`).join('')}</select></div>
 <div class="field"><label>Teacher</label><select id="f-staff">${staffList.map(st=>`<option value="${st.id}" ${s.staff_id===st.id?'selected':''}>${st.name}</option>`).join('')}</select></div>
 <div class="field"><label>Subject</label><select id="f-subject">${['Maths','English','Science','History','Geography','Other'].map(sub=>`<option ${s.subject===sub?'selected':''}>${sub}</option>`).join('')}</select></div>
 <!-- table_no auto-generated on save -->
 </div>`,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${s.id?'Save changes':'Add session'}</button>`);}
+
+function modalWeeklySessions(){
+  const branches=state.data.branches||[];
+  const defBranch=state.currentBranch||branches[0]?.id||'';
+  const staffList=(state.data.staff||[]).filter(function(st){return['teacher','head_of_centre','supervisor','admin','receptionist'].includes(st.role);});
+  const slots=['Saturday Slot 1 (09:00-11:00)','Saturday Slot 2 (11:15-13:15)','Saturday Slot 3 (14:15-16:15)','Saturday Slot 4 (16:30-18:30)','Weekday Slot 1 (12:00-16:00)','Weekday Slot 2 (17:00-19:00)','Weekday Slot 3 (19:00-21:00)'];
+  var branchOpts=branchField(branches,defBranch);
+  var staffOpts=staffList.map(function(st){return'<option value="'+st.id+'">'+st.name+'</option>';}).join('');
+  var slotOpts=slots.map(function(sl){return'<option value="'+sl+'">'+sl+'</option>';}).join('');
+  var weekdays=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  var dayChecks=weekdays.map(function(d,i){
+    return'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:4px 0;"><input type="checkbox" class="gen-day" value="'+i+'" '+(i===5||i===2?'checked':'')+' style="width:16px;height:16px;"> '+d+'</label>';
+  }).join('');
+  return mWrap('Generate weekly sessions',
+    '<div style="font-size:13px;color:var(--text3);margin-bottom:16px;">Creates sessions for every week in the selected date range. Table numbers are auto-assigned.</div>'+
+    '<div class="form-grid">'+
+    (isSuperAdmin()?branchOpts:'')+ 
+    '<div class="field"><label>From date</label><input type="date" id="f-from-date" value="'+new Date().toISOString().slice(0,10)+'"></div>'+
+    '<div class="field"><label>To date</label><input type="date" id="f-to-date"></div>'+
+    '<div class="field"><label>Slot</label><select id="f-slot">'+slotOpts+'</select></div>'+
+    '<div class="field"><label>Subject</label><select id="f-subject"><option>Maths</option><option>English</option><option>Science</option><option>History</option><option>Geography</option><option>Other</option></select></div>'+
+    '<div class="field"><label>Teacher (optional)</label><select id="f-staff"><option value="">— No teacher —</option>'+staffOpts+'</select></div>'+
+    '</div>'+
+    '<div style="margin-top:12px;"><label style="font-size:13px;font-weight:600;color:var(--text);display:block;margin-bottom:8px;">Days of week</label>'+
+    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;">'+dayChecks+'</div></div>'+
+    '<div id="weekly-preview" style="margin-top:12px;font-size:12px;color:var(--text3);"></div>',
+    '<button class="btn" id="modal-cancel">Cancel</button><button class="btn" onclick="previewWeekly()">Preview</button><button class="btn btn-primary" id="modal-save">Generate sessions</button>'
+  );
+}
+
+function previewWeekly(){
+  var from=document.getElementById('f-from-date')?.value;
+  var to=document.getElementById('f-to-date')?.value;
+  if(!from||!to){document.getElementById('weekly-preview').textContent='Please set both dates first.';return;}
+  var days=[...document.querySelectorAll('.gen-day:checked')].map(function(el){return parseInt(el.value);});
+  if(!days.length){document.getElementById('weekly-preview').textContent='Select at least one day.';return;}
+  var dates=[];var d=new Date(from+'T00:00:00');var end=new Date(to+'T00:00:00');
+  while(d<=end){if(days.includes(d.getDay()))dates.push(d.toISOString().slice(0,10));d.setDate(d.getDate()+1);}
+  document.getElementById('weekly-preview').textContent='Will create '+dates.length+' session(s) across '+dates.length+' date(s). First: '+(dates[0]||'—')+', Last: '+(dates[dates.length-1]||'—');
+}
 
 function modalUser(){const u=state.editTarget||{};const branches=state.data.branches||[];
 return mWrap(u.id?'Edit user':'Add user',`
@@ -2982,7 +3026,7 @@ function modalAddFeeInvoice(){
   const footer='<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Issue invoice</button>';
   return mWrap('Add fee invoice','<div class="form-grid">'+
     '<div class="field"><label>Student</label><select id="f-student-id">'+studOpts+'</select></div>'+
-    '<div class="field"><label>Branch</label><select id="f-branch">'+brOpts+'</select></div>'+
+    branchField(branches,defBranch)+
     '<div class="field"><label>Fee type</label><select id="f-fee-type">'+
       '<option value="monthly_fee">Monthly fee</option>'+
       '<option value="opening_balance">Opening balance (brought forward)</option>'+
@@ -3191,7 +3235,7 @@ function modalInstalmentPlan(){
   return mWrap('Add instalment plan',`
     <div class="form-grid">
       <div class="field"><label>Student</label><select id="f-student-id">${students.map(s=>`<option value="${s.id}" ${preselect===s.id?'selected':''}>${s.admission_id} — ${s.name}</option>`).join('')}</select></div>
-      <div class="field"><label>Branch</label><select id="f-branch">${branches.map(b=>`<option value="${b.id}" ${defBranch==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>
+      ${branchField(branches,defBranch)}
       <div class="field"><label>Description</label><input type="text" id="f-description" placeholder="e.g. 3-month instalment plan — Maths & English"></div>
       <div class="field"><label>Total amount (£)</label><input type="number" id="f-total" step="0.01" placeholder="0.00"></div>
       <div class="field"><label>Start date</label><input type="date" id="f-start" value="${new Date().toISOString().slice(0,10)}"></div>
@@ -3229,7 +3273,7 @@ function modalHQTransfer(){
       <div style="font-size:13px;color:var(--accent-text);">Record cash or payment transferred from a branch to head office</div>
     </div>
     <div class="form-grid">
-      <div class="field"><label>Branch</label><select id="f-branch">${branches.map(b=>`<option value="${b.id}" ${defBranch==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>
+      ${branchField(branches,defBranch)}
       <div class="field"><label>Amount (£)</label><input type="number" id="f-amount" step="0.01" placeholder="0.00"></div>
       <div class="field"><label>Transfer date</label><input type="date" id="f-date" value="${new Date().toISOString().slice(0,10)}"></div>
       <div class="field"><label>Method</label><select id="f-method">
@@ -3363,7 +3407,7 @@ function modalAddCatchup(){
   const footer='<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Log catch-up owed</button>';
   return mWrap('Log catch-up owed','<div class="form-grid">'+
     '<div class="field"><label>Student</label><select id="f-student-id">'+studOpts+'</select></div>'+
-    '<div class="field"><label>Branch</label><select id="f-branch">'+brOpts+'</select></div>'+
+    branchField(branches,defBranch)+
     '<div class="field"><label>Subject</label><select id="f-subject"><option>Maths</option><option>English</option><option>Science</option><option>Other</option></select></div>'+
     '<div class="field"><label>Missed date</label><input type="date" id="f-missed-date" value="'+new Date().toISOString().slice(0,10)+'"></div>'+
     '<div class="field"><label>Missed session (optional)</label><select id="f-missed-session">'+sessOpts+'</select></div>'+
@@ -3393,7 +3437,7 @@ if(m==='add-student'||m==='edit-student'){
   const fn=(v('f-first-name')||'').trim();
   const ln=(v('f-last-name')||'').trim();
   const fullName=(fn+' '+ln).trim();
-  const branch=v('f-branch');
+  const branch=isSuperAdmin()?v('f-branch'):String(state.currentBranch||'');
   const admid=(v('f-admid')||'').trim();
   // Validate and highlight errors
   let hasError=false;
@@ -3403,7 +3447,7 @@ if(m==='add-student'||m==='edit-student'){
     hasError=true;
   }
   if(!branch){
-    const el=document.getElementById('f-branch');
+    const el=isSuperAdmin()?document.getElementById('f-branch'):null;
     if(el){el.style.border='2px solid var(--danger)';el.style.boxShadow='0 0 0 3px rgba(248,113,113,0.2)';}
     hasError=true;
   }
@@ -3454,7 +3498,7 @@ if(m==='add-student'||m==='edit-student'){
   }
 }
 else if(m==='add-staff'||m==='edit-staff'){
-  const branchVal=v('f-branch');
+  const branchVal=isSuperAdmin()?v('f-branch'):String(state.currentBranch||'');
   const nameVal=(v('f-name')||'').trim();
   if(!nameVal){
     const el=document.getElementById('f-name');
@@ -3462,7 +3506,7 @@ else if(m==='add-staff'||m==='edit-staff'){
     toast('Name is required','error');return;
   }
   if(!branchVal){
-    const el=document.getElementById('f-branch');
+    const el=isSuperAdmin()?document.getElementById('f-branch'):null;
     if(el){el.style.border='2px solid var(--danger)';}
     toast('Branch is required','error');return;
   }
@@ -3476,8 +3520,34 @@ else if(m==='add-staff'||m==='edit-staff'){
   }
   toast(m==='add-staff'?'Staff added':'Staff updated');
 }
+else if(m==='gen-weekly-sessions'){
+  const fromDate=document.getElementById('f-from-date')?.value;
+  const toDate=document.getElementById('f-to-date')?.value;
+  if(!fromDate||!toDate){toast('Please set both from and to dates','error');return;}
+  const days=[...document.querySelectorAll('.gen-day:checked')].map(function(el){return parseInt(el.value);});
+  if(!days.length){toast('Select at least one day of the week','error');return;}
+  const branchId=isSuperAdmin()?parseInt(v('f-branch')):(state.currentBranch||branches[0]?.id);
+  const slot=v('f-slot');
+  const subject=v('f-subject');
+  const staffId=parseInt(v('f-staff'))||null;
+  // Build list of dates
+  const dates=[];var d=new Date(fromDate+'T00:00:00');var end=new Date(toDate+'T00:00:00');
+  while(d<=end){if(days.includes(d.getDay()))dates.push(d.toISOString().slice(0,10));d.setDate(d.getDate()+1);}
+  if(!dates.length){toast('No matching dates found in this range','error');return;}
+  if(dates.length>52){toast('Too many sessions (max 52 at once). Reduce date range.','error');return;}
+  // Create sessions one by one
+  let created=0;
+  for(var i=0;i<dates.length;i++){
+    try{
+      await API.post('/api/sessions',{branch_id:branchId,staff_id:staffId,date:dates[i],slot:slot,subject:subject,table_no:1});
+      created++;
+    }catch(e){/* skip duplicates */}
+  }
+  await loadData('sessions','/api/sessions',branchParam());
+  toast('Created '+created+' sessions');
+}
 else if(m==='add-session'||m==='edit-session'){
-  const branchId=parseInt(v('f-branch'));
+  const branchId=isSuperAdmin()?parseInt(v('f-branch')):state.currentBranch||parseInt(v('f-branch'));
   const staffId=parseInt(v('f-staff'))||null;
   const date=v('f-date');
   const slot=v('f-slot');
@@ -3510,7 +3580,7 @@ else if(m==='add-user'||m==='edit-user'){const body={name:v('f-name'),email:v('f
 else if(m==='add-branch'||m==='edit-branch'){const body={name:v('f-name'),prefix:(v('f-prefix')||'').toUpperCase(),address:v('f-address'),phone:v('f-phone'),email:v('f-email'),status:v('f-status')};if(!body.name||!body.prefix){toast('Name and prefix required','error');return;}if(m==='add-branch')await API.post('/api/branches',body);else await API.put('/api/branches/'+state.editTarget.id,body);toast(m==='add-branch'?'Branch added':'Branch updated');}
 else if(m==='add-fee-invoice'){
   const stuId=parseInt(v('f-student-id'));
-  const brId=parseInt(v('f-branch'));
+  const brId=isSuperAdmin()?parseInt(v('f-branch')):(state.currentBranch||parseInt(v('f-branch')));
   const feeType=v('f-fee-type');
   const amount=parseFloat(v('f-amount'));
   const month=v('f-month');
@@ -3755,7 +3825,7 @@ document.getElementById('att-session-select')?.addEventListener('change',async e
   }
   render();});document.getElementById('staff-att-month')?.addEventListener('change',e=>{state.staffAttMonth=e.target.value;refreshPage();});
 document.getElementById('btn-auto-id')?.addEventListener('click',async()=>{
-  const branchId=document.getElementById('f-branch')?.value;
+  const branchId=isSuperAdmin()?(document.getElementById('f-branch')?.value):String(state.currentBranch||'');
   if(!branchId){toast('Select a branch first','error');return;}
   try{const r=await API.get('/api/students/next-id/'+branchId);document.getElementById('f-admid').value=r.next_id;document.getElementById('f-admid').style.border='';}
   catch(e){toast('Could not generate ID','error');}
@@ -3881,6 +3951,7 @@ if(action==='add-staff'){state.modal='add-staff';state.editTarget=null;render();
 if(action==='edit-staff'){state.modal='edit-staff';state.editTarget=(state.data.staff||[]).find(s=>s.id===id);render();return;}
 if(action==='del-staff'){if(!confirm('Delete?'))return;await API.delete('/api/staff/'+id);toast('Staff deleted');refreshPage();return;}
 if(action==='add-session'){state.modal='add-session';state.editTarget=null;await loadData('staff','/api/staff',branchParam());render();return;}
+if(action==='gen-weekly-sessions'){state.modal='gen-weekly-sessions';state.editTarget=null;await loadData('staff','/api/staff',branchParam());render();return;}
 if(action==='del-session'){if(!confirm('Delete?'))return;await API.delete('/api/sessions/'+id);toast('Session deleted');refreshPage();return;}
 if(action==='mark-att'){state.page='attendance';state.attSessionId=id;refreshPage();return;}
 if(action==='add-user'){state.modal='add-user';state.editTarget=null;render();return;}
