@@ -2247,7 +2247,7 @@ function renderSessionPlan(){
   } else if(planTab==='timetable'){
     var ttSelId=state.timetableStudentId;
     var ttSel=students.find(function(s){return s.id===ttSelId;});
-    const SLOTS_WD=['Weekday Slot 1 (17:00-19:00)','Weekday Slot 2 (19:00-21:00)'];
+    const SLOTS_WD=['Weekday Slot 1 (12:00-16:00)','Weekday Slot 2 (17:00-19:00)','Weekday Slot 3 (19:00-21:00)'];
     const SLOTS_SAT=['Saturday Slot 1 (09:00-11:00)','Saturday Slot 2 (11:15-13:15)','Saturday Slot 3 (14:15-16:15)','Saturday Slot 4 (16:30-18:30)'];
     const SUBJECTS=['Maths','English','Science','Other'];
     html+='<div class="card" style="margin-bottom:16px;"><div class="field"><label>Select student</label><select id="tt-student-select"><option value="">— choose student —</option>';
@@ -2282,8 +2282,9 @@ function renderSessionPlan(){
     html+='</div>';
 
     const SLOTS_ALL=[
-      {key:"Weekday Slot 1 (17:00-19:00)",label:"Wed/Weekday 17:00–19:00"},
-      {key:"Weekday Slot 2 (19:00-21:00)",label:"Wed/Weekday 19:00–21:00"},
+      {key:"Weekday Slot 1 (12:00-16:00)",label:"Weekday 12:00–16:00"},
+      {key:"Weekday Slot 2 (17:00-19:00)",label:"Weekday 17:00–19:00"},
+      {key:"Weekday Slot 3 (19:00-21:00)",label:"Weekday 19:00–21:00"},
       {key:"Saturday Slot 1 (09:00-11:00)",label:"Saturday 09:00–11:00"},
       {key:"Saturday Slot 2 (11:15-13:15)",label:"Saturday 11:15–13:15"},
       {key:"Saturday Slot 3 (14:15-16:15)",label:"Saturday 14:15–16:15"},
@@ -4003,7 +4004,7 @@ if(action==='filter-students'){state.studentFilter=el.dataset.filter;render();re
 if(action==='export-timetable-csv'){
   const allTT=state.data.all_timetables||[];
   const SLOTS=[
-    'Weekday Slot 1 (17:00-19:00)','Weekday Slot 2 (19:00-21:00)',
+    'Weekday Slot 1 (12:00-16:00)','Weekday Slot 2 (17:00-19:00)','Weekday Slot 3 (19:00-21:00)',
     'Saturday Slot 1 (09:00-11:00)','Saturday Slot 2 (11:15-13:15)',
     'Saturday Slot 3 (14:15-16:15)','Saturday Slot 4 (16:30-18:30)',
   ];
