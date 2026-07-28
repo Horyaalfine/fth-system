@@ -3778,15 +3778,7 @@ closeModal();refreshPage();
 }catch(e){toast(e.error||'Save failed','error');}finally{if(saveBtn)saveBtn.disabled=false;}}
 
 // EVENTS
-function bindNav(){const hb=document.getElementById('hamburger-btn');const sb=document.querySelector('.sidebar');const ov=document.getElementById('sidebar-overlay');if(hb&&sb){hb.onclick=()=>{sb.classList.toggle('open');if(ov)ov.classList.toggle('open');};if(ov)ov.onclick=()=>{sb.classList.remove('open');ov.classList.remove('open');};}document.querySelectorAll('[data-page]').forEach(el=>{
-  el.addEventListener('click',function(e){
-    e.stopPropagation();
-    if(sb)sb.classList.remove('open');
-    if(ov)ov.classList.remove('open');
-    state.page=el.dataset.page;
-    refreshPage();
-  });
-});document.getElementById('branch-switch')?.addEventListener('change',e=>{state.currentBranch=e.target.value?parseInt(e.target.value):null;refreshPage();});document.getElementById('logout-btn')?.addEventListener('click',async()=>{await API.post('/api/logout');state.currentUser=null;state.page='dashboard';state.data={};render();});}
+function bindNav(){const hb=document.getElementById('hamburger-btn');const sb=document.querySelector('.sidebar');const ov=document.getElementById('sidebar-overlay');if(hb&&sb){hb.onclick=()=>{sb.classList.toggle('open');if(ov)ov.classList.toggle('open');};if(ov)ov.onclick=()=>{sb.classList.remove('open');ov.classList.remove('open');};}document.getElementById('branch-switch')?.addEventListener('change',e=>{state.currentBranch=e.target.value?parseInt(e.target.value):null;refreshPage();});document.getElementById('logout-btn')?.addEventListener('click',async()=>{await API.post('/api/logout');state.currentUser=null;state.page='dashboard';state.data={};render();});}
 
 function bindAll(){bindNav();document.querySelectorAll('[data-action]').forEach(el=>{el.addEventListener('click',e=>handleAction(el.dataset.action,el.dataset.id?parseInt(el.dataset.id):null,el,e));});document.querySelectorAll('[data-nav]').forEach(el=>{el.addEventListener('click',()=>{state.page=el.dataset.nav;if(el.dataset.action){state.modal=el.dataset.action;state.editTarget=null;}refreshPage();});});document.getElementById('modal-close')?.addEventListener('click',closeModal);document.getElementById('modal-cancel')?.addEventListener('click',closeModal);
 // Clear any validation highlights when modal first opens
@@ -4332,18 +4324,26 @@ const icoX=(sz=16)=>ico('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6
 const icoClock=(sz=16)=>ico('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',sz);
 
 // PERSISTENT DELEGATED NAV - survives re-renders, works on mobile touch
+var _navLock=false;
+function _doNav(el){
+  if(_navLock)return;
+  _navLock=true;
+  setTimeout(function(){_navLock=false;},400);
+  const sb=document.querySelector('.sidebar');
+  const ov=document.getElementById('sidebar-overlay');
+  if(sb)sb.classList.remove('open');
+  if(ov)ov.classList.remove('open');
+  state.page=el.dataset.page;
+  refreshPage();
+}
+document.addEventListener('touchstart',function(e){
+  const navEl=e.target.closest('[data-page]');
+  if(navEl){_doNav(navEl);}
+},{passive:true});
 document.addEventListener('click',function(e){
   const navEl=e.target.closest('[data-page]');
-  if(navEl&&!e._navHandled){
-    e._navHandled=true;
-    const sb=document.querySelector('.sidebar');
-    const ov=document.getElementById('sidebar-overlay');
-    if(sb)sb.classList.remove('open');
-    if(ov)ov.classList.remove('open');
-    state.page=navEl.dataset.page;
-    refreshPage();
-  }
-},{passive:false});
+  if(navEl){_doNav(navEl);}
+});
 
 // BOOT
 (async()=>{try{const me=await API.get('/api/me');if(me?.type==='staff'){const users=await API.get('/api/users');const u=(users||[]).find(u2=>u2.id===me.user_id);if(u){state.currentUser={...u};state.currentBranch=u.branch_id||null;}}}catch(e){}try{state.data.branches_login=await API.get('/api/branches');}catch(e){}if(state.currentUser)refreshPage();else render();})();
