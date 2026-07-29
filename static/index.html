@@ -232,10 +232,10 @@ select{background:#fffdf7;color:#1a2744;}select option{background:#fffdf7;color:
 
 /* ── MOBILE ── */
 .hamburger{display:none;background:none;border:none;cursor:pointer;padding:6px;color:var(--text);flex-shrink:0;}
-.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99;}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:98;pointer-events:auto;}
 @media(max-width:768px){
 .hamburger{display:flex;}
-.sidebar{position:fixed;top:0;left:0;height:100vh;z-index:100;transform:translateX(-100%);transition:transform 0.25s ease;width:260px;}
+.sidebar{position:fixed;top:0;left:0;height:100vh;z-index:200;transform:translateX(-100%);transition:transform 0.25s ease;width:260px;}
 .sidebar.open{transform:translateX(0);}
 .sidebar-overlay.open{display:block;}
 .main{margin-left:0 !important;}
@@ -3778,7 +3778,27 @@ closeModal();refreshPage();
 }catch(e){toast(e.error||'Save failed','error');}finally{if(saveBtn)saveBtn.disabled=false;}}
 
 // EVENTS
-function bindNav(){const hb=document.getElementById('hamburger-btn');const sb=document.querySelector('.sidebar');const ov=document.getElementById('sidebar-overlay');if(hb&&sb){hb.onclick=()=>{sb.classList.toggle('open');if(ov)ov.classList.toggle('open');};if(ov)ov.onclick=()=>{sb.classList.remove('open');ov.classList.remove('open');};}document.getElementById('branch-switch')?.addEventListener('change',e=>{state.currentBranch=e.target.value?parseInt(e.target.value):null;refreshPage();});document.getElementById('logout-btn')?.addEventListener('click',async()=>{await API.post('/api/logout');state.currentUser=null;state.page='dashboard';state.data={};render();});}
+function bindNav(){
+  const hb=document.getElementById('hamburger-btn');
+  const sb=document.querySelector('.sidebar');
+  const ov=document.getElementById('sidebar-overlay');
+  if(hb&&sb){
+    hb.onclick=()=>{sb.classList.toggle('open');if(ov)ov.classList.toggle('open');};
+    if(ov)ov.onclick=()=>{sb.classList.remove('open');ov.classList.remove('open');};
+  }
+  // Wire up each nav button directly with onclick - most reliable on iOS
+  document.querySelectorAll('button[data-page]').forEach(function(btn){
+    btn.onclick=function(){
+      const page=this.dataset.page;
+      if(sb)sb.classList.remove('open');
+      if(ov)ov.classList.remove('open');
+      state.page=page;
+      refreshPage();
+    };
+  });
+  document.getElementById('branch-switch')?.addEventListener('change',e=>{state.currentBranch=e.target.value?parseInt(e.target.value):null;refreshPage();});
+  document.getElementById('logout-btn')?.addEventListener('click',async()=>{await API.post('/api/logout');state.currentUser=null;state.page='dashboard';state.data={};render();});
+}
 
 function bindAll(){bindNav();document.querySelectorAll('[data-action]').forEach(el=>{el.addEventListener('click',e=>handleAction(el.dataset.action,el.dataset.id?parseInt(el.dataset.id):null,el,e));});document.querySelectorAll('[data-nav]').forEach(el=>{el.addEventListener('click',()=>{state.page=el.dataset.nav;if(el.dataset.action){state.modal=el.dataset.action;state.editTarget=null;}refreshPage();});});document.getElementById('modal-close')?.addEventListener('click',closeModal);document.getElementById('modal-cancel')?.addEventListener('click',closeModal);
 // Clear any validation highlights when modal first opens
