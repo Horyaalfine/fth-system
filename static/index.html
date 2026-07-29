@@ -4328,13 +4328,21 @@ const icoClock=(sz=16)=>ico('<circle cx="12" cy="12" r="10"/><polyline points="1
 
 // Global nav function - called directly from onclick in iOS
 window.navTo=function(el){
-  const page=typeof el==='string'?el:el.dataset.page;
-  const sb=document.querySelector('.sidebar');
-  const ov=document.getElementById('sidebar-overlay');
-  if(sb)sb.classList.remove('open');
-  if(ov)ov.classList.remove('open');
-  state.page=page;
-  refreshPage();
+  try{
+    const page=typeof el==='string'?el:(el&&el.dataset?el.dataset.page:el);
+    if(!page)return false;
+    const sb=document.querySelector('.sidebar');
+    const ov=document.getElementById('sidebar-overlay');
+    if(sb)sb.classList.remove('open');
+    if(ov)ov.classList.remove('open');
+    // Set page and force full reload of data
+    window._navPage=page;
+    setTimeout(function(){
+      state.page=window._navPage;
+      render();
+      refreshPage();
+    },50);
+  }catch(e){alert('Nav error: '+e.message);}
   return false;
 };
 
