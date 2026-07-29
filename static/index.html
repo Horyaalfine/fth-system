@@ -146,6 +146,15 @@ select{background:#fffdf7;color:#1a2744;}select option{background:#fffdf7;color:
 
 /* TOAST */
 .toast-container{position:fixed;bottom:28px;right:28px;z-index:200;display:flex;flex-direction:column;gap:10px;}
+.bottom-nav{display:none;}
+@media(max-width:768px){
+.bottom-nav{display:flex;position:fixed;bottom:0;left:0;right:0;height:60px;background:#0f2557;z-index:9999;border-top:1px solid #2a4d9c;justify-content:space-around;align-items:stretch;}
+.bottom-nav a{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;color:#d1d5db;font-size:10px;text-decoration:none;gap:2px;padding:4px 2px;border:none;background:none;font-family:var(--font);}
+.bottom-nav a.active{color:#fff;background:rgba(255,255,255,0.1);}
+.bottom-nav a svg{width:20px;height:20px;}
+.main{padding-bottom:70px !important;}
+.toast-container{bottom:80px;}
+}
 .toast{padding:14px 18px;border-radius:var(--radius-lg);font-size:13px;font-weight:500;animation:slideIn 0.25s ease;display:flex;align-items:center;gap:10px;min-width:260px;box-shadow:var(--shadow);border:1px solid;}
 .toast-success{background:var(--surface);color:var(--success-text);border-color:rgba(34,197,94,0.3);}
 .toast-error{background:var(--surface);color:var(--danger-text);border-color:rgba(239,68,68,0.3);}
@@ -491,7 +500,19 @@ else if(page==='staff_timesheets'){await Promise.all([loadData('sessions','/api/
     loadData('hq_transfers','/api/hq-transfers',b),
     loadData('hq_summary','/api/hq-transfers/summary')]);if(state.finStudentId)state.data['statement_'+state.finStudentId]=await API.get('/api/statement/'+state.finStudentId).catch(()=>null);}else if(page==='reports')await loadData('summary','/api/reports/summary',b);else if(page==='users')await loadData('users','/api/users');else if(page==='branches')await Promise.all([loadData('branches','/api/branches'),loadData('summary','/api/reports/summary')]);else if(page==='parent_portal'){await Promise.all([loadData('parent_users','/api/parent-users'),loadData('students','/api/students')]);}else if(page==='audit')await loadData('audit','/api/audit');}catch(e){console.error('refreshPage error:',e);}finally{state.loading=false;render();}}
 
-function render(){document.body.classList.toggle('readonly-user',state.currentUser?.role==='reports_viewer');const app=document.getElementById('app');if(!state.currentUser&&!state.parentUser){app.innerHTML=renderLogin();bindLoginEvents();return;}if(state.parentUser&&!state.currentUser){app.innerHTML=`<div style="max-width:900px;margin:0 auto;padding:28px;">${renderParentPortal()}</div>`;bindParentEvents();return;}if(state.loading){app.innerHTML=`<div class="app">${renderSidebar()}<div class="mobile-nav-test"><a href="#" onclick="return navTo(this)" data-page="dashboard">🏠 Home</a><a href="#" onclick="return navTo(this)" data-page="students">👥 Students</a><a href="#" onclick="return navTo(this)" data-page="sessions">📅 Sessions</a><a href="#" onclick="return navTo(this)" data-page="attendance">✓ Attend</a><a href="#" onclick="return navTo(this)" data-page="finance">£ Finance</a></div><div class="main">${renderTopbar()}<div class="loading"><div class="spinner"></div>Loading…<div style="font-size:12px;color:var(--text3);margin-top:8px;">If this takes more than 10 seconds, try refreshing</div></div></div></div>`;bindNav();return;}
+function render(){document.body.classList.toggle('readonly-user',state.currentUser?.role==='reports_viewer');const app=document.getElementById('app');if(!state.currentUser&&!state.parentUser){app.innerHTML=renderLogin();bindLoginEvents();return;}if(state.parentUser&&!state.currentUser){app.innerHTML=`<div style="max-width:900px;margin:0 auto;padding:28px;">${renderParentPortal()}</div>`;bindParentEvents();return;}if(state.loading){app.innerHTML=`<div class="app">${renderSidebar()}<nav class="bottom-nav">
+<a href="#" onclick="return navTo(this)" data-page="dashboard">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Home</a>
+<a href="#" onclick="return navTo(this)" data-page="students">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg>Students</a>
+<a href="#" onclick="return navTo(this)" data-page="attendance">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Attend</a>
+<a href="#" onclick="return navTo(this)" data-page="sessions">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Sessions</a>
+<a href="#" onclick="return navTo(this)" data-page="finance">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"/></svg>Finance</a>
+</nav>
+<div class="mobile-nav-test"><a href="#" onclick="return navTo(this)" data-page="dashboard">🏠 Home</a><a href="#" onclick="return navTo(this)" data-page="students">👥 Students</a><a href="#" onclick="return navTo(this)" data-page="sessions">📅 Sessions</a><a href="#" onclick="return navTo(this)" data-page="attendance">✓ Attend</a><a href="#" onclick="return navTo(this)" data-page="finance">£ Finance</a></div><div class="main">${renderTopbar()}<div class="loading"><div class="spinner"></div>Loading…<div style="font-size:12px;color:var(--text3);margin-top:8px;">If this takes more than 10 seconds, try refreshing</div></div></div></div>`;bindNav();return;}
 // Guard: non-super-admin must have a branch assigned
 if(state.currentUser&&state.currentUser.role!=='super_admin'&&state.currentUser.role!=='reports_viewer'&&!state.currentUser.branch_id){
   app.innerHTML=`<div class="app">${renderSidebar()}<div class="main">${renderTopbar()}<div class="content"><div class="empty-state" style="padding:60px;"><div style="font-size:48px;margin-bottom:16px;">⚠️</div><div style="font-size:18px;font-weight:600;color:var(--text);margin-bottom:8px;">No branch assigned</div><div style="color:var(--text3);">Your account has not been assigned to a branch. Please contact your system administrator to assign you to a branch before you can use the system.</div></div></div></div></div>`;bindNav();return;
@@ -4330,16 +4351,19 @@ const icoClock=(sz=16)=>ico('<circle cx="12" cy="12" r="10"/><polyline points="1
 window.navTo=function(el){
   try{
     const page=typeof el==='string'?el:(el&&el.dataset?el.dataset.page:el);
-    if(!page){alert('No page');return false;}
+    if(!page)return false;
     const sb=document.querySelector('.sidebar');
     const ov=document.getElementById('sidebar-overlay');
     if(sb)sb.classList.remove('open');
     if(ov)ov.classList.remove('open');
+    // Update bottom nav active state
+    document.querySelectorAll('.bottom-nav a').forEach(function(a){
+      a.classList.toggle('active',a.dataset.page===page);
+    });
     state.page=page;
-    alert('Going to: '+page);
     render();
     refreshPage();
-  }catch(e){alert('Nav error: '+e.message);}
+  }catch(e){console.error('Nav error:',e);}
   return false;
 };
 
