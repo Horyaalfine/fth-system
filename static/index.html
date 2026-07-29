@@ -3802,7 +3802,27 @@ closeModal();refreshPage();
 }catch(e){toast(e.error||'Save failed','error');}finally{if(saveBtn)saveBtn.disabled=false;}}
 
 // EVENTS
-function bindNav(){const hb=document.getElementById('hamburger-btn');const sb=document.querySelector('.sidebar');const ov=document.getElementById('sidebar-overlay');if(hb&&sb){hb.onclick=()=>{sb.classList.toggle('open');if(ov)ov.classList.toggle('open');};if(ov)ov.onclick=()=>{sb.classList.remove('open');ov.classList.remove('open');};}document.getElementById('branch-switch')?.addEventListener('change',e=>{state.currentBranch=e.target.value?parseInt(e.target.value):null;refreshPage();});document.getElementById('logout-btn')?.addEventListener('click',async()=>{await API.post('/api/logout');state.currentUser=null;state.page='dashboard';state.data={};render();});}
+function bindNav(){
+  const hb=document.getElementById('hamburger-btn');
+  const sb=document.querySelector('.sidebar');
+  const ov=document.getElementById('sidebar-overlay');
+  if(hb&&sb){
+    hb.onclick=function(){sb.classList.toggle('open');if(ov)ov.classList.toggle('open');};
+    if(ov)ov.onclick=function(){sb.classList.remove('open');ov.classList.remove('open');};
+  }
+  document.querySelectorAll('[data-nav]').forEach(function(el){
+    el.onclick=function(){
+      if(sb)sb.classList.remove('open');
+      if(ov)ov.classList.remove('open');
+      state.page=this.dataset.nav;
+      if(this.dataset.action){state.modal=this.dataset.action;state.editTarget=null;}
+      refreshPage();
+      return false;
+    };
+  });
+  document.getElementById('branch-switch')?.addEventListener('change',function(e){state.currentBranch=e.target.value?parseInt(e.target.value):null;refreshPage();});
+  document.getElementById('logout-btn')?.addEventListener('click',async function(){await API.post('/api/logout');state.currentUser=null;state.page='dashboard';state.data={};render();});
+}
 
 function bindAll(){bindNav();document.querySelectorAll('[data-action]').forEach(el=>{el.addEventListener('click',e=>handleAction(el.dataset.action,el.dataset.id?parseInt(el.dataset.id):null,el,e));});document.querySelectorAll('[data-nav]').forEach(el=>{el.addEventListener('click',function(){const sb=document.querySelector('.sidebar');const ov=document.getElementById('sidebar-overlay');if(sb)sb.classList.remove('open');if(ov)ov.classList.remove('open');state.page=el.dataset.nav;if(el.dataset.action){state.modal=el.dataset.action;state.editTarget=null;}refreshPage();});});document.getElementById('modal-close')?.addEventListener('click',closeModal);document.getElementById('modal-cancel')?.addEventListener('click',closeModal);
 // Clear any validation highlights when modal first opens
