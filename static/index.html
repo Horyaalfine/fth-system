@@ -4407,22 +4407,12 @@ window.navTo=function(el){
 
 // STATIC BOTTOM NAV - wired once at boot, never destroyed
 function initMobileNav(){
-  alert('initMobileNav running, width='+window.innerWidth);
   var nav=document.getElementById('mobile-bottom-nav');
-  alert('nav element: '+(nav?'FOUND':'NOT FOUND'));
   if(!nav)return;
-  nav.style.display='flex';
-  var el=document.getElementById('mnav-students');
-  alert('students btn: '+(el?'FOUND':'NOT FOUND'));
-  if(el){
-    el.onclick=function(){
-      alert('STUDENTS CLICKED!');
-      state.page='students';
-      state.loading=false;
-      render();
-      return false;
-    };
-  }
+  if(window.innerWidth<=768)nav.style.display='flex';
+  window.addEventListener('resize',function(){
+    nav.style.display=window.innerWidth<=768?'flex':'none';
+  });
 }
 
 // PERSISTENT DELEGATED NAV - survives re-renders, works on mobile touch
