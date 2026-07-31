@@ -677,9 +677,10 @@ function renderStudents(){const allStudents=state.data.students||[];
 const sf=state.studentFilter||'active';
 const students=sf==='all'?allStudents:allStudents.filter(s=>s.status===(sf||'active'));
 if(state.studentFilter==='database'){
+  const dbStudents=allStudents.filter(function(s){return s.status==='active';});
   return`<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
-<div><div class="section-title">Student Database</div><div class="section-sub">Read-only view of all student records</div></div></div>
-${renderStudentDatabase(students)}`;
+<div><div class="section-title">Student Database</div><div class="section-sub">Read-only view of all active student records</div></div></div>
+${renderStudentDatabase(dbStudents)}`;
 }
 return`
 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
