@@ -535,8 +535,8 @@ if(state.currentUser&&state.currentUser.role!=='super_admin'&&state.currentUser.
     };
   });
   // Also re-wire sidebar nav items (data-nav) after every render
-  document.querySelectorAll('[data-nav]').forEach(function(el){
-    el.onclick=function(e){
+  document.querySelectorAll('[data-nav]').forEach(function(navEl){
+    navEl.onclick=function(e){
       e.preventDefault();
       e.stopPropagation();
       var pg=this.dataset.nav;
@@ -544,9 +544,24 @@ if(state.currentUser&&state.currentUser.role!=='super_admin'&&state.currentUser.
       var ov=document.getElementById('sidebar-overlay');
       if(sb)sb.classList.remove('open');
       if(ov)ov.classList.remove('open');
-      state.page=pg;
       if(this.dataset.action){state.modal=this.dataset.action;state.editTarget=null;}
-      refreshPage();
+      // Use same pattern as bottom nav - direct load then render
+      var b=branchParam();
+      state.page=pg;
+      state.loading=false;
+      render();
+      var p;
+      if(pg==='students')p=loadData('students','/api/students',{...b,q:state.studentSearch||''});
+      else if(pg==='staff')p=loadData('staff','/api/staff',b);
+      else if(pg==='sessions')p=loadData('sessions','/api/sessions',b);
+      else if(pg==='session_plan')p=Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('staff','/api/staff',b)]);
+      else if(pg==='attendance')p=Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b)]);
+      else if(pg==='invoices')p=Promise.all([loadData('invoices','/api/invoices',b),loadData('students','/api/students',b),loadData('branches','/api/branches')]);
+      else if(pg==='finance')p=Promise.all([loadData('invoices','/api/invoices',b),loadData('students','/api/students',b),loadData('branches','/api/branches')]);
+      else if(pg==='reports')p=loadData('summary','/api/reports/summary',b);
+      else if(pg==='dashboard')p=Promise.all([loadData('branches','/api/branches'),loadData('summary','/api/reports/summary',b)]);
+      else p=Promise.resolve();
+      if(p)p.then(function(){state.loading=false;render();});
       return false;
     };
   });
