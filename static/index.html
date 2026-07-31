@@ -680,6 +680,13 @@ if(state.studentFilter==='database'){
   const dbStudents=allStudents.filter(function(s){return s.status==='active';});
   return`<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
 <div><div class="section-title">Student Database</div><div class="section-sub">Read-only view of all active student records</div></div></div>
+<div class="tab-bar" style="margin-bottom:12px;">
+<div class="tab ${(state.studentFilter||'active')==='active'?'active':''}" data-action="filter-students" data-filter="active">Active</div>
+<div class="tab ${state.studentFilter==='paused'?'active':''}" data-action="filter-students" data-filter="paused">Paused</div>
+<div class="tab ${state.studentFilter==='inactive'?'active':''}" data-action="filter-students" data-filter="inactive">Inactive</div>
+<div class="tab ${state.studentFilter==='all'?'active':''}" data-action="filter-students" data-filter="all">All</div>
+<div class="tab ${state.studentFilter==='database'?'active':''}" data-action="filter-students" data-filter="database">📋 Database</div>
+</div>
 ${renderStudentDatabase(dbStudents)}`;
 }
 return`
