@@ -4409,6 +4409,7 @@ function initMobileNav(){
     el.onclick=function(e){
       e.preventDefault();
       e.stopPropagation();
+      alert('TAPPED: '+pg+' | state exists: '+(typeof state!=='undefined') + ' | current page: '+state.page);
       pages.forEach(function(p){
         var a=document.getElementById('mnav-'+p);
         if(a)a.style.color=p===pg?'#ffffff':'#d1d5db';
