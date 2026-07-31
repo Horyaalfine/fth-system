@@ -209,7 +209,8 @@ def get_next_id(branch_id):
     return jsonify({'next_id': nid})
 
 def get_student_fields(d):
-    dob = d.get('date_of_birth') or None
+    dob_raw = d.get('date_of_birth')
+    dob = dob_raw.strip() if isinstance(dob_raw, str) and dob_raw.strip() else None
     # Ensure required fields have fallbacks
     name = d.get('name') or (str(d.get('first_name','')) + ' ' + str(d.get('last_name',''))).strip() or 'Unknown'
     branch_id = d.get('branch_id')
