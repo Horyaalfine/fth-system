@@ -3883,6 +3883,7 @@ function bindNav(){
     };
   });
   document.getElementById('branch-switch')?.addEventListener('change',function(e){state.currentBranch=e.target.value?parseInt(e.target.value):null;refreshPage();});
+document.getElementById('mobile-branch-switch')?.addEventListener('change',function(e){state.currentBranch=e.target.value?parseInt(e.target.value):null;refreshPage();});
   document.getElementById('logout-btn')?.addEventListener('click',async function(){await API.post('/api/logout');state.currentUser=null;state.page='dashboard';state.data={};render();});
 }
 
