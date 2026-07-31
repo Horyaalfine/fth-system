@@ -687,6 +687,7 @@ return`
 <div class="tab ${state.studentFilter==='paused'?'active':''}" data-action="filter-students" data-filter="paused">Paused</div>
 <div class="tab ${state.studentFilter==='inactive'?'active':''}" data-action="filter-students" data-filter="inactive">Inactive</div>
 <div class="tab ${state.studentFilter==='all'?'active':''}" data-action="filter-students" data-filter="all">All</div>
+<div class="tab ${state.studentFilter==='database'?'active':''}" data-action="filter-students" data-filter="database">📋 Database</div>
 </div>
 <div class="toolbar">
 <div class="search-wrap"><input type="text" id="student-search" placeholder="Search by name or admission ID…" value="${state.studentSearch}"><button class="search-btn" id="student-search-btn">🔍 Search</button></div>
@@ -703,6 +704,33 @@ return`
 <td><div class="row-actions"><button class="btn btn-sm" data-action="edit-student" data-id="${s.id}">Edit</button><button class="btn btn-sm btn-danger" data-action="del-student" data-id="${s.id}">Del</button></div></td>
 </tr>`).join(''):`<tr><td colspan="8"><div class="empty-state">No students found</div></td></tr>`}</tbody>
 </table></div></div>`;}
+
+function renderStudentDatabase(students){
+  var html='<div style="font-size:13px;color:var(--text3);margin-bottom:12px;">'+students.length+' students · Read-only · Click a row to view full profile</div>';
+  if(!students.length)return html+'<div class="empty-state">No students found.</div>';
+  html+='<div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>';
+  html+='<thead><tr><th>ID</th><th>Name</th><th>Year</th><th>DOB</th><th>Address</th><th>Parent/Guardian</th><th>Mobile</th><th>Email</th><th>Fee/mo</th><th>Hrs/wk</th><th>Notes</th></tr></thead><tbody>';
+  students.forEach(function(s){
+    var dob=s.date_of_birth?new Date(s.date_of_birth+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'—';
+    var parentName=[(s.carer1_first_name||''),(s.carer1_last_name||'')].filter(Boolean).join(' ')||'—';
+    var address=[s.carer1_address,s.carer1_postcode].filter(Boolean).join(', ')||'—';
+    html+='<tr style="cursor:pointer;" data-action="view-student-profile" data-id="'+s.id+'">'+
+      '<td><span class="id-code">'+s.admission_id+'</span></td>'+
+      '<td style="font-weight:600;">'+s.name+'</td>'+
+      '<td>'+(s.year_group||'—')+'</td>'+
+      '<td style="font-size:12px;white-space:nowrap;">'+dob+'</td>'+
+      '<td style="font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+address+'</td>'+
+      '<td>'+parentName+'</td>'+
+      '<td style="font-size:12px;">'+(s.carer1_mobile||s.carer1_telephone||'—')+'</td>'+
+      '<td style="font-size:12px;">'+(s.carer1_email||'—')+'</td>'+
+      '<td style="font-weight:600;color:var(--accent);">'+(s.monthly_fee?'£'+parseFloat(s.monthly_fee).toFixed(0):'—')+'</td>'+
+      '<td>'+(s.hours_per_week?s.hours_per_week+'h':'—')+'</td>'+
+      '<td style="font-size:12px;color:var(--text3);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(s.notes||'—')+'</td>'+
+      '</tr>';
+  });
+  html+='</tbody></table></div></div>';
+  return html;
+}
 
 function renderStaff(){const staff=state.data.staff||[];
 return`
@@ -2309,7 +2337,15 @@ function renderSessionPlan(){
       html+='<div><div style="font-weight:700;font-size:15px;">'+sel.slot+'</div>';
       html+='<div style="font-size:12px;color:var(--text3);margin-top:3px;">'+new Date(sel.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+'</div></div>';
       html+='<div style="display:flex;gap:8px;align-items:center;">';
+      var allTT3=state.data.all_timetables||[];
+      var sessSlot3=sel?sel.slot:'';
+      var placedAll3=[];
+      allocs.forEach(function(a3){(a3.students||[]).forEach(function(s3){if(!placedAll3.includes(s3.student_id))placedAll3.push(s3.student_id);});});
+      var pendingTotal=allTT3.filter(function(e){return e.slot===sessSlot3&&!placedAll3.includes(e.student_id);}).length;
       html+='<span class="badge badge-accent">'+allocs.length+' tables</span>';
+      html+='<span class="badge badge-success">'+placedAll3.length+' placed</span>';
+      if(pendingTotal>0)html+='<span class="badge badge-amber">'+pendingTotal+' pending</span>';
+      else if(allocs.length>0)html+='<span class="badge badge-teal">All placed ✓</span>';
       html+='<button class="btn btn-sm btn-primary" data-action="add-table-alloc" data-session="'+selId+'">+ Add table</button>';
       html+='<button class="btn btn-sm" data-action="set-cover-teacher" data-id="'+sel.id+'">Set cover</button>';
       html+='</div></div>';
@@ -3457,17 +3493,44 @@ function modalAddStudentToTable(){
   const t=state.editTarget||{};
   const allocs=state.data['table_allocs_'+t.session_id]||[];
   const alloc=allocs.find(function(a){return a.id===t.alloc_id;});
-  const assigned=(alloc&&alloc.students)?alloc.students.map(function(s){return s.student_id;}):[];
   const sess=(state.data.sessions||[]).find(function(s){return s.id===t.session_id;});
+  const assignedHere=(alloc&&alloc.students)?alloc.students.map(function(s){return s.student_id;}):[];
+  const placedAnywhere=[];
+  allocs.forEach(function(ta){(ta.students||[]).forEach(function(s){if(!placedAnywhere.includes(s.student_id))placedAnywhere.push(s.student_id);});});
   const branchStudents=(state.data.students||[]).filter(function(s){
-    return s.status==='active'&&(!sess||s.branch_id===sess.branch_id)&&!assigned.includes(s.id);
+    return s.status==='active'&&(!sess||s.branch_id===sess.branch_id);
   });
+  const allTT=state.data.all_timetables||[];
+  const sessSlot=sess?sess.slot:'';
+  const timetabledIds=allTT.filter(function(e){return e.slot===sessSlot;}).map(function(e){return e.student_id;});
+  const pendingStudents=branchStudents.filter(function(s){return timetabledIds.includes(s.id)&&!placedAnywhere.includes(s.id)&&!assignedHere.includes(s.id);});
+  const otherStudents=branchStudents.filter(function(s){return !timetabledIds.includes(s.id)&&!placedAnywhere.includes(s.id)&&!assignedHere.includes(s.id);});
+  const placedStudents=branchStudents.filter(function(s){return placedAnywhere.includes(s.id)&&!assignedHere.includes(s.id);});
   var studOpts='';
-  branchStudents.forEach(function(s){studOpts+='<option value="'+s.id+'">'+s.admission_id+' — '+s.name+'</option>';});
+  if(pendingStudents.length){
+    studOpts+='<optgroup label="⏳ Pending — timetabled, not yet placed ('+pendingStudents.length+')">';
+    pendingStudents.forEach(function(s){studOpts+='<option value="'+s.id+'">'+s.admission_id+' — '+s.name+'</option>';});
+    studOpts+='</optgroup>';
+  }
+  if(otherStudents.length){
+    studOpts+='<optgroup label="👥 Other students ('+otherStudents.length+')">';
+    otherStudents.forEach(function(s){studOpts+='<option value="'+s.id+'">'+s.admission_id+' — '+s.name+'</option>';});
+    studOpts+='</optgroup>';
+  }
+  if(placedStudents.length){
+    studOpts+='<optgroup label="✅ Already placed on another table ('+placedStudents.length+')">';
+    placedStudents.forEach(function(s){studOpts+='<option value="'+s.id+'" disabled>'+s.admission_id+' — '+s.name+'</option>';});
+    studOpts+='</optgroup>';
+  }
   const footer='<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Add student</button>';
-  return mWrap('Add student to Table '+(alloc?alloc.table_no:''),'<div class="form-grid">'+
+  return mWrap('Add student to Table '+(alloc?alloc.table_no:''),
+    '<div style="margin-bottom:12px;display:flex;gap:8px;">'+
+    '<span class="badge badge-amber">'+pendingStudents.length+' pending</span>'+
+    '<span class="badge badge-success">'+placedStudents.length+' placed</span>'+
+    '<span class="badge badge-gray">'+otherStudents.length+' other</span></div>'+
+    '<div class="form-grid">'+
     '<div class="field" style="grid-column:1/-1;"><label>Select student</label>'+
-    '<select id="f-student-id" size="8" style="height:200px;">'+studOpts+'</select></div>'+
+    '<select id="f-student-id" size="10" style="height:240px;">'+studOpts+'</select></div>'+
     '<div class="field" style="grid-column:1/-1;"><label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="f-is-catchup"> This is a catch-up student</label></div>'+
     '</div>',footer);
 }
@@ -4059,6 +4122,7 @@ if(state.currentUser?.role==='reports_viewer'){
   }
 }
 if(action==='add-student'){state.modal='add-student';state.editTarget=null;const branches=state.data.branches||[];const defBranch=state.currentBranch||branches[0]?.id;if(defBranch){try{const r=await API.get('/api/students/next-id/'+defBranch);state.editTarget={admission_id:r.next_id};}catch(err){}}render();return;}
+if(action==='view-student-profile'){const vs=(state.data.students||[]).find(function(s){return s.id===parseInt(el.dataset.id);});if(vs){state.modal='edit-student';state.editTarget=vs;render();}return;}
 if(action==='edit-student'){state.modal='edit-student';state.editTarget=(state.data.students||[]).find(s=>s.id===id);render();return;}
 if(action==='del-student'){if(!confirm('Delete this student?'))return;await API.delete('/api/students/'+id);toast('Student deleted');refreshPage();return;}
 if(action==='add-staff'){state.modal='add-staff';state.editTarget=null;render();return;}
