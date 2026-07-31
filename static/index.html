@@ -534,6 +534,22 @@ if(state.currentUser&&state.currentUser.role!=='super_admin'&&state.currentUser.
       return false;
     };
   });
+  // Also re-wire sidebar nav items (data-nav) after every render
+  document.querySelectorAll('[data-nav]').forEach(function(el){
+    el.onclick=function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      var pg=this.dataset.nav;
+      var sb=document.querySelector('.sidebar');
+      var ov=document.getElementById('sidebar-overlay');
+      if(sb)sb.classList.remove('open');
+      if(ov)ov.classList.remove('open');
+      state.page=pg;
+      if(this.dataset.action){state.modal=this.dataset.action;state.editTarget=null;}
+      refreshPage();
+      return false;
+    };
+  });
 })();}
 
 function renderLogin(){return`<div class="login-wrap"><div class="login-card">
