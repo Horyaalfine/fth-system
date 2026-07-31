@@ -3628,7 +3628,7 @@ if(m==='add-student'||m==='edit-student'){
   const body={
     branch_id:parseInt(branch),admission_id:admid,
     name:fullName||fn,first_name:fn,last_name:ln,
-    date_of_birth:v('f-dob')||null,gender:v('f-gender'),
+    date_of_birth:(v('f-dob')||'').trim()||null,gender:v('f-gender'),
     year_group:v('f-year'),current_school:v('f-school'),
     medical_notes:v('f-medical'),sen_notes:v('f-sen'),
     carer1_first_name:v('f-c1-first'),carer1_last_name:v('f-c1-last'),
@@ -3643,7 +3643,7 @@ if(m==='add-student'||m==='edit-student'){
     assess_maths_pct:v('f-assess-maths-pct'),assess_maths_book:v('f-assess-maths-book'),
     assess_english_pct:v('f-assess-english-pct'),assess_english_book:v('f-assess-english-book'),
     assess_science_pct:v('f-assess-science-pct'),assess_science_book:v('f-assess-science-book'),
-    hours_per_week:v('f-hours-per-week'),
+    hours_per_week:v('f-hours-per-week')?parseFloat(v('f-hours-per-week'))||null:null,
     gcse_maths_board:v('f-gcse-maths-board'),gcse_maths_paper:v('f-gcse-maths-paper'),
     gcse_maths_exam_date:v('f-gcse-maths-date'),gcse_maths_current_grade:v('f-gcse-maths-current'),
     gcse_maths_predicted_grade:v('f-gcse-maths-predicted'),
@@ -3653,7 +3653,7 @@ if(m==='add-student'||m==='edit-student'){
     gcse_science_board:v('f-gcse-science-board'),gcse_science_paper:v('f-gcse-science-paper'),
     gcse_science_exam_date:v('f-gcse-science-date'),gcse_science_current_grade:v('f-gcse-science-current'),
     gcse_science_predicted_grade:v('f-gcse-science-predicted'),
-    parent_contact:v('f-c1-mobile'),status:v('f-status'),notes:v('f-notes')
+    parent_contact:v('f-c1-mobile'),status:v('f-status'),notes:v('f-comments')||v('f-notes')||''
   };
   try{
     if(m==='add-student')await API.post('/api/students',body);
