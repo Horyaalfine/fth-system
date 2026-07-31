@@ -4398,25 +4398,37 @@ window.navTo=function(el){
 function initMobileNav(){
   var nav=document.getElementById('mobile-bottom-nav');
   if(!nav)return;
-  // Show on mobile
   if(window.innerWidth<=768){nav.style.display='flex';}
   window.addEventListener('resize',function(){
     nav.style.display=window.innerWidth<=768?'flex':'none';
   });
   var pages=['dashboard','students','attendance','sessions','finance'];
-  pages.forEach(function(page){
-    var el=document.getElementById('mnav-'+page);
+  pages.forEach(function(pg){
+    var el=document.getElementById('mnav-'+pg);
     if(!el)return;
     el.onclick=function(e){
       e.preventDefault();
-      // Update active states
+      e.stopPropagation();
       pages.forEach(function(p){
         var a=document.getElementById('mnav-'+p);
-        if(a)a.style.color=p===page?'#ffffff':'#d1d5db';
+        if(a)a.style.color=p===pg?'#ffffff':'#d1d5db';
       });
-      state.page=page;
+      // Store page before async operations
+      var targetPage=pg;
+      state.page=targetPage;
+      // Skip loading spinner - just load data then render
+      var b=branchParam();
+      var loadPromise;
+      if(targetPage==='students') loadPromise=loadData('students','/api/students',{...b,q:state.studentSearch||''});
+      else if(targetPage==='sessions') loadPromise=loadData('sessions','/api/sessions',b);
+      else if(targetPage==='attendance') loadPromise=Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b)]);
+      else if(targetPage==='finance') loadPromise=Promise.all([loadData('invoices','/api/invoices',b),loadData('students','/api/students',b),loadData('branches','/api/branches')]);
+      else loadPromise=Promise.all([loadData('branches','/api/branches'),loadData('summary','/api/reports/summary',b)]);
+      loadPromise.then(function(){
+        state.page=targetPage;
+        render();
+      });
       render();
-      refreshPage();
       return false;
     };
   });
