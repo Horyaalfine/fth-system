@@ -246,8 +246,8 @@ select{background:#fffdf7;color:#1a2744;}select option{background:#fffdf7;color:
 .hamburger{display:none;background:none;border:none;cursor:pointer;padding:6px;color:var(--text);flex-shrink:0;}
 .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99;}
 @media(max-width:768px){
-.hamburger{display:flex;}
-.sidebar{position:fixed;top:0;left:-260px;height:100vh;z-index:50;transition:left 0.25s ease;width:260px;}
+.hamburger{display:none;}
+.sidebar{display:none !important;}
 .sidebar.open{left:0;}
 .sidebar-overlay.open{display:block;}
 .main{margin-left:0 !important;}
@@ -517,7 +517,12 @@ else if(page==='staff_timesheets'){await Promise.all([loadData('sessions','/api/
     loadData('hq_transfers','/api/hq-transfers',b),
     loadData('hq_summary','/api/hq-transfers/summary')]);if(state.finStudentId)state.data['statement_'+state.finStudentId]=await API.get('/api/statement/'+state.finStudentId).catch(()=>null);}else if(page==='reports')await loadData('summary','/api/reports/summary',b);else if(page==='users')await loadData('users','/api/users');else if(page==='branches')await Promise.all([loadData('branches','/api/branches'),loadData('summary','/api/reports/summary')]);else if(page==='parent_portal'){await Promise.all([loadData('parent_users','/api/parent-users'),loadData('students','/api/students')]);}else if(page==='audit')await loadData('audit','/api/audit');}catch(e){console.error('refreshPage error:',e);}finally{state.loading=false;render();}}
 
-function render(){var _mbnav=document.getElementById('mobile-bottom-nav');if(_mbnav)_mbnav.style.display=(window.innerWidth<=768&&state.currentUser&&!state.loading)?'flex':'none';document.body.classList.toggle('readonly-user',state.currentUser?.role==='reports_viewer');const app=document.getElementById('app');if(!state.currentUser&&!state.parentUser){app.innerHTML=renderLogin();bindLoginEvents();return;}if(state.parentUser&&!state.currentUser){app.innerHTML=`<div style="max-width:900px;margin:0 auto;padding:28px;">${renderParentPortal()}</div>`;bindParentEvents();return;}if(state.loading){app.innerHTML=`<div class="app">${renderSidebar()}
+function render(){
+  var _mbnav=document.getElementById('mobile-bottom-nav');
+  var _mlout=document.getElementById('mobile-logout-btn');
+  var isMob=window.innerWidth<=768;
+  if(_mbnav)_mbnav.style.display=(isMob&&state.currentUser&&!state.loading)?'flex':'none';
+  if(_mlout)_mlout.style.display=(isMob&&state.currentUser)?'block':'none';document.body.classList.toggle('readonly-user',state.currentUser?.role==='reports_viewer');const app=document.getElementById('app');if(!state.currentUser&&!state.parentUser){app.innerHTML=renderLogin();bindLoginEvents();return;}if(state.parentUser&&!state.currentUser){app.innerHTML=`<div style="max-width:900px;margin:0 auto;padding:28px;">${renderParentPortal()}</div>`;bindParentEvents();return;}if(state.loading){app.innerHTML=`<div class="app">${renderSidebar()}
 <div class="mobile-nav-test"><a href="#" data-nav="dashboard">🏠 Home</a><a href="#" onclick="return navTo(this)" data-page="students">👥 Students</a><a href="#" onclick="return navTo(this)" data-page="sessions">📅 Sessions</a><a href="#" onclick="return navTo(this)" data-page="attendance">✓ Attend</a><a href="#" onclick="return navTo(this)" data-page="finance">£ Finance</a></div><div class="main">${renderTopbar()}<div class="loading"><div class="spinner"></div>Loading…<div style="font-size:12px;color:var(--text3);margin-top:8px;">If this takes more than 10 seconds, try refreshing</div></div></div></div>`;bindNav();return;}
 // Guard: non-super-admin must have a branch assigned
 if(state.currentUser&&state.currentUser.role!=='super_admin'&&state.currentUser.role!=='reports_viewer'&&!state.currentUser.branch_id){
@@ -630,7 +635,7 @@ const u=state.currentUser;
     '<option value="" '+(b?'':'selected')+'>All branches</option>'+
     branches.map(function(br){return'<option value="'+br.id+'" '+(b&&b.id===br.id?'selected':'')+'>'+br.name+'</option>';}).join('')+
     '</select></div>':'';
-  return mobileBranchBar+`<div class="topbar"><button class="hamburger" id="hamburger-btn"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><div class="page-title">${titles[state.page]||''}</div><div class="topbar-right">${b?`<span class="badge badge-accent">${b.name}</span>`:`<span class="badge badge-purple">${state.currentUser.role==='super_admin'?'All branches':''}</span>`}<div class="user-chip" style="padding:6px 10px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border);"><div class="avatar ${avatarClass(state.currentUser.role)}" style="width:26px;height:26px;font-size:10px;">${avatarInitials(state.currentUser.name)}</div><span style="font-size:13px;color:var(--text2);margin-left:6px;">${state.currentUser.name}</span></div></div></div>`;}
+  return mobileBranchBar+`<div class="topbar"><button class="hamburger" id="hamburger-btn"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><div class="page-title">${titles[state.page]||''}</div><div class="topbar-right"><button id="mobile-logout-btn" style="display:none;background:#0f2557;color:#fff;border:1px solid #2a4d9c;border-radius:var(--radius);padding:6px 12px;font-size:13px;cursor:pointer;font-family:var(--font);">Sign out</button>${b?`<span class="badge badge-accent">${b.name}</span>`:`<span class="badge badge-purple">${state.currentUser.role==='super_admin'?'All branches':''}</span>`}<div class="user-chip" style="padding:6px 10px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border);"><div class="avatar ${avatarClass(state.currentUser.role)}" style="width:26px;height:26px;font-size:10px;">${avatarInitials(state.currentUser.name)}</div><span style="font-size:13px;color:var(--text2);margin-left:6px;">${state.currentUser.name}</span></div></div></div>`;}
 
 function renderPage(){const map={dashboard:renderDashboard,students:renderStudents,staff:renderStaff,sessions:renderSessions,attendance:renderAttendance,invoices:renderInvoices,session_reports:renderSessionReports,staff_timesheets:renderStaffTimesheets,lesson_reports:renderLessonReports,test_records:renderTestRecords,catchup:renderCatchup,session_plan:renderSessionPlan,mgmt_reports:renderMgmtReports,finance:renderFinance,reports:renderReports,users:renderUsers,branches:renderBranches,parent_portal:renderParentPortalAdmin,audit:renderAudit};return(map[state.page]||renderDashboard)();}
 
@@ -3885,6 +3890,7 @@ function bindNav(){
   document.getElementById('branch-switch')?.addEventListener('change',function(e){state.currentBranch=e.target.value?parseInt(e.target.value):null;refreshPage();});
 document.getElementById('mobile-branch-switch')?.addEventListener('change',function(e){state.currentBranch=e.target.value?parseInt(e.target.value):null;refreshPage();});
   document.getElementById('logout-btn')?.addEventListener('click',async function(){await API.post('/api/logout');state.currentUser=null;state.page='dashboard';state.data={};render();});
+document.getElementById('mobile-logout-btn')?.addEventListener('click',async function(){await API.post('/api/logout');state.currentUser=null;state.page='dashboard';state.data={};render();});
 }
 
 function bindAll(){bindNav();document.querySelectorAll('[data-action]').forEach(el=>{el.addEventListener('click',e=>handleAction(el.dataset.action,el.dataset.id?parseInt(el.dataset.id):null,el,e));});document.querySelectorAll('[data-nav]').forEach(el=>{el.addEventListener('click',function(){const sb=document.querySelector('.sidebar');const ov=document.getElementById('sidebar-overlay');if(sb)sb.classList.remove('open');if(ov)ov.classList.remove('open');state.page=el.dataset.nav;if(el.dataset.action){state.modal=el.dataset.action;state.editTarget=null;}refreshPage();});});document.getElementById('modal-close')?.addEventListener('click',closeModal);document.getElementById('modal-cancel')?.addEventListener('click',closeModal);
