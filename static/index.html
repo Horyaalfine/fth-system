@@ -4567,7 +4567,9 @@ document.addEventListener('click',function(e){
 
 // BOOT
 initMobileNav();
-(async()=>{try{const me=await API.get('/api/me');if(me?.type==='staff'){const users=await API.get('/api/users');const u=(users||[]).find(u2=>u2.id===me.user_id);if(u){state.currentUser={...u};state.currentBranch=u.branch_id||null;}}}catch(e){}try{state.data.branches_login=await API.get('/api/branches');}catch(e){}if(state.currentUser)refreshPage();else render();})();
+(async()=>{try{const me=await API.get('/api/me');if(me?.type==='staff'){try{const users=await API.get('/api/users');const u=(users||[]).find(u2=>u2.id===me.user_id);if(u){state.currentUser={...u};state.currentBranch=u.branch_id||null;}else{// fallback: use session data directly
+state.currentUser={id:me.user_id,role:me.role,branch_id:me.branch_id,name:'User'};state.currentBranch=me.branch_id||null;}}catch(e){// /api/users failed - use session data
+state.currentUser={id:me.user_id,role:me.role,branch_id:me.branch_id,name:'User'};state.currentBranch=me.branch_id||null;}}}catch(e){}try{state.data.branches_login=await API.get('/api/branches');}catch(e){}if(state.currentUser)refreshPage();else render();})();
 </script>
 </body>
 </html>
