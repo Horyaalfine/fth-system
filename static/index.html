@@ -552,7 +552,10 @@ if(state.currentUser&&state.currentUser.role!=='super_admin'&&state.currentUser.
       else if(pg==='session_reports') Promise.all([loadData('sessions','/api/sessions',b),loadData('staff','/api/staff',b)]).then(function(){state.loading=false;render();});
       else if(pg==='lesson_reports') loadData('sessions','/api/sessions',b).then(function(){state.loading=false;render();});
       else if(pg==='staff_timesheets') Promise.all([loadData('staff','/api/staff',b),loadData('staff_att','/api/staff-attendance',b)]).then(function(){state.loading=false;render();});
-      else if(pg==='mgmt_reports') loadData('summary','/api/reports/summary',b).then(function(){state.loading=false;render();});
+      else if(pg==='mgmt_reports'){var b2m=branchParam();Promise.all([
+        loadData('mgmt_summary','/api/reports/management/summary',b2m),
+        loadData('mgmt_yearly','/api/reports/management/yearly',b2m)
+      ]).then(function(){state.loading=false;render();});}
       else if(pg==='test_records') Promise.all([loadData('students','/api/students',b),loadData('test_records','/api/test-records',b)]).then(function(){state.loading=false;render();});
       else if(pg==='catchup') Promise.all([loadData('students','/api/students',b),loadData('catchup','/api/catchup',b)]).then(function(){state.loading=false;render();});
       else Promise.all([loadData('branches','/api/branches'),loadData('summary','/api/reports/summary',b)]).then(function(){state.loading=false;render();});
