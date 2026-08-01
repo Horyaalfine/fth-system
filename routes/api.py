@@ -2498,6 +2498,7 @@ def academic_year_bounds(year_start=None):
 @api_bp.route('/api/reports/management/summary', methods=['GET'])
 @require_roles('super_admin','branch_manager','head_of_centre')
 def mgmt_summary():
+    try:
     b = branch_scope()
     year_start = request.args.get('year_start', type=int)
     yr_from, yr_to = academic_year_bounds(year_start)
@@ -2530,10 +2531,11 @@ def mgmt_summary():
     # Staff hours this year
     cur.execute(f"""SELECT
         COUNT(DISTINCT sa.staff_id) as staff_count,
-        ROUND(SUM(EXTRACT(EPOCH FROM (sa.sign_out - sa.sign_in))/3600)::numeric, 1) as total_hours
+        ROUND(COALESCE(SUM(EXTRACT(EPOCH FROM (sa.sign_out - sa.sign_in))/3600),0)::numeric, 1) as total_hours
         FROM staff_attendance sa
         WHERE sa.date BETWEEN %s AND %s
         AND sa.sign_in IS NOT NULL AND sa.sign_out IS NOT NULL
+        AND sa.sign_out > sa.sign_in
         AND sa.status='present' {bw.replace('s.branch_id','sa.branch_id')}""", (yr_from, yr_to)+bp)
     staff_hrs = cur.fetchone()
 
