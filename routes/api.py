@@ -2498,7 +2498,6 @@ def academic_year_bounds(year_start=None):
 @api_bp.route('/api/reports/management/summary', methods=['GET'])
 @require_roles('super_admin','branch_manager','head_of_centre')
 def mgmt_summary():
-    try:
     b = branch_scope()
     year_start = request.args.get('year_start', type=int)
     yr_from, yr_to = academic_year_bounds(year_start)
