@@ -1066,7 +1066,12 @@ function renderWeeklyPlanner(){
     weekDates.push(d);
   }
 
-  function fmt(d){return d.toISOString().slice(0,10);}
+  function fmt(d){
+    var y=d.getFullYear();
+    var m=String(d.getMonth()+1).padStart(2,'0');
+    var dd=String(d.getDate()).padStart(2,'0');
+    return y+'-'+m+'-'+dd;
+  }
   function fmtLabel(d){return d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});}
   function getDayType(d){var day=d.getDay();if(day===6)return'saturday';if(day===0)return'sunday';return'weekday';}
 
