@@ -1058,20 +1058,30 @@ function renderWeeklyPlanner(){
     return mon;
   }
 
-  var weekStart=wpWeek?new Date(wpWeek+'T00:00:00'):getWeekStart(today);
-  var weekDates=[];
-  for(var i=0;i<7;i++){
-    var d=new Date(weekStart);
-    d.setDate(weekStart.getDate()+i);
-    weekDates.push(d);
-  }
-
-  function fmt(d){
+  // Build week dates using local date arithmetic to avoid UTC timezone issues
+  function addDays(dateStr, n){
+    var parts=dateStr.split('-');
+    var d=new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2])+n);
     var y=d.getFullYear();
     var m=String(d.getMonth()+1).padStart(2,'0');
     var dd=String(d.getDate()).padStart(2,'0');
     return y+'-'+m+'-'+dd;
   }
+  function fmt(d){
+    if(typeof d==='string')return d;
+    var y=d.getFullYear();
+    var m=String(d.getMonth()+1).padStart(2,'0');
+    var dd=String(d.getDate()).padStart(2,'0');
+    return y+'-'+m+'-'+dd;
+  }
+  // Get Monday of current week as a string
+  var todayStr=fmt(today);
+  var weekStartStr=wpWeek||fmt(getWeekStart(today));
+  var weekDates=[];
+  for(var i=0;i<7;i++){
+    weekDates.push(addDays(weekStartStr,i));
+  }
+  var weekStart={toString:function(){return weekStartStr;}};
   function fmtLabel(d){return d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});}
   function getDayType(d){var day=d.getDay();if(day===6)return'saturday';if(day===0)return'sunday';return'weekday';}
 
@@ -1079,8 +1089,8 @@ function renderWeeklyPlanner(){
   const allSlots=['Saturday Slot 1 (09:00-11:00)','Saturday Slot 2 (11:15-13:15)','Saturday Slot 3 (14:15-16:15)','Saturday Slot 4 (16:30-18:30)',
     'Weekday Slot 1 (12:00-16:00)','Weekday Slot 2 (17:00-19:00)','Weekday Slot 3 (19:00-21:00)'];
 
-  var prevWeek=new Date(weekStart);prevWeek.setDate(weekStart.getDate()-7);
-  var nextWeek=new Date(weekStart);nextWeek.setDate(weekStart.getDate()+7);
+  var prevWeek=addDays(weekStartStr,-7);
+  var nextWeek=addDays(weekStartStr,7);
 
   var html='';
   html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">';
@@ -1089,17 +1099,18 @@ function renderWeeklyPlanner(){
 
   // Week navigation
   html+='<div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;">';
-  html+='<button class="btn btn-sm" data-action="wp-week" data-week="'+fmt(prevWeek)+'">← Prev week</button>';
-  html+='<div style="font-weight:600;font-size:14px;">'+fmtLabel(weekStart)+' — '+fmtLabel(weekDates[6])+'</div>';
-  html+='<button class="btn btn-sm" data-action="wp-week" data-week="'+fmt(nextWeek)+'">Next week →</button>';
+  html+='<button class="btn btn-sm" data-action="wp-week" data-week="'+prevWeek+'">← Prev week</button>';
+  html+='<div style="font-weight:600;font-size:14px;">'+fmtLabel(new Date(weekDates[0]+'T12:00:00'))+' — '+fmtLabel(new Date(weekDates[6]+'T12:00:00'))+'</div>';
+  html+='<button class="btn btn-sm" data-action="wp-week" data-week="'+nextWeek+'">Next week →</button>';
   html+='<button class="btn btn-sm" data-action="wp-week" data-week="'+fmt(getWeekStart(today))+'">Today</button>';
   html+='</div>';
 
   // Week grid
   html+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;min-width:700px;">';
   html+='<thead><tr><th style="padding:8px;border:1px solid var(--border);background:var(--surface2);font-size:12px;white-space:nowrap;">Slot</th>';
-  weekDates.forEach(function(d){
-    var isToday=fmt(d)===fmt(today);
+  weekDates.forEach(function(dateStr){
+    var d=new Date(dateStr+'T12:00:00');
+    var isToday=dateStr===todayStr;
     html+='<th style="padding:8px;border:1px solid var(--border);background:'+(isToday?'rgba(37,99,235,0.1)':'var(--surface2)')+';font-size:12px;white-space:nowrap;text-align:center;">'+
       '<div style="font-weight:700;color:'+(isToday?'var(--accent)':'var(--text)')+';">'+d.toLocaleDateString('en-GB',{weekday:'short'})+'</div>'+
       '<div style="color:var(--text3);font-weight:400;">'+d.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+'</div>'+
@@ -1110,10 +1121,10 @@ function renderWeeklyPlanner(){
   allSlots.forEach(function(slot){
     html+='<tr>';
     html+='<td style="padding:8px;border:1px solid var(--border);font-size:12px;white-space:nowrap;font-weight:600;background:var(--surface2);">'+slot+'</td>';
-    weekDates.forEach(function(d){
-      var dateStr=fmt(d);
+    weekDates.forEach(function(dateStr){
+      var d=new Date(dateStr+'T12:00:00');
       var dayType=getDayType(d);
-      var isToday=dateStr===fmt(today);
+      var isToday=dateStr===todayStr;
 
       // Check if this slot applies to this day type
       var slotDayType=slot.toLowerCase().startsWith('saturday')?'saturday':slot.toLowerCase().startsWith('weekday')?'weekday':'sunday';
