@@ -2992,7 +2992,6 @@ function modalStudent(){
       <div class="field"><label>Science %</label><input type="text" id="f-assess-science-pct" value="${s.assess_science_pct||''}" placeholder="e.g. 72%"></div>
       <div class="field"><label>Science book recommended</label><input type="text" id="f-assess-science-book" value="${s.assess_science_book||''}"></div>
       <div class="field"><label>Hours per week</label><input type="text" id="f-hours-per-week" value="${s.hours_per_week||''}" placeholder="e.g. 2"></div>
-      <div class="field"><label>Agreed monthly fee (£)</label><input type="number" id="f-monthly-fee" value="${s.monthly_fee||''}" placeholder="e.g. 130" step="0.01" min="0"><div style="font-size:11px;color:var(--text3);margin-top:3px;">Used for bulk monthly invoice generation</div></div>
     </div>
 
     <!-- GCSE section hidden per feedback -->
@@ -3057,6 +3056,7 @@ function modalStudent(){
       <div class="field"><label>Referred by (name)</label><input type="text" id="f-ref-by" value="${s.referred_by||''}" placeholder="Who referred this family?"></div>
       <div class="field"><label>Referral admission number</label><input type="text" id="f-ref-admid" value="${s.referral_admission||''}" placeholder="e.g. H100"></div>
       <div class="field"><label>Status</label><select id="f-status"><option value="active" ${!s.status||s.status==='active'?'selected':''}>Active</option><option value="paused" ${s.status==='paused'?'selected':''}>Paused</option><option value="inactive" ${s.status==='inactive'?'selected':''}>Inactive</option></select></div>
+      <div class="field"><label>Agreed monthly fee (£)</label><input type="number" id="f-monthly-fee" value="${s.monthly_fee||''}" placeholder="e.g. 130" step="0.01" min="0"><div style="font-size:11px;color:var(--text3);margin-top:3px;">Used for bulk monthly invoice generation</div></div>
       <div class="field" style="grid-column:1/-1;"><label>Comments (if any)</label><textarea id="f-comments" rows="2" style="width:100%;resize:vertical;">${s.notes||''}</textarea></div>
     </div>
   `,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${s.id?'Save changes':'Enrol student'}</button>`);}
