@@ -1219,6 +1219,7 @@ function renderInvoices(){
   html+='<div><div class="section-title">Invoices & fees</div><div class="section-sub">Fee tracking, editing and management</div></div>';
   html+='<div style="display:flex;gap:8px;">';
   html+='<button class="btn btn-primary" data-action="add-fee-invoice">+ Generate invoice</button>';
+  html+='<button class="btn btn-success" data-action="gen-monthly-fees" style="background:var(--success);color:#fff;border-color:var(--success);">⚡ Generate monthly fees</button>';
   html+='</div></div>';
 
   // Metric cards
@@ -2908,6 +2909,7 @@ if(m==='gen-weekly-sessions')return modalWeeklySessions();if(m==='add-user'||m==
   if(m==='mark-paid')return modalMarkPaid();
   if(m==='add-adjustment'||m==='edit-adjustment')return modalAdjustment();
   if(m==='edit-opening-balance')return modalOpeningBalance();
+  if(m==='gen-monthly-fees')return modalGenMonthlyFees();
   if(m==='add-fee-invoice')return modalAddFeeInvoice();if(m==='add-progress')return modalProgress();if(m==='add-parent-user'||m==='edit-parent-user')return modalParentUser();if(m==='add-staff-att'||m==='edit-staff-att')return modalStaffAtt();
   if(m==='add-payment'||m==='edit-payment')return modalPayment();
   if(m==='add-instalment-plan')return modalInstalmentPlan();
@@ -2990,6 +2992,7 @@ function modalStudent(){
       <div class="field"><label>Science %</label><input type="text" id="f-assess-science-pct" value="${s.assess_science_pct||''}" placeholder="e.g. 72%"></div>
       <div class="field"><label>Science book recommended</label><input type="text" id="f-assess-science-book" value="${s.assess_science_book||''}"></div>
       <div class="field"><label>Hours per week</label><input type="text" id="f-hours-per-week" value="${s.hours_per_week||''}" placeholder="e.g. 2"></div>
+      <div class="field"><label>Agreed monthly fee (£)</label><input type="number" id="f-monthly-fee" value="${s.monthly_fee||''}" placeholder="e.g. 130" step="0.01" min="0"><div style="font-size:11px;color:var(--text3);margin-top:3px;">Used for bulk monthly invoice generation</div></div>
     </div>
 
     <!-- GCSE section hidden per feedback -->
@@ -3155,6 +3158,22 @@ return mWrap(b.id?'Edit branch':'Add branch',`
 <div class="field"><label>Email</label><input type="email" id="f-email" value="${b.email||''}"></div>
 <div class="field"><label>Status</label><select id="f-status"><option value="active" ${!b.status||b.status==='active'?'selected':''}>Active</option><option value="inactive" ${b.status==='inactive'?'selected':''}>Inactive</option></select></div>
 </div>`,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${b.id?'Save changes':'Add branch'}</button>`);}
+
+function modalGenMonthlyFees(){
+  const today=new Date().toISOString().slice(0,7);
+  const students=state.data.students||[];
+  const eligible=students.filter(function(s){return s.status==='active'&&s.monthly_fee&&parseFloat(s.monthly_fee)>0;});
+  const footer='<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Generate invoices</button>';
+  return mWrapDark('Generate monthly fees',
+    '<div style="margin-bottom:16px;padding:12px;background:rgba(37,99,235,0.1);border-radius:var(--radius);font-size:13px;">'+
+    '<strong>'+eligible.length+' students</strong> have an agreed monthly fee set and will receive an invoice.<br>'+
+    '<span style="color:var(--text3);font-size:12px;">Students without a monthly fee on their profile will be skipped. Invoices already generated for this month will also be skipped.</span></div>'+
+    '<div class="form-grid">'+
+    '<div class="field" style="grid-column:1/-1;"><label>Month to generate for</label><input type="month" id="f-gen-month" value="'+today+'"></div>'+
+    '</div>'+
+    (eligible.length===0?'<div style="padding:12px;background:var(--warning-bg);border-radius:var(--radius);color:var(--amber-text);font-size:13px;">⚠ No students have a monthly fee set. Edit student profiles to add their agreed monthly fee first.</div>':''),
+    footer);
+}
 
 function modalAddFeeInvoice(){
   const students=state.data.students||[];
@@ -3749,6 +3768,17 @@ else if(m==='add-session'||m==='edit-session'){
 }
 else if(m==='add-user'||m==='edit-user'){const body={name:v('f-name'),email:v('f-email'),role:v('f-role'),branch_id:v('f-branch')?parseInt(v('f-branch')):null,status:v('f-status')};if(v('f-password'))body.password=v('f-password');if(!body.name||!body.email){toast('Name and email required','error');return;}if(m==='add-user'){if(!body.password){toast('Password required','error');return;}await API.post('/api/users',body);}else await API.put('/api/users/'+state.editTarget.id,body);toast(m==='add-user'?'User added':'User updated');}
 else if(m==='add-branch'||m==='edit-branch'){const body={name:v('f-name'),prefix:(v('f-prefix')||'').toUpperCase(),address:v('f-address'),phone:v('f-phone'),email:v('f-email'),status:v('f-status')};if(!body.name||!body.prefix){toast('Name and prefix required','error');return;}if(m==='add-branch')await API.post('/api/branches',body);else await API.put('/api/branches/'+state.editTarget.id,body);toast(m==='add-branch'?'Branch added':'Branch updated');}
+else if(m==='gen-monthly-fees'){
+  const genMonth=v('f-gen-month');
+  if(!genMonth){toast('Please select a month','error');return;}
+  const students=state.data.students||[];
+  const eligible=students.filter(function(s){return s.status==='active'&&s.monthly_fee&&parseFloat(s.monthly_fee)>0;});
+  if(!eligible.length){toast('No students have a monthly fee set','error');return;}
+  const r=await API.post('/api/invoices/generate',{month:genMonth});
+  if(r?.error){toast(r.error,'error');return;}
+  const msg='Generated '+r.added+' invoice'+(r.added!==1?'s':'')+(r.skipped>0?' · '+r.skipped+' already existed and were skipped':'');
+  toast(msg);
+}
 else if(m==='add-fee-invoice'){
   const stuId=parseInt(v('f-student-id'));
   const brId=isSuperAdmin()?parseInt(v('f-branch')):(state.currentBranch||parseInt(v('f-branch')));
@@ -4436,6 +4466,7 @@ if(action==='mark-paid'){
   render();return;}
 if(action==='edit-invoice'){state.modal='edit-invoice';state.editTarget=(state.data.invoices||[]).find(i=>i.id===id);render();return;}
 if(action==='add-fee-invoice'){state.modal='add-fee-invoice';state.editTarget=null;render();return;}
+if(action==='gen-monthly-fees'){state.modal='gen-monthly-fees';state.editTarget=null;render();return;}
 if(action==='gen-invoices'){const r=await API.post('/api/invoices/generate',{month:new Date().toISOString().slice(0,7)});toast(`${r.added} invoice(s) generated`);refreshPage();return;}
 if(action==='add-progress'){state.modal='add-progress';state.editTarget={session_id:parseInt(el.dataset.session)};render();return;}
 if(action==='export-sr'){const att=state.data['sr_att_'+id]||[];const csv=[['Student','ID','Status','Notes'],...att.map(a=>[a.student_name,a.admission_id,a.status,a.notes])].map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`session_${id}_report.csv`;a.click();toast('Exported');return;}
