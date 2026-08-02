@@ -3324,6 +3324,43 @@ function modalStudent(){
       <div class="field"><label>Agreed monthly fee (£)</label><input type="number" id="f-monthly-fee" value="${s.monthly_fee||''}" placeholder="e.g. 130" step="0.01" min="0"><div style="font-size:11px;color:var(--text3);margin-top:3px;">Used for bulk monthly invoice generation</div></div>
       <div class="field" style="grid-column:1/-1;"><label>Comments (if any)</label><textarea id="f-comments" rows="2" style="width:100%;resize:vertical;">${s.notes||''}</textarea></div>
     </div>
+
+    <div style="margin:20px 0 12px;padding:10px 14px;background:rgba(37,99,235,0.1);border-radius:var(--radius);border-left:4px solid var(--accent);">
+      <div style="font-size:13px;font-weight:700;color:var(--accent);letter-spacing:0.04em;">AGREED TIMETABLE</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:2px;">Tick each slot and subject this student attends. Used for Quick Attendance.</div>
+    </div>
+    <div id="f-timetable-section">
+    ${(function(){
+      const slots=[
+        {key:'Saturday Slot 1 (09:00-11:00)',label:'Sat Slot 1 (09:00-11:00)',dayType:'saturday'},
+        {key:'Saturday Slot 2 (11:15-13:15)',label:'Sat Slot 2 (11:15-13:15)',dayType:'saturday'},
+        {key:'Saturday Slot 3 (14:15-16:15)',label:'Sat Slot 3 (14:15-16:15)',dayType:'saturday'},
+        {key:'Saturday Slot 4 (16:30-18:30)',label:'Sat Slot 4 (16:30-18:30)',dayType:'saturday'},
+        {key:'Weekday Slot 1 (12:00-16:00)',label:'Weekday Slot 1 (12:00-16:00)',dayType:'weekday'},
+        {key:'Weekday Slot 2 (17:00-19:00)',label:'Weekday Slot 2 (17:00-19:00)',dayType:'weekday'},
+        {key:'Weekday Slot 3 (19:00-21:00)',label:'Weekday Slot 3 (19:00-21:00)',dayType:'weekday'},
+      ];
+      const subjects=['Maths','English','Science','History','Geography','Other'];
+      const existing=(state.data['timetable_'+s.id]||[]);
+      function hasTT(slot,subject){return existing.some(function(e){return e.slot===slot&&e.subject===subject;});}
+      var html='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">';
+      html+='<thead><tr><th style="padding:8px;border:1px solid var(--border);background:var(--surface2);white-space:nowrap;">Slot</th>';
+      subjects.forEach(function(sub){html+='<th style="padding:8px;border:1px solid var(--border);background:var(--surface2);text-align:center;">'+sub+'</th>';});
+      html+='</tr></thead><tbody>';
+      slots.forEach(function(sl){
+        html+='<tr><td style="padding:8px;border:1px solid var(--border);white-space:nowrap;font-weight:500;">'+sl.label+'</td>';
+        subjects.forEach(function(sub){
+          var checked=hasTT(sl.key,sub)?'checked':'';
+          html+='<td style="padding:8px;border:1px solid var(--border);text-align:center;">';
+          html+='<input type="checkbox" class="tt-entry" data-slot="'+sl.key+'" data-daytype="'+sl.dayType+'" data-subject="'+sub+'" '+checked+' style="width:18px;height:18px;cursor:pointer;">';
+          html+='</td>';
+        });
+        html+='</tr>';
+      });
+      html+='</tbody></table></div>';
+      return html;
+    })()}
+    </div>
   `,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${s.id?'Save changes':'Enrol student'}</button>`);}
 
 
@@ -3947,6 +3984,15 @@ if(m==='add-student'||m==='edit-student'){
     if(m==='add-student')await API.post('/api/students',body);
     else await API.put('/api/students/'+state.editTarget.id,body);
     toast(m==='add-student'?'Student enrolled':'Student updated');
+    // Save timetable entries from checkboxes
+    const ttChecked=[...document.querySelectorAll('.tt-entry:checked')].map(function(el){
+      return{branch_id:body.branch_id,day_type:el.dataset.daytype,slot:el.dataset.slot,subject:el.dataset.subject};
+    });
+    const stuIdForTT=m==='add-student'?((await API.get('/api/students'))?.find?.(function(s){return s.admission_id===body.admission_id;})?.id):state.editTarget?.id;
+    if(stuIdForTT&&document.querySelectorAll('.tt-entry').length>0){
+      await API.post('/api/student-timetable',{student_id:stuIdForTT,entries:ttChecked});
+      await loadData('all_timetables','/api/student-timetable',branchParam());
+    }
   }catch(err){
     toast(err?.error||'Save failed — please try again','error');
     console.error('Student save error:',err);
@@ -4438,7 +4484,12 @@ if(state.currentUser?.role==='reports_viewer'){
 }
 if(action==='add-student'){state.modal='add-student';state.editTarget=null;const branches=state.data.branches||[];const defBranch=state.currentBranch||branches[0]?.id;if(defBranch){try{const r=await API.get('/api/students/next-id/'+defBranch);state.editTarget={admission_id:r.next_id};}catch(err){}}render();return;}
 if(action==='view-student-profile'){const vs=(state.data.students||[]).find(function(s){return s.id===parseInt(el.dataset.id);});if(vs){state.modal='edit-student';state.editTarget=vs;render();}return;}
-if(action==='edit-student'){state.modal='edit-student';state.editTarget=(state.data.students||[]).find(s=>s.id===id);render();return;}
+if(action==='edit-student'){
+  state.modal='edit-student';
+  state.editTarget=(state.data.students||[]).find(s=>s.id===id);
+  await loadData('timetable_'+id,'/api/student-timetable',{student_id:id});
+  render();return;
+}
 if(action==='del-student'){if(!confirm('Delete this student?'))return;await API.delete('/api/students/'+id);toast('Student deleted');refreshPage();return;}
 if(action==='add-staff'){state.modal='add-staff';state.editTarget=null;render();return;}
 if(action==='edit-staff'){state.modal='edit-staff';state.editTarget=(state.data.staff||[]).find(s=>s.id===id);render();return;}
