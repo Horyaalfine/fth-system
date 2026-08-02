@@ -2687,7 +2687,34 @@ function renderSessionPlan(){
           html+='<button class="btn btn-sm btn-primary" data-action="add-student-to-table" data-alloc="'+ta.id+'" data-session="'+selId+'">+ Add</button>';
           html+='<button class="btn btn-sm btn-danger" data-action="del-table-alloc" data-id="'+ta.id+'">Del</button></div></div>';
           html+='<div style="height:4px;background:var(--border2);border-radius:2px;margin-bottom:10px;"><div style="width:'+Math.min(pct,100)+'%;height:4px;background:'+bc+';border-radius:2px;"></div></div>';
-          if(stus.length){stus.forEach(function(s){html+='<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);"><div style="display:flex;align-items:center;gap:8px;"><span class="id-code" style="font-size:11px;">'+s.admission_id+'</span><span style="font-size:13px;">'+s.student_name+'</span>'+(s.is_catchup?'<span class="badge badge-amber" style="font-size:10px;">CU</span>':'')+'</div><button class="btn btn-sm btn-danger" data-action="remove-table-student" data-alloc="'+ta.id+'" data-student="'+s.student_id+'" style="padding:2px 6px;font-size:11px;">✕</button></div>';});}
+          if(stus.length){
+          // Build other tables list for move dropdown
+          var otherTables=allocs.filter(function(ot){return ot.id!==ta.id;});
+          stus.forEach(function(s){
+            // Find year group from students list
+            var stuObj=students.find(function(st){return st.id===s.student_id;});
+            var yrGroup=stuObj?stuObj.year_group:'';
+            html+='<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);">';
+            html+='<div style="display:flex;align-items:center;gap:6px;flex:1;">';
+            html+='<span class="id-code" style="font-size:11px;">'+s.admission_id+'</span>';
+            html+='<span style="font-size:13px;">'+s.student_name+'</span>';
+            if(yrGroup)html+='<span style="font-size:11px;color:var(--text3);">('+yrGroup+')</span>';
+            if(s.is_catchup)html+='<span class="badge badge-amber" style="font-size:10px;">CU</span>';
+            html+='</div>';
+            html+='<div style="display:flex;gap:4px;align-items:center;">';
+            // Move to table dropdown
+            if(otherTables.length>0){
+              html+='<select class="move-student-select" data-alloc="'+ta.id+'" data-student="'+s.student_id+'" style="font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--text);max-width:110px;">';
+              html+='<option value="">Move to...</option>';
+              otherTables.forEach(function(ot){
+                html+='<option value="'+ot.id+'">Table '+ot.table_no+(ot.subject?' · '+ot.subject:'')+'</option>';
+              });
+              html+='</select>';
+            }
+            html+='<button class="btn btn-sm btn-danger" data-action="remove-table-student" data-alloc="'+ta.id+'" data-student="'+s.student_id+'" style="padding:2px 6px;font-size:11px;">✕</button>';
+            html+='</div></div>';
+          });
+        }
           else{html+='<div style="color:var(--text3);font-size:13px;padding:6px 0;">No students assigned</div>';}
           html+='</div>';
         });
@@ -4475,6 +4502,28 @@ document.getElementById('tt-student-select')?.addEventListener('change',async e=
 document.getElementById('plan-month-filter')?.addEventListener('change',e=>{
   state.planMonth=e.target.value||'';render();
 });
+// Move student between tables
+document.querySelectorAll('.move-student-select').forEach(function(sel){
+  sel.addEventListener('change',async function(){
+    var toAllocId=parseInt(this.value);
+    if(!toAllocId)return;
+    var fromAllocId=parseInt(this.dataset.alloc);
+    var studentId=parseInt(this.dataset.student);
+    // Remove from current table
+    await API.delete('/api/table-allocations/'+fromAllocId+'/students/'+studentId);
+    // Add to new table
+    await API.post('/api/table-allocations/'+toAllocId+'/students',{student_id:studentId,is_catchup:false});
+    // Reload allocs for all sessions in current slot
+    var sessions=state.data.sessions||[];
+    var parts=(state.planSlotKey||'').split('__');
+    var slotDate=parts[0];var slotName=parts.slice(1).join('__');
+    var slotSessions=sessions.filter(function(s){return s.date===slotDate&&s.slot===slotName;});
+    await Promise.all(slotSessions.map(function(ss){return loadData('table_allocs_'+ss.id,'/api/table-allocations/'+ss.id);}));
+    toast('Student moved');
+    render();
+  });
+});
+
 document.getElementById('plan-session-select')?.addEventListener('change',async e=>{
   var slotKey=e.target.value||'';
   state.planSlotKey=slotKey;
