@@ -4512,8 +4512,9 @@ document.querySelectorAll('.move-student-select').forEach(function(sel){
     // Remove from current table then add to new
     // Remove from current table
     await fetch('/api/table-allocations/'+fromAllocId+'/students/'+studentId,{method:'DELETE',headers:{'Content-Type':'application/json'},credentials:'include'});
-    // Add to new table
-    await API.post('/api/table-allocations/'+toAllocId+'/students',{student_id:studentId,is_catchup:false});
+    // Add to new table (endpoint expects student_ids array)
+    var addResult=await API.post('/api/table-allocations/'+toAllocId+'/students',{student_ids:[studentId],is_catchup:false});
+    if(addResult&&addResult.error){toast(addResult.error,'error');return;}
     // Reload allocs for all sessions in current slot
     var sessions=state.data.sessions||[];
     var parts=(state.planSlotKey||'').split('__');
