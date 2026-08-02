@@ -122,14 +122,6 @@ def next_admission_id(conn, branch_id):
 #  BRANCHES
 # ════════════════════════════════════════════
 
-@api_bp.route('/api/admin/add-monthly-fee-column', methods=['POST'])
-@require_auth
-def add_monthly_fee_column():
-    conn = get_conn(); cur = conn.cursor()
-    cur.execute("ALTER TABLE students ADD COLUMN IF NOT EXISTS monthly_fee NUMERIC(10,2)")
-    conn.commit(); cur.close(); conn.close()
-    return jsonify({'ok': True, 'message': 'monthly_fee column added (or already existed)'})
-
 @api_bp.route('/api/branches', methods=['GET'])
 @require_auth
 def get_branches():
