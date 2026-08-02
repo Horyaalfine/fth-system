@@ -177,25 +177,25 @@ def get_students():
     if b:
         if q:
             cur.execute("""SELECT s.*, b.name as branch_name,
-                (SELECT amount FROM invoices WHERE student_id=s.id AND (fee_type='monthly_fee' OR fee_type IS NULL) ORDER BY issued DESC LIMIT 1) as monthly_fee
+                s.monthly_fee
                 FROM students s JOIN branches b ON b.id=s.branch_id
                 WHERE s.branch_id=%s AND (s.name ILIKE %s OR s.admission_id ILIKE %s)
                 ORDER BY s.admission_id""", (b, f'%{q}%', f'%{q}%'))
         else:
             cur.execute("""SELECT s.*, b.name as branch_name,
-                (SELECT amount FROM invoices WHERE student_id=s.id AND (fee_type='monthly_fee' OR fee_type IS NULL) ORDER BY issued DESC LIMIT 1) as monthly_fee
+                s.monthly_fee
                 FROM students s JOIN branches b ON b.id=s.branch_id
                 WHERE s.branch_id=%s ORDER BY s.admission_id""", (b,))
     else:
         if q:
             cur.execute("""SELECT s.*, b.name as branch_name,
-                (SELECT amount FROM invoices WHERE student_id=s.id AND (fee_type='monthly_fee' OR fee_type IS NULL) ORDER BY issued DESC LIMIT 1) as monthly_fee
+                s.monthly_fee
                 FROM students s JOIN branches b ON b.id=s.branch_id
                 WHERE s.name ILIKE %s OR s.admission_id ILIKE %s
                 ORDER BY s.admission_id""", (f'%{q}%', f'%{q}%'))
         else:
             cur.execute("""SELECT s.*, b.name as branch_name,
-                (SELECT amount FROM invoices WHERE student_id=s.id AND (fee_type='monthly_fee' OR fee_type IS NULL) ORDER BY issued DESC LIMIT 1) as monthly_fee
+                s.monthly_fee
                 FROM students s JOIN branches b ON b.id=s.branch_id ORDER BY s.admission_id""")
     data = rows(cur); cur.close(); conn.close()
     return jsonify(data)
