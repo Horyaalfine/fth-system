@@ -2697,8 +2697,7 @@ function renderSessionPlan(){
             html+='<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);">';
             html+='<div style="display:flex;align-items:center;gap:6px;flex:1;">';
             html+='<span class="id-code" style="font-size:11px;">'+s.admission_id+'</span>';
-            html+='<span style="font-size:13px;">'+s.student_name+'</span>';
-            if(yrGroup)html+='<span style="font-size:11px;color:var(--text3);">('+yrGroup+')</span>';
+            html+='<span style="font-size:13px;">'+s.student_name+(yrGroup?' <span style="font-size:11px;color:var(--text3);">('+yrGroup+')</span>':'')+'</span>';
             if(s.is_catchup)html+='<span class="badge badge-amber" style="font-size:10px;">CU</span>';
             html+='</div>';
             html+='<div style="display:flex;gap:4px;align-items:center;">';
@@ -4510,7 +4509,9 @@ document.querySelectorAll('.move-student-select').forEach(function(sel){
     var fromAllocId=parseInt(this.dataset.alloc);
     var studentId=parseInt(this.dataset.student);
     // Remove from current table
-    await API.delete('/api/table-allocations/'+fromAllocId+'/students/'+studentId);
+    // Remove from current table then add to new
+    // Remove from current table
+    await fetch('/api/table-allocations/'+fromAllocId+'/students/'+studentId,{method:'DELETE',headers:{'Content-Type':'application/json'},credentials:'include'});
     // Add to new table
     await API.post('/api/table-allocations/'+toAllocId+'/students',{student_id:studentId,is_catchup:false});
     // Reload allocs for all sessions in current slot
