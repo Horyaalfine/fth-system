@@ -1218,7 +1218,13 @@ function renderAttendance(){
     return rec&&rec.status===attStatusFilter;
   });
 
+  const attTab=state.attTab||'quick';
   var html='';
+  html+='<div class="tab-bar" style="margin-bottom:16px;">';
+  html+='<div class="tab '+(attTab==='quick'?'active':'')+'" data-action="att-tab" data-tab="quick">⚡ Quick attendance</div>';
+  html+='<div class="tab '+(attTab==='session'?'active':'')+'" data-action="att-tab" data-tab="session">By session/table</div>';
+  html+='</div>';
+  if(attTab==='quick')return renderQuickAttendance();
   html+='<div class="section-title" style="margin-bottom:4px;">Attendance</div>';
   html+='<div class="section-sub">Step 1 — pick a date. Step 2 — pick a slot. Step 3 — pick a teacher (optional). Step 4 — select session.</div>';
 
