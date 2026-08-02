@@ -4456,7 +4456,10 @@ document.getElementById('plan-month-filter')?.addEventListener('change',e=>{
 document.getElementById('plan-session-select')?.addEventListener('change',async e=>{
   state.planSessionId=e.target.value?parseInt(e.target.value):null;
   if(state.planSessionId){
-    await loadData('plan_students_'+state.planSessionId,'/api/session-students/'+state.planSessionId);
+    await Promise.all([
+      loadData('table_allocs_'+state.planSessionId,'/api/table-allocations/'+state.planSessionId),
+      loadData('plan_students_'+state.planSessionId,'/api/session-students/'+state.planSessionId),
+    ]);
   }
   render();
 });
