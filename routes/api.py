@@ -255,6 +255,7 @@ def get_student_fields(d):
         'assess_english_pct': d.get('assess_english_pct',''), 'assess_english_book': d.get('assess_english_book',''),
         'assess_science_pct': d.get('assess_science_pct',''), 'assess_science_book': d.get('assess_science_book',''),
         'hours_per_week': d.get('hours_per_week',''),
+        'monthly_fee': d.get('monthly_fee') if d.get('monthly_fee') not in (None,'','0') else None,
         'parent_contact': d.get('carer1_mobile') or d.get('parent_contact',''),
         'status': d.get('status','active'), 'notes': d.get('notes','')
     }
@@ -542,27 +543,32 @@ def add_invoice():
 @api_bp.route('/api/invoices/generate', methods=['POST'])
 @require_auth
 def generate_invoices():
-    """Generate due invoices for all active students in scope for given month."""
+    """Generate monthly fee invoices for all active students who have an agreed monthly fee set."""
     d = request.json
     month = d.get('month', date.today().strftime('%Y-%m'))
     b = branch_scope()
     conn = get_conn(); cur = conn.cursor()
+    # Only include students with a monthly_fee set on their profile
     if b:
-        cur.execute("SELECT id, branch_id FROM students WHERE branch_id=%s AND status='active'", (b,))
+        cur.execute("SELECT id, branch_id, monthly_fee FROM students WHERE branch_id=%s AND status='active' AND monthly_fee IS NOT NULL AND monthly_fee > 0", (b,))
     else:
-        cur.execute("SELECT id, branch_id FROM students WHERE status='active'")
+        cur.execute("SELECT id, branch_id, monthly_fee FROM students WHERE status='active' AND monthly_fee IS NOT NULL AND monthly_fee > 0")
     sts = rows(cur)
     added = 0
+    skipped = 0
     for st in sts:
         cur.execute("""
-            INSERT INTO invoices (student_id, branch_id, month, amount, status, issued)
-            VALUES (%s,%s,%s,120,'due', CURRENT_DATE)
+            INSERT INTO invoices (student_id, branch_id, month, amount, fee_type, description, status, issued)
+            VALUES (%s,%s,%s,%s,'monthly_fee','Monthly fee','due', CURRENT_DATE)
             ON CONFLICT (student_id, month) DO NOTHING
-        """, (st['id'], st['branch_id'], month))
-        if cur.rowcount: added += 1
+        """, (st['id'], st['branch_id'], month, float(st['monthly_fee'])))
+        if cur.rowcount:
+            added += 1
+        else:
+            skipped += 1
     conn.commit(); cur.close(); conn.close()
     log_action('add', 'invoices', 'batch')
-    return jsonify({'added': added})
+    return jsonify({'added': added, 'skipped': skipped, 'total_students': len(sts)})
 
 @api_bp.route('/api/invoices/<int:iid>', methods=['PUT'])
 @require_auth
