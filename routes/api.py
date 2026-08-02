@@ -440,6 +440,168 @@ def delete_session(sid):
     log_action('delete', 'sessions', sid)
     return jsonify({'ok': True})
 
+
+# ════════════════════════════════════════════
+#  AUTO-PLAN SESSION
+# ════════════════════════════════════════════
+@api_bp.route('/api/sessions/auto-plan', methods=['POST'])
+@require_roles('super_admin','branch_manager','head_of_centre')
+def auto_plan_session():
+    """Auto-generate tables for a date+slot based on student timetables."""
+    d = request.json
+    plan_date = d.get('date')
+    plan_slot = d.get('slot')
+    replace = d.get('replace', False)  # If True, delete existing sessions first
+    b = branch_scope()
+
+    conn = get_conn(); cur = conn.cursor()
+
+    # Check if sessions already exist for this date+slot
+    bp = (b,) if b else ()
+    bw = "AND s.branch_id=%s" if b else ""
+    cur.execute(f"""
+        SELECT id, table_no, subject FROM sessions
+        WHERE date=%s AND slot=%s {bw}
+        ORDER BY table_no
+    """, (plan_date, plan_slot) + bp)
+    existing = rows(cur)
+
+    if existing and not replace:
+        cur.close(); conn.close()
+        return jsonify({
+            'exists': True,
+            'existing_count': len(existing),
+            'message': f'{len(existing)} table(s) already exist for this slot.'
+        })
+
+    # If replace, delete existing sessions (cascades to allocations/students)
+    if existing and replace:
+        for sess in existing:
+            cur.execute("DELETE FROM sessions WHERE id=%s", (sess['id'],))
+        conn.commit()
+
+    # Get students timetabled for this slot
+    day_of_week = date.fromisoformat(plan_date).weekday()
+    if day_of_week == 5:
+        day_type = 'saturday'
+    elif day_of_week == 6:
+        day_type = 'sunday'
+    else:
+        day_type = 'weekday'
+
+    bw2 = "AND st.branch_id=%s" if b else ""
+    cur.execute(f"""
+        SELECT st.id as student_id, st.name, st.admission_id, st.year_group, st.branch_id,
+               stt.slot, stt.subject, stt.day_type
+        FROM student_timetable stt
+        JOIN students st ON st.id=stt.student_id
+        WHERE stt.slot=%s AND stt.day_type=%s AND st.status='active' {bw2}
+        ORDER BY st.year_group, st.name
+    """, (plan_slot, day_type) + bp)
+    timetabled = rows(cur)
+
+    if not timetabled:
+        cur.close(); conn.close()
+        return jsonify({'tables_created': 0, 'students_placed': 0, 'unplaced': [], 'message': 'No students timetabled for this slot.'})
+
+    # Year group → band mapping
+    def get_band(year_group):
+        if not year_group: return None
+        yg = year_group.strip().lower().replace('year ', '').replace('yr ', '').strip()
+        try:
+            yr = int(yg)
+            if yr <= 5: return 'primary'
+            elif yr <= 8: return 'lower_secondary'
+            elif yr <= 11: return 'upper_secondary'
+            else: return 'sixth_form'
+        except:
+            return None
+
+    band_labels = {
+        'primary': 'Yr 1-5',
+        'lower_secondary': 'Yr 6-8',
+        'upper_secondary': 'Yr 9-11',
+        'sixth_form': 'Yr 12-13'
+    }
+
+    # Group students by subject + band
+    groups = {}
+    unplaced = []
+    for stu in timetabled:
+        band = get_band(stu['year_group'])
+        subject = stu.get('subject') or 'Other'
+        if band is None:
+            unplaced.append({'student_id': stu['student_id'], 'name': stu['name'],
+                           'admission_id': stu['admission_id'], 'reason': 'No year group set'})
+            continue
+        key = (subject, band, stu['branch_id'])
+        if key not in groups:
+            groups[key] = []
+        groups[key].append(stu)
+
+    # Create tables from groups (max 5 per table)
+    MAX_PER_TABLE = 5
+    tables_to_create = []
+    for (subject, band, branch_id), students in groups.items():
+        # Split into chunks of MAX_PER_TABLE
+        for i in range(0, len(students), MAX_PER_TABLE):
+            chunk = students[i:i+MAX_PER_TABLE]
+            tables_to_create.append({
+                'subject': subject,
+                'band': band,
+                'band_label': band_labels.get(band, band),
+                'branch_id': branch_id,
+                'students': chunk
+            })
+
+    # Sort tables: by subject then band for consistent table numbering
+    tables_to_create.sort(key=lambda t: (t['subject'], t['band']))
+
+    # Create sessions and allocations
+    tables_created = 0
+    students_placed = 0
+    table_no = 1
+    for table in tables_to_create:
+        # Create session
+        cur.execute("""
+            INSERT INTO sessions (branch_id, date, slot, subject, table_no)
+            VALUES (%s,%s,%s,%s,%s) RETURNING id
+        """, (table['branch_id'], plan_date, plan_slot, table['subject'], table_no))
+        sess_id = cur.fetchone()['id']
+
+        # Create table allocation
+        cur.execute("""
+            INSERT INTO table_allocations (session_id, table_no, subject, max_students, notes)
+            VALUES (%s,%s,%s,%s,%s) RETURNING id
+        """, (sess_id, table_no, table['subject'], MAX_PER_TABLE,
+              f"{table['subject']} · {table['band_label']}"))
+        alloc_id = cur.fetchone()['id']
+
+        # Add students to allocation
+        for stu in table['students']:
+            cur.execute("""
+                INSERT INTO table_allocation_students (allocation_id, student_id)
+                VALUES (%s,%s) ON CONFLICT DO NOTHING
+            """, (alloc_id, stu['student_id']))
+            students_placed += 1
+
+        tables_created += 1
+        table_no += 1
+
+    conn.commit()
+    log_action('add', 'sessions', 'auto-plan')
+    cur.close(); conn.close()
+
+    return jsonify({
+        'exists': False,
+        'tables_created': tables_created,
+        'students_placed': students_placed,
+        'unplaced': unplaced,
+        'message': f'Created {tables_created} tables for {students_placed} students.'
+        + (f' {len(unplaced)} student(s) could not be placed (no year group set).' if unplaced else '')
+    })
+
+
 # ════════════════════════════════════════════
 #  ATTENDANCE
 # ════════════════════════════════════════════
