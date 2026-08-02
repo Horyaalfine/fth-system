@@ -560,7 +560,7 @@ def generate_invoices():
         cur.execute("""
             INSERT INTO invoices (student_id, branch_id, month, amount, fee_type, description, status, issued)
             VALUES (%s,%s,%s,%s,'monthly_fee','Monthly fee','due', CURRENT_DATE)
-            ON CONFLICT (student_id, month) DO NOTHING
+            ON CONFLICT (student_id, month, fee_type) DO NOTHING
         """, (st['id'], st['branch_id'], month, float(st['monthly_fee'])))
         if cur.rowcount:
             added += 1
