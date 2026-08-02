@@ -177,6 +177,7 @@ ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_english_book TEXT;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_science_pct TEXT;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_science_book TEXT;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS hours_per_week TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS monthly_fee NUMERIC(10,2);
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS cover_staff_id INT REFERENCES staff(id) ON DELETE SET NULL;
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS cover_notes TEXT;
 ALTER TABLE staff_attendance ALTER COLUMN session_id DROP NOT NULL;
