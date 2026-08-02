@@ -2607,7 +2607,13 @@ function renderSessionPlan(){
   const staff=state.data.staff||[];
   const selId=state.planSessionId;
   const sel=sessions.find(function(s){return s.id===selId;});
-  const allocs=selId?(state.data['table_allocs_'+selId]||[]):[];
+  // Combine allocs from all sessions in the selected slot
+  const selSlotSessions=state.planSlotKey?(sessions.filter(function(s){return (s.date+'__'+s.slot)===state.planSlotKey;})):(selId?[sel].filter(Boolean):[]);
+  var allocs=[];
+  selSlotSessions.forEach(function(ss){
+    var sa=state.data['table_allocs_'+ss.id]||[];
+    allocs=allocs.concat(sa);
+  });
   const planTab=state.planTab||'allocate';
   const planMonth=state.planMonth||'';
   const months=[...new Set(sessions.map(function(s){return s.date?s.date.slice(0,7):'';}).filter(Boolean))].sort().reverse();
@@ -2627,16 +2633,32 @@ function renderSessionPlan(){
     html+='<div class="field"><label>Filter by month</label><select id="plan-month-filter"><option value="">All sessions</option>';
     months.forEach(function(m){html+='<option value="'+m+'" '+(m===planMonth?'selected':'')+'>'+new Date(m+'-01T00:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'})+'</option>';});
     html+='</select></div>';
-    html+='<div class="field"><label>Select session</label><select id="plan-session-select"><option value="">— choose session —</option>';
+    // Group sessions by date+slot
+    var slotGroups={};
     filteredSessions.forEach(function(s){
-      html+='<option value="'+s.id+'" '+(s.id===selId?'selected':'')+'>'+new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})+' · '+s.slot+' · '+(s.staff_name||'No teacher')+' · '+(s.subject||'—')+'</option>';
+      var key=s.date+'__'+s.slot;
+      if(!slotGroups[key]){slotGroups[key]={date:s.date,slot:s.slot,sessions:[]};}
+      slotGroups[key].sessions.push(s);
+    });
+    var slotKeys=Object.keys(slotGroups).sort();
+    var selSlotKey=state.planSlotKey||'';
+    html+='<div class="field"><label>Select slot</label><select id="plan-session-select"><option value="">— choose slot —</option>';
+    slotKeys.forEach(function(key){
+      var g=slotGroups[key];
+      var dateLabel=new Date(g.date+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+      var tableCount=g.sessions.length;
+      html+='<option value="'+key+'" '+(key===selSlotKey?'selected':'')+'>'+dateLabel+' · '+g.slot+' ('+tableCount+' table'+(tableCount!==1?'s':'')+')</option>';
     });
     html+='</select></div></div></div>';
-    if(sel){
+    // Get all sessions for selected slot
+    var slotSessions=selSlotKey&&slotGroups[selSlotKey]?slotGroups[selSlotKey].sessions:[];
+    // sel already defined above from planSessionId
+    if(selSlotSessions&&selSlotSessions.length>0){
+      var slotSel=selSlotSessions[0];
       html+='<div class="card" style="margin-bottom:16px;border-left:3px solid var(--accent);padding:14px 16px;">';
       html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
-      html+='<div><div style="font-weight:700;font-size:15px;">'+sel.slot+'</div>';
-      html+='<div style="font-size:12px;color:var(--text3);margin-top:3px;">'+new Date(sel.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+'</div></div>';
+      html+='<div><div style="font-weight:700;font-size:15px;">'+slotSel.slot+'</div>';
+      html+='<div style="font-size:12px;color:var(--text3);margin-top:3px;">'+new Date(slotSel.date+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+'</div></div>';
       html+='<div style="display:flex;gap:8px;align-items:center;">';
       var allTT3=state.data.all_timetables||[];
       var sessSlot3=sel?sel.slot:'';
@@ -2647,10 +2669,10 @@ function renderSessionPlan(){
       html+='<span class="badge badge-success">'+placedAll3.length+' placed</span>';
       if(pendingTotal>0)html+='<span class="badge badge-amber">'+pendingTotal+' pending</span>';
       else if(allocs.length>0)html+='<span class="badge badge-teal">All placed ✓</span>';
-      html+='<button class="btn btn-sm btn-primary" data-action="add-table-alloc" data-session="'+selId+'">+ Add table</button>';
-      html+='<button class="btn btn-sm" data-action="set-cover-teacher" data-id="'+sel.id+'">Set cover</button>';
+      html+='<button class="btn btn-sm btn-primary" data-action="add-table-alloc" data-session="'+(selSlotSessions[0]?selSlotSessions[0].id:'')+'">+ Add table</button>';
+      html+='<button class="btn btn-sm" data-action="set-cover-teacher" data-id="'+(slotSel?slotSel.id:'')+'">Set cover</button>';
       html+='</div></div>';
-      if(sel.cover_staff_id){var cover=staff.find(function(s){return s.id===sel.cover_staff_id;});html+='<div style="margin-top:10px;padding:8px 12px;background:var(--amber-bg);border-radius:var(--radius);font-size:13px;color:var(--amber-text);">⚠ Cover: <strong>'+(cover?cover.name:'Unknown')+'</strong>'+(sel.cover_notes?' — '+sel.cover_notes:'')+'</div>';}
+      if(slotSel&&slotSel.cover_staff_id){var cover=staff.find(function(s){return s.id===slotSel.cover_staff_id;});html+='<div style="margin-top:10px;padding:8px 12px;background:var(--amber-bg);border-radius:var(--radius);font-size:13px;color:var(--amber-text);">⚠ Cover: <strong>'+(cover?cover.name:'Unknown')+'</strong>'+(slotSel.cover_notes?' — '+slotSel.cover_notes:'')+'</div>';}
       html+='</div>';
       if(allocs.length){
         html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;">';
@@ -4454,12 +4476,24 @@ document.getElementById('plan-month-filter')?.addEventListener('change',e=>{
   state.planMonth=e.target.value||'';render();
 });
 document.getElementById('plan-session-select')?.addEventListener('change',async e=>{
-  state.planSessionId=e.target.value?parseInt(e.target.value):null;
-  if(state.planSessionId){
-    await Promise.all([
-      loadData('table_allocs_'+state.planSessionId,'/api/table-allocations/'+state.planSessionId),
-      loadData('plan_students_'+state.planSessionId,'/api/session-students/'+state.planSessionId),
-    ]);
+  var slotKey=e.target.value||'';
+  state.planSlotKey=slotKey;
+  if(slotKey){
+    // Find all sessions for this slot key
+    var sessions=state.data.sessions||[];
+    var parts=slotKey.split('__');
+    var slotDate=parts[0];
+    var slotName=parts.slice(1).join('__');
+    var slotSessions=sessions.filter(function(s){return s.date===slotDate&&s.slot===slotName;});
+    // Load allocs for all sessions in this slot
+    await Promise.all(slotSessions.map(function(ss){
+      return Promise.all([
+        loadData('table_allocs_'+ss.id,'/api/table-allocations/'+ss.id),
+        loadData('plan_students_'+ss.id,'/api/session-students/'+ss.id),
+      ]);
+    }));
+    // Set planSessionId to first session for compatibility
+    state.planSessionId=slotSessions.length>0?slotSessions[0].id:null;
   }
   render();
 });
