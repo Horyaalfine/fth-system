@@ -1138,6 +1138,7 @@ function renderWeeklyPlanner(){
         }
         html+='<button class="btn btn-sm" data-action="wp-quick-session" data-date="'+dateStr+'" data-slot="'+encodeURIComponent(slot)+'" style="margin-top:4px;font-size:11px;padding:3px 8px;">'+
           (tablesCreated>0?'+ Add table':'+ Create session')+'</button>';
+        html+='<button class="btn btn-sm" data-action="wp-auto-plan" data-date="'+dateStr+'" data-slot="'+encodeURIComponent(slot)+'" style="margin-top:4px;font-size:11px;padding:3px 8px;background:var(--accent);color:#fff;border-color:var(--accent);">⚡ Auto-plan</button>';
         html+='<button class="btn btn-sm btn-success" data-action="wp-quick-att" data-date="'+dateStr+'" data-slot="'+encodeURIComponent(slot)+'" style="margin-top:4px;font-size:11px;padding:3px 8px;">✓ Attend</button>';
       } else {
         html+='<td style="padding:6px;border:1px solid var(--border);background:var(--surface3);"></td>';
@@ -3174,6 +3175,7 @@ if(m==='gen-weekly-sessions')return modalWeeklySessions();if(m==='add-user'||m==
   if(m==='mark-paid')return modalMarkPaid();
   if(m==='add-adjustment'||m==='edit-adjustment')return modalAdjustment();
   if(m==='edit-opening-balance')return modalOpeningBalance();
+  if(m==='auto-plan-confirm')return modalAutoPlanConfirm();
   if(m==='gen-monthly-fees')return modalGenMonthlyFees();
   if(m==='add-fee-invoice')return modalAddFeeInvoice();if(m==='add-progress')return modalProgress();if(m==='add-parent-user'||m==='edit-parent-user')return modalParentUser();if(m==='add-staff-att'||m==='edit-staff-att')return modalStaffAtt();
   if(m==='add-payment'||m==='edit-payment')return modalPayment();
@@ -3461,6 +3463,33 @@ return mWrap(b.id?'Edit branch':'Add branch',`
 <div class="field"><label>Email</label><input type="email" id="f-email" value="${b.email||''}"></div>
 <div class="field"><label>Status</label><select id="f-status"><option value="active" ${!b.status||b.status==='active'?'selected':''}>Active</option><option value="inactive" ${b.status==='inactive'?'selected':''}>Inactive</option></select></div>
 </div>`,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${b.id?'Save changes':'Add branch'}</button>`);}
+
+function modalAutoPlanConfirm(){
+  const t=state.editTarget||{};
+  const date=t.date||'';
+  const slot=t.slot||'';
+  const existing=t.existing_count||0;
+  const footer='<button class="btn" id="modal-cancel">Cancel</button>'+
+    (existing>0?'<button class="btn btn-danger" id="modal-replace" data-action="auto-plan-run" data-replace="true" data-date="'+date+'" data-slot="'+encodeURIComponent(slot)+'">Replace existing</button>':'')+
+    '<button class="btn btn-primary" id="modal-save" data-action="auto-plan-run" data-replace="false" data-date="'+date+'" data-slot="'+encodeURIComponent(slot)+'">'+
+    (existing>0?'Keep & add tables':'Generate tables')+'</button>';
+  var body='';
+  if(existing>0){
+    body+='<div style="padding:12px;background:var(--warning-bg);border-radius:var(--radius);margin-bottom:16px;font-size:13px;">'+
+      '⚠ <strong>'+existing+' table(s) already exist</strong> for this slot on '+date+'.<br>'+
+      '<span style="color:var(--text3);">You can replace them all, or keep existing and add more.</span></div>';
+  }
+  body+='<div style="font-size:13px;padding:12px;background:rgba(37,99,235,0.08);border-radius:var(--radius);">'+
+    '<strong>Date:</strong> '+date+'<br>'+
+    '<strong>Slot:</strong> '+slot+'<br><br>'+
+    'The system will:<br>'+
+    '• Group students by subject + year band<br>'+
+    '• Create tables of max 5 students<br>'+
+    '• Year bands: Yr 1-5 · Yr 6-8 · Yr 9-11 · Yr 12-13<br>'+
+    '• Leave teacher column empty for manual assignment'+
+    '</div>';
+  return mWrapDark('Auto-plan tables',body,footer);
+}
 
 function modalGenMonthlyFees(){
   const today=new Date().toISOString().slice(0,7);
@@ -4644,6 +4673,39 @@ if(action==='qa-toggle'){
   render();return;
 }
 if(action==='wp-week'){state.wpWeek=el.dataset.week;render();return;}
+if(action==='wp-auto-plan'){
+  const apDate=el.dataset.date;
+  const apSlot=decodeURIComponent(el.dataset.slot);
+  // Check if sessions already exist
+  const existingSess=(state.data.sessions||[]).filter(function(s){return s.date===apDate&&s.slot===apSlot;});
+  state.modal='auto-plan-confirm';
+  state.editTarget={date:apDate,slot:apSlot,existing_count:existingSess.length};
+  render();return;
+}
+if(action==='auto-plan-run'){
+  const apDate=el.dataset.date;
+  const apSlot=decodeURIComponent(el.dataset.slot);
+  const replace=el.dataset.replace==='true';
+  closeModal();
+  toast('Planning tables...');
+  const r=await API.post('/api/sessions/auto-plan',{date:apDate,slot:apSlot,replace:replace});
+  if(r?.error){toast(r.error,'error');return;}
+  if(r?.exists&&!replace){
+    // shouldn't happen but handle gracefully
+    toast(r.message,'error');return;
+  }
+  // Reload sessions and show result
+  await loadData('sessions','/api/sessions',branchParam());
+  var msg=r.message||'Done';
+  if(r.unplaced&&r.unplaced.length>0){
+    msg+=' Unplaced: '+r.unplaced.map(function(u){return u.admission_id+' ('+u.reason+')';}).join(', ');
+  }
+  toast(msg);
+  // Navigate to Session Planner for this date
+  state.page='session_plan';
+  state.planTab='allocate';
+  refreshPage();return;
+}
 if(action==='wp-quick-att'){
   state.attTab='quick';
   state.qaDate=el.dataset.date;
