@@ -2600,10 +2600,12 @@ function renderSessionPlan(){
   html+='<div class="section-title" style="margin-bottom:4px;">Session planner</div>';
   html+='<div class="section-sub">Table allocation and student timetable management</div>';
   html+='<div class="tab-bar" style="margin-bottom:16px;">';
+  html+='<div class="tab '+(planTab==='weekly'?'active':'')+'" data-action="plan-tab" data-tab="weekly">📅 Weekly planner</div>';
   html+='<div class="tab '+(planTab==='allocate'?'active':'')+'" data-action="plan-tab" data-tab="allocate">Table allocation</div>';
   html+='<div class="tab '+(planTab==='timetable'?'active':'')+'" data-action="plan-tab" data-tab="timetable">Student timetables</div>';
   html+='<div class="tab '+(planTab==='overview'?'active':'')+'" data-action="plan-tab" data-tab="overview">All students overview</div>';
   html+='</div>';
+  if(planTab==='weekly')return html+renderWeeklyPlanner();
   if(planTab==='allocate'){
     html+='<div class="card" style="margin-bottom:16px;"><div class="form-grid">';
     html+='<div class="field"><label>Filter by month</label><select id="plan-month-filter"><option value="">All sessions</option>';
