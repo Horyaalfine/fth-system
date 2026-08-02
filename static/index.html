@@ -401,7 +401,7 @@ function exportXLSX(rows, filename, sheetName){
   }
 }
 
-let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',invTab:'list',invFeeFilter:'all',invMonthFilter:'',tsFilterStaff:'',tsFilterRole:'',tsFilterStatus:'',tsFilterDate:'',lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',sessionMonth:'',sessionDate:'',sessionSlot:'',sessionTeacher:'',sessionSubject:'',attDateFilter:'',attSlotFilter:'',attAllSessions:'',attTeacherFilter:'',attStatusFilter:'all',planSessionId:null,planMonth:'',planTab:'allocate',timetableStudentId:null,mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
+let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',invTab:'list',invFeeFilter:'all',invMonthFilter:'',tsFilterStaff:'',tsFilterRole:'',tsFilterStatus:'',tsFilterDate:'',lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',sessionMonth:'',sessionDate:'',sessionSlot:'',sessionTeacher:'',sessionSubject:'',attTab:'quick',attDateFilter:'',attSlotFilter:'',qaDate:'',qaSlot:'',qaStatusFilter:'all',qaRecords:{},wpWeek:'',attAllSessions:'',attTeacherFilter:'',attStatusFilter:'all',planSessionId:null,planMonth:'',planTab:'allocate',timetableStudentId:null,mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
 
 function toast(msg,type='success'){const el=document.createElement('div');el.className=`toast toast-${type}`;el.innerHTML=(type==='success'?'<span style="color:var(--success)">✓</span> ':'<span style="color:var(--danger)">✕</span> ')+msg;document.getElementById('toasts').appendChild(el);setTimeout(()=>el.remove(),3500);}
 function roleBadge(role){const m={super_admin:['badge-purple','Super admin'],branch_manager:['badge-blue','Branch manager'],head_of_centre:['badge-blue','Head of Centre'],supervisor:['badge-teal','Supervisor'],teacher:['badge-teal','Teacher'],receptionist:['badge-amber','Receptionist'],admin:['badge-gray','Admin support'],reports_viewer:['badge-gray','Reports viewer']};const[cls,label]=m[role]||['badge-gray',role];return`<span class="badge ${cls}">${label}</span>`;}
@@ -898,6 +898,265 @@ function renderSessions(){
     });
     html+='</tbody></table></div></div></div>';
   });
+  return html;
+}
+
+function renderQuickAttendance(){
+  const allTT=state.data.all_timetables||[];
+  const sessions=state.data.sessions||[];
+  const students=state.data.students||[];
+
+  const qDate=state.qaDate||new Date().toISOString().slice(0,10);
+  const qSlot=state.qaSlot||'';
+  const qStatus=state.qaStatusFilter||'all';
+
+  // Determine day type from selected date
+  function getDayType(dateStr){
+    const d=new Date(dateStr+'T00:00:00');
+    const day=d.getDay();
+    if(day===6)return'saturday';
+    if(day===0)return'sunday';
+    return'weekday';
+  }
+  const dayType=getDayType(qDate);
+
+  // Unique slots available for this day type from timetable
+  const availableSlots=[...new Set(allTT.filter(function(e){return e.day_type===dayType;}).map(function(e){return e.slot;}))].sort();
+
+  // Students timetabled for this date+slot
+  const timetabledStudents=qSlot?allTT.filter(function(e){
+    return e.day_type===dayType&&e.slot===qSlot;
+  }):[];
+
+  // Build unique student list with their subjects for this slot
+  const stuMap={};
+  timetabledStudents.forEach(function(e){
+    if(!stuMap[e.student_id]){
+      stuMap[e.student_id]={id:e.student_id,name:e.student_name,admission_id:e.admission_id,year_group:e.year_group,subjects:[]};
+    }
+    stuMap[e.student_id].subjects.push(e.subject);
+  });
+  const stuList=Object.values(stuMap).sort(function(a,b){return a.admission_id>b.admission_id?1:-1;});
+
+  // Find sessions for this date+slot (to save attendance against)
+  const daySessions=sessions.filter(function(s){return s.date===qDate&&s.slot===qSlot;});
+
+  // Local attendance state key
+  const qaKey='qa_'+qDate+'_'+qSlot;
+  if(!state.qaRecords)state.qaRecords={};
+  const localAtt=state.qaRecords[qaKey]||{};
+
+  // Counts
+  const presentCount=Object.values(localAtt).filter(function(a){return a==='present';}).length;
+  const absentCount=Object.values(localAtt).filter(function(a){return a==='absent';}).length;
+  const unmarkedCount=stuList.length-presentCount-absentCount;
+
+  // Filter by status
+  const visibleStudents=stuList.filter(function(st){
+    if(qStatus==='all')return true;
+    if(qStatus==='unmarked')return !localAtt[st.id];
+    return localAtt[st.id]===qStatus;
+  });
+
+  var html='';
+  html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">';
+  html+='<div><div class="section-title">Quick Attendance</div>';
+  html+='<div class="section-sub">Mark attendance by date and slot — across all tables</div></div>';
+  html+='</div>';
+
+  // Date + Slot selector
+  html+='<div class="card" style="margin-bottom:16px;">';
+  html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
+  html+='<div class="field" style="margin:0;"><label>Date</label><input type="date" id="qa-date" value="'+qDate+'"></div>';
+  html+='<div class="field" style="margin:0;"><label>Slot</label><select id="qa-slot">';
+  html+='<option value="">— select slot —</option>';
+  availableSlots.forEach(function(sl){html+='<option value="'+sl+'" '+(sl===qSlot?'selected':'')+'>'+sl+'</option>';});
+  html+='</select></div>';
+  html+='</div>';
+
+  // Hint about day type
+  if(qDate){
+    var dayLabel=new Date(qDate+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+    html+='<div style="margin-top:10px;font-size:12px;color:var(--text3);">'+dayLabel+' · '+dayType.charAt(0).toUpperCase()+dayType.slice(1)+' slots shown</div>';
+  }
+  html+='</div>';
+
+  if(qSlot&&stuList.length>0){
+    // Summary + save
+    html+='<div class="card" style="margin-bottom:16px;">';
+    html+='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">';
+    html+='<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+    html+='<span class="badge badge-success">'+presentCount+' present</span>';
+    html+='<span class="badge badge-danger">'+absentCount+' absent</span>';
+    html+='<span class="badge badge-gray">'+unmarkedCount+' unmarked</span>';
+    html+='<span class="badge badge-accent">'+stuList.length+' total</span>';
+    html+='</div>';
+    html+='<button class="btn btn-primary" data-action="save-quick-att" data-date="'+qDate+'" data-slot="'+qSlot+'">Save attendance</button>';
+    html+='</div>';
+
+    // Status filter
+    html+='<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">';
+    html+='<span style="font-size:12px;color:var(--text3);font-weight:600;align-self:center;">Show:</span>';
+    [['all','All ('+stuList.length+')'],['present','Present ('+presentCount+')'],['absent','Absent ('+absentCount+')'],['unmarked','Unmarked ('+unmarkedCount+')']].forEach(function(f){
+      html+='<button class="btn btn-sm '+(qStatus===f[0]?'btn-primary':'')+'" data-action="qa-status-filter" data-filter="'+f[0]+'" style="'+(qStatus===f[0]?'':'background:var(--surface2);')+'">'+f[1]+'</button>';
+    });
+    html+='</div>';
+
+    if(daySessions.length===0){
+      html+='<div style="margin-top:10px;padding:8px 12px;background:var(--warning-bg);border-radius:var(--radius);font-size:12px;color:var(--amber-text);">⚠ No sessions created for this date/slot yet. Create sessions first, or attendance will be saved when sessions are created.</div>';
+    }
+    html+='</div>';
+
+    // Mark all buttons
+    html+='<div style="display:flex;gap:8px;margin-bottom:12px;">';
+    html+='<button class="btn btn-sm btn-success" data-action="qa-mark-all" data-status="present">✓ Mark all present</button>';
+    html+='<button class="btn btn-sm btn-danger" data-action="qa-mark-all" data-status="absent">✗ Mark all absent</button>';
+    html+='<button class="btn btn-sm" data-action="qa-mark-all" data-status="clear">↩ Clear all</button>';
+    html+='</div>';
+
+    // Student grid
+    html+='<div class="att-grid">';
+    visibleStudents.forEach(function(st){
+      var status=localAtt[st.id]||'';
+      var color=status==='present'?'var(--success-text)':status==='absent'?'var(--danger-text)':'var(--text3)';
+      html+='<div class="att-cell '+status+'" data-action="qa-toggle" data-student="'+st.id+'">';
+      html+='<div class="att-name">'+st.name+'</div>';
+      html+='<div class="att-id">'+st.admission_id+(st.subjects.length?' · '+st.subjects.join(', '):'')+'</div>';
+      html+='<div class="att-status" style="color:'+color+';">'+(status?status.toUpperCase():'—')+'</div>';
+      html+='</div>';
+    });
+    if(visibleStudents.length===0){
+      html+='<div style="grid-column:1/-1;padding:30px;text-align:center;color:var(--text3);">No students match this filter</div>';
+    }
+    html+='</div>';
+
+  } else if(qSlot&&stuList.length===0){
+    html+='<div class="empty-state" style="padding:40px;">No students timetabled for this slot. Set up student timetables in the Session Planner → Student timetables tab.</div>';
+  } else if(!qSlot&&qDate){
+    html+='<div class="empty-state" style="padding:30px;">Select a slot to see students.</div>';
+  }
+
+  return html;
+}
+
+function renderWeeklyPlanner(){
+  const allTT=state.data.all_timetables||[];
+  const sessions=state.data.sessions||[];
+  const staff=state.data.staff||[];
+
+  // Get week start (Monday) for selected week
+  const wpWeek=state.wpWeek||'';
+  const today=new Date();
+  today.setHours(0,0,0,0);
+
+  function getWeekStart(d){
+    var day=d.getDay();
+    var diff=d.getDate()-day+(day===0?-6:1);
+    var mon=new Date(d);
+    mon.setDate(diff);
+    mon.setHours(0,0,0,0);
+    return mon;
+  }
+
+  var weekStart=wpWeek?new Date(wpWeek+'T00:00:00'):getWeekStart(today);
+  var weekDates=[];
+  for(var i=0;i<7;i++){
+    var d=new Date(weekStart);
+    d.setDate(weekStart.getDate()+i);
+    weekDates.push(d);
+  }
+
+  function fmt(d){return d.toISOString().slice(0,10);}
+  function fmtLabel(d){return d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});}
+  function getDayType(d){var day=d.getDay();if(day===6)return'saturday';if(day===0)return'sunday';return'weekday';}
+
+  // All unique slots from timetable
+  const allSlots=['Saturday Slot 1 (09:00-11:00)','Saturday Slot 2 (11:15-13:15)','Saturday Slot 3 (14:15-16:15)','Saturday Slot 4 (16:30-18:30)',
+    'Weekday Slot 1 (12:00-16:00)','Weekday Slot 2 (17:00-19:00)','Weekday Slot 3 (19:00-21:00)'];
+
+  var prevWeek=new Date(weekStart);prevWeek.setDate(weekStart.getDate()-7);
+  var nextWeek=new Date(weekStart);nextWeek.setDate(weekStart.getDate()+7);
+
+  var html='';
+  html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">';
+  html+='<div><div class="section-title">Weekly Planner</div><div class="section-sub">Projected students per slot — plan tables and teachers</div></div>';
+  html+='</div>';
+
+  // Week navigation
+  html+='<div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;">';
+  html+='<button class="btn btn-sm" data-action="wp-week" data-week="'+fmt(prevWeek)+'">← Prev week</button>';
+  html+='<div style="font-weight:600;font-size:14px;">'+fmtLabel(weekStart)+' — '+fmtLabel(weekDates[6])+'</div>';
+  html+='<button class="btn btn-sm" data-action="wp-week" data-week="'+fmt(nextWeek)+'">Next week →</button>';
+  html+='<button class="btn btn-sm" data-action="wp-week" data-week="'+fmt(getWeekStart(today))+'">Today</button>';
+  html+='</div>';
+
+  // Week grid
+  html+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;min-width:700px;">';
+  html+='<thead><tr><th style="padding:8px;border:1px solid var(--border);background:var(--surface2);font-size:12px;white-space:nowrap;">Slot</th>';
+  weekDates.forEach(function(d){
+    var isToday=fmt(d)===fmt(today);
+    html+='<th style="padding:8px;border:1px solid var(--border);background:'+(isToday?'rgba(37,99,235,0.1)':'var(--surface2)')+';font-size:12px;white-space:nowrap;text-align:center;">'+
+      '<div style="font-weight:700;color:'+(isToday?'var(--accent)':'var(--text)')+';">'+d.toLocaleDateString('en-GB',{weekday:'short'})+'</div>'+
+      '<div style="color:var(--text3);font-weight:400;">'+d.toLocaleDateString('en-GB',{day:'numeric',month:'short'})+'</div>'+
+      '</th>';
+  });
+  html+='</tr></thead><tbody>';
+
+  allSlots.forEach(function(slot){
+    html+='<tr>';
+    html+='<td style="padding:8px;border:1px solid var(--border);font-size:12px;white-space:nowrap;font-weight:600;background:var(--surface2);">'+slot+'</td>';
+    weekDates.forEach(function(d){
+      var dateStr=fmt(d);
+      var dayType=getDayType(d);
+      var isToday=dateStr===fmt(today);
+
+      // Check if this slot applies to this day type
+      var slotDayType=slot.toLowerCase().startsWith('saturday')?'saturday':slot.toLowerCase().startsWith('weekday')?'weekday':'sunday';
+      if(slotDayType!==dayType){
+        html+='<td style="padding:6px;border:1px solid var(--border);background:var(--surface3);"></td>';
+        return;
+      }
+
+      // Students timetabled for this slot
+      var timetabledStudents=[...new Set(allTT.filter(function(e){return e.slot===slot&&e.day_type===dayType;}).map(function(e){return e.student_id;}))];
+      var count=timetabledStudents.length;
+
+      // Sessions already created for this date+slot
+      var existingSessions=sessions.filter(function(s){return s.date===dateStr&&s.slot===slot;});
+      var tablesCreated=existingSessions.length;
+
+      html+='<td style="padding:6px;border:1px solid var(--border);vertical-align:top;background:'+(isToday?'rgba(37,99,235,0.03)':'')+';">';
+      if(count>0){
+        html+='<div style="font-size:12px;"><span class="badge badge-accent">'+count+' students</span></div>';
+        if(tablesCreated>0){
+          html+='<div style="font-size:11px;color:var(--success-text);margin-top:3px;">'+tablesCreated+' table'+(tablesCreated>1?'s':'')+' created</div>';
+          existingSessions.forEach(function(s){
+            html+='<div style="font-size:11px;color:var(--text3);">T'+s.table_no+': '+(s.staff_name||'No teacher')+'</div>';
+          });
+        } else {
+          html+='<div style="font-size:11px;color:var(--amber-text);margin-top:3px;">No sessions yet</div>';
+        }
+        html+='<button class="btn btn-sm" data-action="wp-quick-session" data-date="'+dateStr+'" data-slot="'+encodeURIComponent(slot)+'" style="margin-top:4px;font-size:11px;padding:3px 8px;">'+
+          (tablesCreated>0?'+ Add table':'+ Create session')+'</button>';
+        html+='<button class="btn btn-sm btn-success" data-action="wp-quick-att" data-date="'+dateStr+'" data-slot="'+encodeURIComponent(slot)+'" style="margin-top:4px;font-size:11px;padding:3px 8px;">✓ Attend</button>';
+      } else {
+        html+='<td style="padding:6px;border:1px solid var(--border);background:var(--surface3);"></td>';
+        return;
+      }
+      html+='</td>';
+    });
+    html+='</tr>';
+  });
+
+  html+='</tbody></table></div>';
+
+  // Legend
+  html+='<div style="display:flex;gap:16px;margin-top:12px;font-size:12px;color:var(--text3);">';
+  html+='<span><span class="badge badge-accent">N students</span> timetabled for that slot</span>';
+  html+='<span style="color:var(--success-text);">Green = sessions already created</span>';
+  html+='<span style="color:var(--amber-text);">Orange = no sessions yet</span>';
+  html+='</div>';
+
   return html;
 }
 
@@ -4021,6 +4280,9 @@ document.getElementById('modal-delete')?.addEventListener('click',async function
   toast('Invoice deleted');
   closeModal();refreshPage();
 });document.getElementById('student-search')?.addEventListener('input',e=>{state.studentSearch=e.target.value;refreshPage();});document.getElementById('att-date-filter')?.addEventListener('change',function(e){state.attDateFilter=e.target.value;state.attSlotFilter='';state.attTeacherFilter='';state.attSessionId=null;state.attAllSessions='';render();});
+document.getElementById('att-tab-quick')?.addEventListener('click',function(){state.attTab='quick';render();});
+document.getElementById('qa-date')?.addEventListener('change',function(e){state.qaDate=e.target.value;state.qaSlot='';render();});
+document.getElementById('qa-slot')?.addEventListener('change',function(e){state.qaSlot=e.target.value;render();});
 document.getElementById('att-slot-filter')?.addEventListener('change',function(e){state.attSlotFilter=e.target.value;state.attTeacherFilter='';state.attSessionId=null;state.attAllSessions='';render();});
 document.getElementById('att-teacher-filter')?.addEventListener('change',function(e){state.attTeacherFilter=e.target.value;state.attSessionId=null;state.attAllSessions='';render();});
 document.getElementById('att-slot-filter')?.addEventListener('change',function(e){state.attSlotFilter=e.target.value;state.attSessionId=null;render();});
@@ -4298,6 +4560,49 @@ if(action==='att-remove-student'){
   att.forEach(function(a){state.attRecords[sessId][a.student_id]={status:a.status,notes:a.notes||''};});
   toast('Student removed from session');render();return;
 }
+if(action==='att-tab'){state.attTab=el.dataset.tab;render();return;}
+if(action==='qa-status-filter'){state.qaStatusFilter=el.dataset.filter||'all';render();return;}
+if(action==='qa-mark-all'){
+  const status=el.dataset.status;
+  const key='qa_'+state.qaDate+'_'+state.qaSlot;
+  if(!state.qaRecords)state.qaRecords={};
+  if(!state.qaRecords[key])state.qaRecords[key]={};
+  const allTT=state.data.all_timetables||[];
+  const dayType=state.qaDate?(['saturday','sunday'][new Date(state.qaDate+'T00:00:00').getDay()===6?0:new Date(state.qaDate+'T00:00:00').getDay()===0?1:-1]||'weekday'):'weekday';
+  const stuIds=[...new Set(allTT.filter(function(e){return e.slot===state.qaSlot&&e.day_type===dayType;}).map(function(e){return e.student_id;}))];
+  if(status==='clear'){stuIds.forEach(function(id){delete state.qaRecords[key][id];});}
+  else{stuIds.forEach(function(id){state.qaRecords[key][id]=status;});}
+  render();return;
+}
+if(action==='qa-toggle'){
+  const stuId=parseInt(el.dataset.student);
+  const key='qa_'+state.qaDate+'_'+state.qaSlot;
+  if(!state.qaRecords)state.qaRecords={};
+  if(!state.qaRecords[key])state.qaRecords[key]={};
+  const cur=state.qaRecords[key][stuId];
+  if(!cur)state.qaRecords[key][stuId]='present';
+  else if(cur==='present')state.qaRecords[key][stuId]='absent';
+  else delete state.qaRecords[key][stuId];
+  render();return;
+}
+if(action==='wp-week'){state.wpWeek=el.dataset.week;render();return;}
+if(action==='wp-quick-att'){
+  state.attTab='quick';
+  state.qaDate=el.dataset.date;
+  state.qaSlot=decodeURIComponent(el.dataset.slot);
+  state.page='attendance';
+  refreshPage();return;
+}
+if(action==='wp-quick-session'){
+  state.modal='add-session';
+  state.editTarget=null;
+  // Pre-fill date and slot
+  state.wpPreDate=el.dataset.date;
+  state.wpPreSlot=decodeURIComponent(el.dataset.slot);
+  await loadData('staff','/api/staff',branchParam());
+  render();return;
+}
+if(action==='plan-tab'&&el.dataset.tab==='weekly'){state.planTab='weekly';render();return;}
 if(action==='att-status-filter'){state.attStatusFilter=el.dataset.filter||'all';render();return;}
 if(action==='sr-tab'){state.srTab=el.dataset.tab;render();return;}
 if(action==='lr-tab'){state.lrTab=el.dataset.tab;render();return;}
@@ -4428,6 +4733,30 @@ if(action==='export-staff-timesheet'){
   const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`${staff?.name||'staff'}_timesheet.csv`;a.click();toast('Timesheet exported');return;
 }
 if(action==='toggle-att'){const sessId=parseInt(el.dataset.session);const stId=parseInt(el.dataset.student);if(!state.attRecords[sessId])state.attRecords[sessId]={};const cur=state.attRecords[sessId][stId]?.status;const nxt=cur==='present'?'absent':cur==='absent'?null:'present';if(nxt===null){delete state.attRecords[sessId][stId];}else{state.attRecords[sessId][stId]={status:nxt,notes:''}}render();return;}
+if(action==='save-quick-att'){
+  const qDate=el.dataset.date;
+  const qSlot=el.dataset.slot;
+  const key='qa_'+qDate+'_'+qSlot;
+  const localAtt=state.qaRecords&&state.qaRecords[key]?state.qaRecords[key]:{};
+  const daySessions=(state.data.sessions||[]).filter(function(s){return s.date===qDate&&s.slot===qSlot;});
+  if(daySessions.length===0){toast('No sessions exist for this date/slot — create sessions first','error');return;}
+  // Save attendance for each session based on table allocations
+  var saved=0;
+  for(var si=0;si<daySessions.length;si++){
+    var sess=daySessions[si];
+    var sessData=state.data['sess_students_'+sess.id]||[];
+    if(!sessData.length){await loadData('sess_students_'+sess.id,'/api/sessions/'+sess.id+'/students');}
+    sessData=state.data['sess_students_'+sess.id]||[];
+    var records=[];var delIds=[];
+    Object.keys(localAtt).forEach(function(stuId){
+      var inSess=sessData.some(function(s){return s.student_id===parseInt(stuId);});
+      if(inSess&&localAtt[stuId])records.push({student_id:parseInt(stuId),status:localAtt[stuId],notes:''});
+    });
+    if(records.length>0){await API.post('/api/attendance',{session_id:sess.id,records:records,delete_student_ids:[]});saved++;}
+  }
+  toast('Attendance saved for '+saved+' session'+(saved!==1?'s':''));
+  return;
+}
 if(action==='save-att'){
   const localRecs=state.attRecords[id]||{};
   const records=Object.entries(localRecs).map(([stId,rec])=>({student_id:parseInt(stId),status:rec.status,notes:rec.notes||''}));
