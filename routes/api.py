@@ -1876,6 +1876,23 @@ def delete_table_allocation(aid):
     conn.commit(); cur.close(); conn.close()
     return jsonify({'ok': True})
 
+@api_bp.route('/api/table-allocations/<int:aid>', methods=['PUT'])
+@require_auth
+def update_table_alloc(aid):
+    d = request.json
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        UPDATE table_allocations
+        SET staff_id=%s, max_students=%s, notes=%s
+        WHERE id=%s
+    """, (d.get('staff_id'), d.get('max_students',5), d.get('notes',''), aid))
+    # Also update session staff_id
+    cur.execute("UPDATE sessions SET staff_id=%s WHERE id=(SELECT session_id FROM table_allocations WHERE id=%s)", 
+                (d.get('staff_id'), aid))
+    conn.commit(); cur.close(); conn.close()
+    log_action('edit','table_allocations',aid)
+    return jsonify({'ok': True})
+
 @api_bp.route('/api/table-allocations/<int:aid>/students', methods=['POST'])
 @require_auth
 def add_table_student(aid):
