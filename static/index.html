@@ -4357,7 +4357,8 @@ if(m==='edit-table-alloc'){
     slotSessions.forEach(function(ss){
       var allocs=state.data['table_allocs_'+ss.id]||[];
       allocs.forEach(function(a){
-        if(a.id!==allocId&&a.staff_id===teacherId){
+        var aTeacher=a.staff_id||a.teacher_id;
+        if(a.id!==allocId&&aTeacher&&aTeacher===teacherId){
           conflictTable=a.table_no;
         }
       });
