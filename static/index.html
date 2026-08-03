@@ -4342,8 +4342,8 @@ if(m==='add-test-record'||m==='edit-test-record'){
   toast(m==='add-test-record'?'Test recorded':'Test updated');
 }
 if(m==='edit-table-alloc'){
-  const allocId=state.editTarget?.id;
-  if(!allocId){toast('Error: no table selected','error');return;}
+  const allocId=state.editTarget?.id||state.editTarget?.alloc_id;
+  if(!allocId){toast('Error: no table found - try refreshing','error');return;}
   const teacherId=v('f-teacher-id')?parseInt(v('f-teacher-id'))||null:null;
   const maxStudents=parseInt(v('f-max-students'))||5;
   const notes=v('f-notes')||'';
@@ -4764,7 +4764,7 @@ if(action==='edit-table-alloc'){
     if(a)foundAlloc=a;
   });
   state.modal='edit-table-alloc';
-  state.editTarget=foundAlloc||{id:allocId};
+  state.editTarget=foundAlloc||{id:allocId,alloc_id:allocId,table_no:'?'};
   render();return;
 }
 if(action==='add-table-alloc'){
