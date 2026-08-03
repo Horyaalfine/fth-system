@@ -652,8 +652,10 @@ def get_invoices():
     status = request.args.get('status')
     params = []
     where  = []
-    if b:    where.append("i.branch_id=%s"); params.append(b)
+    student_id = request.args.get('student_id', type=int)
+    if b:         where.append("i.branch_id=%s"); params.append(b)
     if status and status != 'all': where.append("i.status=%s"); params.append(status)
+    if student_id: where.append("i.student_id=%s"); params.append(student_id)
     wc = ('WHERE ' + ' AND '.join(where)) if where else ''
     cur.execute(f"""
         SELECT i.*, s.name as student_name, s.admission_id, b.name as branch_name,
@@ -980,6 +982,38 @@ def delete_parent_user(pid):
     conn.commit(); cur.close(); conn.close()
     log_action('delete', 'parent_users', pid)
     return jsonify({'ok': True})
+
+@api_bp.route('/api/students/<int:sid>/attendance-summary', methods=['GET'])
+@require_auth
+def student_attendance_summary(sid):
+    """Get attendance summary for a specific student."""
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        SELECT 
+            COUNT(*) as total_sessions,
+            SUM(CASE WHEN a.status='present' THEN 1 ELSE 0 END) as present,
+            SUM(CASE WHEN a.status='absent' THEN 1 ELSE 0 END) as absent,
+            s.slot, s.date, s.subject, a.status, a.notes
+        FROM attendance a
+        JOIN sessions s ON s.id=a.session_id
+        WHERE a.student_id=%s
+        GROUP BY s.slot, s.date, s.subject, a.status, a.notes
+        ORDER BY s.date DESC
+    """, (sid,))
+    records = rows(cur)
+    # Overall summary
+    cur.execute("""
+        SELECT 
+            COUNT(*) as total,
+            SUM(CASE WHEN a.status='present' THEN 1 ELSE 0 END) as present,
+            SUM(CASE WHEN a.status='absent' THEN 1 ELSE 0 END) as absent
+        FROM attendance a WHERE a.student_id=%s
+    """, (sid,))
+    summary = rows(cur)
+    for r in records:
+        if r.get('date'): r['date'] = str(r['date'])
+    cur.close(); conn.close()
+    return jsonify({'records': records, 'summary': summary[0] if summary else {}})
 
 # ════════════════════════════════════════════
 #  PARENT PORTAL (read-only, own children only)
