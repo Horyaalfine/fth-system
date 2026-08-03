@@ -2684,6 +2684,7 @@ function renderSessionPlan(){
           html+='<div class="card-header" style="margin-bottom:10px;">';
           html+='<div><div style="font-weight:700;">Table '+ta.table_no+'</div><div style="font-size:12px;color:var(--text3);">'+(ta.teacher_name||'No teacher')+' · <span class="badge badge-gray">'+(ta.subject||'—')+'</span></div></div>';
           html+='<div style="display:flex;gap:6px;align-items:center;"><span style="font-size:12px;color:'+(stus.length>=ta.max_students?'var(--danger-text)':'var(--text3)')+';">'+stus.length+'/'+ta.max_students+'</span>';
+          html+='<button class="btn btn-sm" data-action="edit-table-alloc" data-id="'+ta.id+'" title="Assign teacher">✏ Teacher</button>';
           html+='<button class="btn btn-sm btn-primary" data-action="add-student-to-table" data-alloc="'+ta.id+'" data-session="'+selId+'">+ Add</button>';
           html+='<button class="btn btn-sm btn-danger" data-action="del-table-alloc" data-id="'+ta.id+'">Del</button></div></div>';
           html+='<div style="height:4px;background:var(--border2);border-radius:2px;margin-bottom:10px;"><div style="width:'+Math.min(pct,100)+'%;height:4px;background:'+bc+';border-radius:2px;"></div></div>';
@@ -3252,6 +3253,7 @@ if(m==='gen-weekly-sessions')return modalWeeklySessions();if(m==='add-user'||m==
   if(m==='add-catchup')return modalAddCatchup();
   if(m==='schedule-catchup')return modalScheduleCatchup();
   if(m==='set-cover-teacher')return modalSetCoverTeacher();
+  if(m==='edit-table-alloc')return modalEditTableAlloc();
   if(m==='add-table-alloc')return modalAddTableAlloc();
   if(m==='add-student-to-table')return modalAddStudentToTable();
   if(m==='add-test-record'||m==='edit-test-record')return modalTestRecord();return'';}
@@ -3907,6 +3909,22 @@ function modalResetPassword(){
   `,footer);
 }
 
+function modalEditTableAlloc(){
+  const alloc=state.editTarget||{};
+  const staff=state.data.staff||[];
+  var staffOpts='<option value="">— No teacher —</option>';
+  staff.filter(function(s){return s.status==='active';}).forEach(function(s){
+    staffOpts+='<option value="'+s.id+'" '+(s.id===alloc.staff_id?'selected':'')+'>'+s.name+' ('+s.role+')</option>';
+  });
+  const footer='<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Save</button>';
+  return mWrap('Assign teacher — Table '+alloc.table_no,
+    '<div class="form-grid">'+
+    '<div class="field" style="grid-column:1/-1;"><label>Teacher</label><select id="f-teacher-id">'+staffOpts+'</select></div>'+
+    '<div class="field" style="grid-column:1/-1;"><label>Max students</label><select id="f-max-students"><option value="5" '+(alloc.max_students===5?'selected':'')+'>5 (standard)</option><option value="6" '+(alloc.max_students===6?'selected':'')+'>6 (short-staffed)</option></select></div>'+
+    '<div class="field" style="grid-column:1/-1;"><label>Notes</label><input type="text" id="f-notes" value="'+(alloc.notes||'')+'" placeholder="Optional notes"></div>'+
+    '</div>',footer);
+}
+
 function modalAddTableAlloc(){
   const sess=state.editTarget||{};
   const staff=state.data.staff||[];
@@ -4305,6 +4323,21 @@ if(m==='add-test-record'||m==='edit-test-record'){
   else await API.put('/api/test-records/'+state.editTarget.id,body);
   toast(m==='add-test-record'?'Test recorded':'Test updated');
 }
+if(m==='edit-table-alloc'){
+  const allocId=state.editTarget?.id;
+  if(!allocId){toast('Error: no table selected','error');return;}
+  const teacherId=v('f-teacher-id')?parseInt(v('f-teacher-id'))||null:null;
+  const maxStudents=parseInt(v('f-max-students'))||5;
+  const notes=v('f-notes')||'';
+  await API.put('/api/table-allocations/'+allocId,{staff_id:teacherId,max_students:maxStudents,notes:notes});
+  // Reload allocs
+  var sessions=state.data.sessions||[];
+  var parts=(state.planSlotKey||'').split('__');
+  var slotDate=parts[0];var slotName=parts.slice(1).join('__');
+  var slotSessions=sessions.filter(function(s){return s.date===slotDate&&s.slot===slotName;});
+  await Promise.all(slotSessions.map(function(ss){return loadData('table_allocs_'+ss.id,'/api/table-allocations/'+ss.id);}));
+  toast('Teacher assigned');
+}
 if(m==='add-table-alloc'){
   const sessId=state.editTarget?.session_id;
   const tableNo=parseInt(v('f-table-no'));
@@ -4699,6 +4732,23 @@ if(action==='export-timetable-csv'){
   });
   exportXLSX(rows, 'fth-student-timetables.xlsx', 'Timetables');return;}
 if(action==='plan-tab'){state.planTab=el.dataset.tab;render();return;}
+if(action==='edit-table-alloc'){
+  const allocId=parseInt(el.dataset.id);
+  // Find the alloc object from state
+  var foundAlloc=null;
+  var sessions=state.data.sessions||[];
+  var parts=(state.planSlotKey||'').split('__');
+  var slotDate=parts[0];var slotName=parts.slice(1).join('__');
+  var slotSessions=sessions.filter(function(s){return s.date===slotDate&&s.slot===slotName;});
+  slotSessions.forEach(function(ss){
+    var allocs=state.data['table_allocs_'+ss.id]||[];
+    var a=allocs.find(function(a){return a.id===allocId;});
+    if(a)foundAlloc=a;
+  });
+  state.modal='edit-table-alloc';
+  state.editTarget=foundAlloc||{id:allocId};
+  render();return;
+}
 if(action==='add-table-alloc'){
   const sessId=parseInt(el.dataset.session);
   state.modal='add-table-alloc';state.editTarget={session_id:sessId};render();return;}
