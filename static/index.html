@@ -562,6 +562,13 @@ if(state.currentUser&&state.currentUser.role!=='super_admin'&&state.currentUser.
       return false;
     };
   });
+  // Re-wire profile tabs
+  document.querySelectorAll('[data-action="profile-tab"]').forEach(function(tab){
+    tab.onclick=function(){
+      state.profileTab=this.dataset.tab;
+      render();
+    };
+  });
   // Also re-wire sidebar nav items (data-nav) after every render
   document.querySelectorAll('[data-nav]').forEach(function(el){
     el.onclick=function(e){
@@ -4774,7 +4781,7 @@ function closeModal(){state.modal=null;state.editTarget=null;render();}
 
 async function handleAction(action,id,el,e){
 if(state.currentUser?.role==='reports_viewer'){
-  const allowedPrefixes=['export','inv-filter','inv-tab','fin-tab','fin-clear-month','mgmt-tab','filter','sort','search','print-statement','tr-tab','att-tab','session-report-tab','sr-tab'];
+  const allowedPrefixes=['export','inv-filter','inv-tab','fin-tab','fin-clear-month','mgmt-tab','filter','sort','search','print-statement','tr-tab','att-tab','session-report-tab','sr-tab','profile-tab','view-student-profile','close-student-profile'];
   const isAllowed=allowedPrefixes.some(p=>action===p||action.startsWith(p+'-')||action.startsWith(p));
   if(!isAllowed){
     toast('Your account has read-only access to reports.','error');
