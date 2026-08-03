@@ -3913,8 +3913,26 @@ function modalEditTableAlloc(){
   const alloc=state.editTarget||{};
   const staff=state.data.staff||[];
   var staffOpts='<option value="">— No teacher —</option>';
-  staff.filter(function(s){return s.status==='active';}).forEach(function(s){
-    staffOpts+='<option value="'+s.id+'" '+(s.id===alloc.staff_id?'selected':'')+'>'+s.name+' ('+s.role+')</option>';
+  var tableSubject=(alloc.subject||'').toLowerCase();
+  var activeStaff=staff.filter(function(s){return s.status==='active';});
+  // Sort: matching subject first, then others
+  activeStaff.sort(function(a,b){
+    var aMatch=tableSubject&&(a.subject||'').toLowerCase().includes(tableSubject)?0:1;
+    var bMatch=tableSubject&&(b.subject||'').toLowerCase().includes(tableSubject)?0:1;
+    if(aMatch!==bMatch)return aMatch-bMatch;
+    return a.name.localeCompare(b.name);
+  });
+  var lastWasMatch=null;
+  activeStaff.forEach(function(s){
+    var isMatch=tableSubject&&(s.subject||'').toLowerCase().includes(tableSubject);
+    // Add divider between matching and non-matching
+    if(lastWasMatch===true&&!isMatch){
+      staffOpts+='<option disabled>─── Other staff ───</option>';
+    }
+    var label=s.name+' ('+s.role+(s.subject?' · '+s.subject:'')+')';
+    if(isMatch)label='★ '+label;
+    staffOpts+='<option value="'+s.id+'" '+(s.id===alloc.staff_id?'selected':'')+'>'+label+'</option>';
+    lastWasMatch=isMatch;
   });
   const footer='<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Save</button>';
   return mWrap('Assign teacher — Table '+alloc.table_no,
