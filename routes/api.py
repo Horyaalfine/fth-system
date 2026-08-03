@@ -1883,7 +1883,7 @@ def update_table_alloc(aid):
     conn = get_conn(); cur = conn.cursor()
     cur.execute("""
         UPDATE table_allocations
-        SET staff_id=%s, max_students=%s, notes=%s
+        SET teacher_id=%s, max_students=%s, notes=%s
         WHERE id=%s
     """, (d.get('staff_id'), d.get('max_students',5), d.get('notes',''), aid))
     # Also update session staff_id
