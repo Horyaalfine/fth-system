@@ -4346,11 +4346,8 @@ if(m==='edit-table-alloc'){
   const teacherId=v('f-teacher-id')?parseInt(v('f-teacher-id'))||null:null;
   const maxStudents=parseInt(v('f-max-students'))||5;
   const notes=v('f-notes')||'';
-  console.log('edit-table-alloc save:',{allocId,teacherId,maxStudents,editTarget:state.editTarget});
-  if(!allocId){toast('Error: allocId='+allocId+' editTarget='+JSON.stringify(state.editTarget),'error');return;}
-  const putResult=await API.put('/api/table-allocations/'+allocId,{staff_id:teacherId,max_students:maxStudents,notes:notes});
-  console.log('PUT result:',putResult);
-  if(putResult?.error){toast('API error: '+putResult.error,'error');return;}
+  if(!allocId){toast('Error: table not found','error');return;}
+  await API.put('/api/table-allocations/'+allocId,{staff_id:teacherId,max_students:maxStudents,notes:notes});
   // Reload allocs
   var sessions=state.data.sessions||[];
   var parts=(state.planSlotKey||'').split('__');
