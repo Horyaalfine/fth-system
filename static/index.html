@@ -11,7 +11,7 @@
   --bg:#f5f0e8;--surface:#fffdf7;--surface2:#f0ebe0;--surface3:#e8e2d6;
   --border:#d4c9b8;--border2:#bfb5a4;
   /* Text - navy/blue for readability on cream */
-  --text:#1a2744;--text2:#2d3f6b;--text3:#6b7a9e;
+  --text:#1a2744;--text2:#2d3f6b;--text3:#4a5a8a;
   /* Accent colours */
   --accent:#2563eb;--accent-bg:rgba(37,99,235,0.1);--accent-text:#1d4ed8;
   --success:#16a34a;--success-bg:rgba(22,163,74,0.1);--success-text:#15803d;
@@ -50,7 +50,7 @@ body::before{content:'';position:fixed;top:0;left:0;right:0;height:100vh;backgro
 .brand-name{font-size:17px;font-weight:700;color:var(--sb-text);letter-spacing:-0.2px;}
 .brand-sub{font-size:11px;color:var(--sb-text3);margin-top:1px;letter-spacing:0.5px;text-transform:uppercase;}
 .branch-switcher{margin:12px 14px 0;background:rgba(37,99,235,0.15);border-radius:var(--radius);border:1px solid rgba(37,99,235,0.3);padding:10px 12px;}
-.branch-switcher label{font-size:10px;color:#93c5fd;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;display:block;margin-bottom:5px;}
+.branch-switcher label{font-size:10px;color:var(--accent);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;display:block;margin-bottom:5px;}
 .branch-switcher select{width:100%;background:transparent;border:none;font-family:var(--font);font-size:13px;font-weight:500;color:#f9fafb;cursor:pointer;outline:none;}
 .branch-switcher select option{background:var(--sb-surface2);color:var(--sb-text);}
 .nav-section{padding:12px 10px 0;flex:1;}
@@ -93,7 +93,7 @@ body::before{content:'';position:fixed;top:0;left:0;right:0;height:100vh;backgro
 .metric-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;}
 .metric-label{font-size:11px;color:var(--text2);font-weight:700;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:6px;}
 .metric-value{font-size:30px;font-weight:700;color:var(--text);line-height:1;letter-spacing:-0.5px;}
-.metric-sub{font-size:11px;color:var(--text3);margin-top:6px;}
+.metric-sub{font-size:11px;color:var(--text2);margin-top:6px;}
 
 /* CARDS */
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 24px;box-shadow:0 1px 4px rgba(26,39,68,0.06);}
@@ -168,12 +168,12 @@ select{background:#fffdf7;color:#1a2744;}select option{background:#fffdf7;color:
 .search-btn:hover{background:var(--accent-text);}
 .search-icon{display:none;}
 .section-title{font-size:22px;font-weight:700;color:var(--text);margin-bottom:4px;letter-spacing:-0.3px;}
-.section-sub{font-size:13px;color:var(--text3);margin-bottom:22px;}
+.section-sub{font-size:13px;color:var(--text2);margin-bottom:22px;}
 .dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:4px;}
 .dot-green{background:var(--success);}
 .dot-red{background:var(--danger);}
 .dot-amber{background:var(--amber);}
-.empty-state{text-align:center;padding:56px 24px;color:var(--text3);}
+.empty-state{text-align:center;padding:56px 24px;color:var(--text2);font-size:14px;}
 .divider{border:none;border-top:1px solid var(--border);margin:18px 0;}
 .row-actions{display:flex;gap:6px;}
 .bar-row{display:flex;align-items:center;gap:12px;padding:10px 0;font-size:13px;border-bottom:1px solid var(--border);}
@@ -196,7 +196,7 @@ select{background:#fffdf7;color:#1a2744;}select option{background:#fffdf7;color:
 .att-status{font-size:10px;margin-top:5px;font-weight:600;letter-spacing:0.05em;}
 .sibling-badge{font-size:10px;background:var(--teal-bg);color:var(--teal-text);padding:2px 7px;border-radius:8px;font-weight:600;border:1px solid rgba(20,184,166,0.2);}
 .tab-bar{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px;}
-.tab{padding:11px 20px;font-size:14px;font-weight:500;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all 0.15s;}
+.tab{padding:11px 20px;font-size:14px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all 0.15s;}
 .tab:hover{color:var(--text);}
 .tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600;}
 .stat-pill{display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--text2);}
