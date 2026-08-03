@@ -640,7 +640,7 @@ const u=state.currentUser;
     '</select></div>':'';
   return mobileBranchBar+`<div class="topbar"><button class="hamburger" id="hamburger-btn"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><div class="page-title">${titles[state.page]||''}</div><div class="topbar-right"><button id="mobile-logout-btn" style="display:none;background:#0f2557;color:#fff;border:1px solid #2a4d9c;border-radius:var(--radius);padding:6px 12px;font-size:13px;cursor:pointer;font-family:var(--font);">Sign out</button>${b?`<span class="badge badge-accent">${b.name}</span>`:`<span class="badge badge-purple">${state.currentUser.role==='super_admin'?'All branches':''}</span>`}<div class="user-chip" style="padding:6px 10px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border);"><div class="avatar ${avatarClass(state.currentUser.role)}" style="width:26px;height:26px;font-size:10px;">${avatarInitials(state.currentUser.name)}</div><span style="font-size:13px;color:var(--text2);margin-left:6px;">${state.currentUser.name}</span></div></div></div>`;}
 
-function renderPage(){const map={dashboard:renderDashboard,students:renderStudents,staff:renderStaff,sessions:renderSessions,attendance:renderAttendance,invoices:renderInvoices,session_reports:renderSessionReports,staff_timesheets:renderStaffTimesheets,lesson_reports:renderLessonReports,test_records:renderTestRecords,catchup:renderCatchup,session_plan:renderSessionPlan,mgmt_reports:renderMgmtReports,finance:renderFinance,reports:renderReports,users:renderUsers,branches:renderBranches,parent_portal:renderParentPortalAdmin,audit:renderAudit};return(map[state.page]||renderDashboard)();}
+function renderPage(){const map={dashboard:renderDashboard,student_profile:renderStudentProfile,students:renderStudents,staff:renderStaff,sessions:renderSessions,attendance:renderAttendance,invoices:renderInvoices,session_reports:renderSessionReports,staff_timesheets:renderStaffTimesheets,lesson_reports:renderLessonReports,test_records:renderTestRecords,catchup:renderCatchup,session_plan:renderSessionPlan,mgmt_reports:renderMgmtReports,finance:renderFinance,reports:renderReports,users:renderUsers,branches:renderBranches,parent_portal:renderParentPortalAdmin,audit:renderAudit};return(map[state.page]||renderDashboard)();}
 
 function renderDashboard(){const s=state.data.summary||{};const bs=s.branch_stats||[];const audit=(state.data.audit||[]).slice(0,5);
 return`
@@ -745,6 +745,94 @@ function renderStudentDatabase(students){
       '</tr>';
   });
   html+='</tbody></table></div></div>';
+  return html;
+}
+
+function renderStudentProfile(){
+  const s=state.profileStudent;
+  if(!s)return'<div class="empty-state">No student selected.</div>';
+  const invoices=state.data['profile_invoices_'+s.id]||[];
+  const timetable=state.data['timetable_'+s.id]||[];
+  const profileTab=state.profileTab||'overview';
+  const totalInv=invoices.length;
+  const outstanding=invoices.filter(function(i){return i.status!=='paid';}).reduce(function(t,i){return t+parseFloat(i.balance||0);},0);
+  var html='';
+  html+='<button class="btn btn-sm" data-action="close-student-profile" style="margin-bottom:16px;">← Back to students</button>';
+  // Header
+  html+='<div class="card" style="margin-bottom:16px;padding:20px;">';
+  html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">';
+  html+='<div style="display:flex;align-items:center;gap:14px;">';
+  html+='<div style="width:52px;height:52px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;font-weight:700;">'+s.name.charAt(0)+'</div>';
+  html+='<div><div style="font-size:20px;font-weight:700;">'+s.name+'</div>';
+  html+='<div style="font-size:13px;color:var(--text3);margin-top:2px;"><span class="id-code">'+s.admission_id+'</span>'+(s.year_group?' · '+s.year_group:'')+(s.branch_name?' · '+s.branch_name:'')+'</div></div></div>';
+  html+='<div style="display:flex;gap:20px;flex-wrap:wrap;">';
+  html+='<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:var(--accent);">'+(s.monthly_fee?'£'+parseFloat(s.monthly_fee).toFixed(0):'—')+'</div><div style="font-size:11px;color:var(--text3);">Monthly fee</div></div>';
+  html+='<div style="text-align:center;"><div style="font-size:22px;font-weight:700;">'+totalInv+'</div><div style="font-size:11px;color:var(--text3);">Invoices</div></div>';
+  html+='<div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:'+(outstanding>0?'var(--danger-text)':'var(--success-text)')+';">£'+outstanding.toFixed(0)+'</div><div style="font-size:11px;color:var(--text3);">Outstanding</div></div>';
+  html+='</div></div></div>';
+  // Tabs
+  html+='<div class="tab-bar" style="margin-bottom:16px;">';
+  html+='<div class="tab '+(profileTab==='overview'?'active':'')+'" data-action="profile-tab" data-tab="overview">Overview</div>';
+  html+='<div class="tab '+(profileTab==='invoices'?'active':'')+'" data-action="profile-tab" data-tab="invoices">Invoices ('+totalInv+')</div>';
+  html+='<div class="tab '+(profileTab==='timetable'?'active':'')+'" data-action="profile-tab" data-tab="timetable">Timetable</div>';
+  html+='</div>';
+  if(profileTab==='overview'){
+    html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">';
+    var dob=s.date_of_birth?new Date(s.date_of_birth+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}):'—';
+    html+='<div class="card"><div class="card-title" style="margin-bottom:10px;">Personal details</div><div style="font-size:13px;display:grid;grid-template-columns:auto 1fr;gap:5px 12px;">';
+    html+='<span style="color:var(--text3);">DOB</span><span>'+dob+'</span>';
+    html+='<span style="color:var(--text3);">Gender</span><span>'+(s.gender||'—')+'</span>';
+    html+='<span style="color:var(--text3);">School</span><span>'+(s.current_school||'—')+'</span>';
+    html+='<span style="color:var(--text3);">Hours/wk</span><span>'+(s.hours_per_week||'—')+'</span>';
+    html+='<span style="color:var(--text3);">Status</span><span>'+(s.status||'—')+'</span>';
+    html+='</div></div>';
+    var parentName=[(s.carer1_first_name||''),(s.carer1_last_name||'')].filter(Boolean).join(' ')||'—';
+    html+='<div class="card"><div class="card-title" style="margin-bottom:10px;">Parent / Guardian</div><div style="font-size:13px;display:grid;grid-template-columns:auto 1fr;gap:5px 12px;">';
+    html+='<span style="color:var(--text3);">Name</span><span>'+parentName+'</span>';
+    html+='<span style="color:var(--text3);">Mobile</span><span>'+(s.carer1_mobile||'—')+'</span>';
+    html+='<span style="color:var(--text3);">Email</span><span>'+(s.carer1_email||'—')+'</span>';
+    html+='<span style="color:var(--text3);">Address</span><span>'+(s.carer1_address||'—')+(s.carer1_postcode?' '+s.carer1_postcode:'')+'</span>';
+    html+='</div></div>';
+    html+='</div>';
+    if(s.notes)html+='<div class="card" style="margin-bottom:16px;"><div class="card-title" style="margin-bottom:8px;">Comments</div><div style="font-size:13px;">'+s.notes+'</div></div>';
+    html+='<div class="card"><div class="card-title" style="margin-bottom:12px;">Quick actions</div><div style="display:flex;gap:10px;flex-wrap:wrap;">';
+    html+='<button class="btn btn-primary" data-action="edit-student" data-id="'+s.id+'">✏ Edit profile</button>';
+    if(s.monthly_fee)html+='<button class="btn" data-action="profile-gen-invoice" style="background:var(--success);color:#fff;border-color:var(--success);">⚡ Generate this monthly invoice (£'+parseFloat(s.monthly_fee).toFixed(0)+')</button>';
+    html+='</div></div>';
+  }
+  else if(profileTab==='invoices'){
+    html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">';
+    html+='<div style="font-size:13px;color:var(--text3);">'+totalInv+' invoices</div>';
+    if(s.monthly_fee)html+='<button class="btn" data-action="profile-gen-invoice" style="background:var(--success);color:#fff;border-color:var(--success);">⚡ Generate this monthly invoice</button>';
+    html+='</div>';
+    if(invoices.length){
+      html+='<div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>';
+      html+='<thead><tr><th>Month</th><th>Description</th><th>Amount</th><th>Paid</th><th>Balance</th><th>Status</th><th>Issued</th><th></th></tr></thead><tbody>';
+      invoices.forEach(function(inv){
+        var sc=inv.status==='paid'?'var(--success-text)':inv.status==='overdue'?'var(--danger-text)':'var(--amber-text)';
+        html+='<tr><td style="font-weight:600;">'+(inv.month||'—')+'</td>';
+        html+='<td style="font-size:12px;">'+(inv.description||inv.fee_type||'Monthly fee')+'</td>';
+        html+='<td>£'+parseFloat(inv.amount||0).toFixed(2)+'</td>';
+        html+='<td style="color:var(--success-text);">£'+parseFloat(inv.amount_paid||0).toFixed(2)+'</td>';
+        html+='<td style="font-weight:600;color:'+(parseFloat(inv.balance||0)>0?'var(--danger-text)':'var(--success-text)')+';">£'+parseFloat(inv.balance||0).toFixed(2)+'</td>';
+        html+='<td><span style="color:'+sc+';font-weight:600;text-transform:capitalize;">'+inv.status+'</span></td>';
+        html+='<td style="font-size:12px;color:var(--text3);">'+(inv.issued||'—')+'</td>';
+        html+='<td><button class="btn btn-sm" data-action="mark-paid" data-id="'+inv.id+'" '+(inv.status==='paid'?'disabled':'')+'>Mark paid</button></td></tr>';
+      });
+      html+='</tbody></table></div></div>';
+      if(outstanding>0)html+='<div style="margin-top:12px;padding:10px 14px;background:var(--warning-bg);border-radius:var(--radius);font-size:13px;color:var(--amber-text);font-weight:600;">Outstanding balance: £'+outstanding.toFixed(2)+'</div>';
+      else html+='<div style="margin-top:12px;padding:10px 14px;background:rgba(16,185,129,0.1);border-radius:var(--radius);font-size:13px;color:var(--success-text);font-weight:600;">✓ All invoices paid</div>';
+    } else html+='<div class="empty-state">No invoices yet.</div>';
+  }
+  else if(profileTab==='timetable'){
+    if(timetable.length){
+      html+='<div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>';
+      html+='<thead><tr><th>Day</th><th>Slot</th><th>Subject</th></tr></thead><tbody>';
+      timetable.forEach(function(t){html+='<tr><td style="text-transform:capitalize;">'+(t.day_type||'—')+'</td><td>'+(t.slot||'—')+'</td><td>'+(t.subject||'—')+'</td></tr>';});
+      html+='</tbody></table></div></div>';
+    } else html+='<div class="empty-state">No timetable set yet.</div>';
+    html+='<div style="margin-top:12px;"><button class="btn" data-action="edit-student" data-id="'+s.id+'">✏ Edit timetable</button></div>';
+  }
   return html;
 }
 
@@ -4694,7 +4782,7 @@ if(state.currentUser?.role==='reports_viewer'){
   }
 }
 if(action==='add-student'){state.modal='add-student';state.editTarget=null;const branches=state.data.branches||[];const defBranch=state.currentBranch||branches[0]?.id;if(defBranch){try{const r=await API.get('/api/students/next-id/'+defBranch);state.editTarget={admission_id:r.next_id};}catch(err){}}render();return;}
-if(action==='view-student-profile'){const vs=(state.data.students||[]).find(function(s){return s.id===parseInt(el.dataset.id);});if(vs){state.modal='edit-student';state.editTarget=vs;render();}return;}
+// view-student-profile handled above
 if(action==='edit-student'){
   state.modal='edit-student';
   state.editTarget=(state.data.students||[]).find(s=>s.id===id);
