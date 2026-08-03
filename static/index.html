@@ -4347,6 +4347,29 @@ if(m==='edit-table-alloc'){
   const maxStudents=parseInt(v('f-max-students'))||5;
   const notes=v('f-notes')||'';
   if(!allocId){toast('Error: table not found','error');return;}
+  // Check for teacher conflict - already assigned to another table in same slot
+  if(teacherId){
+    var sessions=state.data.sessions||[];
+    var parts=(state.planSlotKey||'').split('__');
+    var slotDate=parts[0];var slotName=parts.slice(1).join('__');
+    var slotSessions=sessions.filter(function(s){return s.date===slotDate&&s.slot===slotName;});
+    var conflictTable=null;
+    slotSessions.forEach(function(ss){
+      var allocs=state.data['table_allocs_'+ss.id]||[];
+      allocs.forEach(function(a){
+        if(a.id!==allocId&&a.staff_id===teacherId){
+          conflictTable=a.table_no;
+        }
+      });
+    });
+    if(conflictTable){
+      var staffObj=(state.data.staff||[]).find(function(s){return s.id===teacherId;});
+      var staffName=staffObj?staffObj.name:'This teacher';
+      if(!confirm(staffName+' is already assigned to Table '+conflictTable+' in this slot.\n\nAssign to this table as well? (Cover/shortage situation)')){
+        return;
+      }
+    }
+  }
   await API.put('/api/table-allocations/'+allocId,{staff_id:teacherId,max_students:maxStudents,notes:notes});
   // Reload allocs
   var sessions=state.data.sessions||[];
