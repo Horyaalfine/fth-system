@@ -3776,15 +3776,28 @@ function modalParentUser(){
   const pu=state.editTarget||{};
   const allStudents=(state.data.students||[]).filter(function(s){return s.status==='active';});
   if(pu.id){
+    // Filter to family-related students only (linked + same surname/email/admid prefix)
+    var linkedStudents=allStudents.filter(function(s){return(pu.student_ids||[]).includes(s.id);});
+    var linkedSurnames=new Set(linkedStudents.map(function(s){return(s.carer1_last_name||'').toLowerCase();}).filter(Boolean));
+    var linkedEmails=new Set(linkedStudents.map(function(s){return(s.carer1_email||'').toLowerCase();}).filter(Boolean));
+    var linkedBases=new Set(linkedStudents.map(function(s){return(s.admission_id||'').replace(/[a-zA-Z]+$/,'');}).filter(Boolean));
+    var relatedStudents=allStudents.filter(function(s){
+      if((pu.student_ids||[]).includes(s.id))return true;
+      var sur=(s.carer1_last_name||'').toLowerCase();
+      var eml=(s.carer1_email||'').toLowerCase();
+      var base=(s.admission_id||'').replace(/[a-zA-Z]+$/,'');
+      return(sur&&linkedSurnames.has(sur))||(eml&&linkedEmails.has(eml))||(base&&linkedBases.has(base));
+    });
     return mWrap('Edit parent account',
       '<div class="form-grid">'+
       '<div class="field"><label>Parent / guardian name</label><input type="text" id="f-name" value="'+(pu.name||'')+'"></div>'+
       '<div class="field"><label>Email address</label><input type="email" id="f-email" value="'+(pu.email||'')+'"></div>'+
       '<div class="field"><label>Password</label><input type="password" id="f-password" placeholder="Leave blank to keep current"></div>'+
       '<div class="field"><label>Status</label><select id="f-status"><option value="active" '+((!pu.status||pu.status==="active")?'selected':'')+'>Active</option><option value="inactive" '+(pu.status==="inactive"?'selected':'')+'>Inactive</option></select></div>'+
-      '<div class="field" style="grid-column:1/-1;"><label>Linked students</label>'+
+      '<div class="field" style="grid-column:1/-1;"><label>Linked students <span style="font-size:11px;font-weight:400;color:var(--text3);">— family members only</span></label>'+
       '<div id="f-students-list" style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;">'+
-      allStudents.map(function(s){var chk=(pu.student_ids||[]).includes(s.id)?'checked':'';return'<label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border);"><input type="checkbox" class="f-student-cb" value="'+s.id+'" '+chk+'> '+s.name+' <span class="id-code">'+s.admission_id+'</span><span style="color:var(--text3);"> — '+(s.branch_name||'?')+'</span></label>';}).join('')+
+      relatedStudents.map(function(s){var chk=(pu.student_ids||[]).includes(s.id)?'checked':'';return'<label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border);"><input type="checkbox" class="f-student-cb" value="'+s.id+'" '+chk+'> '+s.name+' <span class="id-code">'+s.admission_id+'</span><span style="color:var(--text3);"> — '+(s.branch_name||'?')+'</span></label>';}).join('')+
+      (relatedStudents.length===0?'<p style="color:var(--text3);font-size:13px;padding:8px 0;">No related students found. Edit a student\'s carer details to enable auto-matching.</p>':'')+
       '</div></div></div>',
       '<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Save changes</button>');
   }
