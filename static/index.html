@@ -4599,6 +4599,40 @@ document.getElementById('modal-delete')?.addEventListener('click',async function
   closeModal();refreshPage();
 });document.getElementById('student-search')?.addEventListener('input',e=>{state.studentSearch=e.target.value;refreshPage();});document.getElementById('att-date-filter')?.addEventListener('change',function(e){state.attDateFilter=e.target.value;state.attSlotFilter='';state.attTeacherFilter='';state.attSessionId=null;state.attAllSessions='';render();});
 document.getElementById('att-tab-quick')?.addEventListener('click',function(){state.attTab='quick';render();});
+// Parent account student lookup - auto-fill parent details
+document.getElementById('f-student-lookup')?.addEventListener('change',function(){
+  const sel=this;
+  const opt=sel.options[sel.selectedIndex];
+  if(!opt||!opt.value)return;
+  const stuId=parseInt(opt.value);
+  const parentName=opt.dataset.name||'';
+  const parentEmail=opt.dataset.email||'';
+  const parentSurname=opt.dataset.surname||'';
+  // Auto-fill name and email
+  const nameEl=document.getElementById('f-name');
+  const emailEl=document.getElementById('f-email');
+  if(nameEl&&!nameEl.value)nameEl.value=parentName;
+  else if(nameEl)nameEl.value=parentName;
+  if(emailEl&&!emailEl.value)emailEl.value=parentEmail;
+  else if(emailEl)emailEl.value=parentEmail;
+  // Auto-select siblings - students with same parent surname or same email
+  const studentsEl=document.getElementById('f-students');
+  const summary=document.getElementById('f-linked-summary');
+  if(!studentsEl)return;
+  var linked=[];
+  Array.from(studentsEl.options).forEach(function(o){
+    o.selected=false;
+    // Find student data
+    const lookupOpt=document.querySelector('#f-student-lookup option[value="'+o.value+'"]');
+    if(!lookupOpt)return;
+    var isSibling=false;
+    if(parseInt(o.value)===stuId)isSibling=true;
+    else if(parentSurname&&lookupOpt.dataset.surname&&lookupOpt.dataset.surname.toLowerCase()===parentSurname.toLowerCase())isSibling=true;
+    else if(parentEmail&&lookupOpt.dataset.email&&lookupOpt.dataset.email.toLowerCase()===parentEmail.toLowerCase())isSibling=true;
+    if(isSibling){o.selected=true;linked.push(o.text.split(' (')[0]);}
+  });
+  if(summary)summary.textContent=linked.length>1?'Auto-linked '+linked.length+' siblings: '+linked.join(', '):'1 student linked';
+});
 document.getElementById('qa-date')?.addEventListener('change',function(e){state.qaDate=e.target.value;state.qaSlot='';render();});
 document.getElementById('qa-slot')?.addEventListener('change',function(e){state.qaSlot=e.target.value;render();});
 document.getElementById('att-slot-filter')?.addEventListener('change',function(e){state.attSlotFilter=e.target.value;state.attTeacherFilter='';state.attSessionId=null;state.attAllSessions='';render();});
