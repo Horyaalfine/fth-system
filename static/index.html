@@ -3782,9 +3782,10 @@ function modalParentUser(){
       '<div class="field"><label>Email address</label><input type="email" id="f-email" value="'+(pu.email||'')+'"></div>'+
       '<div class="field"><label>Password</label><input type="password" id="f-password" placeholder="Leave blank to keep current"></div>'+
       '<div class="field"><label>Status</label><select id="f-status"><option value="active" '+((!pu.status||pu.status==="active")?'selected':'')+'>Active</option><option value="inactive" '+(pu.status==="inactive"?'selected':'')+'>Inactive</option></select></div>'+
-      '<div class="field" style="grid-column:1/-1;"><label>Linked students</label><select id="f-students" multiple style="height:130px;">'+
-      allStudents.map(function(s){return'<option value="'+s.id+'" '+((pu.student_ids||[]).includes(s.id)?'selected':'')+'>'+s.name+' ('+s.admission_id+') — '+(s.branch_name||'?')+'</option>';}).join('')+
-      '</select></div></div>',
+      '<div class="field" style="grid-column:1/-1;"><label>Linked students</label>'+
+      '<div id="f-students-list" style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;">'+
+      allStudents.map(function(s){var chk=(pu.student_ids||[]).includes(s.id)?'checked':'';return'<label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border);"><input type="checkbox" class="f-student-cb" value="'+s.id+'" '+chk+'> '+s.name+' <span class="id-code">'+s.admission_id+'</span><span style="color:var(--text3);"> — '+(s.branch_name||'?')+'</span></label>';}).join('')+
+      '</div></div></div>',
       '<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Save changes</button>');
   }
   return mWrap('Add parent account',
@@ -3795,16 +3796,16 @@ function modalParentUser(){
     '<div class="field" style="grid-column:1/-1;"><label>Select student to start</label>'+
     '<select id="f-student-lookup">'+
     '<option value="">— choose a student —</option>'+
-    allStudents.map(function(s){var pn=((s.carer1_first_name||'')+' '+(s.carer1_last_name||'')).trim();return'<option value="'+s.id+'" data-name="'+pn+'" data-email="'+(s.carer1_email||'')+'" data-surname="'+(s.carer1_last_name||'')+'">'+s.name+' ('+s.admission_id+') — '+(s.branch_name||'?')+'</option>';}).join('')+
+    allStudents.map(function(s){var pn=((s.carer1_first_name||'')+' '+(s.carer1_last_name||'')).trim();return'<option value="'+s.id+'" data-name="'+pn+'" data-email="'+(s.carer1_email||'')+'" data-surname="'+(s.carer1_last_name||'')+'" data-admid="'+(s.admission_id||'')+'">'+s.name+' ('+s.admission_id+') — '+(s.branch_name||'?')+'</option>';}).join('')+
     '</select></div>'+
     '<div class="field"><label>Parent / guardian name</label><input type="text" id="f-name" placeholder="Auto-filled on student select"></div>'+
     '<div class="field"><label>Email address</label><input type="email" id="f-email" placeholder="Auto-filled on student select"></div>'+
     '<div class="field"><label>Password</label><input type="password" id="f-password" placeholder="Set a password for the parent"></div>'+
     '<div class="field"><label>Status</label><select id="f-status"><option value="active" selected>Active</option><option value="inactive">Inactive</option></select></div>'+
     '<div class="field" style="grid-column:1/-1;"><label>Linked students <span style="font-size:11px;color:var(--text3);font-weight:400;">(siblings auto-selected)</span></label>'+
-    '<select id="f-students" multiple style="height:130px;">'+
-    allStudents.map(function(s){return'<option value="'+s.id+'">'+s.name+' ('+s.admission_id+') — '+(s.branch_name||'?')+'</option>';}).join('')+
-    '</select><div id="f-linked-summary" style="margin-top:6px;font-size:12px;color:var(--text3);"></div></div>'+
+    '<div id="f-students-list" style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;">'+
+    allStudents.map(function(s){return'<label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border);"><input type="checkbox" class="f-student-cb" value="'+s.id+'" data-surname="'+(s.carer1_last_name||'')+'" data-email="'+(s.carer1_email||'')+'" data-admid="'+(s.admission_id||'')+'"> '+s.name+' <span class="id-code">'+s.admission_id+'</span><span style="color:var(--text3);"> — '+(s.branch_name||'?')+'</span></label>';}).join('')+
+    '</div><div id="f-linked-summary" style="margin-top:6px;font-size:12px;color:var(--text3);"></div></div>'+
     '</div>',
     '<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">Add account</button>');
 }
@@ -4412,7 +4413,7 @@ if(m==='edit-invoice'){
   toast('Invoice updated');
 }
 else if(m==='add-progress'){const sessId=state.editTarget?.session_id;const sess=(state.data.sessions||[]).find(s=>s.id===sessId);await API.post('/api/progress',{student_id:parseInt(v('f-student')),session_id:sessId,staff_id:sess?.staff_id||null,subject:v('f-subject'),rating:parseInt(v('f-rating'))||4,comment:v('f-comment')});toast('Progress note added');}
-else if(m==='add-parent-user'||m==='edit-parent-user'){const sel=document.getElementById('f-students');const studentIds=sel?Array.from(sel.selectedOptions).map(o=>parseInt(o.value)):[];const body={name:v('f-name'),email:v('f-email'),student_ids:studentIds,status:v('f-status')};if(v('f-password'))body.password=v('f-password');if(!body.name||!body.email){toast('Name and email required','error');return;}if(m==='add-parent-user'){if(!body.password){toast('Password required','error');return;}await API.post('/api/parent-users',body);}else await API.put('/api/parent-users/'+state.editTarget.id,body);toast(m==='add-parent-user'?'Parent account added':'Parent account updated');}
+else if(m==='add-parent-user'||m==='edit-parent-user'){const studentIds=Array.from(document.querySelectorAll('#f-students-list .f-student-cb:checked')).map(cb=>parseInt(cb.value));const body={name:v('f-name'),email:v('f-email'),student_ids:studentIds,status:v('f-status')};if(v('f-password'))body.password=v('f-password');if(!body.name||!body.email){toast('Name and email required','error');return;}if(m==='add-parent-user'){if(!body.password){toast('Password required','error');return;}await API.post('/api/parent-users',body);}else await API.put('/api/parent-users/'+state.editTarget.id,body);toast(m==='add-parent-user'?'Parent account added':'Parent account updated');}
 if(m==='add-staff-att'||m==='edit-staff-att'){
   const selId=document.getElementById('f-session-id')?.value;
   const body={staff_id:parseInt(v('f-staff-id')),branch_id:parseInt(v('f-branch')),session_id:selId?parseInt(selId):null,date:v('f-date'),sign_in:v('f-sign-in')||null,sign_out:v('f-sign-out')||null,status:v('f-status'),cover_for:v('f-cover')?parseInt(v('f-cover')):null,absence_reason:v('f-absence-reason'),notes:v('f-notes')};
@@ -4626,62 +4627,34 @@ document.getElementById('modal-delete')?.addEventListener('click',async function
   closeModal();refreshPage();
 });document.getElementById('student-search')?.addEventListener('input',e=>{state.studentSearch=e.target.value;refreshPage();});document.getElementById('att-date-filter')?.addEventListener('change',function(e){state.attDateFilter=e.target.value;state.attSlotFilter='';state.attTeacherFilter='';state.attSessionId=null;state.attAllSessions='';render();});
 document.getElementById('att-tab-quick')?.addEventListener('click',function(){state.attTab='quick';render();});
-// Parent account student lookup - auto-fill parent details
-document.getElementById('f-student-lookup')?.addEventListener('change',function(){
-  const sel=this;
-  const opt=sel.options[sel.selectedIndex];
-  if(!opt||!opt.value)return;
-  const stuId=parseInt(opt.value);
-  const parentName=opt.dataset.name||'';
-  const parentEmail=opt.dataset.email||'';
-  const parentSurname=opt.dataset.surname||'';
-  // Auto-fill name and email
-  const nameEl=document.getElementById('f-name');
-  const emailEl=document.getElementById('f-email');
-  if(nameEl&&!nameEl.value)nameEl.value=parentName;
-  else if(nameEl)nameEl.value=parentName;
-  if(emailEl&&!emailEl.value)emailEl.value=parentEmail;
-  else if(emailEl)emailEl.value=parentEmail;
-  // Auto-select siblings - students with same parent surname or same email
-  const studentsEl=document.getElementById('f-students');
-  const summary=document.getElementById('f-linked-summary');
-  if(!studentsEl)return;
-  var linked=[];
-  Array.from(studentsEl.options).forEach(function(o){
-    o.selected=false;
-    // Find student data
-    const lookupOpt=document.querySelector('#f-student-lookup option[value="'+o.value+'"]');
-    if(!lookupOpt)return;
-    var isSibling=false;
-    if(parseInt(o.value)===stuId)isSibling=true;
-    else if(parentSurname&&lookupOpt.dataset.surname&&lookupOpt.dataset.surname.toLowerCase()===parentSurname.toLowerCase())isSibling=true;
-    else if(parentEmail&&lookupOpt.dataset.email&&lookupOpt.dataset.email.toLowerCase()===parentEmail.toLowerCase())isSibling=true;
-    if(isSibling){o.selected=true;linked.push(o.text.split(' (')[0]);}
-  });
-  if(summary)summary.textContent=linked.length>1?'Auto-linked '+linked.length+' siblings: '+linked.join(', '):'1 student linked';
-});
+// Parent account student lookup - auto-fill parent details + auto-check siblings
 document.getElementById('f-student-lookup')?.addEventListener('change',function(){
   const opt=this.options[this.selectedIndex];
   if(!opt||!opt.value)return;
-  const pname=opt.dataset.name||'';
-  const pemail=opt.dataset.email||'';
-  const psurname=(opt.dataset.surname||'').toLowerCase();
-  const el=document.getElementById('f-name');if(el)el.value=pname;
-  const el2=document.getElementById('f-email');if(el2)el2.value=pemail;
-  const stuSel=document.getElementById('f-students');
+  const stuId=parseInt(opt.value);
+  const parentName=opt.dataset.name||'';
+  const parentEmail=(opt.dataset.email||'').toLowerCase();
+  const parentSurname=(opt.dataset.surname||'').toLowerCase();
+  const baseAdmid=(opt.dataset.admid||'').replace(/[a-zA-Z]+$/,'');
+  // Auto-fill name and email
+  const nameEl=document.getElementById('f-name');
+  const emailEl=document.getElementById('f-email');
+  if(nameEl)nameEl.value=parentName;
+  if(emailEl)emailEl.value=opt.dataset.email||'';
+  // Auto-check sibling checkboxes - match by ID, surname, email, or admission ID prefix
   const summary=document.getElementById('f-linked-summary');
-  if(!stuSel)return;
+  const cbs=document.querySelectorAll('#f-students-list .f-student-cb');
+  if(!cbs.length)return;
   var linked=[];
-  Array.from(stuSel.options).forEach(function(o){
-    const lo=document.querySelector('#f-student-lookup option[value="'+o.value+'"]');
-    if(!lo)return;
-    var match=o.value===this.value||
-      (psurname&&(lo.dataset.surname||'').toLowerCase()===psurname)||
-      (pemail&&(lo.dataset.email||'').toLowerCase()===pemail.toLowerCase());
-    o.selected=!!match;
-    if(match)linked.push(o.text.split(' (')[0]);
-  }.bind(this));
-  if(summary)summary.textContent=linked.length>1?linked.length+' siblings auto-linked: '+linked.join(', '):'1 student linked';
+  cbs.forEach(function(cb){
+    cb.checked=false;
+    var isSibling=parseInt(cb.value)===stuId;
+    if(!isSibling&&parentSurname){var s=(cb.dataset.surname||'').toLowerCase();if(s&&s===parentSurname)isSibling=true;}
+    if(!isSibling&&parentEmail){var e=(cb.dataset.email||'').toLowerCase();if(e&&e===parentEmail)isSibling=true;}
+    if(!isSibling&&baseAdmid){var b=(cb.dataset.admid||'').replace(/[a-zA-Z]+$/,'');if(b&&b===baseAdmid)isSibling=true;}
+    if(isSibling){cb.checked=true;var lbl=cb.closest('label');linked.push(lbl?lbl.textContent.trim().split('—')[0].trim():'?');}
+  });
+  if(summary)summary.textContent=linked.length>1?'Auto-linked '+linked.length+' siblings: '+linked.join(', '):'1 student linked';
 });
 document.getElementById('qa-date')?.addEventListener('change',function(e){state.qaDate=e.target.value;state.qaSlot='';render();});
 document.getElementById('qa-slot')?.addEventListener('change',function(e){state.qaSlot=e.target.value;render();});
