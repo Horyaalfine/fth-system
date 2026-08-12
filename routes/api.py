@@ -871,11 +871,21 @@ def add_progress():
 @require_roles('super_admin','branch_manager','head_of_centre')
 def get_users():
     conn = get_conn(); cur = conn.cursor()
-    cur.execute("""
-        SELECT u.id, u.name, u.email, u.role, u.branch_id, u.status, u.last_login,
-               b.name as branch_name
-        FROM users u LEFT JOIN branches b ON b.id=u.branch_id ORDER BY u.name
-    """)
+    role = session.get('role')
+    branch_id = session.get('branch_id')
+    if role in ('branch_manager', 'head_of_centre') and branch_id:
+        cur.execute("""
+            SELECT u.id, u.name, u.email, u.role, u.branch_id, u.status, u.last_login,
+                   b.name as branch_name
+            FROM users u LEFT JOIN branches b ON b.id=u.branch_id
+            WHERE u.branch_id=%s ORDER BY u.name
+        """, (branch_id,))
+    else:
+        cur.execute("""
+            SELECT u.id, u.name, u.email, u.role, u.branch_id, u.status, u.last_login,
+                   b.name as branch_name
+            FROM users u LEFT JOIN branches b ON b.id=u.branch_id ORDER BY u.name
+        """)
     data = rows(cur)
     for d in data:
         if d.get('last_login'): d['last_login'] = str(d['last_login'])
@@ -883,9 +893,17 @@ def get_users():
     return jsonify(data)
 
 @api_bp.route('/api/users', methods=['POST'])
-@require_roles('super_admin')
+@require_roles('super_admin','branch_manager','head_of_centre')
 def add_user():
     d = request.json
+    caller_role = session.get('role')
+    caller_branch = session.get('branch_id')
+    PRIVILEGED_ROLES = ('super_admin', 'branch_manager')
+    if caller_role in ('branch_manager', 'head_of_centre'):
+        if d.get('role') in PRIVILEGED_ROLES:
+            return jsonify({'error': 'Cannot assign that role'}), 403
+        if not caller_branch or str(d.get('branch_id')) != str(caller_branch):
+            return jsonify({'error': 'Can only create users for your own branch'}), 403
     conn = get_conn(); cur = conn.cursor()
     cur.execute("""
         INSERT INTO users (branch_id, name, email, password_hash, role, status)
@@ -897,9 +915,24 @@ def add_user():
     return jsonify(r), 201
 
 @api_bp.route('/api/users/<int:uid>', methods=['PUT'])
-@require_roles('super_admin')
+@require_roles('super_admin','branch_manager','head_of_centre')
 def update_user(uid):
     d = request.json
+    caller_role = session.get('role')
+    caller_branch = session.get('branch_id')
+    PRIVILEGED_ROLES = ('super_admin', 'branch_manager')
+    if caller_role in ('branch_manager', 'head_of_centre'):
+        conn = get_conn(); cur = conn.cursor()
+        cur.execute("SELECT branch_id, role FROM users WHERE id=%s", (uid,))
+        target = row(cur); cur.close(); conn.close()
+        if not target or str(target.get('branch_id')) != str(caller_branch):
+            return jsonify({'error': 'Cannot edit users outside your branch'}), 403
+        if target.get('role') in PRIVILEGED_ROLES:
+            return jsonify({'error': 'Cannot edit privileged users'}), 403
+        if d.get('role') in PRIVILEGED_ROLES:
+            return jsonify({'error': 'Cannot assign that role'}), 403
+        if str(d.get('branch_id')) != str(caller_branch):
+            return jsonify({'error': 'Cannot move user to another branch'}), 403
     conn = get_conn(); cur = conn.cursor()
     if d.get('password'):
         cur.execute("""UPDATE users SET name=%s, email=%s, role=%s, branch_id=%s, status=%s, password_hash=%s

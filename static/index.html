@@ -423,8 +423,8 @@ function branchParam(){
 function canAccess(page){
   const r=state.currentUser?.role;
   if(r==='super_admin') return true;
-  if(r==='branch_manager') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup','session_plan','mgmt_reports','parent_portal'].includes(page);
-  if(r==='head_of_centre') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup','session_plan','mgmt_reports'].includes(page);
+  if(r==='branch_manager') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup','session_plan','mgmt_reports','parent_portal','users'].includes(page);
+  if(r==='head_of_centre') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup','session_plan','mgmt_reports','parent_portal','users'].includes(page);
   if(r==='supervisor') return['dashboard','students','sessions','attendance','session_reports','lesson_reports','test_records','staff_timesheets','catchup','session_plan'].includes(page);
   if(r==='teacher') return['dashboard','sessions','attendance','session_reports','lesson_reports','test_records','staff_timesheets'].includes(page);
   if(r==='receptionist') return['dashboard','students','sessions','attendance','invoices','finance'].includes(page);
@@ -3222,11 +3222,11 @@ ${subj.map((sub,i)=>`<div class="bar-row"><span style="min-width:90px;color:var(
 </div>
 </div>`;}
 
-function renderUsers(){const users=state.data.users||[];
+function renderUsers(){const users=state.data.users||[];const isSA=isSuperAdmin();const role=state.currentUser?.role;const canManage=isSA||role==='branch_manager'||role==='head_of_centre';const subtitle=isSA?`${users.length} accounts across all branches`:`${users.length} accounts in your branch`;
 return`
 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
-<div><div class="section-title">User management</div><div class="section-sub">${users.length} accounts across all branches</div></div>
-<button class="btn btn-primary" data-action="add-user">+ Add user</button>
+<div><div class="section-title">User management</div><div class="section-sub">${subtitle}</div></div>
+${canManage?'<button class="btn btn-primary" data-action="add-user">+ Add user</button>':''}
 </div>
 <div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>
 <thead><tr><th>Name</th><th>Email</th><th>Branch</th><th>Role</th><th>Status</th><th>Last login</th><th></th></tr></thead>
@@ -3236,7 +3236,7 @@ return`
 <td><span class="badge badge-accent">${u.branch_name||'All branches'}</span></td>
 <td>${roleBadge(u.role)}</td><td>${statusDot(u.status)}</td>
 <td style="font-size:11px;color:var(--text3);">${u.last_login?new Date(u.last_login).toLocaleDateString('en-GB'):'Never'}</td>
-<td><div class="row-actions"><button class="btn btn-sm" data-action="edit-user" data-id="${u.id}">Edit</button><button class="btn btn-sm" data-action="reset-user-pw" data-id="${u.id}" style="color:var(--amber-text);border-color:var(--amber);">Reset PW</button><button class="btn btn-sm btn-danger" data-action="del-user" data-id="${u.id}">Del</button></div></td>
+<td><div class="row-actions"><button class="btn btn-sm" data-action="edit-user" data-id="${u.id}">Edit</button><button class="btn btn-sm" data-action="reset-user-pw" data-id="${u.id}" style="color:var(--amber-text);border-color:var(--amber);">Reset PW</button>${isSA?`<button class="btn btn-sm btn-danger" data-action="del-user" data-id="${u.id}">Del</button>`:''}</div></td>
 </tr>`).join('')}</tbody>
 </table></div></div>`;}
 
@@ -3596,23 +3596,30 @@ function previewWeekly(){
   document.getElementById('weekly-preview').textContent='Will create '+dates.length+' session(s) across '+dates.length+' date(s). First: '+(dates[0]||'—')+', Last: '+(dates[dates.length-1]||'—');
 }
 
-function modalUser(){const u=state.editTarget||{};const branches=state.data.branches||[];
+function modalUser(){const u=state.editTarget||{};const branches=state.data.branches||[];const myRole=state.currentUser?.role;const myBranch=state.currentUser?.branch_id;const isSA=isSuperAdmin();const isBM=myRole==='branch_manager'||myRole==='head_of_centre';
+const roleOpts=isSA?`
+        <option value="super_admin" ${u.role==='super_admin'?'selected':''}>Super admin</option>
+        <option value="branch_manager" ${u.role==='branch_manager'?'selected':''}>Branch manager</option>
+        <option value="head_of_centre" ${u.role==='head_of_centre'?'selected':''}>Head of Centre</option>
+        <option value="supervisor" ${u.role==='supervisor'?'selected':''}>Supervisor</option>
+        <option value="teacher" ${u.role==='teacher'?'selected':''}>Teacher</option>
+        <option value="receptionist" ${u.role==='receptionist'?'selected':''}>Receptionist</option>
+        <option value="admin" ${u.role==='admin'?'selected':''}>Admin support</option>
+        <option value="reports_viewer" ${u.role==='reports_viewer'?'selected':''}>Reports viewer (read-only)</option>`:`
+        <option value="head_of_centre" ${u.role==='head_of_centre'?'selected':''}>Head of Centre</option>
+        <option value="supervisor" ${u.role==='supervisor'?'selected':''}>Supervisor</option>
+        <option value="teacher" ${u.role==='teacher'?'selected':''}>Teacher</option>
+        <option value="receptionist" ${u.role==='receptionist'?'selected':''}>Receptionist</option>
+        <option value="admin" ${u.role==='admin'?'selected':''}>Admin support</option>
+        <option value="reports_viewer" ${u.role==='reports_viewer'?'selected':''}>Reports viewer (read-only)</option>`;
+const branchField=isSA?`<div class="field"><label>Branch</label><select id="f-branch" ${(!u.id&&!u.role)||u.role==='super_admin'?'disabled':''}><option value="" ${!u.branch_id?'selected':''}>All branches (admin)</option>${branches.map(b=>`<option value="${b.id}" ${u.branch_id==b.id?'selected':''}>${b.name}</option>`).join('')}</select><div style="font-size:11px;color:var(--text3);margin-top:4px;">Super admin always has access to all branches.</div></div>`:`<input type="hidden" id="f-branch" value="${myBranch||''}">`;
 return mWrap(u.id?'Edit user':'Add user',`
 <div class="form-grid">
 <div class="field"><label>Full name</label><input type="text" id="f-name" value="${u.name||''}"></div>
 <div class="field"><label>Email</label><input type="email" id="f-email" value="${u.email||''}"></div>
 <div class="field"><label>Password</label><input type="password" id="f-password" placeholder="${u.id?'Leave blank to keep current':'Set password'}"></div>
-<div class="field"><label>Role</label><select id="f-role" onchange="document.getElementById(\'f-branch\').value=this.value===\'super_admin\'?\'\':document.getElementById(\'f-branch\').value;document.getElementById(\'f-branch\').disabled=this.value===\'super_admin\';">
-        <option value="super_admin" ${u.role==='super_admin'?'selected':''}>Super admin</option>
-        <option value="branch_manager" ${u.role==='branch_manager'?'selected':''}>Branch manager</option>
-        <option value="teacher" ${u.role==='teacher'?'selected':''}>Teacher</option>
-        <option value="head_of_centre" ${u.role==='head_of_centre'?'selected':''}>Head of Centre</option>
-        <option value="supervisor" ${u.role==='supervisor'?'selected':''}>Supervisor</option>
-        <option value="receptionist" ${u.role==='receptionist'?'selected':''}>Receptionist</option>
-        <option value="admin" ${u.role==='admin'?'selected':''}>Admin support</option>
-        <option value="reports_viewer" ${u.role==='reports_viewer'?'selected':''}>Reports viewer (read-only)</option>
-      </select></div>
-<div class="field"><label>Branch</label><select id="f-branch" ${(!u.id&&!u.role)||u.role==='super_admin'?'disabled':''}><option value="" ${!u.branch_id?'selected':''}>All branches (admin)</option>${branches.map(b=>`<option value="${b.id}" ${u.branch_id==b.id?'selected':''}>${b.name}</option>`).join('')}</select><div style="font-size:11px;color:var(--text3);margin-top:4px;">Super admin always has access to all branches.</div></div>
+<div class="field"><label>Role</label><select id="f-role" ${isSA?`onchange="document.getElementById(\'f-branch\').value=this.value===\'super_admin\'?\'\':document.getElementById(\'f-branch\').value;document.getElementById(\'f-branch\').disabled=this.value===\'super_admin\';"`:''}>${roleOpts}</select></div>
+${branchField}
 <div class="field"><label>Status</label><select id="f-status"><option value="active" ${!u.status||u.status==='active'?'selected':''}>Active</option><option value="inactive" ${u.status==='inactive'?'selected':''}>Inactive</option></select></div>
 </div>`,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${u.id?'Save changes':'Add user'}</button>`);}
 
