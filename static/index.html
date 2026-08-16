@@ -3307,7 +3307,7 @@ const students=state.data.students||[];
 const isSA=isSuperAdmin();
 const role=state.currentUser?.role;
 const canCreate=['super_admin','branch_manager','head_of_centre','supervisor','admin'].includes(role);
-const CATS=['Progress','Behaviour','Fees','Attendance','General','Safeguarding'];
+const CATS=['Progress','Behaviour','Fees','Attendance','General','Parent meeting','Safeguarding'];
 const filterStu=state.notesFilterStu||'';
 const filterCat=state.notesFilterCat||'';
 let filtered=notes;
@@ -3345,7 +3345,7 @@ function modalNote(){
 const students=state.data.students||[];
 const t=state.editTarget||{};
 const isEdit=state.modal==='edit-note';
-const CATS=['Progress','Behaviour','Fees','Attendance','General','Safeguarding'];
+const CATS=['Progress','Behaviour','Fees','Attendance','General','Parent meeting','Safeguarding'];
 const body='<div class="form-grid">'+
   (!isEdit?'<div class="field" style="grid-column:1/-1;"><label>Student *</label><select id="f-student-id"><option value="">Select student...</option>'+students.map(s=>'<option value="'+s.id+'">'+s.admission_id+' — '+s.name+'</option>').join('')+'</select></div>':
    '<div class="field" style="grid-column:1/-1;"><label>Student</label><div style="padding:8px 10px;background:var(--surface3);border-radius:var(--radius);font-size:13px;font-weight:600;color:var(--text);">'+(t.student_name||'')+'</div></div>')+
@@ -3355,7 +3355,7 @@ const body='<div class="form-grid">'+
   '<div class="field" style="grid-column:1/-1;"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="f-shared-parent" '+(t.shared_parent?'checked':'')+'>  Share with parent (visible in parent portal)</label></div>'+
   '</div>';
 const footer='<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">'+(isEdit?'Save changes':'Add note')+'</button>';
-return mWrap(isEdit?'Edit note':'Add meeting note',body,footer);}
+return mWrap(isEdit?'Edit note':'Add note',body,footer);}
 function renderParentPortal(){const pu=state.parentUser;const children=state.data.parent_children||[];function childCard(st){const att=state.data['p_att_'+st.id]||[];const invs=state.data['p_inv_'+st.id]||[];const prog=state.data['p_prog_'+st.id]||[];const tests=state.data['p_tests_'+st.id]||[];const present=att.filter(a=>a.status==='present').length;const pct=att.length?Math.round(present/att.length*100):0;const outstanding=invs.filter(i=>i.status!=='paid').reduce((s,i)=>s+i.amount,0);
 return`<div class="card" style="margin-bottom:18px;border-left:3px solid var(--accent);">
 <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--border);">
