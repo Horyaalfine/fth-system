@@ -3277,7 +3277,8 @@ def parent_announcements(student_id):
     cur.execute("""
         SELECT a.id, a.title, a.body, a.target_type, a.created_at
         FROM announcements a
-        WHERE a.active=TRUE AND a.branch_id=%s
+        WHERE a.active=TRUE
+          AND (a.branch_id IS NULL OR a.branch_id=%s)
           AND (a.target_type='all' OR (a.target_type='student' AND a.student_id=%s))
         ORDER BY a.created_at DESC
     """, (stu['branch_id'], student_id))

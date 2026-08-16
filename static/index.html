@@ -3361,7 +3361,7 @@ rightPanel+='<div class="card" style="padding:14px 16px;border-left:3px solid '+
 (active?'<span class="badge badge-success" style="font-size:11px;">Active</span>':'<span class="badge badge-danger" style="font-size:11px;">Inactive</span>')+
 '</div>'+
 '<div style="font-size:13px;color:var(--text2);line-height:1.5;">'+a.body+'</div>'+
-'<div style="font-size:11px;color:var(--text3);margin-top:6px;">'+(a.created_at||'')+' · '+(a.created_by_name||'Unknown')+(a.branch_name?' · '+a.branch_name:'')+' </div>'+
+'<div style="font-size:11px;color:var(--text3);margin-top:6px;">'+(a.created_at||'')+' · '+(a.created_by_name||'Unknown')+(' · '+(a.branch_name||'All branches'))+' </div>'+
 '</div>'+
 (canCreate?'<div style="display:flex;gap:6px;flex-shrink:0;">'+
 '<button class="btn btn-sm" data-action="edit-announcement" data-id="'+a.id+'">Edit</button>'+
