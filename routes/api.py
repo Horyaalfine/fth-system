@@ -3287,3 +3287,97 @@ def parent_announcements(student_id):
         if d.get('created_at'): d['created_at'] = str(d['created_at'])[:10]
     cur.close(); conn.close()
     return jsonify(data)
+
+# ── Email announcements ───────────────────────────────────────────────────────
+import smtplib, os
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
+@api_bp.route('/api/announcements/<int:aid>/send-email', methods=['POST'])
+@require_roles(*ANN_ROLES)
+def send_announcement_email(aid):
+    smtp_email    = os.environ.get('SMTP_EMAIL', '')
+    smtp_password = os.environ.get('SMTP_PASSWORD', '')
+    if not smtp_email or not smtp_password:
+        return jsonify({'error': 'Email not configured. Add SMTP_EMAIL and SMTP_PASSWORD to Railway variables.'}), 500
+
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("SELECT * FROM announcements WHERE id=%s", (aid,))
+    ann = cur.fetchone()
+    if not ann:
+        cur.close(); conn.close()
+        return jsonify({'error': 'Announcement not found'}), 404
+
+    # Get parent emails — branch-filtered if not super_admin
+    role = session.get('role'); branch_id = session.get('branch_id')
+    if role == 'super_admin' or not ann['branch_id']:
+        if ann['target_type'] == 'student' and ann['student_id']:
+            cur.execute("""
+                SELECT DISTINCT p.email, p.name FROM parent_users p
+                JOIN parent_students ps ON ps.parent_id=p.id
+                WHERE ps.student_id=%s AND p.email IS NOT NULL AND p.email!=''
+            """, (ann['student_id'],))
+        else:
+            cur.execute("""
+                SELECT DISTINCT p.email, p.name FROM parent_users p
+                WHERE p.email IS NOT NULL AND p.email!=''
+            """)
+    else:
+        if ann['target_type'] == 'student' and ann['student_id']:
+            cur.execute("""
+                SELECT DISTINCT p.email, p.name FROM parent_users p
+                JOIN parent_students ps ON ps.parent_id=p.id
+                JOIN students s ON s.id=ps.student_id
+                WHERE ps.student_id=%s AND s.branch_id=%s
+                  AND p.email IS NOT NULL AND p.email!=''
+            """, (ann['student_id'], branch_id))
+        else:
+            cur.execute("""
+                SELECT DISTINCT p.email, p.name FROM parent_users p
+                JOIN parent_students ps ON ps.parent_id=p.id
+                JOIN students s ON s.id=ps.student_id
+                WHERE s.branch_id=%s AND p.email IS NOT NULL AND p.email!=''
+            """, (branch_id,))
+
+    recipients = rows(cur)
+    cur.close(); conn.close()
+
+    if not recipients:
+        return jsonify({'error': 'No parents with email addresses found'}), 400
+
+    sent = 0; failed = 0
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(smtp_email, smtp_password)
+
+        for r in recipients:
+            try:
+                msg = MIMEMultipart('alternative')
+                msg['Subject'] = ann['title']
+                msg['From']    = f"Fine Tutors <{smtp_email}>"
+                msg['To']      = r['email']
+
+                html_body = f"""
+<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+  <div style="background:#2563eb;padding:20px 24px;border-radius:8px 8px 0 0;">
+    <h2 style="color:#fff;margin:0;font-size:18px;">Fine Tutors</h2>
+  </div>
+  <div style="background:#f9fafb;padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+    <h3 style="color:#111827;margin-top:0;">{ann['title']}</h3>
+    <p style="color:#374151;line-height:1.6;">{ann['body']}</p>
+    <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;">
+    <p style="font-size:12px;color:#9ca3af;">This message was sent via the Fine Tutors parent portal.</p>
+  </div>
+</div>"""
+                msg.attach(MIMEText(html_body, 'html'))
+                server.sendmail(smtp_email, r['email'], msg.as_string())
+                sent += 1
+            except Exception:
+                failed += 1
+
+        server.quit()
+    except Exception as e:
+        return jsonify({'error': f'SMTP connection failed: {str(e)}'}), 500
+
+    return jsonify({'ok': True, 'sent': sent, 'failed': failed})

@@ -3364,6 +3364,7 @@ rightPanel+='<div class="card" style="padding:14px 16px;border-left:3px solid '+
 '<div style="font-size:11px;color:var(--text3);margin-top:6px;">'+(a.created_at||'')+' · '+(a.created_by_name||'Unknown')+(' · '+(a.branch_name||'All branches'))+' </div>'+
 '</div>'+
 (canCreate?'<div style="display:flex;gap:6px;flex-shrink:0;">'+
+'<button class="btn btn-sm" data-action="send-announcement-email" data-id="'+a.id+'" style="color:var(--success-text);border-color:var(--success);">✉ Email</button>'+
 '<button class="btn btn-sm" data-action="edit-announcement" data-id="'+a.id+'">Edit</button>'+
 '<button class="btn btn-sm" data-action="delete-announcement" data-id="'+a.id+'" style="color:var(--danger-text);border-color:var(--danger);">Del</button>'+
 '</div>':'')+
@@ -5167,6 +5168,13 @@ if(action==='save-inline-announcement'){
   const t=document.getElementById('ai-title');if(t)t.value='';
   const b=document.getElementById('ai-body');if(b)b.value='';
   state.annInlineTarget=null;toast('Announcement sent');render();return;}
+if(action==='send-announcement-email'){
+  const ann=(state.data.announcements||[]).find(a=>a.id===id);
+  const target=ann?.target_type==='student'?(' to '+ann.student_name):'to all parents';
+  if(!confirm('Send \''+ann?.title+'\' by email '+target+'?'))return;
+  const r=await API.post('/api/announcements/'+id+'/send-email',{});
+  if(r&&r.error){toast(r.error,'error');return;}
+  toast('Sent to '+r.sent+' parent'+(r.sent!==1?'s':'')+(r.failed?' ('+r.failed+' failed)':''));return;}
 if(action==='edit-announcement'){const ann=(state.data.announcements||[]).find(a=>a.id===id);if(ann){state.modal='edit-announcement';state.editTarget=ann;render();}return;}
 if(action==='delete-announcement'){if(!confirm('Delete this announcement?'))return;await API.delete('/api/announcements/'+id);await loadData('announcements','/api/announcements',branchParam());toast('Announcement deleted');render();return;}
 if(action==='add-note'){state.modal='add-note';state.editTarget=null;render();return;}
