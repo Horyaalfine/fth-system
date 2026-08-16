@@ -637,7 +637,7 @@ ${(u.role==='super_admin'||u.role==='branch_manager'||u.role==='head_of_centre')
 <div class="nav-item" data-action="change-password" style="font-size:12px;color:var(--sb-text3);padding:6px 4px;margin-top:4px;cursor:pointer;">🔑 Change password</div><button class="btn btn-sm" id="logout-btn" style="width:100%;margin-top:6px;justify-content:center;background:var(--sb-surface2);color:var(--sb-text);border-color:var(--sb-border);">Sign out</button>
 </div></div>`;}
 
-function renderTopbar(){const titles={dashboard:'Dashboard',students:'Students',staff:'Staff',sessions:'Sessions',attendance:'Attendance',invoices:'Invoices & fees',session_reports:'Session reports',staff_timesheets:'Staff timesheets',lesson_reports:'Lesson reports',test_records:'Test records',catchup:'Catch-up lessons',session_plan:'Session planner',mgmt_reports:'Management reports',finance:'Finance',reports:'Analytics',users:'User management',branches:'Branches',parent_portal:'Parent portal',notes:'Meeting notes',audit:'Audit log'};const b=state.currentBranch?(state.data.branches||[]).find(br=>br.id===state.currentBranch):null;
+function renderTopbar(){const titles={dashboard:'Dashboard',students:'Students',staff:'Staff',sessions:'Sessions',attendance:'Attendance',invoices:'Invoices & fees',session_reports:'Session reports',staff_timesheets:'Staff timesheets',lesson_reports:'Lesson reports',test_records:'Test records',catchup:'Catch-up lessons',session_plan:'Session planner',mgmt_reports:'Management reports',finance:'Finance',reports:'Analytics',users:'User management',branches:'Branches',parent_portal:'Parent portal',notes:'Notes',audit:'Audit log'};const b=state.currentBranch?(state.data.branches||[]).find(br=>br.id===state.currentBranch):null;
 const u=state.currentUser;
   const isMobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   const branches=state.data.branches||[];
@@ -3365,7 +3365,7 @@ rightPanel+='<div class="card" style="padding:14px 16px;border-left:3px solid '+
 '</div></div>';});
 rightPanel+='</div>';}
 rightPanel+='</div>';
-let html='<div class="page-header"><div><div class="section-title">Meeting notes</div><div class="section-sub">'+notes.length+' note'+(notes.length!==1?'s':'')+' recorded</div></div></div>';
+let html='<div class="page-header"><div><div class="section-sub" style="font-size:13px;color:var(--text3);">'+notes.length+' note'+(notes.length!==1?'s':'')+' recorded</div></div></div>';
 html+='<div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">'+leftPanel+rightPanel+'</div>';
 return html;}
 
