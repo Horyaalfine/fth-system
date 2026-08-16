@@ -2445,26 +2445,24 @@ def add_test_record():
     d = request.json
     conn = get_conn(); cur = conn.cursor()
     score = float(d['score_pct'])
-    passed = score >= 70
     retest_score = float(d['retest_score_pct']) if d.get('retest_score_pct') else None
-    retest_passed = (retest_score >= 70) if retest_score is not None else None
     cur.execute("""
         INSERT INTO test_records
             (student_id, branch_id, staff_id, recorded_by,
-             subject, book_unit, test_date, score_pct, passed,
-             revision_given, retest_date, retest_score_pct, retest_passed,
+             subject, book_unit, test_date, score_pct,
+             revision_given, retest_date, retest_score_pct,
              action_plan, notes)
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         RETURNING *
     """, (
         d['student_id'], d['branch_id'], d.get('staff_id'),
         session.get('user_id'),
         d['subject'], d['book_unit'],
         d.get('test_date', str(date.today())),
-        score, passed,
+        score,
         d.get('revision_given', False),
         d.get('retest_date') or None,
-        retest_score, retest_passed,
+        retest_score,
         d.get('action_plan',''), d.get('notes','')
     ))
     r = row(cur); conn.commit(); cur.close(); conn.close()
@@ -2481,21 +2479,19 @@ def update_test_record(tid):
     d = request.json
     conn = get_conn(); cur = conn.cursor()
     score = float(d['score_pct'])
-    passed = score >= 70
     retest_score = float(d['retest_score_pct']) if d.get('retest_score_pct') else None
-    retest_passed = (retest_score >= 70) if retest_score is not None else None
     cur.execute("""
         UPDATE test_records SET
-            subject=%s, book_unit=%s, test_date=%s, score_pct=%s, passed=%s,
-            revision_given=%s, retest_date=%s, retest_score_pct=%s, retest_passed=%s,
+            subject=%s, book_unit=%s, test_date=%s, score_pct=%s,
+            revision_given=%s, retest_date=%s, retest_score_pct=%s,
             action_plan=%s, notes=%s
         WHERE id=%s RETURNING *
     """, (
         d['subject'], d['book_unit'],
-        d.get('test_date', str(date.today())), score, passed,
+        d.get('test_date', str(date.today())), score,
         d.get('revision_given', False),
         d.get('retest_date') or None,
-        retest_score, retest_passed,
+        retest_score,
         d.get('action_plan',''), d.get('notes',''), tid
     ))
     r = row(cur); conn.commit(); cur.close(); conn.close()
