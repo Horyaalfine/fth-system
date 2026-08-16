@@ -41,6 +41,13 @@ def block_readonly_writes():
         if session.get('role') == 'reports_viewer':
             return jsonify({'error': 'Your account has read-only access to reports.'}), 403
 
+import traceback
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    traceback.print_exc()
+    return jsonify({'error': str(e)}), 500
+
 from routes.auth import auth_bp
 from routes.api import api_bp
 app.register_blueprint(auth_bp)

@@ -4601,7 +4601,7 @@ if(m==='add-hq-transfer'){
   toast('Transfer recorded');
 }
 closeModal();refreshPage();
-}catch(e){toast(e.error||'Save failed','error');}finally{if(saveBtn)saveBtn.disabled=false;}}
+}catch(e){toast(e.error||e.message||'Save failed','error');}finally{if(saveBtn)saveBtn.disabled=false;}}
 
 // EVENTS
 function bindNav(){
