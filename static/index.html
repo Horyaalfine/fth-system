@@ -4009,9 +4009,9 @@ function modalTestRecord(){
       </select></div>
       <div class="field"><label>Book / Unit name</label><input type="text" id="f-book-unit" value="${t.book_unit||''}" placeholder="e.g. KS3 Maths Book 2, Unit 4"></div>
       <div class="field"><label>Test date</label><input type="date" id="f-test-date" value="${t.test_date||new Date().toISOString().slice(0,10)}"></div>
-      <div class="field"><label>Score %</label><input type="number" id="f-score" value="${t.score_pct||''}" min="0" max="100" step="0.5" placeholder="e.g. 75"></div>
+      <div class="field"><label>Score %</label><input type="number" id="f-score" value="${t.score_pct||''}" min="0" max="100" step="0.5" placeholder="e.g. 75" oninput="var s=parseFloat(this.value);var el=document.getElementById('revision-section');if(el)el.style.display=(s>0&&s<70)?'block':'none';"></div>
     </div>
-    <div id="revision-section" style="margin-top:14px;padding:14px;background:var(--danger-bg);border-radius:var(--radius);border:1px solid rgba(239,68,68,0.2);">
+    <div id="revision-section" style="margin-top:14px;padding:14px;background:var(--danger-bg);border-radius:var(--radius);border:1px solid rgba(239,68,68,0.2);display:${(t.score_pct&&parseFloat(t.score_pct)<70)?'block':'none'};">
       <div style="font-size:13px;font-weight:600;color:var(--danger-text);margin-bottom:12px;">Score below 70% — revision required</div>
       <div class="form-grid">
         <div class="field"><label>Revision given</label><select id="f-revision">
