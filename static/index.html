@@ -3334,6 +3334,12 @@ leftPanel='<div class="card" style="flex:0 0 340px;min-width:280px;max-width:360
 '<select id="ai-student-id" style="width:100%;padding:8px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;">'+stuOpts+'</select></div>':'')+
 '<div class="field" style="grid-column:1/-1;"><label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);cursor:pointer;">'+
 '<input type="checkbox" id="ai-active" checked> Active (visible to parents)</label></div>'+
+'<div class="field" style="grid-column:1/-1;"><label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px;">Delivery</label>'+
+'<select id="ai-delivery" style="width:100%;padding:8px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;">'+
+'<option value="portal">Internal system only (parent portal)</option>'+
+'<option value="email">Email to parents only</option>'+
+'<option value="both">Both (portal + email)</option>'+
+'</select></div>'+
 '<div class="field" style="grid-column:1/-1;">'+
 '<button class="btn btn-primary" style="width:100%;" data-action="save-inline-announcement">Send announcement</button></div>'+
 '</div></div>';}
