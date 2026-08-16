@@ -3308,38 +3308,81 @@ def send_announcement_email(aid):
         cur.close(); conn.close()
         return jsonify({'error': 'Announcement not found'}), 404
 
-    # Get parent emails — branch-filtered if not super_admin
+    # Get parent emails from student profiles (carer1/carer2) + portal accounts
     role = session.get('role'); branch_id = session.get('branch_id')
-    if role == 'super_admin' or not ann['branch_id']:
-        if ann['target_type'] == 'student' and ann['student_id']:
-            cur.execute("""
-                SELECT DISTINCT p.email, p.name FROM parent_users p
-                JOIN parent_students ps ON ps.parent_id=p.id
-                WHERE ps.student_id=%s AND p.email IS NOT NULL AND p.email!=''
-            """, (ann['student_id'],))
-        else:
-            cur.execute("""
-                SELECT DISTINCT p.email, p.name FROM parent_users p
-                WHERE p.email IS NOT NULL AND p.email!=''
-            """)
-    else:
-        if ann['target_type'] == 'student' and ann['student_id']:
-            cur.execute("""
-                SELECT DISTINCT p.email, p.name FROM parent_users p
-                JOIN parent_students ps ON ps.parent_id=p.id
-                JOIN students s ON s.id=ps.student_id
-                WHERE ps.student_id=%s AND s.branch_id=%s
-                  AND p.email IS NOT NULL AND p.email!=''
-            """, (ann['student_id'], branch_id))
-        else:
-            cur.execute("""
-                SELECT DISTINCT p.email, p.name FROM parent_users p
-                JOIN parent_students ps ON ps.parent_id=p.id
-                JOIN students s ON s.id=ps.student_id
-                WHERE s.branch_id=%s AND p.email IS NOT NULL AND p.email!=''
-            """, (branch_id,))
+    is_all_branches = (role == 'super_admin' or not ann['branch_id'])
+    is_specific_student = (ann['target_type'] == 'student' and ann['student_id'])
 
-    recipients = rows(cur)
+    # Pull carer emails from student profiles
+    if is_specific_student:
+        cur.execute("""
+            SELECT name, carer1_email, carer2_email,
+                   carer1_first_name, carer1_last_name,
+                   carer2_first_name, carer2_last_name
+            FROM students WHERE id=%s
+        """, (ann['student_id'],))
+    elif is_all_branches:
+        cur.execute("""
+            SELECT name, carer1_email, carer2_email,
+                   carer1_first_name, carer1_last_name,
+                   carer2_first_name, carer2_last_name
+            FROM students
+            WHERE carer1_email IS NOT NULL OR carer2_email IS NOT NULL
+        """)
+    else:
+        cur.execute("""
+            SELECT name, carer1_email, carer2_email,
+                   carer1_first_name, carer1_last_name,
+                   carer2_first_name, carer2_last_name
+            FROM students
+            WHERE branch_id=%s
+              AND (carer1_email IS NOT NULL OR carer2_email IS NOT NULL)
+        """, (branch_id,))
+
+    student_rows = rows(cur)
+
+    # Also pull portal account emails
+    if is_specific_student:
+        cur.execute("""
+            SELECT DISTINCT p.email, p.name FROM parent_users p
+            JOIN parent_students ps ON ps.parent_id=p.id
+            WHERE ps.student_id=%s AND p.email IS NOT NULL AND p.email!=''
+        """, (ann['student_id'],))
+    elif is_all_branches:
+        cur.execute("""
+            SELECT DISTINCT email, name FROM parent_users
+            WHERE email IS NOT NULL AND email!=''
+        """)
+    else:
+        cur.execute("""
+            SELECT DISTINCT p.email, p.name FROM parent_users p
+            JOIN parent_students ps ON ps.parent_id=p.id
+            JOIN students s ON s.id=ps.student_id
+            WHERE s.branch_id=%s AND p.email IS NOT NULL AND p.email!=''
+        """, (branch_id,))
+
+    portal_rows = rows(cur)
+
+    # Build deduplicated recipient list
+    seen = set()
+    recipients = []
+    for s in student_rows:
+        for email_field, fn_field, ln_field in [
+            ('carer1_email','carer1_first_name','carer1_last_name'),
+            ('carer2_email','carer2_first_name','carer2_last_name')
+        ]:
+            em = (s.get(email_field) or '').strip().lower()
+            if em and em not in seen:
+                seen.add(em)
+                fn = s.get(fn_field) or ''
+                ln = s.get(ln_field) or ''
+                name = (fn + ' ' + ln).strip() or s.get('name','')
+                recipients.append({'email': em, 'name': name})
+    for p in portal_rows:
+        em = (p.get('email') or '').strip().lower()
+        if em and em not in seen:
+            seen.add(em)
+            recipients.append({'email': em, 'name': p.get('name','')})
     cur.close(); conn.close()
 
     if not recipients:
