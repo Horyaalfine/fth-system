@@ -3304,7 +3304,6 @@ return`
 function renderNotes(){
 const notes=state.data.meeting_notes||[];
 const students=state.data.students||[];
-const isSA=isSuperAdmin();
 const role=state.currentUser?.role;
 const canCreate=['super_admin','branch_manager','head_of_centre','supervisor','admin'].includes(role);
 const CATS=['Progress','Behaviour','Fees','Attendance','General','Parent meeting','Safeguarding'];
@@ -3313,34 +3312,63 @@ const filterCat=state.notesFilterCat||'';
 let filtered=notes;
 if(filterStu)filtered=filtered.filter(n=>String(n.student_id)===filterStu);
 if(filterCat)filtered=filtered.filter(n=>n.category===filterCat);
-let html=`<div class="page-header"><div><div class="section-title">Meeting notes</div><div class="section-sub">${notes.length} note${notes.length!==1?'s':''} recorded</div></div>${canCreate?`<button class="btn btn-primary" data-action="add-note">+ Add note</button>`:''}</div>`;
-html+=`<div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
-<select style="padding:6px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;" onchange="state.notesFilterStu=this.value;render();">
-<option value="">All students</option>
-${students.map(s=>`<option value="${s.id}" ${filterStu===String(s.id)?'selected':''}>${s.name} (${s.admission_id})</option>`).join('')}
-</select>
-<select style="padding:6px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;" onchange="state.notesFilterCat=this.value;render();">
-<option value="">All categories</option>
-${CATS.map(c=>`<option value="${c}" ${filterCat===c?'selected':''}>${c}</option>`).join('')}
-</select>
-</div>`;
-if(!filtered.length){html+=`<div class="empty-state">No notes found</div>`;}
+const today=new Date().toISOString().slice(0,10);
+const stuOpts='<option value="">Select student...</option>'+students.map(s=>'<option value="'+s.id+'">'+s.admission_id+' — '+s.name+'</option>').join('');
+const catOpts=CATS.map(c=>'<option value="'+c+'">'+c+'</option>').join('');
+const filterStuOpts='<option value="">All students</option>'+students.map(s=>'<option value="'+s.id+'"'+(filterStu===String(s.id)?' selected':'')+'>'+s.admission_id+' — '+s.name+'</option>').join('');
+const filterCatOpts='<option value="">All categories</option>'+CATS.map(c=>'<option value="'+c+'"'+(filterCat===c?' selected':'')+'>'+c+'</option>').join('');
+let leftPanel='';
+if(canCreate){
+leftPanel='<div class="card" style="flex:0 0 340px;min-width:280px;max-width:360px;padding:18px;align-self:start;">'+
+'<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border);">Add note</div>'+
+'<div class="form-grid" style="gap:12px;">'+
+'<div class="field" style="grid-column:1/-1;"><label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px;">Student *</label>'+
+'<select id="ni-student-id" style="width:100%;padding:8px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;">'+stuOpts+'</select></div>'+
+'<div class="field"><label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px;">Date *</label>'+
+'<input type="date" id="ni-meeting-date" value="'+today+'" style="width:100%;padding:8px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;box-sizing:border-box;"></div>'+
+'<div class="field"><label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px;">Category</label>'+
+'<select id="ni-category" style="width:100%;padding:8px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;">'+catOpts+'</select></div>'+
+'<div class="field" style="grid-column:1/-1;"><label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px;">Notes *</label>'+
+'<textarea id="ni-note-text" rows="6" placeholder="Enter meeting notes..." style="width:100%;padding:8px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;resize:vertical;box-sizing:border-box;font-family:inherit;"></textarea></div>'+
+'<div class="field" style="grid-column:1/-1;"><label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);cursor:pointer;">'+
+'<input type="checkbox" id="ni-shared-parent"> Share with parent</label></div>'+
+'<div class="field" style="grid-column:1/-1;">'+
+'<button class="btn btn-primary" style="width:100%;" data-action="save-inline-note">Save note</button></div>'+
+'</div></div>';}
+let rightPanel='<div style="flex:1;min-width:280px;">';
+rightPanel+='<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">'+
+'<select style="padding:7px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;" onchange="state.notesFilterStu=this.value;render();">'+filterStuOpts+'</select>'+
+'<select style="padding:7px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;" onchange="state.notesFilterCat=this.value;render();">'+filterCatOpts+'</select>'+
+'<span style="font-size:12px;color:var(--text3);margin-left:4px;">'+filtered.length+' note'+(filtered.length!==1?'s':'')+' found</span>'+
+'</div>';
+if(!filtered.length){rightPanel+='<div class="empty-state">No notes found</div>';}
 else{
-html+=`<div style="display:flex;flex-direction:column;gap:10px;">`;
+rightPanel+='<div style="display:flex;flex-direction:column;gap:10px;">';
 filtered.forEach(n=>{
 const shared=n.shared_parent;
-html+=`<div class="card" style="padding:14px 16px;border-left:3px solid ${shared?'var(--success)':'var(--border2)'};"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;"><div style="flex:1;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-weight:600;font-size:14px;color:var(--text);">${n.student_name}</span><span class="badge badge-gray">${n.admission_id}</span><span class="badge badge-accent">${n.category}</span>${shared?'<span class="badge badge-success" style="font-size:11px;">Shared with parent</span>':'<span style="font-size:11px;color:var(--text3);">Private</span>'}</div><div style="font-size:13px;color:var(--text2);line-height:1.5;">${n.notes}</div><div style="font-size:11px;color:var(--text3);margin-top:6px;">${n.meeting_date||''} · ${n.recorded_by_name||'Unknown'}</div></div>${canCreate?`<div style="display:flex;gap:6px;flex-shrink:0;"><button class="btn btn-sm" data-action="edit-note" data-id="${n.id}">Edit</button><button class="btn btn-sm" data-action="delete-note" data-id="${n.id}" style="color:var(--danger-text);border-color:var(--danger);">Del</button></div>`:''}</div></div>`;
-});
-html+='</div>';}
-// read-only student list at bottom
-const stuList=students;
-html+=`<div style="margin-top:32px;padding-top:20px;border-top:2px solid var(--border);"><div style="font-size:14px;font-weight:600;color:var(--text2);margin-bottom:12px;">Student reference list</div>`;
-if(stuList.length){
-html+=`<div style="overflow-x:auto;"><table class="data-table"><thead><tr><th>ID</th><th>Name</th><th>Year</th><th>Branch</th><th>Parent/Guardian</th><th>Mobile</th></tr></thead><tbody>`;
-stuList.forEach(s=>{html+=`<tr><td><span class="id-code">${s.admission_id}</span></td><td>${s.name}</td><td>${s.year_group||'—'}</td><td>${s.branch_name||'—'}</td><td>${s.carer1_first_name?s.carer1_first_name+(s.carer1_last_name?' '+s.carer1_last_name:''):(s.parent_contact||'—')}</td><td>${s.carer1_mobile||s.carer1_telephone||'—'}</td></tr>`;});
-html+=`</tbody></table></div>`;}
-html+='</div>';
+rightPanel+='<div class="card" style="padding:14px 16px;border-left:3px solid '+(shared?'var(--success)':'var(--border2)')+';">'+
+'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">'+
+'<div style="flex:1;">'+
+'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">'+
+'<span style="font-weight:600;font-size:14px;color:var(--text);">'+n.student_name+'</span>'+
+'<span class="badge badge-gray">'+n.admission_id+'</span>'+
+'<span class="badge badge-accent">'+n.category+'</span>'+
+(shared?'<span class="badge badge-success" style="font-size:11px;">Shared with parent</span>':'<span style="font-size:11px;color:var(--text3);">Private</span>')+
+'</div>'+
+'<div style="font-size:13px;color:var(--text2);line-height:1.5;">'+n.notes+'</div>'+
+'<div style="font-size:11px;color:var(--text3);margin-top:6px;">'+(n.meeting_date||'')+' · '+(n.recorded_by_name||'Unknown')+'</div>'+
+'</div>'+
+(canCreate?'<div style="display:flex;gap:6px;flex-shrink:0;">'+
+'<button class="btn btn-sm" data-action="edit-note" data-id="'+n.id+'">Edit</button>'+
+'<button class="btn btn-sm" data-action="delete-note" data-id="'+n.id+'" style="color:var(--danger-text);border-color:var(--danger);">Del</button>'+
+'</div>':'')+
+'</div></div>';});
+rightPanel+='</div>';}
+rightPanel+='</div>';
+let html='<div class="page-header"><div><div class="section-title">Meeting notes</div><div class="section-sub">'+notes.length+' note'+(notes.length!==1?'s':'')+' recorded</div></div></div>';
+html+='<div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">'+leftPanel+rightPanel+'</div>';
 return html;}
+
 function modalNote(){
 const students=state.data.students||[];
 const t=state.editTarget||{};
@@ -5021,6 +5049,24 @@ if(action==='del-payment'){if(!confirm('Delete this payment?'))return;await API.
 if(action==='add-instalment-plan'){state.modal='add-instalment-plan';state.editTarget=null;render();return;}
 if(action==='del-instalment-plan'){if(!confirm('Delete this plan?'))return;await API.delete('/api/instalment-plans/'+id);toast('Plan deleted');refreshPage();return;}
 if(action==='add-note'){state.modal='add-note';state.editTarget=null;render();return;}
+if(action==='save-inline-note'){
+  const sid=parseInt(document.getElementById('ni-student-id')?.value||'0');
+  const notes=(document.getElementById('ni-note-text')?.value||'').trim();
+  const meeting_date=document.getElementById('ni-meeting-date')?.value||'';
+  const category=document.getElementById('ni-category')?.value||'General';
+  const shared_parent=document.getElementById('ni-shared-parent')?.checked||false;
+  if(!sid){toast('Please select a student','error');return;}
+  if(!notes){toast('Notes are required','error');return;}
+  if(!meeting_date){toast('Please enter a date','error');return;}
+  const stu=(state.data.students||[]).find(s=>s.id===sid);
+  const branch_id=stu?stu.branch_id:(state.currentUser?.branch_id||null);
+  const r=await API.post('/api/meeting-notes',{student_id:sid,meeting_date,category,notes,shared_parent,branch_id});
+  if(r&&r.error){toast(r.error,'error');return;}
+  await loadData('meeting_notes','/api/meeting-notes',branchParam());
+  document.getElementById('ni-student-id').value='';
+  document.getElementById('ni-note-text').value='';
+  document.getElementById('ni-shared-parent').checked=false;
+  toast('Note saved');render();return;}
 if(action==='edit-note'){const note=(state.data.meeting_notes||[]).find(n=>n.id===id);if(note){state.modal='edit-note';state.editTarget=note;render();}return;}
 if(action==='delete-note'){if(!confirm('Delete this note?'))return;await API.delete('/api/meeting-notes/'+id);await loadData('meeting_notes','/api/meeting-notes',branchParam());toast('Note deleted');render();return;}
 if(action==='add-test-record'){state.modal='add-test-record';state.editTarget=null;render();return;}
