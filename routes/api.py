@@ -3169,3 +3169,120 @@ def parent_meeting_notes(student_id):
         if d.get('meeting_date'): d['meeting_date'] = str(d['meeting_date'])
     cur.close(); conn.close()
     return jsonify(data)
+
+# ── Announcements ─────────────────────────────────────────────────────────────
+ANN_ROLES = ('super_admin','branch_manager','head_of_centre','supervisor','admin')
+
+@api_bp.route('/api/announcements', methods=['GET'])
+@require_roles(*ANN_ROLES)
+def get_announcements():
+    role = session.get('role'); branch_id = session.get('branch_id')
+    conn = get_conn(); cur = conn.cursor()
+    if role == 'super_admin':
+        cur.execute("""
+            SELECT a.*, u.name as created_by_name,
+                   s.name as student_name, s.admission_id,
+                   b.name as branch_name
+            FROM announcements a
+            LEFT JOIN users u ON u.id=a.created_by
+            LEFT JOIN students s ON s.id=a.student_id
+            LEFT JOIN branches b ON b.id=a.branch_id
+            ORDER BY a.created_at DESC
+        """)
+    else:
+        cur.execute("""
+            SELECT a.*, u.name as created_by_name,
+                   s.name as student_name, s.admission_id,
+                   b.name as branch_name
+            FROM announcements a
+            LEFT JOIN users u ON u.id=a.created_by
+            LEFT JOIN students s ON s.id=a.student_id
+            LEFT JOIN branches b ON b.id=a.branch_id
+            WHERE a.branch_id=%s
+            ORDER BY a.created_at DESC
+        """, (branch_id,))
+    data = rows(cur)
+    for d in data:
+        if d.get('created_at'): d['created_at'] = str(d['created_at'])[:10]
+    cur.close(); conn.close()
+    return jsonify(data)
+
+@api_bp.route('/api/announcements', methods=['POST'])
+@require_roles(*ANN_ROLES)
+def add_announcement():
+    role = session.get('role'); branch_id = session.get('branch_id')
+    user_id = session.get('user_id')
+    d = request.get_json() or {}
+    title = (d.get('title') or '').strip()
+    body  = (d.get('body')  or '').strip()
+    target_type = d.get('target_type', 'all')
+    student_id  = d.get('student_id') or None
+    active = d.get('active', True)
+    if not title or not body:
+        return jsonify({'error': 'Title and body are required'}), 400
+    raw_branch = d.get('branch_id') or branch_id or None
+    ann_branch = int(raw_branch) if raw_branch else None
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO announcements (branch_id, created_by, title, body, target_type, student_id, active)
+        VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id
+    """, (ann_branch, user_id, title, body, target_type, student_id, active))
+    new_id = cur.fetchone()['id']
+    conn.commit(); cur.close(); conn.close()
+    return jsonify({'id': new_id, 'ok': True})
+
+@api_bp.route('/api/announcements/<int:aid>', methods=['PUT'])
+@require_roles(*ANN_ROLES)
+def update_announcement(aid):
+    role = session.get('role'); branch_id = session.get('branch_id')
+    d = request.get_json() or {}
+    conn = get_conn(); cur = conn.cursor()
+    if role != 'super_admin':
+        cur.execute("SELECT branch_id FROM announcements WHERE id=%s", (aid,))
+        ex = cur.fetchone()
+        if not ex or ex['branch_id'] != branch_id:
+            cur.close(); conn.close(); return jsonify({'error':'Not found or forbidden'}), 403
+    cur.execute("""
+        UPDATE announcements SET title=%s, body=%s, target_type=%s, student_id=%s, active=%s
+        WHERE id=%s
+    """, (d.get('title'), d.get('body'), d.get('target_type','all'),
+          d.get('student_id') or None, d.get('active', True), aid))
+    conn.commit(); cur.close(); conn.close()
+    return jsonify({'ok': True})
+
+@api_bp.route('/api/announcements/<int:aid>', methods=['DELETE'])
+@require_roles(*ANN_ROLES)
+def delete_announcement(aid):
+    role = session.get('role'); branch_id = session.get('branch_id')
+    conn = get_conn(); cur = conn.cursor()
+    if role != 'super_admin':
+        cur.execute("SELECT branch_id FROM announcements WHERE id=%s", (aid,))
+        ex = cur.fetchone()
+        if not ex or ex['branch_id'] != branch_id:
+            cur.close(); conn.close(); return jsonify({'error':'Not found or forbidden'}), 403
+    cur.execute("DELETE FROM announcements WHERE id=%s", (aid,))
+    conn.commit(); cur.close(); conn.close()
+    return jsonify({'ok': True})
+
+@api_bp.route('/api/parent/announcements/<int:student_id>', methods=['GET'])
+@require_parent
+def parent_announcements(student_id):
+    pid = session['parent_id']
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("SELECT 1 FROM parent_students WHERE parent_id=%s AND student_id=%s", (pid, student_id))
+    if not cur.fetchone(): cur.close(); conn.close(); return jsonify({'error':'Forbidden'}), 403
+    cur.execute("SELECT branch_id FROM students WHERE id=%s", (student_id,))
+    stu = cur.fetchone()
+    if not stu: cur.close(); conn.close(); return jsonify([])
+    cur.execute("""
+        SELECT a.id, a.title, a.body, a.target_type, a.created_at
+        FROM announcements a
+        WHERE a.active=TRUE AND a.branch_id=%s
+          AND (a.target_type='all' OR (a.target_type='student' AND a.student_id=%s))
+        ORDER BY a.created_at DESC
+    """, (stu['branch_id'], student_id))
+    data = rows(cur)
+    for d in data:
+        if d.get('created_at'): d['created_at'] = str(d['created_at'])[:10]
+    cur.close(); conn.close()
+    return jsonify(data)

@@ -514,6 +514,22 @@ CREATE INDEX IF NOT EXISTS idx_meeting_notes_student ON meeting_notes(student_id
 CREATE INDEX IF NOT EXISTS idx_meeting_notes_branch ON meeting_notes(branch_id);
 CREATE INDEX IF NOT EXISTS idx_meeting_notes_date ON meeting_notes(meeting_date DESC);
 
+CREATE TABLE IF NOT EXISTS announcements (
+    id              SERIAL PRIMARY KEY,
+    branch_id       INT REFERENCES branches(id) ON DELETE CASCADE,
+    created_by      INT REFERENCES users(id) ON DELETE SET NULL,
+    title           TEXT NOT NULL,
+    body            TEXT NOT NULL,
+    target_type     TEXT NOT NULL DEFAULT 'all',
+    student_id      INT REFERENCES students(id) ON DELETE CASCADE,
+    active          BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at      TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_announcements_branch ON announcements(branch_id);
+CREATE INDEX IF NOT EXISTS idx_announcements_student ON announcements(student_id);
+CREATE INDEX IF NOT EXISTS idx_announcements_created ON announcements(created_at DESC);
+
+
 
 ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_postcode TEXT;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS carer2_postcode TEXT;
