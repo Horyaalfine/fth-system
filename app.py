@@ -48,6 +48,12 @@ def handle_exception(e):
     traceback.print_exc()
     return jsonify({'error': str(e)}), 500
 
+from models.db import init_db
+try:
+    init_db()
+except Exception as e:
+    print(f"DB init warning: {e}")
+
 from routes.auth import auth_bp
 from routes.api import api_bp
 app.register_blueprint(auth_bp)
