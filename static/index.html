@@ -3397,7 +3397,7 @@ return`
 ${children.map(st=>childCard(st)).join('')}`;}
 
 // MODALS
-function renderModal(){const m=state.modal;if(m==='add-student'||m==='edit-student')return modalStudent();if(m==='add-staff'||m==='edit-staff')return modalStaff();if(m==='add-session'||m==='edit-session')return modalSession();
+function renderModal(){const m=state.modal;if(m==='add-note'||m==='edit-note')return modalNote();if(m==='add-student'||m==='edit-student')return modalStudent();if(m==='add-staff'||m==='edit-staff')return modalStaff();if(m==='add-session'||m==='edit-session')return modalSession();
 if(m==='gen-weekly-sessions')return modalWeeklySessions();if(m==='add-user'||m==='edit-user')return modalUser();if(m==='add-branch'||m==='edit-branch')return modalBranch();if(m==='edit-invoice')return modalInvoice();
   if(m==='mark-paid')return modalMarkPaid();
   if(m==='add-adjustment'||m==='edit-adjustment')return modalAdjustment();
