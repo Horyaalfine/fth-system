@@ -3346,15 +3346,16 @@ const students=state.data.students||[];
 const t=state.editTarget||{};
 const isEdit=state.modal==='edit-note';
 const CATS=['Progress','Behaviour','Fees','Attendance','General','Safeguarding'];
-const footer=`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${isEdit?'Save changes':'Add note'}</button>`;
-return modal(`<h2 style="margin:0 0 18px;">${isEdit?'Edit note':'Add meeting note'}</h2>
-<div class="form-grid">
-${!isEdit?`<div class="field" style="grid-column:1/-1;"><label>Student *</label><select id="f-student-id" required><option value="">Select student...</option>${students.map(s=>`<option value="${s.id}">${s.admission_id} — ${s.name}</option>`).join('')}</select></div>`:`<div class="field" style="grid-column:1/-1;"><label>Student</label><div style="padding:8px 10px;background:var(--surface3);border-radius:var(--radius);font-size:13px;font-weight:600;color:var(--text);">${t.student_name||''}</div></div>`}
-<div class="field"><label>Meeting date *</label><input type="date" id="f-meeting-date" value="${t.meeting_date||new Date().toISOString().slice(0,10)}"></div>
-<div class="field"><label>Category</label><select id="f-category">${CATS.map(c=>`<option value="${c}" ${(t.category||'General')===c?'selected':''}>${c}</option>`).join('')}</select></div>
-<div class="field" style="grid-column:1/-1;"><label>Notes *</label><textarea id="f-notes" rows="5" style="resize:vertical;" placeholder="Record what was discussed and any outcomes...">${t.notes||''}</textarea></div>
-<div class="field" style="grid-column:1/-1;"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="f-shared-parent" ${t.shared_parent?'checked':''}> <span>Share with parent (visible in parent portal)</span></label></div>
-</div>`,footer);}
+const body='<div class="form-grid">'+
+  (!isEdit?'<div class="field" style="grid-column:1/-1;"><label>Student *</label><select id="f-student-id"><option value="">Select student...</option>'+students.map(s=>'<option value="'+s.id+'">'+s.admission_id+' — '+s.name+'</option>').join('')+'</select></div>':
+   '<div class="field" style="grid-column:1/-1;"><label>Student</label><div style="padding:8px 10px;background:var(--surface3);border-radius:var(--radius);font-size:13px;font-weight:600;color:var(--text);">'+(t.student_name||'')+'</div></div>')+
+  '<div class="field"><label>Meeting date *</label><input type="date" id="f-meeting-date" value="'+(t.meeting_date||new Date().toISOString().slice(0,10))+'"></div>'+
+  '<div class="field"><label>Category</label><select id="f-category">'+CATS.map(c=>'<option value="'+c+'" '+(( t.category||'General')===c?'selected':'')+'>'+c+'</option>').join('')+'</select></div>'+
+  '<div class="field" style="grid-column:1/-1;"><label>Notes *</label><textarea id="f-note-text" rows="5" style="resize:vertical;" placeholder="Record what was discussed and any outcomes...">'+(t.notes||'')+'</textarea></div>'+
+  '<div class="field" style="grid-column:1/-1;"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="f-shared-parent" '+(t.shared_parent?'checked':'')+'>  Share with parent (visible in parent portal)</label></div>'+
+  '</div>';
+const footer='<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">'+(isEdit?'Save changes':'Add note')+'</button>';
+return mWrap(isEdit?'Edit note':'Add meeting note',body,footer);}
 function renderParentPortal(){const pu=state.parentUser;const children=state.data.parent_children||[];function childCard(st){const att=state.data['p_att_'+st.id]||[];const invs=state.data['p_inv_'+st.id]||[];const prog=state.data['p_prog_'+st.id]||[];const tests=state.data['p_tests_'+st.id]||[];const present=att.filter(a=>a.status==='present').length;const pct=att.length?Math.round(present/att.length*100):0;const outstanding=invs.filter(i=>i.status!=='paid').reduce((s,i)=>s+i.amount,0);
 return`<div class="card" style="margin-bottom:18px;border-left:3px solid var(--accent);">
 <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--border);">
@@ -4576,7 +4577,7 @@ if(m==='record-retest'){
 }
 if(state.modal==='add-note'||state.modal==='edit-note'){
   const isEdit=state.modal==='edit-note';
-  const notes=v('f-notes');
+  const notes=(document.getElementById('f-note-text')?.value||'').trim();
   if(!notes){toast('Notes are required','error');return;}
   const shared=document.getElementById('f-shared-parent')?.checked||false;
   let body={meeting_date:v('f-meeting-date'),category:v('f-category'),notes,shared_parent:shared};
