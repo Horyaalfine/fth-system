@@ -5167,7 +5167,14 @@ if(action==='save-inline-announcement'){
   await loadData('announcements','/api/announcements',branchParam());
   const t=document.getElementById('ai-title');if(t)t.value='';
   const b=document.getElementById('ai-body');if(b)b.value='';
-  state.annInlineTarget=null;toast('Announcement sent');render();return;}
+  state.annInlineTarget=null;
+  const delivery=document.getElementById('ai-delivery')?.value||'portal';
+  if(delivery==='email'||delivery==='both'){
+    const er=await API.post('/api/announcements/'+r.id+'/send-email',{});
+    if(er&&er.error){toast('Saved but email failed: '+er.error,'error');}
+    else{toast('Announcement sent to '+er.sent+' parent'+(er.sent!==1?'s':'')+' by email'+(delivery==='both'?' + portal':''));}
+  } else {toast('Announcement saved to parent portal');}
+  render();return;}
 if(action==='send-announcement-email'){
   const ann=(state.data.announcements||[]).find(a=>a.id===id);
   const target=ann?.target_type==='student'?(' to '+ann.student_name):'to all parents';
