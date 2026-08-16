@@ -498,6 +498,22 @@ CREATE INDEX IF NOT EXISTS idx_staff_att_session ON staff_attendance(session_id)
 CREATE INDEX IF NOT EXISTS idx_staff_att_staff ON staff_attendance(staff_id);
 CREATE INDEX IF NOT EXISTS idx_staff_att_date ON staff_attendance(date);
 
+-- ── MEETING NOTES ──
+CREATE TABLE IF NOT EXISTS meeting_notes (
+    id              SERIAL PRIMARY KEY,
+    student_id      INT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    branch_id       INT NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+    recorded_by     INT REFERENCES users(id) ON DELETE SET NULL,
+    meeting_date    DATE NOT NULL DEFAULT CURRENT_DATE,
+    category        TEXT NOT NULL DEFAULT 'General',
+    notes           TEXT NOT NULL,
+    shared_parent   BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at      TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_meeting_notes_student ON meeting_notes(student_id);
+CREATE INDEX IF NOT EXISTS idx_meeting_notes_branch ON meeting_notes(branch_id);
+CREATE INDEX IF NOT EXISTS idx_meeting_notes_date ON meeting_notes(meeting_date DESC);
+
 
 ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_postcode TEXT;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS carer2_postcode TEXT;

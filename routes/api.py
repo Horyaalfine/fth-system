@@ -3037,3 +3037,134 @@ def get_audit():
         if d.get('timestamp'): d['timestamp'] = str(d['timestamp'])
     cur.close(); conn.close()
     return jsonify(data)
+
+# ── MEETING NOTES ──
+NOTES_ROLES = ('super_admin','branch_manager','head_of_centre','supervisor','admin')
+
+@api_bp.route('/api/meeting-notes', methods=['GET'])
+@require_roles(*NOTES_ROLES)
+def get_meeting_notes():
+    role = session.get('role')
+    branch_id = session.get('branch_id')
+    conn = get_conn(); cur = conn.cursor()
+    if role == 'super_admin':
+        bid = request.args.get('branch_id')
+        if bid:
+            cur.execute("""
+                SELECT mn.*, s.name as student_name, s.admission_id,
+                       u.name as recorded_by_name
+                FROM meeting_notes mn
+                JOIN students s ON s.id=mn.student_id
+                LEFT JOIN users u ON u.id=mn.recorded_by
+                WHERE mn.branch_id=%s ORDER BY mn.meeting_date DESC, mn.created_at DESC
+            """, (bid,))
+        else:
+            cur.execute("""
+                SELECT mn.*, s.name as student_name, s.admission_id,
+                       u.name as recorded_by_name
+                FROM meeting_notes mn
+                JOIN students s ON s.id=mn.student_id
+                LEFT JOIN users u ON u.id=mn.recorded_by
+                ORDER BY mn.meeting_date DESC, mn.created_at DESC
+            """)
+    else:
+        cur.execute("""
+            SELECT mn.*, s.name as student_name, s.admission_id,
+                   u.name as recorded_by_name
+            FROM meeting_notes mn
+            JOIN students s ON s.id=mn.student_id
+            LEFT JOIN users u ON u.id=mn.recorded_by
+            WHERE mn.branch_id=%s ORDER BY mn.meeting_date DESC, mn.created_at DESC
+        """, (branch_id,))
+    data = rows(cur)
+    for d in data:
+        if d.get('meeting_date'): d['meeting_date'] = str(d['meeting_date'])
+        if d.get('created_at'): d['created_at'] = str(d['created_at'])
+    cur.close(); conn.close()
+    return jsonify(data)
+
+@api_bp.route('/api/meeting-notes', methods=['POST'])
+@require_roles(*NOTES_ROLES)
+def add_meeting_note():
+    role = session.get('role')
+    branch_id = session.get('branch_id')
+    d = request.get_json()
+    # branch_manager/etc can only add to their own branch
+    note_branch = int(d.get('branch_id', branch_id or 0))
+    if role != 'super_admin' and note_branch != branch_id:
+        return jsonify({'error': 'Cannot add note to another branch'}), 403
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO meeting_notes (student_id, branch_id, recorded_by,
+            meeting_date, category, notes, shared_parent)
+        VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING *
+    """, (d['student_id'], note_branch, session.get('user_id'),
+          d.get('meeting_date') or None, d.get('category','General'),
+          d['notes'], d.get('shared_parent', False)))
+    row = cur.fetchone()
+    conn.commit(); cur.close(); conn.close()
+    if row.get('meeting_date'): row['meeting_date'] = str(row['meeting_date'])
+    if row.get('created_at'): row['created_at'] = str(row['created_at'])
+    return jsonify(dict(row))
+
+@api_bp.route('/api/meeting-notes/<int:nid>', methods=['PUT'])
+@require_roles(*NOTES_ROLES)
+def update_meeting_note(nid):
+    role = session.get('role')
+    branch_id = session.get('branch_id')
+    d = request.get_json()
+    conn = get_conn(); cur = conn.cursor()
+    # Check note belongs to this branch (non-super_admin)
+    if role != 'super_admin':
+        cur.execute("SELECT branch_id FROM meeting_notes WHERE id=%s", (nid,))
+        existing = cur.fetchone()
+        if not existing or existing['branch_id'] != branch_id:
+            cur.close(); conn.close()
+            return jsonify({'error': 'Not found or forbidden'}), 403
+    cur.execute("""
+        UPDATE meeting_notes SET meeting_date=%s, category=%s, notes=%s,
+            shared_parent=%s WHERE id=%s RETURNING *
+    """, (d.get('meeting_date') or None, d.get('category','General'),
+          d['notes'], d.get('shared_parent', False), nid))
+    row = cur.fetchone()
+    conn.commit(); cur.close(); conn.close()
+    if not row: return jsonify({'error': 'Not found'}), 404
+    if row.get('meeting_date'): row['meeting_date'] = str(row['meeting_date'])
+    if row.get('created_at'): row['created_at'] = str(row['created_at'])
+    return jsonify(dict(row))
+
+@api_bp.route('/api/meeting-notes/<int:nid>', methods=['DELETE'])
+@require_roles(*NOTES_ROLES)
+def delete_meeting_note(nid):
+    role = session.get('role')
+    branch_id = session.get('branch_id')
+    conn = get_conn(); cur = conn.cursor()
+    if role != 'super_admin':
+        cur.execute("SELECT branch_id FROM meeting_notes WHERE id=%s", (nid,))
+        existing = cur.fetchone()
+        if not existing or existing['branch_id'] != branch_id:
+            cur.close(); conn.close()
+            return jsonify({'error': 'Not found or forbidden'}), 403
+    cur.execute("DELETE FROM meeting_notes WHERE id=%s", (nid,))
+    conn.commit(); cur.close(); conn.close()
+    return jsonify({'ok': True})
+
+@api_bp.route('/api/parent/meeting-notes/<int:student_id>', methods=['GET'])
+@require_parent
+def parent_meeting_notes(student_id):
+    pid = session['parent_id']
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("SELECT 1 FROM parent_students WHERE parent_id=%s AND student_id=%s", (pid, student_id))
+    if not cur.fetchone(): cur.close(); conn.close(); return jsonify({'error':'Forbidden'}), 403
+    cur.execute("""
+        SELECT mn.meeting_date, mn.category, mn.notes, u.name as recorded_by_name
+        FROM meeting_notes mn
+        LEFT JOIN users u ON u.id=mn.recorded_by
+        WHERE mn.student_id=%s AND mn.shared_parent=TRUE
+        ORDER BY mn.meeting_date DESC
+    """, (student_id,))
+    data = rows(cur)
+    for d in data:
+        if d.get('meeting_date'): d['meeting_date'] = str(d['meeting_date'])
+    cur.close(); conn.close()
+    return jsonify(data)

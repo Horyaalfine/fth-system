@@ -423,12 +423,12 @@ function branchParam(){
 function canAccess(page){
   const r=state.currentUser?.role;
   if(r==='super_admin') return true;
-  if(r==='branch_manager') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup','session_plan','mgmt_reports','parent_portal','users'].includes(page);
-  if(r==='head_of_centre') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup','session_plan','mgmt_reports','parent_portal','users'].includes(page);
-  if(r==='supervisor') return['dashboard','students','sessions','attendance','session_reports','lesson_reports','test_records','staff_timesheets','catchup','session_plan'].includes(page);
+  if(r==='branch_manager') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup','session_plan','mgmt_reports','parent_portal','users','notes'].includes(page);
+  if(r==='head_of_centre') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup','session_plan','mgmt_reports','parent_portal','users','notes'].includes(page);
+  if(r==='supervisor') return['dashboard','students','sessions','attendance','session_reports','lesson_reports','test_records','staff_timesheets','catchup','session_plan','notes'].includes(page);
   if(r==='teacher') return['dashboard','sessions','attendance','session_reports','lesson_reports','test_records','staff_timesheets'].includes(page);
   if(r==='receptionist') return['dashboard','students','sessions','attendance','invoices','finance'].includes(page);
-  if(r==='admin') return['dashboard','students','sessions','attendance','invoices'].includes(page);
+  if(r==='admin') return['dashboard','students','sessions','attendance','invoices','notes'].includes(page);
   if(r==='reports_viewer') return['dashboard','students','session_reports','test_records','attendance','invoices','finance','reports','mgmt_reports'].includes(page);
   return false;
 }
@@ -509,7 +509,7 @@ else if(page==='catchup'){
     loadData('students','/api/students',b2),
   ]);
 }
-else if(page==='test_records'){
+else if(page==='notes'){await Promise.all([loadData('meeting_notes','/api/meeting-notes',b),loadData('students','/api/students',b),loadData('branches','/api/branches')]);}else if(page==='test_records'){
   await Promise.all([loadData('students','/api/students',b),loadData('test_records','/api/test-records',b),loadData('branches','/api/branches')]);
   if(state.trStudentId) await loadData('tr_'+state.trStudentId,'/api/test-records',{student_id:state.trStudentId});
 }
@@ -556,7 +556,7 @@ if(state.currentUser&&state.currentUser.role!=='super_admin'&&state.currentUser.
         loadData('mgmt_summary','/api/reports/management/summary',b2m),
         loadData('mgmt_yearly','/api/reports/management/yearly',b2m)
       ]).then(function(){state.loading=false;render();});}
-      else if(pg==='test_records') Promise.all([loadData('students','/api/students',b),loadData('test_records','/api/test-records',b),loadData('branches','/api/branches')]).then(function(){state.loading=false;render();});
+      else if(pg==='notes')Promise.all([loadData('meeting_notes','/api/meeting-notes',b),loadData('students','/api/students',b),loadData('branches','/api/branches')]).then(function(){state.loading=false;render();});else if(pg==='test_records') Promise.all([loadData('students','/api/students',b),loadData('test_records','/api/test-records',b),loadData('branches','/api/branches')]).then(function(){state.loading=false;render();});
       else if(pg==='catchup') Promise.all([loadData('students','/api/students',b),loadData('catchup','/api/catchup',b)]).then(function(){state.loading=false;render();});
       else Promise.all([loadData('branches','/api/branches'),loadData('summary','/api/reports/summary',b)]).then(function(){state.loading=false;render();});
       return false;
@@ -605,12 +605,13 @@ async function doLogin(){const email=document.getElementById('l-email')?.value.t
 
 async function doParentLogin(){const email=document.getElementById('l-email')?.value.trim();const pass=document.getElementById('l-pass')?.value;document.getElementById('login-err').textContent='';try{const pu=await API.post('/api/parent-login',{email,password:pass});if(!pu)return;state.parentUser=pu;const children=await API.get('/api/parent/children');state.data.parent_children=children||[];for(const child of(children||[])){state.data['p_att_'+child.id]=await API.get('/api/parent/attendance/'+child.id)||[];
         state.data['p_diary_'+child.id]=await API.get('/api/parent/diary/'+child.id)||[];
-        state.data['p_tests_'+child.id]=await API.get('/api/parent/test-records/'+child.id)||[];state.data['p_inv_'+child.id]=await API.get('/api/parent/invoices/'+child.id)||[];state.data['p_prog_'+child.id]=await API.get('/api/parent/progress/'+child.id)||[];}render();}catch(e){document.getElementById('login-err').textContent=e.error||'Login failed';}}
+        state.data['p_tests_'+child.id]=await API.get('/api/parent/test-records/'+child.id)||[];state.data['p_mnotes_'+child.id]=await API.get('/api/parent/meeting-notes/'+child.id)||[];state.data['p_inv_'+child.id]=await API.get('/api/parent/invoices/'+child.id)||[];state.data['p_prog_'+child.id]=await API.get('/api/parent/progress/'+child.id)||[];}render();}catch(e){document.getElementById('login-err').textContent=e.error||'Login failed';}}
 
 function renderSidebar(){const u=state.currentUser;const isSA=u.role==='super_admin'||u.role==='reports_viewer';const pages=[
   {id:'dashboard',icon:icoHome(),label:'Dashboard',group:'main'},
   {id:'students',icon:icoUsers(),label:'Students',group:'people'},
   {id:'staff',icon:icoUser(),label:'Staff',group:'people'},
+  {id:'notes',icon:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>',label:'Notes',group:'people'},
   {id:'sessions',icon:icoCal(),label:'Sessions',group:'sessions'},
   {id:'session_plan',icon:icoGrid(),label:'Session planner',group:'sessions'},
   {id:'attendance',icon:icoCheck(),label:'Attendance',group:'sessions'},
@@ -636,7 +637,7 @@ ${(u.role==='super_admin'||u.role==='branch_manager'||u.role==='head_of_centre')
 <div class="nav-item" data-action="change-password" style="font-size:12px;color:var(--sb-text3);padding:6px 4px;margin-top:4px;cursor:pointer;">🔑 Change password</div><button class="btn btn-sm" id="logout-btn" style="width:100%;margin-top:6px;justify-content:center;background:var(--sb-surface2);color:var(--sb-text);border-color:var(--sb-border);">Sign out</button>
 </div></div>`;}
 
-function renderTopbar(){const titles={dashboard:'Dashboard',students:'Students',staff:'Staff',sessions:'Sessions',attendance:'Attendance',invoices:'Invoices & fees',session_reports:'Session reports',staff_timesheets:'Staff timesheets',lesson_reports:'Lesson reports',test_records:'Test records',catchup:'Catch-up lessons',session_plan:'Session planner',mgmt_reports:'Management reports',finance:'Finance',reports:'Analytics',users:'User management',branches:'Branches',parent_portal:'Parent portal',audit:'Audit log'};const b=state.currentBranch?(state.data.branches||[]).find(br=>br.id===state.currentBranch):null;
+function renderTopbar(){const titles={dashboard:'Dashboard',students:'Students',staff:'Staff',sessions:'Sessions',attendance:'Attendance',invoices:'Invoices & fees',session_reports:'Session reports',staff_timesheets:'Staff timesheets',lesson_reports:'Lesson reports',test_records:'Test records',catchup:'Catch-up lessons',session_plan:'Session planner',mgmt_reports:'Management reports',finance:'Finance',reports:'Analytics',users:'User management',branches:'Branches',parent_portal:'Parent portal',notes:'Meeting notes',audit:'Audit log'};const b=state.currentBranch?(state.data.branches||[]).find(br=>br.id===state.currentBranch):null;
 const u=state.currentUser;
   const isMobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   const branches=state.data.branches||[];
@@ -647,7 +648,7 @@ const u=state.currentUser;
     '</select></div>':'';
   return mobileBranchBar+`<div class="topbar"><button class="hamburger" id="hamburger-btn"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><div class="page-title">${titles[state.page]||''}</div><div class="topbar-right"><button id="mobile-logout-btn" style="display:none;background:#0f2557;color:#fff;border:1px solid #2a4d9c;border-radius:var(--radius);padding:6px 12px;font-size:13px;cursor:pointer;font-family:var(--font);">Sign out</button>${b?`<span class="badge badge-accent">${b.name}</span>`:`<span class="badge badge-purple">${state.currentUser.role==='super_admin'?'All branches':''}</span>`}<div class="user-chip" style="padding:6px 10px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border);"><div class="avatar ${avatarClass(state.currentUser.role)}" style="width:26px;height:26px;font-size:10px;">${avatarInitials(state.currentUser.name)}</div><span style="font-size:13px;color:var(--text2);margin-left:6px;">${state.currentUser.name}</span></div></div></div>`;}
 
-function renderPage(){const map={dashboard:renderDashboard,student_profile:renderStudentProfile,students:renderStudents,staff:renderStaff,sessions:renderSessions,attendance:renderAttendance,invoices:renderInvoices,session_reports:renderSessionReports,staff_timesheets:renderStaffTimesheets,lesson_reports:renderLessonReports,test_records:renderTestRecords,catchup:renderCatchup,session_plan:renderSessionPlan,mgmt_reports:renderMgmtReports,finance:renderFinance,reports:renderReports,users:renderUsers,branches:renderBranches,parent_portal:renderParentPortalAdmin,audit:renderAudit};return(map[state.page]||renderDashboard)();}
+function renderPage(){const map={dashboard:renderDashboard,student_profile:renderStudentProfile,students:renderStudents,staff:renderStaff,sessions:renderSessions,attendance:renderAttendance,invoices:renderInvoices,session_reports:renderSessionReports,staff_timesheets:renderStaffTimesheets,lesson_reports:renderLessonReports,test_records:renderTestRecords,catchup:renderCatchup,session_plan:renderSessionPlan,mgmt_reports:renderMgmtReports,finance:renderFinance,reports:renderReports,users:renderUsers,branches:renderBranches,parent_portal:renderParentPortalAdmin,notes:renderNotes,audit:renderAudit};return(map[state.page]||renderDashboard)();}
 
 function renderDashboard(){const s=state.data.summary||{};const bs=s.branch_stats||[];const audit=(state.data.audit||[]).slice(0,5);
 return`
@@ -3300,6 +3301,60 @@ return`
 </tr>`).join(''):`<tr><td colspan="6"><div class="empty-state">No actions logged yet</div></td></tr>`}</tbody>
 </table></div></div>`;}
 
+function renderNotes(){
+const notes=state.data.meeting_notes||[];
+const students=state.data.students||[];
+const isSA=isSuperAdmin();
+const role=state.currentUser?.role;
+const canCreate=['super_admin','branch_manager','head_of_centre','supervisor','admin'].includes(role);
+const CATS=['Progress','Behaviour','Fees','Attendance','General','Safeguarding'];
+const filterStu=state.notesFilterStu||'';
+const filterCat=state.notesFilterCat||'';
+let filtered=notes;
+if(filterStu)filtered=filtered.filter(n=>String(n.student_id)===filterStu);
+if(filterCat)filtered=filtered.filter(n=>n.category===filterCat);
+let html=`<div class="page-header"><div><div class="section-title">Meeting notes</div><div class="section-sub">${notes.length} note${notes.length!==1?'s':''} recorded</div></div>${canCreate?`<button class="btn btn-primary" data-action="add-note">+ Add note</button>`:''}</div>`;
+html+=`<div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+<select style="padding:6px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;" onchange="state.notesFilterStu=this.value;render();">
+<option value="">All students</option>
+${students.map(s=>`<option value="${s.id}" ${filterStu===String(s.id)?'selected':''}>${s.name}</option>`).join('')}
+</select>
+<select style="padding:6px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;" onchange="state.notesFilterCat=this.value;render();">
+<option value="">All categories</option>
+${CATS.map(c=>`<option value="${c}" ${filterCat===c?'selected':''}>${c}</option>`).join('')}
+</select>
+</div>`;
+if(!filtered.length){html+=`<div class="empty-state">No notes found</div>`;}
+else{
+html+=`<div style="display:flex;flex-direction:column;gap:10px;">`;
+filtered.forEach(n=>{
+const shared=n.shared_parent;
+html+=`<div class="card" style="padding:14px 16px;border-left:3px solid ${shared?'var(--success)':'var(--border2)'};"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;"><div style="flex:1;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-weight:600;font-size:14px;color:var(--text);">${n.student_name}</span><span class="badge badge-gray">${n.admission_id}</span><span class="badge badge-accent">${n.category}</span>${shared?'<span class="badge badge-success" style="font-size:11px;">Shared with parent</span>':'<span style="font-size:11px;color:var(--text3);">Private</span>'}</div><div style="font-size:13px;color:var(--text2);line-height:1.5;">${n.notes}</div><div style="font-size:11px;color:var(--text3);margin-top:6px;">${n.meeting_date||''} · ${n.recorded_by_name||'Unknown'}</div></div>${canCreate?`<div style="display:flex;gap:6px;flex-shrink:0;"><button class="btn btn-sm" data-action="edit-note" data-id="${n.id}">Edit</button><button class="btn btn-sm" data-action="delete-note" data-id="${n.id}" style="color:var(--danger-text);border-color:var(--danger);">Del</button></div>`:''}</div></div>`;
+});
+html+='</div>';}
+// read-only student list at bottom
+const stuList=students;
+html+=`<div style="margin-top:32px;padding-top:20px;border-top:2px solid var(--border);"><div style="font-size:14px;font-weight:600;color:var(--text2);margin-bottom:12px;">Student reference list</div>`;
+if(stuList.length){
+html+=`<div style="overflow-x:auto;"><table class="data-table"><thead><tr><th>ID</th><th>Name</th><th>Year</th><th>Branch</th><th>Parent/Guardian</th><th>Mobile</th></tr></thead><tbody>`;
+stuList.forEach(s=>{html+=`<tr><td><span class="id-code">${s.admission_id}</span></td><td>${s.name}</td><td>${s.year_group||'—'}</td><td>${s.branch_name||'—'}</td><td>${s.carer1_first_name?s.carer1_first_name+(s.carer1_last_name?' '+s.carer1_last_name:''):(s.parent_contact||'—')}</td><td>${s.carer1_mobile||s.carer1_telephone||'—'}</td></tr>`;});
+html+=`</tbody></table></div>`;}
+html+='</div>';
+return html;}
+function modalNote(){
+const students=state.data.students||[];
+const t=state.editTarget||{};
+const isEdit=state.modal==='edit-note';
+const CATS=['Progress','Behaviour','Fees','Attendance','General','Safeguarding'];
+const footer=`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${isEdit?'Save changes':'Add note'}</button>`;
+return modal(`<h2 style="margin:0 0 18px;">${isEdit?'Edit note':'Add meeting note'}</h2>
+<div class="form-grid">
+${!isEdit?`<div class="field" style="grid-column:1/-1;"><label>Student *</label><select id="f-student-id" required><option value="">Select student...</option>${students.map(s=>`<option value="${s.id}">${s.name} (${s.admission_id})</option>`).join('')}</select></div>`:`<div class="field" style="grid-column:1/-1;"><label>Student</label><div style="padding:8px 10px;background:var(--surface3);border-radius:var(--radius);font-size:13px;font-weight:600;color:var(--text);">${t.student_name||''}</div></div>`}
+<div class="field"><label>Meeting date *</label><input type="date" id="f-meeting-date" value="${t.meeting_date||new Date().toISOString().slice(0,10)}"></div>
+<div class="field"><label>Category</label><select id="f-category">${CATS.map(c=>`<option value="${c}" ${(t.category||'General')===c?'selected':''}>${c}</option>`).join('')}</select></div>
+<div class="field" style="grid-column:1/-1;"><label>Notes *</label><textarea id="f-notes" rows="5" style="resize:vertical;" placeholder="Record what was discussed and any outcomes...">${t.notes||''}</textarea></div>
+<div class="field" style="grid-column:1/-1;"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="f-shared-parent" ${t.shared_parent?'checked':''}> <span>Share with parent (visible in parent portal)</span></label></div>
+</div>`,footer);}
 function renderParentPortal(){const pu=state.parentUser;const children=state.data.parent_children||[];function childCard(st){const att=state.data['p_att_'+st.id]||[];const invs=state.data['p_inv_'+st.id]||[];const prog=state.data['p_prog_'+st.id]||[];const tests=state.data['p_tests_'+st.id]||[];const present=att.filter(a=>a.status==='present').length;const pct=att.length?Math.round(present/att.length*100):0;const outstanding=invs.filter(i=>i.status!=='paid').reduce((s,i)=>s+i.amount,0);
 return`<div class="card" style="margin-bottom:18px;border-left:3px solid var(--accent);">
 <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--border);">
@@ -3327,7 +3382,11 @@ ${invs.map(inv=>`<div style="display:flex;justify-content:space-between;align-it
 <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border);">
 <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px;">📝 Test records</div>
 ${tests.length?tests.map(t=>{const score=t.score_pct!=null?parseFloat(t.score_pct):null;const rscore=t.retest_score_pct!=null?parseFloat(t.retest_score_pct):null;const passed=t.passed;const rPassed=t.retest_passed;return`<div style="padding:10px 0;border-bottom:1px solid var(--border);"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><div style="font-size:13px;font-weight:600;color:var(--text);">${t.subject} <span style="font-weight:400;color:var(--text3);">${t.book_unit||''}</span></div><span style="font-size:11px;color:var(--text3);">${t.test_date?new Date(t.test_date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):''}</span></div><div style="display:flex;align-items:center;gap:8px;"><span style="font-size:13px;font-weight:700;color:${score!=null&&score<70?'var(--danger-text)':'var(--success-text)'};">${score!=null?score+'%':'—'}</span><span class="badge ${passed?'badge-success':'badge-danger'}">${passed?'✓ Pass':'✗ Needs revision'}</span>${rscore!=null?`<span style="font-size:12px;color:var(--text2);">↩ Retest: <strong style="color:${rscore<70?'var(--danger-text)':'var(--success-text)'};">${rscore}%</strong> <span class="badge ${rPassed?'badge-success':'badge-danger'}">${rPassed?'Pass':'Fail'}</span></span>`:''}</div>${t.action_plan?`<div style="margin-top:6px;font-size:12px;color:var(--text2);padding:6px 10px;background:var(--surface3);border-radius:6px;">📋 ${t.action_plan}</div>`:''}</div>`;}).join(''):'<p style="color:var(--text3);font-size:13px;padding:10px 0;">No test records yet</p>'}
-</div>
+
+<div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border);">
+<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px;">💬 Meeting notes</div>
+${(state.data['p_mnotes_'+st.id]||[]).length?(state.data['p_mnotes_'+st.id]||[]).map(n=>`<div style="padding:10px 0;border-bottom:1px solid var(--border);"><div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:12px;font-weight:600;color:var(--text2);">${n.category}</span><span style="font-size:11px;color:var(--text3);">${n.meeting_date||''}</span></div><div style="font-size:13px;color:var(--text2);line-height:1.5;">${n.notes}</div><div style="font-size:11px;color:var(--text3);margin-top:3px;">${n.recorded_by_name||''}</div></div>`).join(''):'<p style="color:var(--text3);font-size:13px;padding:10px 0;">No meeting notes shared</p>'}
+</div></div>
 </div>`;}
 return`
 <div style="background:var(--surface);border-bottom:1px solid var(--border);padding:16px 0;margin-bottom:24px;display:flex;justify-content:space-between;align-items:center;">
@@ -4515,6 +4574,23 @@ if(m==='record-retest'){
   await API.put('/api/test-records/'+state.editTarget.id,body);
   toast('Retest recorded');
 }
+if(state.modal==='add-note'||state.modal==='edit-note'){
+  const isEdit=state.modal==='edit-note';
+  const notes=v('f-notes');
+  if(!notes){toast('Notes are required','error');return;}
+  const shared=document.getElementById('f-shared-parent')?.checked||false;
+  let body={meeting_date:v('f-meeting-date'),category:v('f-category'),notes,shared_parent:shared};
+  if(!isEdit){
+    const sid=parseInt(v('f-student-id'));
+    if(!sid){toast('Please select a student','error');return;}
+    body.student_id=sid;
+    const stu=(state.data.students||[]).find(s=>s.id===sid);
+    body.branch_id=stu?stu.branch_id:(state.currentUser?.branch_id||null);
+  }
+  const r=isEdit?await API.put('/api/meeting-notes/'+state.editTarget.id,body):await API.post('/api/meeting-notes',body);
+  if(r&&r.error){toast(r.error,'error');return;}
+  await loadData('meeting_notes','/api/meeting-notes',branchParam());
+  state.modal=null;state.editTarget=null;toast(isEdit?'Note updated':'Note added');render();return;}
 if(m==='add-test-record'||m==='edit-test-record'){
   const score=parseFloat(v('f-score'));
   const body={student_id:parseInt(v('f-student-id')),branch_id:parseInt(v('f-branch')),subject:v('f-subject'),book_unit:v('f-book-unit'),test_date:v('f-test-date'),score_pct:score,revision_given:v('f-revision')==='true',retest_date:v('f-retest-date')||null,retest_score_pct:v('f-retest-score')?parseFloat(v('f-retest-score')):null,action_plan:v('f-action-plan'),notes:v('f-notes')};
@@ -4948,6 +5024,9 @@ if(action==='edit-payment'){state.modal='edit-payment';state.editTarget=(state.d
 if(action==='del-payment'){if(!confirm('Delete this payment?'))return;await API.delete('/api/payments/'+id);toast('Payment deleted');refreshPage();return;}
 if(action==='add-instalment-plan'){state.modal='add-instalment-plan';state.editTarget=null;render();return;}
 if(action==='del-instalment-plan'){if(!confirm('Delete this plan?'))return;await API.delete('/api/instalment-plans/'+id);toast('Plan deleted');refreshPage();return;}
+if(action==='add-note'){state.modal='add-note';state.editTarget=null;render();return;}
+if(action==='edit-note'){const note=(state.data.meeting_notes||[]).find(n=>n.id===id);if(note){state.modal='edit-note';state.editTarget=note;render();}return;}
+if(action==='delete-note'){if(!confirm('Delete this note?'))return;await API.delete('/api/meeting-notes/'+id);await loadData('meeting_notes','/api/meeting-notes',branchParam());toast('Note deleted');render();return;}
 if(action==='add-test-record'){state.modal='add-test-record';state.editTarget=null;render();return;}
 if(action==='edit-test-record'){state.modal='edit-test-record';state.editTarget=(state.data.test_records||[]).find(t=>t.id===id)||(state.trStudentId?(state.data['tr_'+state.trStudentId]||[]).find(t=>t.id===id):null);render();return;}
 if(action==='record-retest'){state.modal='record-retest';state.editTarget=(state.data.test_records||[]).find(t=>t.id===id)||(state.trStudentId?(state.data['tr_'+state.trStudentId]||[]).find(t=>t.id===id):null);render();return;}
