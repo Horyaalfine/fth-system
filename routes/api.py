@@ -3090,7 +3090,8 @@ def add_meeting_note():
     branch_id = session.get('branch_id')
     d = request.get_json()
     # branch_manager/etc can only add to their own branch
-    note_branch = int(d.get('branch_id', branch_id or 0))
+    raw_branch = d.get('branch_id') or branch_id or 0
+    note_branch = int(raw_branch) if raw_branch else 0
     if role != 'super_admin' and note_branch != branch_id:
         return jsonify({'error': 'Cannot add note to another branch'}), 403
     conn = get_conn(); cur = conn.cursor()

@@ -3317,7 +3317,7 @@ let html=`<div class="page-header"><div><div class="section-title">Meeting notes
 html+=`<div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
 <select style="padding:6px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;" onchange="state.notesFilterStu=this.value;render();">
 <option value="">All students</option>
-${students.map(s=>`<option value="${s.id}" ${filterStu===String(s.id)?'selected':''}>${s.name}</option>`).join('')}
+${students.map(s=>`<option value="${s.id}" ${filterStu===String(s.id)?'selected':''}>${s.name} (${s.admission_id})</option>`).join('')}
 </select>
 <select style="padding:6px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;" onchange="state.notesFilterCat=this.value;render();">
 <option value="">All categories</option>
@@ -3349,7 +3349,7 @@ const CATS=['Progress','Behaviour','Fees','Attendance','General','Safeguarding']
 const footer=`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${isEdit?'Save changes':'Add note'}</button>`;
 return modal(`<h2 style="margin:0 0 18px;">${isEdit?'Edit note':'Add meeting note'}</h2>
 <div class="form-grid">
-${!isEdit?`<div class="field" style="grid-column:1/-1;"><label>Student *</label><select id="f-student-id" required><option value="">Select student...</option>${students.map(s=>`<option value="${s.id}">${s.name} (${s.admission_id})</option>`).join('')}</select></div>`:`<div class="field" style="grid-column:1/-1;"><label>Student</label><div style="padding:8px 10px;background:var(--surface3);border-radius:var(--radius);font-size:13px;font-weight:600;color:var(--text);">${t.student_name||''}</div></div>`}
+${!isEdit?`<div class="field" style="grid-column:1/-1;"><label>Student *</label><select id="f-student-id" required><option value="">Select student...</option>${students.map(s=>`<option value="${s.id}">${s.admission_id} — ${s.name}</option>`).join('')}</select></div>`:`<div class="field" style="grid-column:1/-1;"><label>Student</label><div style="padding:8px 10px;background:var(--surface3);border-radius:var(--radius);font-size:13px;font-weight:600;color:var(--text);">${t.student_name||''}</div></div>`}
 <div class="field"><label>Meeting date *</label><input type="date" id="f-meeting-date" value="${t.meeting_date||new Date().toISOString().slice(0,10)}"></div>
 <div class="field"><label>Category</label><select id="f-category">${CATS.map(c=>`<option value="${c}" ${(t.category||'General')===c?'selected':''}>${c}</option>`).join('')}</select></div>
 <div class="field" style="grid-column:1/-1;"><label>Notes *</label><textarea id="f-notes" rows="5" style="resize:vertical;" placeholder="Record what was discussed and any outcomes...">${t.notes||''}</textarea></div>
