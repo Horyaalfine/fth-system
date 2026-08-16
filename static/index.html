@@ -510,7 +510,7 @@ else if(page==='catchup'){
   ]);
 }
 else if(page==='test_records'){
-  await Promise.all([loadData('students','/api/students',b),loadData('test_records','/api/test-records',b)]);
+  await Promise.all([loadData('students','/api/students',b),loadData('test_records','/api/test-records',b),loadData('branches','/api/branches')]);
   if(state.trStudentId) await loadData('tr_'+state.trStudentId,'/api/test-records',{student_id:state.trStudentId});
 }
 else if(page==='staff_timesheets'){await Promise.all([loadData('sessions','/api/sessions',b),loadData('staff','/api/staff',b),loadData('staff_att_summary','/api/staff-attendance/summary',{...b,month:state.staffAttMonth||new Date().toISOString().slice(0,7)}),loadData('staff_att','/api/staff-attendance',{...b,month:state.staffAttMonth||new Date().toISOString().slice(0,7)})]);}else if(page==='finance'){const mp=state.finMonth?{month:state.finMonth}:{};await Promise.all([loadData('students','/api/students',b),loadData('invoices','/api/invoices',b),loadData('adjustments','/api/adjustments',b),loadData('payments','/api/payments',{...b,...mp}),loadData('instalment_plans','/api/instalment-plans',b),loadData('payment_summary','/api/payments/summary',{...b,...mp}),
@@ -556,7 +556,7 @@ if(state.currentUser&&state.currentUser.role!=='super_admin'&&state.currentUser.
         loadData('mgmt_summary','/api/reports/management/summary',b2m),
         loadData('mgmt_yearly','/api/reports/management/yearly',b2m)
       ]).then(function(){state.loading=false;render();});}
-      else if(pg==='test_records') Promise.all([loadData('students','/api/students',b),loadData('test_records','/api/test-records',b)]).then(function(){state.loading=false;render();});
+      else if(pg==='test_records') Promise.all([loadData('students','/api/students',b),loadData('test_records','/api/test-records',b),loadData('branches','/api/branches')]).then(function(){state.loading=false;render();});
       else if(pg==='catchup') Promise.all([loadData('students','/api/students',b),loadData('catchup','/api/catchup',b)]).then(function(){state.loading=false;render();});
       else Promise.all([loadData('branches','/api/branches'),loadData('summary','/api/reports/summary',b)]).then(function(){state.loading=false;render();});
       return false;
