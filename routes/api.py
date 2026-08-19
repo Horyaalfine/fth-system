@@ -3389,6 +3389,7 @@ def send_announcement_email(aid):
         return jsonify({'error': 'No parents with email addresses found'}), 400
 
     sent = 0; failed = 0
+    failed_list = []; sent_list = []
     try:
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
@@ -3416,11 +3417,42 @@ def send_announcement_email(aid):
                 msg.attach(MIMEText(html_body, 'html'))
                 server.sendmail(smtp_email, r['email'], msg.as_string())
                 sent += 1
-            except Exception:
+                sent_list.append(r['email'])
+                cur.execute(
+                    "INSERT INTO announcement_email_log (announcement_id, recipient_email, recipient_name, status) VALUES (%s,%s,%s,'sent')",
+                    (aid, r['email'], r.get('name',''))
+                )
+                conn.commit()
+            except Exception as ex:
                 failed += 1
+                err_msg = str(ex)
+                failed_list.append({'email': r['email'], 'error': err_msg})
+                cur.execute(
+                    "INSERT INTO announcement_email_log (announcement_id, recipient_email, recipient_name, status, error_msg) VALUES (%s,%s,%s,'failed',%s)",
+                    (aid, r['email'], r.get('name',''), err_msg)
+                )
+                conn.commit()
 
         server.quit()
     except Exception as e:
+        cur.close(); conn.close()
         return jsonify({'error': f'SMTP connection failed: {str(e)}'}), 500
 
-    return jsonify({'ok': True, 'sent': sent, 'failed': failed})
+    cur.close(); conn.close()
+    return jsonify({'ok': True, 'sent': sent, 'failed': failed, 'sent_list': sent_list, 'failed_list': failed_list})
+
+@api_bp.route('/api/announcements/<int:aid>/email-log', methods=['GET'])
+@login_required
+def get_announcement_email_log(aid):
+    conn = get_conn(); cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute(
+        """SELECT id, recipient_email, recipient_name, status, error_msg,
+                  to_char(sent_at, 'DD Mon YYYY HH24:MI') as sent_at
+           FROM announcement_email_log
+           WHERE announcement_id=%s
+           ORDER BY sent_at DESC""",
+        (aid,)
+    )
+    rows = cur.fetchall()
+    cur.close(); conn.close()
+    return jsonify(rows)

@@ -3371,6 +3371,7 @@ rightPanel+='<div class="card" style="padding:14px 16px;border-left:3px solid '+
 '</div>'+
 (canCreate?'<div style="display:flex;gap:6px;flex-shrink:0;">'+
 '<button class="btn btn-sm" data-action="send-announcement-email" data-id="'+a.id+'" style="color:var(--success-text);border-color:var(--success);">✉ Email</button>'+
+'<button class="btn btn-sm" data-action="view-email-log" data-id="'+a.id+'" style="color:var(--accent);border-color:var(--accent);">📋 Log</button>'+
 '<button class="btn btn-sm" data-action="edit-announcement" data-id="'+a.id+'">Edit</button>'+
 '<button class="btn btn-sm" data-action="delete-announcement" data-id="'+a.id+'" style="color:var(--danger-text);border-color:var(--danger);">Del</button>'+
 '</div>':'')+
@@ -3518,7 +3519,9 @@ return`
 ${children.map(st=>childCard(st)).join('')}`;}
 
 // MODALS
-function renderModal(){const m=state.modal;if(m==='edit-announcement')return modalAnnouncement();if(m==='add-note'||m==='edit-note')return modalNote();if(m==='add-student'||m==='edit-student')return modalStudent();if(m==='add-staff'||m==='edit-staff')return modalStaff();if(m==='add-session'||m==='edit-session')return modalSession();
+function renderModal(){const m=state.modal?.name||state.modal;
+if(m==='email-log-view'){return mWrap('📋 Email Delivery Log',state.emailLogHtml||'','');}
+if(m==='edit-announcement')return modalAnnouncement();if(m==='add-note'||m==='edit-note')return modalNote();if(m==='add-student'||m==='edit-student')return modalStudent();if(m==='add-staff'||m==='edit-staff')return modalStaff();if(m==='add-session'||m==='edit-session')return modalSession();
 if(m==='gen-weekly-sessions')return modalWeeklySessions();if(m==='add-user'||m==='edit-user')return modalUser();if(m==='add-branch'||m==='edit-branch')return modalBranch();if(m==='edit-invoice')return modalInvoice();
   if(m==='mark-paid')return modalMarkPaid();
   if(m==='add-adjustment'||m==='edit-adjustment')return modalAdjustment();
@@ -5188,6 +5191,34 @@ if(action==='send-announcement-email'){
   const r=await API.post('/api/announcements/'+id+'/send-email',{});
   if(r&&r.error){toast(r.error,'error');return;}
   toast('Sent to '+r.sent+' parent'+(r.sent!==1?'s':'')+(r.failed?' ('+r.failed+' failed)':''));return;}
+if(action==='view-email-log'){
+  const logs=await API.get('/api/announcements/'+id+'/email-log');
+  if(!logs||logs.error){toast(logs?.error||'Failed to load log','error');return;}
+  const rows=logs.length?logs.map(l=>'<tr>'+
+    '<td style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:13px;">'+l.recipient_name+'</td>'+
+    '<td style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:13px;">'+l.recipient_email+'</td>'+
+    '<td style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:13px;">'+
+      (l.status==='sent'?'<span style="color:var(--success-text);font-weight:600;">✓ Sent</span>':'<span style="color:var(--danger-text);font-weight:600;">✗ Failed</span>')+
+    '</td>'+
+    '<td style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text3);">'+(l.error_msg||'—')+'</td>'+
+    '<td style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text3);">'+l.sent_at+'</td>'+
+    '</tr>').join(''):'<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--text3);">No emails sent yet for this announcement.</td></tr>';
+  const sentCount=logs.filter(l=>l.status==='sent').length;
+  const failCount=logs.filter(l=>l.status==='failed').length;
+  const summary='<div style="display:flex;gap:16px;margin-bottom:16px;">'+
+    '<span style="background:var(--success-bg,#dcfce7);color:var(--success-text);padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;">✓ '+sentCount+' delivered</span>'+
+    (failCount?'<span style="background:var(--danger-bg,#fee2e2);color:var(--danger-text);padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;">✗ '+failCount+' failed</span>':'')+'</div>';
+  const tableHtml=summary+'<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">'+
+    '<thead><tr>'+
+    '<th style="text-align:left;padding:8px 10px;font-size:12px;color:var(--text3);border-bottom:2px solid var(--border);">Name</th>'+
+    '<th style="text-align:left;padding:8px 10px;font-size:12px;color:var(--text3);border-bottom:2px solid var(--border);">Email</th>'+
+    '<th style="text-align:left;padding:8px 10px;font-size:12px;color:var(--text3);border-bottom:2px solid var(--border);">Status</th>'+
+    '<th style="text-align:left;padding:8px 10px;font-size:12px;color:var(--text3);border-bottom:2px solid var(--border);">Error</th>'+
+    '<th style="text-align:left;padding:8px 10px;font-size:12px;color:var(--text3);border-bottom:2px solid var(--border);">Sent at</th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table></div>';
+  state.modal={name:'email-log-view'};
+  state.emailLogHtml=tableHtml;
+  render();return;}
 if(action==='edit-announcement'){const ann=(state.data.announcements||[]).find(a=>a.id===id);if(ann){state.modal='edit-announcement';state.editTarget=ann;render();}return;}
 if(action==='delete-announcement'){if(!confirm('Delete this announcement?'))return;await API.delete('/api/announcements/'+id);await loadData('announcements','/api/announcements',branchParam());toast('Announcement deleted');render();return;}
 if(action==='add-note'){state.modal='add-note';state.editTarget=null;render();return;}

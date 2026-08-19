@@ -528,6 +528,16 @@ CREATE TABLE IF NOT EXISTS announcements (
 CREATE INDEX IF NOT EXISTS idx_announcements_branch ON announcements(branch_id);
 CREATE INDEX IF NOT EXISTS idx_announcements_student ON announcements(student_id);
 CREATE INDEX IF NOT EXISTS idx_announcements_created ON announcements(created_at DESC);
+CREATE TABLE IF NOT EXISTS announcement_email_log (
+    id              SERIAL PRIMARY KEY,
+    announcement_id INT REFERENCES announcements(id) ON DELETE CASCADE,
+    recipient_email TEXT NOT NULL,
+    recipient_name  TEXT,
+    status          TEXT NOT NULL DEFAULT 'sent',
+    error_msg       TEXT,
+    sent_at         TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ann_email_log_ann ON announcement_email_log(announcement_id);
 
 
 
