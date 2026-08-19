@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, session
 from werkzeug.security import generate_password_hash
 from models.db import get_conn
+from psycopg2.extras import RealDictCursor
 from functools import wraps
 from datetime import date
 
@@ -3446,7 +3447,7 @@ def send_announcement_email(aid):
 @api_bp.route('/api/announcements/<int:aid>/email-log', methods=['GET'])
 @login_required
 def get_announcement_email_log(aid):
-    conn = get_conn(); cur = conn.cursor(cursor_factory=RealDictCursor)
+    conn = get_conn(); cur = conn.cursor()
     cur.execute(
         """SELECT id, recipient_email, recipient_name, status, error_msg,
                   to_char(sent_at, 'DD Mon YYYY HH24:MI') as sent_at
