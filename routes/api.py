@@ -3441,11 +3441,10 @@ def send_announcement_email(aid):
         return jsonify({'error': f'SMTP connection failed: {str(e)}'}), 500
     log_cur.close(); log_conn.close()
 
-    cur.close(); conn.close()
     return jsonify({'ok': True, 'sent': sent, 'failed': failed, 'sent_list': sent_list, 'failed_list': failed_list})
 
 @api_bp.route('/api/announcements/<int:aid>/email-log', methods=['GET'])
-@login_required
+@require_roles(*ANN_ROLES)
 def get_announcement_email_log(aid):
     conn = get_conn(); cur = conn.cursor()
     cur.execute(
