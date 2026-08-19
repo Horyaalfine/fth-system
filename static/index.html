@@ -5194,20 +5194,24 @@ if(action==='send-announcement-email'){
 if(action==='view-email-log'){
   const logs=await API.get('/api/announcements/'+id+'/email-log');
   if(!logs||logs.error){toast(logs?.error||'Failed to load log','error');return;}
-  const rows=logs.length?logs.map(l=>'<tr>'+
+  const rows=logs.length?logs.map(l=>{
+    const statusHtml=l.status==='sent'?'<span style="color:var(--success-text);font-weight:600;">✓ Sent</span>':
+      l.status==='failed'?'<span style="color:var(--danger-text);font-weight:600;">✗ Failed</span>':
+      '<span style="color:var(--text3);font-weight:600;">— No email</span>';
+    return '<tr>'+
     '<td style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:13px;">'+l.recipient_name+'</td>'+
-    '<td style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:13px;">'+l.recipient_email+'</td>'+
-    '<td style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:13px;">'+
-      (l.status==='sent'?'<span style="color:var(--success-text);font-weight:600;">✓ Sent</span>':'<span style="color:var(--danger-text);font-weight:600;">✗ Failed</span>')+
-    '</td>'+
+    '<td style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text3);">'+(l.recipient_email||'—')+'</td>'+
+    '<td style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:13px;">'+statusHtml+'</td>'+
     '<td style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text3);">'+(l.error_msg||'—')+'</td>'+
     '<td style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text3);">'+l.sent_at+'</td>'+
-    '</tr>').join(''):'<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--text3);">No emails sent yet for this announcement.</td></tr>';
+    '</tr>';}).join(''):'<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--text3);">No emails sent yet for this announcement.</td></tr>';
   const sentCount=logs.filter(l=>l.status==='sent').length;
   const failCount=logs.filter(l=>l.status==='failed').length;
-  const summary='<div style="display:flex;gap:16px;margin-bottom:16px;">'+
+  const noEmailCount=logs.filter(l=>l.status==='no_email').length;
+  const summary='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">'+
     '<span style="background:var(--success-bg,#dcfce7);color:var(--success-text);padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;">✓ '+sentCount+' delivered</span>'+
-    (failCount?'<span style="background:var(--danger-bg,#fee2e2);color:var(--danger-text);padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;">✗ '+failCount+' failed</span>':'')+'</div>';
+    (failCount?'<span style="background:var(--danger-bg,#fee2e2);color:var(--danger-text);padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;">✗ '+failCount+' failed</span>':'')+
+    (noEmailCount?'<span style="background:#f3f4f6;color:var(--text3);padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;">— '+noEmailCount+' no email on file</span>':'')+'</div>';
   const tableHtml=summary+'<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">'+
     '<thead><tr>'+
     '<th style="text-align:left;padding:8px 10px;font-size:12px;color:var(--text3);border-bottom:2px solid var(--border);">Name</th>'+

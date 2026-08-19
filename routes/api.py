@@ -3314,7 +3314,7 @@ def send_announcement_email(aid):
     is_all_branches = (role == 'super_admin' or not ann['branch_id'])
     is_specific_student = (ann['target_type'] == 'student' and ann['student_id'])
 
-    # Pull carer emails from student profiles
+    # Pull ALL students (with and without emails) for full audit trail
     if is_specific_student:
         cur.execute("""
             SELECT name, carer1_email, carer2_email,
@@ -3328,7 +3328,6 @@ def send_announcement_email(aid):
                    carer1_first_name, carer1_last_name,
                    carer2_first_name, carer2_last_name
             FROM students
-            WHERE carer1_email IS NOT NULL OR carer2_email IS NOT NULL
         """)
     else:
         cur.execute("""
@@ -3337,7 +3336,6 @@ def send_announcement_email(aid):
                    carer2_first_name, carer2_last_name
             FROM students
             WHERE branch_id=%s
-              AND (carer1_email IS NOT NULL OR carer2_email IS NOT NULL)
         """, (branch_id,))
 
     student_rows = rows(cur)
@@ -3364,10 +3362,12 @@ def send_announcement_email(aid):
 
     portal_rows = rows(cur)
 
-    # Build deduplicated recipient list
+    # Build deduplicated recipient list; track students with no email
     seen = set()
     recipients = []
+    no_email_students = []
     for s in student_rows:
+        found = False
         for email_field, fn_field, ln_field in [
             ('carer1_email','carer1_first_name','carer1_last_name'),
             ('carer2_email','carer2_first_name','carer2_last_name')
@@ -3379,6 +3379,9 @@ def send_announcement_email(aid):
                 ln = s.get(ln_field) or ''
                 name = (fn + ' ' + ln).strip() or s.get('name','')
                 recipients.append({'email': em, 'name': name})
+                found = True
+        if not found:
+            no_email_students.append(s.get('name','Unknown student'))
     for p in portal_rows:
         em = (p.get('email') or '').strip().lower()
         if em and em not in seen:
@@ -3439,9 +3442,16 @@ def send_announcement_email(aid):
     except Exception as e:
         log_cur.close(); log_conn.close()
         return jsonify({'error': f'SMTP connection failed: {str(e)}'}), 500
+    # Log students with no email address found
+    for name in no_email_students:
+        log_cur.execute(
+            "INSERT INTO announcement_email_log (announcement_id, recipient_email, recipient_name, status, error_msg) VALUES (%s,%s,%s,'no_email',%s)",
+            (aid, '', name, 'No email address on file')
+        )
+    log_conn.commit()
     log_cur.close(); log_conn.close()
 
-    return jsonify({'ok': True, 'sent': sent, 'failed': failed, 'sent_list': sent_list, 'failed_list': failed_list})
+    return jsonify({'ok': True, 'sent': sent, 'failed': failed, 'no_email': len(no_email_students), 'sent_list': sent_list, 'failed_list': failed_list})
 
 @api_bp.route('/api/announcements/<int:aid>/email-log', methods=['GET'])
 @require_roles(*ANN_ROLES)
