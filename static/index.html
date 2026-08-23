@@ -424,9 +424,9 @@ function branchParam(){
 function canAccess(page){
   const r=state.currentUser?.role;
   if(r==='super_admin') return true;
-  if(r==='branch_manager') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup','session_plan','mgmt_reports','parent_portal','users','notes','announcements'].includes(page);
-  if(r==='head_of_centre') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup','session_plan','mgmt_reports','parent_portal','users','notes','announcements'].includes(page);
-  if(r==='head_of_branches') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup','session_plan','mgmt_reports','parent_portal','users','notes','announcements'].includes(page);
+  if(r==='branch_manager') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup','session_plan','mgmt_reports','parent_portal','users','notes','announcements','credit_control'].includes(page);
+  if(r==='head_of_centre') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup','session_plan','mgmt_reports','parent_portal','users','notes','announcements','credit_control'].includes(page);
+  if(r==='head_of_branches') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup','session_plan','mgmt_reports','parent_portal','users','notes','announcements','credit_control'].includes(page);
   if(r==='supervisor') return['dashboard','students','sessions','attendance','session_reports','lesson_reports','test_records','staff_timesheets','catchup','session_plan','notes'].includes(page);
   if(r==='teacher') return['dashboard','sessions','attendance','session_reports','lesson_reports','test_records','staff_timesheets'].includes(page);
   if(r==='receptionist') return['dashboard','students','sessions','attendance','invoices','finance'].includes(page);
@@ -512,7 +512,7 @@ else if(page==='catchup'){
   ]);
 }
 else if(page==='notes'){await Promise.all([loadData('meeting_notes','/api/meeting-notes',b),loadData('students','/api/students',b),loadData('branches','/api/branches')]);}
-else if(page==='announcements'){await Promise.all([loadData('announcements','/api/announcements',b),loadData('students','/api/students',b),loadData('branches','/api/branches')]);}else if(page==='test_records'){
+else if(page==='announcements'){await Promise.all([loadData('announcements','/api/announcements',b),loadData('students','/api/students',b),loadData('branches','/api/branches')]);}else if(page==='credit_control'){await loadData('credit_control','/api/credit-control',b);}else if(page==='test_records'){
   await Promise.all([loadData('students','/api/students',b),loadData('test_records','/api/test-records',b),loadData('branches','/api/branches')]);
   if(state.trStudentId) await loadData('tr_'+state.trStudentId,'/api/test-records',{student_id:state.trStudentId});
 }
@@ -621,6 +621,7 @@ function renderSidebar(){const u=state.currentUser;const isSA=u.role==='super_ad
   {id:'attendance',icon:icoCheck(),label:'Attendance',group:'sessions'},
   {id:'invoices',icon:icoPound(),label:'Invoices & fees',group:'finance'},
   {id:'finance',icon:icoFinance(),label:'Finance',group:'finance'},
+  {id:'credit_control',icon:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>',label:'Credit Control',group:'finance'},
   {id:'staff_timesheets',icon:icoClipboard(),label:'Staff timesheets',group:'finance'},
   {id:'session_reports',icon:icoDoc(),label:'Session reports',group:'reports'},
   {id:'lesson_reports',icon:icoBook(),label:'Lesson reports',group:'reports'},
@@ -641,7 +642,7 @@ ${(u.role==='super_admin'||u.role==='branch_manager'||u.role==='head_of_centre'|
 <div class="nav-item" data-action="change-password" style="font-size:12px;color:var(--sb-text3);padding:6px 4px;margin-top:4px;cursor:pointer;">🔑 Change password</div><button class="btn btn-sm" id="logout-btn" style="width:100%;margin-top:6px;justify-content:center;background:var(--sb-surface2);color:var(--sb-text);border-color:var(--sb-border);">Sign out</button>
 </div></div>`;}
 
-function renderTopbar(){const titles={dashboard:'Dashboard',students:'Students',staff:'Staff',sessions:'Sessions',attendance:'Attendance',invoices:'Invoices & fees',session_reports:'Session reports',staff_timesheets:'Staff timesheets',lesson_reports:'Lesson reports',test_records:'Test records',catchup:'Catch-up lessons',session_plan:'Session planner',mgmt_reports:'Management reports',finance:'Finance',reports:'Analytics',users:'User management',branches:'Branches',parent_portal:'Parent portal',notes:'Notes',announcements:'Announcements',audit:'Audit log'};const b=state.currentBranch?(state.data.branches||[]).find(br=>br.id===state.currentBranch):null;
+function renderTopbar(){const titles={dashboard:'Dashboard',students:'Students',staff:'Staff',sessions:'Sessions',attendance:'Attendance',invoices:'Invoices & fees',session_reports:'Session reports',staff_timesheets:'Staff timesheets',lesson_reports:'Lesson reports',test_records:'Test records',catchup:'Catch-up lessons',session_plan:'Session planner',mgmt_reports:'Management reports',finance:'Finance',reports:'Analytics',users:'User management',branches:'Branches',parent_portal:'Parent portal',notes:'Notes',announcements:'Announcements',credit_control:'Credit Control',audit:'Audit log'};const b=state.currentBranch?(state.data.branches||[]).find(br=>br.id===state.currentBranch):null;
 const u=state.currentUser;
   const isMobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   const branches=state.data.branches||[];
@@ -652,7 +653,7 @@ const u=state.currentUser;
     '</select></div>':'';
   return mobileBranchBar+`<div class="topbar"><button class="hamburger" id="hamburger-btn"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><div class="page-title">${titles[state.page]||''}</div><div class="topbar-right"><button id="mobile-logout-btn" style="display:none;background:#0f2557;color:#fff;border:1px solid #2a4d9c;border-radius:var(--radius);padding:6px 12px;font-size:13px;cursor:pointer;font-family:var(--font);">Sign out</button>${b?`<span class="badge badge-accent">${b.name}</span>`:`<span class="badge badge-purple">${(state.currentUser.role==='super_admin'||state.currentUser.role==='head_of_branches')?'All branches':''}</span>`}<div class="user-chip" style="padding:6px 10px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border);"><div class="avatar ${avatarClass(state.currentUser.role)}" style="width:26px;height:26px;font-size:10px;">${avatarInitials(state.currentUser.name)}</div><span style="font-size:13px;color:var(--text2);margin-left:6px;">${state.currentUser.name}</span></div></div></div>`;}
 
-function renderPage(){const map={dashboard:renderDashboard,student_profile:renderStudentProfile,students:renderStudents,staff:renderStaff,sessions:renderSessions,attendance:renderAttendance,invoices:renderInvoices,session_reports:renderSessionReports,staff_timesheets:renderStaffTimesheets,lesson_reports:renderLessonReports,test_records:renderTestRecords,catchup:renderCatchup,session_plan:renderSessionPlan,mgmt_reports:renderMgmtReports,finance:renderFinance,reports:renderReports,users:renderUsers,branches:renderBranches,parent_portal:renderParentPortalAdmin,notes:renderNotes,announcements:renderAnnouncements,audit:renderAudit};return(map[state.page]||renderDashboard)();}
+function renderPage(){const map={dashboard:renderDashboard,student_profile:renderStudentProfile,students:renderStudents,staff:renderStaff,sessions:renderSessions,attendance:renderAttendance,invoices:renderInvoices,session_reports:renderSessionReports,staff_timesheets:renderStaffTimesheets,lesson_reports:renderLessonReports,test_records:renderTestRecords,catchup:renderCatchup,session_plan:renderSessionPlan,mgmt_reports:renderMgmtReports,finance:renderFinance,reports:renderReports,users:renderUsers,branches:renderBranches,parent_portal:renderParentPortalAdmin,notes:renderNotes,announcements:renderAnnouncements,credit_control:renderCreditControl,audit:renderAudit};return(map[state.page]||renderDashboard)();}
 
 function renderDashboard(){const s=state.data.summary||{};const bs=s.branch_stats||[];const audit=(state.data.audit||[]).slice(0,5);
 return`
@@ -3305,6 +3306,54 @@ return`
 </tr>`).join(''):`<tr><td colspan="6"><div class="empty-state">No actions logged yet</div></td></tr>`}</tbody>
 </table></div></div>`;}
 
+
+function renderCreditControl(){
+  const data=state.data.credit_control||[];
+  const agingColors={'current':'var(--text3)','1-30':'#d97706','31-60':'#ea580c','61-90':'#dc2626','90+':'#7f1d1d'};
+  const agingLabels={'current':'Current','1-30':'1-30 days','31-60':'31-60 days','61-90':'61-90 days','90+':'90+ days'};
+  const total=data.reduce((s,r)=>s+r.outstanding,0);
+  const overdue=data.filter(r=>r.days_overdue>0);
+  const summary='<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px;">'+
+    '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;min-width:160px;">'+
+    '<div style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Total Outstanding</div>'+
+    '<div style="font-size:24px;font-weight:700;color:var(--danger-text,#dc2626);margin-top:4px;">£'+total.toFixed(2)+'</div></div>'+
+    '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;min-width:160px;">'+
+    '<div style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Students Owing</div>'+
+    '<div style="font-size:24px;font-weight:700;color:var(--text);margin-top:4px;">'+data.length+'</div></div>'+
+    '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;min-width:160px;">'+
+    '<div style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Overdue</div>'+
+    '<div style="font-size:24px;font-weight:700;color:#ea580c;margin-top:4px;">'+overdue.length+'</div></div></div>';
+  if(!data.length) return '<div class="section-card"><div class="section-header"><div class="section-title">Credit Control</div></div><div style="padding:40px;text-align:center;color:var(--text3);">No outstanding fees — all invoices are up to date.</div></div>';
+  const tableRows=data.map(r=>{
+    const agingCol=agingColors[r.aging]||'var(--text3)';
+    const pauseBtn=r.pause_reminders
+      ?'<button class="btn btn-sm" data-action="resume-reminder" data-id="'+r.student_id+'" style="color:var(--success-text);border-color:var(--success);">▶ Resume</button>'
+      :'<button class="btn btn-sm" data-action="pause-reminder" data-id="'+r.student_id+'" style="color:var(--text3);">⏸ Pause</button>';
+    const sendBtn=r.pause_reminders
+      ?'<button class="btn btn-sm" disabled style="opacity:.4;cursor:not-allowed;">✉ Remind</button>'
+      :'<button class="btn btn-sm btn-primary" data-action="send-fee-reminder" data-id="'+r.student_id+'">✉ Remind</button>';
+    return '<tr>'+
+      '<td style="padding:10px 12px;border-bottom:1px solid var(--border);">'+
+        (r.pause_reminders?'<span style="font-size:10px;background:#f3f4f6;color:var(--text3);padding:2px 6px;border-radius:10px;margin-right:6px;">PAUSED</span>':'')+
+        r.student_name+'<div style="font-size:11px;color:var(--text3);">'+r.branch_name+'</div></td>'+
+      '<td style="padding:10px 12px;border-bottom:1px solid var(--border);font-weight:700;color:#dc2626;">£'+r.outstanding.toFixed(2)+'</td>'+
+      '<td style="padding:10px 12px;border-bottom:1px solid var(--border);">'+r.invoice_count+' invoice'+(r.invoice_count!==1?'s':'')+'</td>'+
+      '<td style="padding:10px 12px;border-bottom:1px solid var(--border);font-weight:600;color:'+agingCol+';">'+agingLabels[r.aging]+'</td>'+
+      '<td style="padding:10px 12px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text3);">'+(r.last_reminder||'Never')+'</td>'+
+      '<td style="padding:10px 12px;border-bottom:1px solid var(--border);"><div style="display:flex;gap:6px;">'+sendBtn+pauseBtn+'</div></td>'+
+      '</tr>';
+  }).join('');
+  return summary+'<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">'+
+    '<table style="width:100%;border-collapse:collapse;">'+
+    '<thead><tr style="background:var(--surface3,var(--border));">'+
+    '<th style="padding:10px 12px;text-align:left;font-size:12px;color:var(--text3);font-weight:600;">Student</th>'+
+    '<th style="padding:10px 12px;text-align:left;font-size:12px;color:var(--text3);font-weight:600;">Outstanding</th>'+
+    '<th style="padding:10px 12px;text-align:left;font-size:12px;color:var(--text3);font-weight:600;">Invoices</th>'+
+    '<th style="padding:10px 12px;text-align:left;font-size:12px;color:var(--text3);font-weight:600;">Aging</th>'+
+    '<th style="padding:10px 12px;text-align:left;font-size:12px;color:var(--text3);font-weight:600;">Last Reminder</th>'+
+    '<th style="padding:10px 12px;text-align:left;font-size:12px;color:var(--text3);font-weight:600;">Actions</th>'+
+    '</tr></thead><tbody>'+tableRows+'</tbody></table></div>';
+}
 function renderAnnouncements(){
 const anns=state.data.announcements||[];
 const students=state.data.students||[];
@@ -5194,6 +5243,19 @@ if(action==='send-announcement-email'){
   const r=await API.post('/api/announcements/'+id+'/send-email',{});
   if(r&&r.error){toast(r.error,'error');return;}
   toast('Sent to '+r.sent+' parent'+(r.sent!==1?'s':'')+(r.failed?' ('+r.failed+' failed)':''));return;}
+if(action==='send-fee-reminder'){
+  const r=await API.post('/api/credit-control/send-reminder/'+id,{});
+  if(r&&r.error){toast(r.error,'error');return;}
+  toast('Reminder sent to '+r.sent_to+' — £'+r.total.toFixed(2)+' outstanding');
+  await loadData('credit_control','/api/credit-control',branchParam());render();return;}
+if(action==='pause-reminder'){
+  await API.post('/api/credit-control/pause/'+id,{pause:true});
+  toast('Reminders paused for this student');
+  await loadData('credit_control','/api/credit-control',branchParam());render();return;}
+if(action==='resume-reminder'){
+  await API.post('/api/credit-control/pause/'+id,{pause:false});
+  toast('Reminders resumed for this student');
+  await loadData('credit_control','/api/credit-control',branchParam());render();return;}
 if(action==='view-email-log'){
   const logs=await API.get('/api/announcements/'+id+'/email-log');
   if(!logs||logs.error){toast(logs?.error||'Failed to load log','error');return;}

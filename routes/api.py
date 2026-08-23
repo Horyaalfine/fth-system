@@ -3468,3 +3468,171 @@ def get_announcement_email_log(aid):
     rows = cur.fetchall()
     cur.close(); conn.close()
     return jsonify(rows)
+
+# ── Credit Control ────────────────────────────────────────────────────────────
+CC_ROLES = ('super_admin','branch_manager','head_of_centre','head_of_branches','admin')
+
+@api_bp.route('/api/credit-control', methods=['GET'])
+@require_roles(*CC_ROLES)
+def get_credit_control():
+    conn = get_conn(); cur = conn.cursor()
+    bid = branch_scope()
+    bw  = "AND i.branch_id=%s" if bid else ""
+    bp  = (bid,) if bid else ()
+    cur.execute(f"""
+        SELECT
+            s.id as student_id, s.name as student_name, s.branch_id,
+            b.name as branch_name,
+            s.pause_reminders,
+            COALESCE(pu.email, '') as parent_email,
+            SUM(i.amount - i.amount_paid) as outstanding,
+            COUNT(i.id) as invoice_count,
+            MIN((SUBSTRING(i.month,1,4)||'-'||SUBSTRING(i.month,6,2)||'-07')::date) as oldest_due,
+            MAX(rl.sent_at) as last_reminder
+        FROM invoices i
+        JOIN students s ON s.id = i.student_id
+        JOIN branches b ON b.id = i.branch_id
+        LEFT JOIN parent_students ps ON ps.student_id = s.id
+        LEFT JOIN parent_users pu ON pu.id = ps.parent_id
+        LEFT JOIN fee_reminder_log rl ON rl.student_id = s.id
+        WHERE i.status IN ('due','overdue','partial')
+          AND (i.amount - i.amount_paid) > 0
+          {bw}
+        GROUP BY s.id, s.name, s.branch_id, b.name, s.pause_reminders, pu.email
+        ORDER BY outstanding DESC
+    """, bp)
+    rows_data = rows(cur)
+    today = date.today()
+    result = []
+    for r in rows_data:
+        oldest = r.get('oldest_due')
+        if oldest:
+            days_overdue = (today - oldest).days
+        else:
+            days_overdue = 0
+        if days_overdue <= 0:
+            aging = 'current'
+        elif days_overdue <= 30:
+            aging = '1-30'
+        elif days_overdue <= 60:
+            aging = '31-60'
+        elif days_overdue <= 90:
+            aging = '61-90'
+        else:
+            aging = '90+'
+        r['days_overdue'] = days_overdue
+        r['aging'] = aging
+        r['outstanding'] = float(r['outstanding'] or 0)
+        r['last_reminder'] = r['last_reminder'].strftime('%d %b %Y %H:%M') if r.get('last_reminder') else None
+        result.append(r)
+    cur.close(); conn.close()
+    return jsonify(result)
+
+@api_bp.route('/api/credit-control/send-reminder/<int:student_id>', methods=['POST'])
+@require_roles(*CC_ROLES)
+def send_fee_reminder(student_id):
+    smtp_email    = os.environ.get('SMTP_EMAIL','')
+    smtp_password = os.environ.get('SMTP_PASSWORD','')
+    if not smtp_email or not smtp_password:
+        return jsonify({'error':'Email not configured'}), 500
+
+    conn = get_conn(); cur = conn.cursor()
+    # Get student + outstanding invoices
+    cur.execute("""
+        SELECT s.name, s.pause_reminders, COALESCE(pu.email,'') as parent_email,
+               b.name as branch_name
+        FROM students s
+        JOIN branches b ON b.id = s.branch_id
+        LEFT JOIN parent_students ps ON ps.student_id = s.id
+        LEFT JOIN parent_users pu ON pu.id = ps.parent_id
+        WHERE s.id=%s LIMIT 1
+    """, (student_id,))
+    st = cur.fetchone()
+    if not st:
+        cur.close(); conn.close()
+        return jsonify({'error':'Student not found'}), 404
+    if st['pause_reminders']:
+        cur.close(); conn.close()
+        return jsonify({'error':'Reminders are paused for this student'}), 400
+
+    cur.execute("""
+        SELECT month, amount, amount_paid, (amount-amount_paid) as balance, status
+        FROM invoices
+        WHERE student_id=%s AND status IN ('due','overdue','partial')
+          AND (amount-amount_paid) > 0
+        ORDER BY month
+    """, (student_id,))
+    inv_rows = rows(cur)
+    total = sum(float(r['balance']) for r in inv_rows)
+
+    recipient_email = st['parent_email']
+    if not recipient_email:
+        cur.close(); conn.close()
+        return jsonify({'error':'No parent email found for this student'}), 400
+
+    inv_table = ''.join([
+        f"<tr><td style='padding:6px 10px;border-bottom:1px solid #e5e7eb;'>{r['month']}</td>"
+        f"<td style='padding:6px 10px;border-bottom:1px solid #e5e7eb;text-align:right;'>£{float(r['amount']):.2f}</td>"
+        f"<td style='padding:6px 10px;border-bottom:1px solid #e5e7eb;text-align:right;color:#dc2626;'>£{float(r['balance']):.2f}</td></tr>"
+        for r in inv_rows
+    ])
+
+    html_body = f"""
+<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+  <div style="background:#2563eb;padding:20px 24px;border-radius:8px 8px 0 0;">
+    <h2 style="color:#fff;margin:0;font-size:18px;">Fine Tutors — Fee Reminder</h2>
+  </div>
+  <div style="background:#f9fafb;padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+    <p style="color:#374151;">Dear Parent/Guardian,</p>
+    <p style="color:#374151;">This is a reminder that the following fees remain outstanding for <strong>{st['name']}</strong> at <strong>{st['branch_name']}</strong>.</p>
+    <p style="color:#374151;">Our terms require fees to be paid <strong>no later than the 7th of each month</strong>.</p>
+    <table style="width:100%;border-collapse:collapse;margin:16px 0;background:#fff;border-radius:6px;overflow:hidden;">
+      <thead><tr style="background:#e5e7eb;">
+        <th style="padding:8px 10px;text-align:left;font-size:13px;">Month</th>
+        <th style="padding:8px 10px;text-align:right;font-size:13px;">Amount</th>
+        <th style="padding:8px 10px;text-align:right;font-size:13px;">Balance Due</th>
+      </tr></thead>
+      <tbody>{inv_table}</tbody>
+      <tfoot><tr style="background:#fef2f2;">
+        <td colspan="2" style="padding:8px 10px;font-weight:700;">Total Outstanding</td>
+        <td style="padding:8px 10px;text-align:right;font-weight:700;color:#dc2626;">£{total:.2f}</td>
+      </tr></tfoot>
+    </table>
+    <p style="color:#374151;">Please make payment at your earliest convenience. If you have any questions or would like to discuss a payment arrangement, please contact us.</p>
+    <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;">
+    <p style="font-size:12px;color:#9ca3af;">Fine Tutors · {st['branch_name']}</p>
+  </div>
+</div>"""
+
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(smtp_email, smtp_password)
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = f"Fee Reminder — {st['name']} — £{total:.2f} outstanding"
+        msg['From'] = f"Fine Tutors <{smtp_email}>"
+        msg['To'] = recipient_email
+        msg.attach(MIMEText(html_body, 'html'))
+        server.sendmail(smtp_email, recipient_email, msg.as_string())
+        server.quit()
+    except Exception as e:
+        cur.close(); conn.close()
+        return jsonify({'error': str(e)}), 500
+
+    cur.execute("""
+        INSERT INTO fee_reminder_log (student_id, sent_by, type, recipient_email, outstanding_amt, invoices_count)
+        VALUES (%s,%s,'manual',%s,%s,%s)
+    """, (student_id, session.get('user_id'), recipient_email, total, len(inv_rows)))
+    conn.commit()
+    cur.close(); conn.close()
+    return jsonify({'ok': True, 'sent_to': recipient_email, 'total': total})
+
+@api_bp.route('/api/credit-control/pause/<int:student_id>', methods=['POST'])
+@require_roles(*CC_ROLES)
+def toggle_reminder_pause(student_id):
+    data = request.json or {}
+    pause = bool(data.get('pause', True))
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("UPDATE students SET pause_reminders=%s WHERE id=%s", (pause, student_id))
+    conn.commit(); cur.close(); conn.close()
+    return jsonify({'ok': True, 'paused': pause})

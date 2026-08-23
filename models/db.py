@@ -539,6 +539,20 @@ CREATE TABLE IF NOT EXISTS announcement_email_log (
 );
 CREATE INDEX IF NOT EXISTS idx_ann_email_log_ann ON announcement_email_log(announcement_id);
 
+-- ── CREDIT CONTROL ──
+ALTER TABLE students ADD COLUMN IF NOT EXISTS pause_reminders BOOLEAN DEFAULT FALSE;
+CREATE TABLE IF NOT EXISTS fee_reminder_log (
+    id               SERIAL PRIMARY KEY,
+    student_id       INT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    sent_at          TIMESTAMP DEFAULT NOW(),
+    sent_by          INT REFERENCES users(id) ON DELETE SET NULL,
+    type             TEXT NOT NULL DEFAULT 'manual',
+    recipient_email  TEXT,
+    outstanding_amt  NUMERIC(10,2),
+    invoices_count   INT
+);
+CREATE INDEX IF NOT EXISTS idx_fee_reminder_student ON fee_reminder_log(student_id);
+
 
 
 ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_postcode TEXT;
