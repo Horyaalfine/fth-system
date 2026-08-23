@@ -3571,6 +3571,23 @@ ${children.map(st=>childCard(st)).join('')}`;}
 
 // MODALS
 function renderModal(){const m=state.modal?.name||state.modal;
+if(m==='fee-reminder-preview'){
+  const st=state.modal?.student||{};
+  const body='<div style="padding:4px 0;">'+
+    '<div style="margin-bottom:12px;"><span style="font-size:13px;color:var(--text3);">To:</span> <strong>'+st.parent_email+'</strong></div>'+
+    '<div style="margin-bottom:16px;"><span style="font-size:13px;color:var(--text3);">Subject:</span> <strong>Fee Reminder — '+st.student_name+' — £'+st.outstanding.toFixed(2)+' outstanding</strong></div>'+
+    '<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:20px;font-family:Arial,sans-serif;font-size:13px;color:#374151;line-height:1.6;">'+
+    '<p>Dear Parent/Guardian,</p>'+
+    '<p>This is a reminder that fees remain outstanding for <strong>'+st.student_name+'</strong> at <strong>'+st.branch_name+'</strong>.</p>'+
+    '<p>Our terms require fees to be paid <strong>no later than the 7th of each month</strong>.</p>'+
+    '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:12px 16px;margin:12px 0;">'+
+    '<strong style="color:#dc2626;">Total Outstanding: £'+st.outstanding.toFixed(2)+'</strong> across '+st.invoice_count+' invoice'+(st.invoice_count!==1?'s':'')+'</div>'+
+    '<p>Please make payment at your earliest convenience. If you have any questions or would like to discuss a payment arrangement, please contact us.</p>'+
+    '<p style="font-size:11px;color:#9ca3af;">Fine Tutors · '+st.branch_name+'</p>'+
+    '</div></div>';
+  const footer='<button class="btn" onclick="state.modal=null;render();">Cancel</button>'+
+    '<button class="btn btn-primary" data-action="confirm-fee-reminder">✉ Send Reminder</button>';
+  return mWrap('📧 Preview — Fee Reminder',body,footer);}
 if(m==='email-log-view'){return mWrap('📋 Email Delivery Log',state.emailLogHtml||'','');}
 if(m==='edit-announcement')return modalAnnouncement();if(m==='add-note'||m==='edit-note')return modalNote();if(m==='add-student'||m==='edit-student')return modalStudent();if(m==='add-staff'||m==='edit-staff')return modalStaff();if(m==='add-session'||m==='edit-session')return modalSession();
 if(m==='gen-weekly-sessions')return modalWeeklySessions();if(m==='add-user'||m==='edit-user')return modalUser();if(m==='add-branch'||m==='edit-branch')return modalBranch();if(m==='edit-invoice')return modalInvoice();
@@ -5244,8 +5261,17 @@ if(action==='send-announcement-email'){
   if(r&&r.error){toast(r.error,'error');return;}
   toast('Sent to '+r.sent+' parent'+(r.sent!==1?'s':'')+(r.failed?' ('+r.failed+' failed)':''));return;}
 if(action==='send-fee-reminder'){
-  const r=await API.post('/api/credit-control/send-reminder/'+id,{});
+  const cc=state.data.credit_control||[];
+  const st=cc.find(r=>r.student_id===id);
+  if(!st){toast('Student not found','error');return;}
+  if(!st.parent_email){toast('No parent email found for this student','error');return;}
+  state.modal={name:'fee-reminder-preview',student:st};render();return;}
+if(action==='confirm-fee-reminder'){
+  const st=state.modal?.student;
+  if(!st){return;}
+  const r=await API.post('/api/credit-control/send-reminder/'+st.student_id,{});
   if(r&&r.error){toast(r.error,'error');return;}
+  state.modal=null;
   toast('Reminder sent to '+r.sent_to+' — £'+r.total.toFixed(2)+' outstanding');
   await loadData('credit_control','/api/credit-control',branchParam());render();return;}
 if(action==='pause-reminder'){
