@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS users (
     name          TEXT NOT NULL,
     email         TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
-    role          TEXT NOT NULL CHECK (role IN ('super_admin','branch_manager','head_of_centre','supervisor','teacher','receptionist','admin','reports_viewer')),
+    role          TEXT NOT NULL CHECK (role IN ('super_admin','branch_manager','head_of_centre','head_of_branches','supervisor','teacher','receptionist','admin','reports_viewer')),
     status        TEXT NOT NULL DEFAULT 'active',
     last_login    TIMESTAMP,
     created_at    TIMESTAMP DEFAULT NOW()
@@ -566,7 +566,7 @@ ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_science_pct TEXT;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_science_book TEXT;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS hours_per_week TEXT;
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('super_admin','branch_manager','head_of_centre','supervisor','teacher','receptionist','admin','reports_viewer'));
+ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('super_admin','branch_manager','head_of_centre','head_of_branches','supervisor','teacher','receptionist','admin','reports_viewer'));
 """
 
 SEED = """
