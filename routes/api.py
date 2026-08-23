@@ -3069,14 +3069,25 @@ def get_meeting_notes():
                 ORDER BY mn.meeting_date DESC, mn.created_at DESC
             """)
     else:
-        cur.execute("""
-            SELECT mn.*, s.name as student_name, s.admission_id,
-                   u.name as recorded_by_name
-            FROM meeting_notes mn
-            JOIN students s ON s.id=mn.student_id
-            LEFT JOIN users u ON u.id=mn.recorded_by
-            WHERE mn.branch_id=%s ORDER BY mn.meeting_date DESC, mn.created_at DESC
-        """, (branch_id,))
+        bid2 = branch_scope()
+        if bid2:
+            cur.execute("""
+                SELECT mn.*, s.name as student_name, s.admission_id,
+                       u.name as recorded_by_name
+                FROM meeting_notes mn
+                JOIN students s ON s.id=mn.student_id
+                LEFT JOIN users u ON u.id=mn.recorded_by
+                WHERE mn.branch_id=%s ORDER BY mn.meeting_date DESC, mn.created_at DESC
+            """, (bid2,))
+        else:
+            cur.execute("""
+                SELECT mn.*, s.name as student_name, s.admission_id,
+                       u.name as recorded_by_name
+                FROM meeting_notes mn
+                JOIN students s ON s.id=mn.student_id
+                LEFT JOIN users u ON u.id=mn.recorded_by
+                ORDER BY mn.meeting_date DESC, mn.created_at DESC
+            """)
     data = rows(cur)
     for d in data:
         if d.get('meeting_date'): d['meeting_date'] = str(d['meeting_date'])
@@ -3177,9 +3188,21 @@ ANN_ROLES = ('super_admin','branch_manager','head_of_centre','head_of_branches',
 @api_bp.route('/api/announcements', methods=['GET'])
 @require_roles(*ANN_ROLES)
 def get_announcements():
-    role = session.get('role'); branch_id = session.get('branch_id')
     conn = get_conn(); cur = conn.cursor()
-    if role == 'super_admin':
+    bid = branch_scope()
+    if bid:
+        cur.execute("""
+            SELECT a.*, u.name as created_by_name,
+                   s.name as student_name, s.admission_id,
+                   b.name as branch_name
+            FROM announcements a
+            LEFT JOIN users u ON u.id=a.created_by
+            LEFT JOIN students s ON s.id=a.student_id
+            LEFT JOIN branches b ON b.id=a.branch_id
+            WHERE (a.branch_id=%s OR a.branch_id IS NULL)
+            ORDER BY a.created_at DESC
+        """, (bid,))
+    else:
         cur.execute("""
             SELECT a.*, u.name as created_by_name,
                    s.name as student_name, s.admission_id,
@@ -3190,18 +3213,6 @@ def get_announcements():
             LEFT JOIN branches b ON b.id=a.branch_id
             ORDER BY a.created_at DESC
         """)
-    else:
-        cur.execute("""
-            SELECT a.*, u.name as created_by_name,
-                   s.name as student_name, s.admission_id,
-                   b.name as branch_name
-            FROM announcements a
-            LEFT JOIN users u ON u.id=a.created_by
-            LEFT JOIN students s ON s.id=a.student_id
-            LEFT JOIN branches b ON b.id=a.branch_id
-            WHERE a.branch_id=%s
-            ORDER BY a.created_at DESC
-        """, (branch_id,))
     data = rows(cur)
     for d in data:
         if d.get('created_at'): d['created_at'] = str(d['created_at'])[:10]
