@@ -3636,3 +3636,20 @@ def toggle_reminder_pause(student_id):
     cur.execute("UPDATE students SET pause_reminders=%s WHERE id=%s", (pause, student_id))
     conn.commit(); cur.close(); conn.close()
     return jsonify({'ok': True, 'paused': pause})
+
+@api_bp.route('/api/credit-control/history/<int:student_id>', methods=['GET'])
+@require_roles(*CC_ROLES)
+def get_reminder_history(student_id):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        SELECT rl.id, to_char(rl.sent_at, 'DD Mon YYYY HH24:MI') as sent_at,
+               rl.recipient_email, rl.outstanding_amt, rl.invoices_count, rl.type,
+               u.name as sent_by_name
+        FROM fee_reminder_log rl
+        LEFT JOIN users u ON u.id = rl.sent_by
+        WHERE rl.student_id=%s
+        ORDER BY rl.sent_at DESC
+    """, (student_id,))
+    result = rows(cur)
+    cur.close(); conn.close()
+    return jsonify(result)

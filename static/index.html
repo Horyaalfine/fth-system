@@ -3332,6 +3332,7 @@ function renderCreditControl(){
     const sendBtn=r.pause_reminders
       ?'<button class="btn btn-sm" disabled style="opacity:.4;cursor:not-allowed;">✉ Remind</button>'
       :'<button class="btn btn-sm btn-primary" data-action="send-fee-reminder" data-id="'+r.student_id+'">✉ Remind</button>';
+    const histBtn='<button class="btn btn-sm" data-action="view-reminder-history" data-id="'+r.student_id+'" title="View reminder history">📋 History</button>';
     return '<tr>'+
       '<td style="padding:10px 12px;border-bottom:1px solid var(--border);">'+
         (r.pause_reminders?'<span style="font-size:10px;background:#f3f4f6;color:var(--text3);padding:2px 6px;border-radius:10px;margin-right:6px;">PAUSED</span>':'')+
@@ -3340,7 +3341,7 @@ function renderCreditControl(){
       '<td style="padding:10px 12px;border-bottom:1px solid var(--border);">'+r.invoice_count+' invoice'+(r.invoice_count!==1?'s':'')+'</td>'+
       '<td style="padding:10px 12px;border-bottom:1px solid var(--border);font-weight:600;color:'+agingCol+';">'+agingLabels[r.aging]+'</td>'+
       '<td style="padding:10px 12px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text3);">'+(r.last_reminder||'Never')+'</td>'+
-      '<td style="padding:10px 12px;border-bottom:1px solid var(--border);"><div style="display:flex;gap:6px;">'+sendBtn+pauseBtn+'</div></td>'+
+      '<td style="padding:10px 12px;border-bottom:1px solid var(--border);"><div style="display:flex;gap:6px;flex-wrap:wrap;">'+sendBtn+pauseBtn+histBtn+'</div></td>'+
       '</tr>';
   }).join('');
   return summary+'<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">'+
@@ -3571,6 +3572,8 @@ ${children.map(st=>childCard(st)).join('')}`;}
 
 // MODALS
 function renderModal(){const m=state.modal?.name||state.modal;
+if(m==='reminder-history'){
+  return mWrap('📋 Reminder History — '+( state.modal?.studentName||''),state.modal?.html||'','');}
 if(m==='fee-reminder-preview'){
   const st=state.modal?.student||{};
   const body='<div style="padding:4px 0;">'+
@@ -5266,6 +5269,27 @@ if(action==='send-fee-reminder'){
   if(!st){toast('Student not found','error');return;}
   if(!st.parent_email){toast('No parent email found for this student','error');return;}
   state.modal={name:'fee-reminder-preview',student:st};render();return;}
+if(action==='view-reminder-history'){
+  const logs=await API.get('/api/credit-control/history/'+id);
+  if(!logs||logs.error){toast(logs?.error||'Failed to load history','error');return;}
+  const cc=state.data.credit_control||[];
+  const st=cc.find(r=>r.student_id===id);
+  const tableRows=logs.length?logs.map(l=>'<tr>'+
+    '<td style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px;">'+l.sent_at+'</td>'+
+    '<td style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px;">'+l.recipient_email+'</td>'+
+    '<td style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px;">£'+parseFloat(l.outstanding_amt).toFixed(2)+'</td>'+
+    '<td style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px;">'+l.invoices_count+' invoice'+(l.invoices_count!==1?'s':'')+'</td>'+
+    '<td style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text3);">'+(l.sent_by_name||'System')+'</td>'+
+    '</tr>').join(''):'<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--text3);">No reminders sent yet for this student.</td></tr>';
+  const body='<table style="width:100%;border-collapse:collapse;">'+
+    '<thead><tr>'+
+    '<th style="padding:8px 12px;text-align:left;font-size:12px;color:var(--text3);border-bottom:2px solid var(--border);">Sent At</th>'+
+    '<th style="padding:8px 12px;text-align:left;font-size:12px;color:var(--text3);border-bottom:2px solid var(--border);">Sent To</th>'+
+    '<th style="padding:8px 12px;text-align:left;font-size:12px;color:var(--text3);border-bottom:2px solid var(--border);">Amount</th>'+
+    '<th style="padding:8px 12px;text-align:left;font-size:12px;color:var(--text3);border-bottom:2px solid var(--border);">Invoices</th>'+
+    '<th style="padding:8px 12px;text-align:left;font-size:12px;color:var(--text3);border-bottom:2px solid var(--border);">Sent By</th>'+
+    '</tr></thead><tbody>'+tableRows+'</tbody></table>';
+  state.modal={name:'reminder-history',html:body,studentName:st?.student_name||''};render();return;}
 if(action==='confirm-fee-reminder'){
   const st=state.modal?.student;
   if(!st){return;}
