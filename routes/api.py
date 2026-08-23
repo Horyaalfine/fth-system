@@ -39,7 +39,7 @@ def require_parent(f):
 def branch_scope():
     """Return branch_id filter: None if super_admin/reports_viewer viewing all, else branch_id."""
     role = session.get('role')
-    if role in ('super_admin', 'reports_viewer'):
+    if role in ('super_admin', 'reports_viewer', 'head_of_branches'):
         # Can filter by query param or see all branches
         b = request.args.get('branch_id')
         return int(b) if b else None
@@ -132,7 +132,7 @@ def get_branches():
     return jsonify(data)
 
 @api_bp.route('/api/branches', methods=['POST'])
-@require_roles('super_admin','branch_manager','head_of_centre')
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches')
 def add_branch():
     d = request.json
     conn = get_conn(); cur = conn.cursor()
@@ -145,7 +145,7 @@ def add_branch():
     return jsonify(r), 201
 
 @api_bp.route('/api/branches/<int:bid>', methods=['PUT'])
-@require_roles('super_admin','branch_manager','head_of_centre')
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches')
 def update_branch(bid):
     d = request.json
     conn = get_conn(); cur = conn.cursor()
@@ -446,7 +446,7 @@ def delete_session(sid):
 #  AUTO-PLAN SESSION
 # ════════════════════════════════════════════
 @api_bp.route('/api/sessions/auto-plan', methods=['POST'])
-@require_roles('super_admin','branch_manager','head_of_centre')
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches')
 def auto_plan_session():
     """Auto-generate tables for a date+slot based on student timetables."""
     d = request.json
@@ -869,7 +869,7 @@ def add_progress():
 #  USERS
 # ════════════════════════════════════════════
 @api_bp.route('/api/users', methods=['GET'])
-@require_roles('super_admin','branch_manager','head_of_centre')
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches')
 def get_users():
     conn = get_conn(); cur = conn.cursor()
     role = session.get('role')
@@ -894,7 +894,7 @@ def get_users():
     return jsonify(data)
 
 @api_bp.route('/api/users', methods=['POST'])
-@require_roles('super_admin','branch_manager','head_of_centre')
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches')
 def add_user():
     d = request.json
     caller_role = session.get('role')
@@ -916,7 +916,7 @@ def add_user():
     return jsonify(r), 201
 
 @api_bp.route('/api/users/<int:uid>', methods=['PUT'])
-@require_roles('super_admin','branch_manager','head_of_centre')
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches')
 def update_user(uid):
     d = request.json
     caller_role = session.get('role')
@@ -961,7 +961,7 @@ def delete_user(uid):
 #  PARENT USERS (admin management)
 # ════════════════════════════════════════════
 @api_bp.route('/api/parent-users', methods=['GET'])
-@require_roles('super_admin','branch_manager','head_of_centre')
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches')
 def get_parent_users():
     conn = get_conn(); cur = conn.cursor()
     cur.execute("SELECT * FROM parent_users ORDER BY name")
@@ -974,7 +974,7 @@ def get_parent_users():
     return jsonify(pus)
 
 @api_bp.route('/api/parent-users', methods=['POST'])
-@require_roles('super_admin','branch_manager','head_of_centre')
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches')
 def add_parent_user():
     d = request.json
     conn = get_conn(); cur = conn.cursor()
@@ -990,7 +990,7 @@ def add_parent_user():
     return jsonify(pu), 201
 
 @api_bp.route('/api/parent-users/<int:pid>', methods=['PUT'])
-@require_roles('super_admin','branch_manager','head_of_centre')
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches')
 def update_parent_user(pid):
     d = request.json
     conn = get_conn(); cur = conn.cursor()
@@ -1009,7 +1009,7 @@ def update_parent_user(pid):
     return jsonify(pu)
 
 @api_bp.route('/api/parent-users/<int:pid>', methods=['DELETE'])
-@require_roles('super_admin','branch_manager','head_of_centre')
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches')
 def delete_parent_user(pid):
     conn = get_conn(); cur = conn.cursor()
     cur.execute("DELETE FROM parent_users WHERE id=%s", (pid,))
@@ -2716,7 +2716,7 @@ def change_password():
 
 
 @api_bp.route('/api/users/<int:uid>/reset-password', methods=['POST'])
-@require_roles('super_admin', 'branch_manager', 'head_of_centre')
+@require_roles('super_admin', 'branch_manager', 'head_of_centre', 'head_of_branches')
 def reset_user_password(uid):
     d = request.json
     new_pw = d.get('new_password', '')
@@ -2745,7 +2745,7 @@ def academic_year_bounds(year_start=None):
     return f"{year_start}-09-01", f"{year_start+1}-08-31"
 
 @api_bp.route('/api/reports/management/summary', methods=['GET'])
-@require_roles('super_admin','branch_manager','head_of_centre')
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches')
 def mgmt_summary():
     b = branch_scope()
     year_start = request.args.get('year_start', type=int)
@@ -2829,7 +2829,7 @@ def mgmt_summary():
     })
 
 @api_bp.route('/api/reports/management/daily', methods=['GET'])
-@require_roles('super_admin','branch_manager','head_of_centre')
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches')
 def mgmt_daily():
     b = branch_scope()
     report_date = request.args.get('date', str(date.today()))
@@ -2894,7 +2894,7 @@ def mgmt_daily():
     })
 
 @api_bp.route('/api/reports/management/monthly', methods=['GET'])
-@require_roles('super_admin','branch_manager','head_of_centre')
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches')
 def mgmt_monthly():
     b = branch_scope()
     month = request.args.get('month', date.today().strftime('%Y-%m'))
@@ -2971,7 +2971,7 @@ def mgmt_monthly():
     })
 
 @api_bp.route('/api/reports/management/yearly', methods=['GET'])
-@require_roles('super_admin','branch_manager','head_of_centre')
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches')
 def mgmt_yearly():
     b = branch_scope()
     year_start = request.args.get('year_start', type=int)
@@ -3172,7 +3172,7 @@ def parent_meeting_notes(student_id):
     return jsonify(data)
 
 # ── Announcements ─────────────────────────────────────────────────────────────
-ANN_ROLES = ('super_admin','branch_manager','head_of_centre','supervisor','admin')
+ANN_ROLES = ('super_admin','branch_manager','head_of_centre','head_of_branches','supervisor','admin')
 
 @api_bp.route('/api/announcements', methods=['GET'])
 @require_roles(*ANN_ROLES)

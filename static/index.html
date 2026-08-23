@@ -404,18 +404,19 @@ function exportXLSX(rows, filename, sheetName){
 let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',invTab:'list',invFeeFilter:'all',invMonthFilter:'',tsFilterStaff:'',tsFilterRole:'',tsFilterStatus:'',tsFilterDate:'',lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',sessionMonth:'',sessionDate:'',sessionSlot:'',sessionTeacher:'',sessionSubject:'',attTab:'quick',attDateFilter:'',attSlotFilter:'',qaDate:'',qaSlot:'',qaStatusFilter:'all',qaRecords:{},wpWeek:'',attAllSessions:'',attTeacherFilter:'',attStatusFilter:'all',planSessionId:null,planMonth:'',planTab:'allocate',timetableStudentId:null,mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
 
 function toast(msg,type='success'){const el=document.createElement('div');el.className=`toast toast-${type}`;el.innerHTML=(type==='success'?'<span style="color:var(--success)">✓</span> ':'<span style="color:var(--danger)">✕</span> ')+msg;document.getElementById('toasts').appendChild(el);setTimeout(()=>el.remove(),3500);}
-function roleBadge(role){const m={super_admin:['badge-purple','Super admin'],branch_manager:['badge-blue','Branch manager'],head_of_centre:['badge-blue','Head of Centre'],supervisor:['badge-teal','Supervisor'],teacher:['badge-teal','Teacher'],receptionist:['badge-amber','Receptionist'],admin:['badge-gray','Admin support'],reports_viewer:['badge-gray','Reports viewer']};const[cls,label]=m[role]||['badge-gray',role];return`<span class="badge ${cls}">${label}</span>`;}
+function roleBadge(role){const m={super_admin:['badge-purple','Super admin'],branch_manager:['badge-blue','Branch manager'],head_of_centre:['badge-blue','Head of Centre'],head_of_branches:['badge-purple','Head of Branches'],supervisor:['badge-teal','Supervisor'],teacher:['badge-teal','Teacher'],receptionist:['badge-amber','Receptionist'],admin:['badge-gray','Admin support'],reports_viewer:['badge-gray','Reports viewer']};const[cls,label]=m[role]||['badge-gray',role];return`<span class="badge ${cls}">${label}</span>`;}
 function statusDot(s){return s==='active'?`<span class="dot dot-green"></span><span style="color:var(--success-text)">Active</span>`:`<span class="dot dot-red"></span><span style="color:var(--danger-text)">Inactive</span>`;}
 function avatarInitials(name){return(name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();}
 function isSuperAdmin(){return state.currentUser&&(state.currentUser.role==='super_admin'||state.currentUser.role==='reports_viewer');}
 function branchField(branches,defBranch){if(!isSuperAdmin())return'';const brOpts=branches.map(function(b){return'<option value="'+b.id+'" '+(defBranch==b.id?'selected':'')+'>'+b.name+'</option>';}).join('');return'<div class="field"><label>Branch</label><select id="f-branch">'+brOpts+'</select></div>';}
 function getBranchId(branches,defBranch){if(!isSuperAdmin())return defBranch;return parseInt(document.getElementById('f-branch')?.value)||defBranch;}
-function avatarClass(role){return{super_admin:'av-purple',branch_manager:'av-blue',head_of_centre:'av-blue',supervisor:'av-teal',teacher:'av-teal',receptionist:'av-amber',admin:'av-gray',reports_viewer:'av-gray'}[role]||'av-blue';}
+function avatarClass(role){return{super_admin:'av-purple',branch_manager:'av-blue',head_of_centre:'av-blue',head_of_branches:'av-purple',supervisor:'av-teal',teacher:'av-teal',receptionist:'av-amber',admin:'av-gray',reports_viewer:'av-gray'}[role]||'av-blue';}
 function branchParam(){
   if(state.currentBranch) return {branch_id:state.currentBranch};
-  // Non-super-admin always scoped to their branch
   const role=state.currentUser?.role;
-  if(role&&role!=='super_admin'&&state.currentUser?.branch_id){
+  // head_of_branches sees all branches like super_admin
+  if(role==='super_admin'||role==='head_of_branches') return {};
+  if(role&&state.currentUser?.branch_id){
     return {branch_id:state.currentUser.branch_id};
   }
   return {};
@@ -425,6 +426,7 @@ function canAccess(page){
   if(r==='super_admin') return true;
   if(r==='branch_manager') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup','session_plan','mgmt_reports','parent_portal','users','notes','announcements'].includes(page);
   if(r==='head_of_centre') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup','session_plan','mgmt_reports','parent_portal','users','notes','announcements'].includes(page);
+  if(r==='head_of_branches') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup','session_plan','mgmt_reports','parent_portal','users','notes','announcements'].includes(page);
   if(r==='supervisor') return['dashboard','students','sessions','attendance','session_reports','lesson_reports','test_records','staff_timesheets','catchup','session_plan','notes'].includes(page);
   if(r==='teacher') return['dashboard','sessions','attendance','session_reports','lesson_reports','test_records','staff_timesheets'].includes(page);
   if(r==='receptionist') return['dashboard','students','sessions','attendance','invoices','finance'].includes(page);
@@ -526,7 +528,7 @@ function render(){
   if(_mlout)_mlout.style.display=(isMob&&state.currentUser)?'block':'none';document.body.classList.toggle('readonly-user',state.currentUser?.role==='reports_viewer');const app=document.getElementById('app');if(!state.currentUser&&!state.parentUser){app.innerHTML=renderLogin();bindLoginEvents();return;}if(state.parentUser&&!state.currentUser){app.innerHTML=`<div style="max-width:900px;margin:0 auto;padding:28px;">${renderParentPortal()}</div>`;bindParentEvents();return;}if(state.loading){app.innerHTML=`<div class="app">${renderSidebar()}
 <div class="mobile-nav-test"><a href="#" data-nav="dashboard">🏠 Home</a><a href="#" onclick="return navTo(this)" data-page="students">👥 Students</a><a href="#" onclick="return navTo(this)" data-page="sessions">📅 Sessions</a><a href="#" onclick="return navTo(this)" data-page="attendance">✓ Attend</a><a href="#" onclick="return navTo(this)" data-page="finance">£ Finance</a></div><div class="main">${renderTopbar()}<div class="loading"><div class="spinner"></div>Loading…<div style="font-size:12px;color:var(--text3);margin-top:8px;">If this takes more than 10 seconds, try refreshing</div></div></div></div>`;bindNav();return;}
 // Guard: non-super-admin must have a branch assigned
-if(state.currentUser&&state.currentUser.role!=='super_admin'&&state.currentUser.role!=='reports_viewer'&&!state.currentUser.branch_id){
+if(state.currentUser&&!['super_admin','reports_viewer','head_of_branches'].includes(state.currentUser.role)&&!state.currentUser.branch_id){
   app.innerHTML=`<div class="app">${renderSidebar()}<div class="main">${renderTopbar()}<div class="content"><div class="empty-state" style="padding:60px;"><div style="font-size:48px;margin-bottom:16px;">⚠️</div><div style="font-size:18px;font-weight:600;color:var(--text);margin-bottom:8px;">No branch assigned</div><div style="color:var(--text3);">Your account has not been assigned to a branch. Please contact your system administrator to assign you to a branch before you can use the system.</div></div></div></div></div>`;bindNav();return;
 }app.innerHTML=`<div class="app">${renderSidebar()}<div class="main">${renderTopbar()}<div class="content">${renderPage()}</div></div></div>${state.modal?renderModal():''}`;bindAll();
 // Re-wire static mobile nav after every render
@@ -632,7 +634,7 @@ return`<div class="sidebar">
 ${isSA?`<div style="padding:10px 14px 0;"><div class="branch-switcher"><label>Viewing branch</label><select id="branch-switch"><option value="">All branches</option>${branches.map(b=>`<option value="${b.id}" ${state.currentBranch==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div></div>`:''}
 <div class="nav-section">
 ${(()=>{const groups=[{key:'main',label:''},{key:'people',label:'People'},{key:'sessions',label:'Sessions'},{key:'finance',label:'Finance'},{key:'reports',label:'Reports'}];return groups.map(g=>{const items=pages.filter(p=>p.group===g.key&&canAccess(p.id));if(!items.length)return'';return(g.label?`<div class="nav-label" style="margin-top:10px;">${g.label}</div>`:'')+items.map(p=>`<a class="nav-item ${state.page===p.id?'active':''}" href="#" data-nav="${p.id}">${p.icon} ${p.label}</a>`).join('');}).join('');})()}
-${(u.role==='super_admin'||u.role==='branch_manager'||u.role==='head_of_centre')?`<div class="nav-label" style="margin-top:10px;">Admin</div>${adminPages.filter(p=>canAccess(p.id)).map(p=>`<a class="nav-item ${state.page===p.id?'active':''}" href="#" onclick="return navTo(this)" data-page="${p.id}">${p.icon} ${p.label}</a>`).join('')}`:''}
+${(u.role==='super_admin'||u.role==='branch_manager'||u.role==='head_of_centre'||u.role==='head_of_branches')?`<div class="nav-label" style="margin-top:10px;">Admin</div>${adminPages.filter(p=>canAccess(p.id)).map(p=>`<a class="nav-item ${state.page===p.id?'active':''}" href="#" onclick="return navTo(this)" data-page="${p.id}">${p.icon} ${p.label}</a>`).join('')}`:''}
 </div>
 <div class="sidebar-footer">
 <div class="user-chip"><div class="avatar ${avatarClass(u.role)}">${avatarInitials(u.name)}</div><div><div style="font-size:13px;font-weight:600;color:var(--sb-text);">${u.name}</div><div style="margin-top:2px;">${roleBadge(u.role)}</div></div></div>
@@ -3226,7 +3228,7 @@ ${subj.map((sub,i)=>`<div class="bar-row"><span style="min-width:90px;color:var(
 </div>
 </div>`;}
 
-function renderUsers(){const users=state.data.users||[];const isSA=isSuperAdmin();const role=state.currentUser?.role;const canManage=isSA||role==='branch_manager'||role==='head_of_centre';const subtitle=isSA?`${users.length} accounts across all branches`:`${users.length} accounts in your branch`;
+function renderUsers(){const users=state.data.users||[];const isSA=isSuperAdmin();const role=state.currentUser?.role;const canManage=isSA||role==='branch_manager'||role==='head_of_centre'||role==='head_of_branches';const subtitle=isSA?`${users.length} accounts across all branches`:`${users.length} accounts in your branch`;
 return`
 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
 <div><div class="section-title">User management</div><div class="section-sub">${subtitle}</div></div>
@@ -3790,6 +3792,7 @@ const roleOpts=isSA?`
         <option value="super_admin" ${u.role==='super_admin'?'selected':''}>Super admin</option>
         <option value="branch_manager" ${u.role==='branch_manager'?'selected':''}>Branch manager</option>
         <option value="head_of_centre" ${u.role==='head_of_centre'?'selected':''}>Head of Centre</option>
+        <option value="head_of_branches" ${u.role==='head_of_branches'?'selected':''}>Head of Branches</option>
         <option value="supervisor" ${u.role==='supervisor'?'selected':''}>Supervisor</option>
         <option value="teacher" ${u.role==='teacher'?'selected':''}>Teacher</option>
         <option value="receptionist" ${u.role==='receptionist'?'selected':''}>Receptionist</option>
