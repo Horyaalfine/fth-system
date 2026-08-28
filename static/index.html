@@ -3331,10 +3331,38 @@ function renderSessionPlan(){
             html+='</td>';
             html+='</tr>';
           });
+          // Add student to draft table
+          var alreadyIn=tbl.students.map(function(s){return s.admission_id;});
+          var addable=allTT.filter(function(t){return t.slot===tbl.slot&&t.subject===tbl.subject&&alreadyIn.indexOf(t.admission_id)<0;});
+          if(addable.length>0){
+            html+='<tr><td colspan="4" style="padding-top:4px;">';
+            html+='<select data-action="lp-add-student" data-idx="'+tblIdx+'" style="width:100%;font-size:11px;padding:2px 4px;">';
+            html+='<option value="">＋ Add student...</option>';
+            addable.forEach(function(st){html+='<option value="'+st.admission_id+'">'+st.student_name+' ('+st.admission_id+')</option>';});
+            html+='</select>';
+            html+='</td></tr>';
+          }
           html+='</tbody></table></div>';
         });
         html+='</div>';
       });
+      // Add blank table button
+      var knownSlots=[...new Set(allTT.filter(function(t){return t.day_type===draft.dayType;}).map(function(t){return t.slot;}))].sort();
+      html+='<div style="margin-top:4px;padding:10px 0;border-top:1px solid var(--border);">';
+      html+='<button class="btn btn-secondary btn-sm" data-action="lp-add-table-btn">＋ Add Blank Table</button>';
+      if(state.lpAddingTable){
+        html+='<div style="display:inline-flex;gap:8px;align-items:center;margin-left:10px;flex-wrap:wrap;">';
+        html+='<select id="lp-add-slot" style="font-size:12px;padding:3px 6px;"><option value="">Slot...</option>';
+        knownSlots.forEach(function(sl){html+='<option value="'+sl+'">'+sl+'</option>';});
+        html+='</select>';
+        html+='<select id="lp-add-subj" style="font-size:12px;padding:3px 6px;"><option value="">Subject...</option>';
+        ['Maths','English','Science','Arabic','Islamic Studies','Other'].forEach(function(sb){html+='<option value="'+sb+'">'+sb+'</option>';});
+        html+='</select>';
+        html+='<button class="btn btn-primary btn-sm" data-action="lp-add-table-confirm">Add</button>';
+        html+='<button class="btn btn-sm" data-action="lp-add-table-cancel">Cancel</button>';
+        html+='</div>';
+      }
+      html+='</div>';
     }
     return html;
   }
@@ -3454,10 +3482,25 @@ function renderSessionPlan(){
               html+='</tr>';
             });
             html+='</tbody></table>';
+            // Add student to saved table
+            var inTable=studs.map(function(st){return st.student_id||st.id;});
+            var addable=(state.data.students||[]).filter(function(s){return s.status==='active'&&inTable.indexOf(s.id)<0;});
+            if(addable.length>0){
+              html+='<div style="margin-top:6px;">';
+              html+='<select data-action="rpt-add-student" data-id="'+s.id+'" style="width:100%;font-size:11px;padding:3px 6px;">';
+              html+='<option value="">＋ Add student to this table...</option>';
+              addable.forEach(function(st){html+='<option value="'+st.id+'">'+st.name+' ('+st.admission_id+')</option>';});
+              html+='</select>';
+              html+='</div>';
+            }
           }
           html+='</div>';
         });
-        html+='</div></div>';
+        // Add Table to this slot
+        html+='<div style="padding:6px 14px;background:var(--surface2);border:1px solid var(--accent);border-top:none;border-radius:0 0 var(--radius) var(--radius);text-align:right;">';
+        html+='<button class="btn btn-secondary btn-sm" data-action="rpt-add-table" data-slot="'+slot+'" data-date="'+rptDate+'">＋ Add Table to this Session</button>';
+        html+='</div>';
+        html+='</div>';
       });
     }
     return html;
@@ -6556,6 +6599,53 @@ document.querySelectorAll('[data-action="lp-set-teacher"]').forEach(function(sel
     }
   });
 });
+// Move student in report (rpt-move-student)
+document.querySelectorAll('[data-action="rpt-move-student"]').forEach(function(sel){
+  sel.addEventListener('change',async function(){
+    if(!sel.value)return;
+    var srcId=parseInt(sel.dataset.src);
+    var studentId=parseInt(sel.dataset.student);
+    var targetId=parseInt(sel.value);
+    sel.value='';
+    try{
+      await API.delete('/api/sessions/'+srcId+'/students/'+studentId);
+      await API.post('/api/sessions/'+targetId+'/add-student',{student_id:studentId});
+      var srcStuds=await API.get('/api/sessions/'+srcId+'/students');
+      state.data['sess_students_'+srcId]=srcStuds||[];
+      var tgtStuds=await API.get('/api/sessions/'+targetId+'/students');
+      state.data['sess_students_'+targetId]=tgtStuds||[];
+      toast('Student moved','success');render();
+    }catch(err){toast('Error: '+(err.message||err),'danger');}
+  });
+});
+// Add student to report table (rpt-add-student)
+document.querySelectorAll('[data-action="rpt-add-student"]').forEach(function(sel){
+  sel.addEventListener('change',async function(){
+    var sessId=parseInt(sel.dataset.id);
+    var studentId=parseInt(sel.value);
+    if(!studentId)return;
+    sel.value='';
+    try{
+      await API.post('/api/sessions/'+sessId+'/add-student',{student_id:studentId});
+      var studs=await API.get('/api/sessions/'+sessId+'/students');
+      state.data['sess_students_'+sessId]=studs||[];
+      toast('Student added','success');render();
+    }catch(err){toast('Error: '+(err.message||err),'danger');}
+  });
+});
+// Add student to draft table (lp-add-student)
+document.querySelectorAll('[data-action="lp-add-student"]').forEach(function(sel){
+  sel.addEventListener('change',function(){
+    var admId=sel.value;if(!admId)return;
+    var idx=parseInt(sel.dataset.idx);
+    var allTT=state.data.all_timetables||[];
+    var draft=state.planDraft;
+    if(!draft||!draft.tables[idx])return;
+    var st=allTT.find(function(t){return t.admission_id===admId;});
+    if(st){draft.tables[idx].students.push(st);sel.value='';render();}
+  });
+});
+
 // Move student between tables
 document.querySelectorAll('.move-student-select').forEach(function(sel){
   sel.addEventListener('change',async function(){
@@ -7194,6 +7284,72 @@ if(action==='rpt-del-session'){
     state.data.sessions=(state.data.sessions||[]).filter(function(s){return s.id!==id;});
     toast('Table deleted','success');
     render();
+  }catch(err){toast('Error: '+(err.message||err),'danger');}
+  return;
+}
+
+// Draft: toggle add-table form
+if(action==='lp-add-table-btn'){state.lpAddingTable=!state.lpAddingTable;render();return;}
+if(action==='lp-add-table-cancel'){state.lpAddingTable=false;render();return;}
+if(action==='lp-add-table-confirm'){
+  var slot=document.getElementById('lp-add-slot')?.value;
+  var subj=document.getElementById('lp-add-subj')?.value;
+  if(!slot||!subj){toast('Pick a slot and subject','danger');return;}
+  var draft=state.planDraft;
+  if(!draft){state.planDraft={date:state.lpDate,dayType:state.lpDayType||'saturday',tables:[]};draft=state.planDraft;}
+  var nextNo=(draft.tables.length>0?Math.max.apply(null,draft.tables.map(function(t){return t.table_no;}))+1:1);
+  draft.tables.push({table_no:nextNo,slot:slot,subject:subj,teacher_id:null,students:[]});
+  state.lpAddingTable=false;
+  toast('Blank table added','success');render();return;
+}
+
+// Draft: add student from select to draft table
+if(action==='lp-add-student'){
+  var admId=el.value;if(!admId){return;}
+  var idx=parseInt(el.dataset.idx);
+  var draft=state.planDraft;
+  if(!draft||!draft.tables[idx]){return;}
+  var allTT=state.data.all_timetables||[];
+  var st=allTT.find(function(t){return t.admission_id===admId;});
+  if(!st){toast('Student not found','danger');return;}
+  draft.tables[idx].students.push(st);
+  el.value='';
+  render();return;
+}
+
+// Report: add a table to a saved session slot
+if(action==='rpt-add-table'){
+  var slot=el.dataset.slot;
+  var rptDate=el.dataset.date;
+  var subj=prompt('Subject for new table (Maths, English, Science, etc.):');
+  if(!subj)return;
+  var sessions=state.data.sessions||[];
+  var slotTables=sessions.filter(function(s){return s.date===rptDate&&s.slot===slot;});
+  var nextNo=slotTables.length>0?Math.max.apply(null,slotTables.map(function(s){return s.table_no||0;}))+1:1;
+  var branch=state.currentBranch&&state.currentBranch.id;
+  try{
+    var res=await API.post('/api/sessions',{date:rptDate,slot:slot,subject:subj,table_no:nextNo,branch_id:branch});
+    if(res&&res.id){
+      var newSess={id:res.id,date:rptDate,slot:slot,subject:subj,table_no:nextNo,staff_id:null,staff_name:null};
+      state.data.sessions.push(newSess);
+      state.data['sess_students_'+res.id]=[];
+      state.data['rpt_att_'+res.id]=[];
+      toast('Table added','success');render();
+    }
+  }catch(err){toast('Error: '+(err.message||err),'danger');}
+  return;
+}
+
+// Report: add student to a saved table
+if(action==='rpt-add-student'){
+  var sessId=parseInt(el.dataset.id);
+  var studentId=parseInt(el.value);if(!studentId){return;}
+  el.value='';
+  try{
+    await API.post('/api/sessions/'+sessId+'/add-student',{student_id:studentId});
+    var studs=await API.get('/api/sessions/'+sessId+'/students');
+    state.data['sess_students_'+sessId]=studs||[];
+    toast('Student added','success');render();
   }catch(err){toast('Error: '+(err.message||err),'danger');}
   return;
 }
