@@ -5717,6 +5717,7 @@ if(action==='confirm-smart-payment'){
   }
   toast(count+' payment'+(count>1?'s':'')+' recorded');
   state.modal=null;
+  await loadData('invoices','/api/invoices',branchParam());
   if(state.page==='finance'){await loadPageData('finance');}
   render();return;}
 if(action==='sp-create-and-pay'){
@@ -5748,6 +5749,7 @@ if(action==='sp-create-and-pay'){
     }
     toast('Invoices created and payment recorded');
     state.modal=null;
+    await loadData('invoices','/api/invoices',branchParam());
     if(state.page==='finance'){await loadPageData('finance');}
     render();
   }catch(err){toast((err&&err.error)||'Failed to create invoices','error');}
@@ -6391,6 +6393,7 @@ if(action==='save-batch-invoice'){
   const r=await API.post('/api/invoices/batch',{student_id:sid,month,items});
   if(r&&r.error){toast(r.error,'error');return;}
   await loadData('invoices','/api/invoices',branchParam());
+  await loadData('invoices','/api/invoices',branchParam());
   state.modal={name:'batch-invoice-result',batch:r.items,batch_id:r.batch_id};render();return;}
 if(action==='email-payment-receipt'){
   const inv=state.modal?.invoice||{};
@@ -6415,6 +6418,7 @@ if(action==='confirm-batch-payment'){
   const reference=document.getElementById('pay-ref')?.value||'';
   try{
     const r=await API.post('/api/invoices/batch/'+batchId+'/pay',{payments,method,reference});
+    await loadData('invoices','/api/invoices',branchParam());
     state.modal={name:'batch-invoice-result',batch:r.items,batch_id:batchId,showReceipt:true,paymentInfo:{method,reference}};
     render();toast('Payment recorded');
   }catch(err){toast((err&&err.error)||'Payment failed','error');}
