@@ -444,7 +444,9 @@ function printLessonPlanReport(){
       var borderL=ti>0?'border-left:1px solid #cbd5e1;':'';
       html+='<div style="padding:10px 12px;'+borderL+'border-top:1px solid #cbd5e1;">';
       html+='<div style="font-weight:700;font-size:13px;">Table '+s.table_no+'</div>';
-      html+='<div style="font-size:11px;color:#555;margin-bottom:6px;">'+(s.subject||'—')+' · Teacher: '+(teacher?teacher.name:'Unassigned')+'</div>';
+      var _pyr=parseInt(((studs[0]||{}).year_group||'0').match(/\d+/)||0);
+      var _pks=studs.length>0?(_pyr<=6?'KS1/2':_pyr<=9?'KS3':'KS4'):'';
+      html+='<div style="font-size:11px;color:#555;margin-bottom:6px;">'+(s.subject||'—')+(_pks?' · '+_pks:'')+' · Teacher: '+(teacher?teacher.name:'Unassigned')+'</div>';
       if(studs.length===0){html+='<div style="font-size:11px;font-style:italic;color:#888;">No students</div>';}
       else{
         html+='<table style="width:100%;border-collapse:collapse;font-size:11px;">';
@@ -3307,7 +3309,7 @@ function renderSessionPlan(){
           var teacher=staff.find(function(s){return s.id===tbl.teacher_id;});
           html+='<div class="card" style="border-top:3px solid var(--accent);padding:12px;">';
           html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
-          html+='<span style="font-weight:700;">T'+tbl.table_no+' · <span class="badge badge-gray">'+tbl.subject+'</span></span>';
+          html+='<span style="font-weight:700;">T'+tbl.table_no+' · <span class="badge badge-gray">'+tbl.subject+'</span>'+(tbl.ks?'<span class="badge badge-accent" style="margin-left:4px;font-size:10px;">'+tbl.ks+'</span>':'')+'</span>';
           html+='<button class="btn btn-sm btn-danger" data-action="lp-remove-table" data-idx="'+tblIdx+'">×</button>';
           html+='</div>';
           html+='<div style="margin-bottom:8px;"><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Teacher</label>';
@@ -3449,6 +3451,13 @@ function renderSessionPlan(){
           html+='<div>';
           html+='<span style="font-size:13px;font-weight:700;">Table '+s.table_no+'</span>';
           html+='<span class="badge badge-gray" style="margin-left:8px;">'+(s.subject||'—')+'</span>';
+          // Infer KS from students
+          var _studs2=state.data['sess_students_'+s.id]||[];
+          if(_studs2.length>0){
+            var _yr=parseInt((_studs2[0].year_group||'0').match(/\d+/)||0);
+            var _ks=_yr<=6?'KS1/2':_yr<=9?'KS3':'KS4';
+            html+='<span class="badge badge-accent" style="margin-left:4px;font-size:10px;">'+_ks+'</span>';
+          }
           html+='</div>';
           html+='<button class="btn btn-sm btn-danger" data-action="rpt-del-session" data-id="'+s.id+'" style="padding:2px 8px;font-size:11px;">🗑 Delete</button>';
           html+='</div>';
@@ -7166,23 +7175,37 @@ if(action==='lp-generate'){
   var lpDate=state.lpDate||new Date().toISOString().slice(0,10);
   var maxPer=state.lpMaxPer||5;
   function getDT(d){var w=new Date(d+'T00:00:00').getDay();return w===6?'saturday':w===0?'sunday':'weekday';}
+  // Key Stage grouping: KS1/2 = Y1-6, KS3 = Y7-9, KS4 = Y10-11
+  function getKS(yearGroup){
+    var m=(yearGroup||'').match(/\d+/);
+    var y=m?parseInt(m[0]):0;
+    if(y<=6)return '1_KS1\/2';
+    if(y<=9)return '2_KS3';
+    return '3_KS4';
+  }
+  function ksLabel(ks){return ks.slice(2);}
   var dayType=getDT(lpDate);
   var allTT=state.data.all_timetables||[];
   var expected=allTT.filter(function(t){return t.day_type===dayType;});
-  // Group by slot + subject
+  // Group by slot + subject + Key Stage
   var groups={};
   expected.forEach(function(t){
-    var k=t.slot+'||'+t.subject;
-    if(!groups[k])groups[k]={slot:t.slot,subject:t.subject,students:[]};
+    var ks=getKS(t.year_group);
+    var k=t.slot+'||'+t.subject+'||'+ks;
+    if(!groups[k])groups[k]={slot:t.slot,subject:t.subject,ks:ks,students:[]};
     groups[k].students.push(t);
   });
-  // Split into tables
+  // Split into tables, ordered by slot → subject → KS
   var tables=[];var tableNo=1;
   Object.keys(groups).sort().forEach(function(k){
     var g=groups[k];
-    var studs=g.students.slice().sort(function(a,b){return (a.year_group||0)-(b.year_group||0);});
+    var studs=g.students.slice().sort(function(a,b){
+      var ya=parseInt((a.year_group||'0').match(/\d+/)||0);
+      var yb=parseInt((b.year_group||'0').match(/\d+/)||0);
+      return ya-yb;
+    });
     for(var i=0;i<studs.length;i+=maxPer){
-      tables.push({table_no:tableNo++,slot:g.slot,subject:g.subject,teacher_id:null,students:studs.slice(i,i+maxPer)});
+      tables.push({table_no:tableNo++,slot:g.slot,subject:g.subject,ks:ksLabel(g.ks),teacher_id:null,students:studs.slice(i,i+maxPer)});
     }
   });
   state.planDraft={date:lpDate,dayType:dayType,tables:tables};
