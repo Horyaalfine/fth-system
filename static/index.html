@@ -417,6 +417,12 @@ function printAdmissionSlip(html){
   win.document.close();win.focus();
   setTimeout(function(){win.print();win.close();},400);
 }
+function printBatchInvoice(html){
+  var win=window.open('','_blank','width=900,height=700');
+  win.document.write('<html><head><title>Invoice</title><style>body{font-family:Arial,sans-serif;margin:20px;color:#000;}table{width:100%;border-collapse:collapse;}td,th{border:1px solid #e5e7eb;padding:6px 10px;}.no-print,.btn{display:none!important;}</style></head><body>'+html+'</body></html>');
+  win.document.close();win.focus();
+  setTimeout(function(){win.print();win.close();},400);
+}
 function printContractForm(){
   var el=document.getElementById('reg-form-print');
   if(!el){window.print();return;}
@@ -4649,29 +4655,110 @@ function modalBatchInvoiceResult(){
   const st=batch[0];
   const feeLabels={monthly_fee:'Monthly Fee',opening_balance:'Opening Balance',admission_fee:'Admission Fee',book_fee:'Book Fee',past_papers_fee:'Past Papers Fee',miscellaneous:'Miscellaneous'};
   const total=batch.reduce((s,r)=>s+parseFloat(r.amount||0),0);
-  const tableRows=batch.map(r=>'<tr>'+
-    '<td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;">'+(feeLabels[r.fee_type]||r.fee_type)+'</td>'+
-    '<td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;color:var(--text3);">'+(r.description||'—')+'</td>'+
-    '<td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;font-weight:600;text-align:right;">£'+parseFloat(r.amount).toFixed(2)+'</td></tr>').join('');
+  const totalPaid=batch.reduce((s,r)=>s+parseFloat(r.amount_paid||0),0);
+  const showPayment=state.modal?.showPayment||false;
+  const showReceipt=state.modal?.showReceipt||false;
+
+  // Invoice line rows
+  const tableRows=batch.map(r=>{
+    const paid=parseFloat(r.amount_paid||0);
+    const amt=parseFloat(r.amount||0);
+    const bal=amt-paid;
+    let badge='';
+    if(r.status==='paid') badge='<span style="background:#d1fae5;color:#065f46;font-size:10px;padding:2px 6px;border-radius:10px;margin-left:6px;">PAID</span>';
+    else if(r.status==='partial') badge='<span style="background:#fef3c7;color:#92400e;font-size:10px;padding:2px 6px;border-radius:10px;margin-left:6px;">PART PAID</span>';
+    return '<tr>'+
+      '<td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;">'+(feeLabels[r.fee_type]||r.fee_type)+badge+'</td>'+
+      '<td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;color:var(--text3);">'+(r.description||'—')+'</td>'+
+      '<td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;font-weight:600;text-align:right;">£'+amt.toFixed(2)+'</td>'+
+      (showReceipt?'<td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;text-align:right;color:#059669;">£'+paid.toFixed(2)+'</td>'+
+        '<td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;text-align:right;color:'+(bal>0?'#dc2626':'#059669')+';">£'+bal.toFixed(2)+'</td>':'')+
+      '</tr>';
+  }).join('');
+
+  // Overall status stamp
+  let stampHtml='';
+  if(showReceipt){
+    const allPaid=batch.every(r=>r.status==='paid');
+    const anyPaid=batch.some(r=>r.status==='paid'||r.status==='partial');
+    if(allPaid) stampHtml='<div style="text-align:center;margin:12px 0;"><span style="background:#d1fae5;color:#065f46;font-size:18px;font-weight:800;padding:8px 24px;border:3px solid #065f46;border-radius:8px;letter-spacing:2px;">✅ PAID IN FULL</span></div>';
+    else if(anyPaid) stampHtml='<div style="text-align:center;margin:12px 0;"><span style="background:#fef3c7;color:#92400e;font-size:18px;font-weight:800;padding:8px 24px;border:3px solid #92400e;border-radius:8px;letter-spacing:2px;">⚠️ PART PAID</span></div>'+
+      '<div style="text-align:center;font-size:13px;color:#6b7280;">Balance remaining: <strong style="color:#dc2626;">£'+(total-totalPaid).toFixed(2)+'</strong></div>';
+  }
+
+  // Payment input panel
+  let payPanel='';
+  if(showPayment&&!showReceipt){
+    const inputRows=batch.map(r=>{
+      if(r.status==='paid') return '';
+      const bal=parseFloat(r.amount||0)-parseFloat(r.amount_paid||0);
+      return '<tr>'+
+        '<td style="padding:6px 8px;font-size:13px;">'+(feeLabels[r.fee_type]||r.fee_type)+'</td>'+
+        '<td style="padding:6px 8px;font-size:13px;text-align:right;">£'+bal.toFixed(2)+'</td>'+
+        '<td style="padding:6px 8px;"><input type="number" class="pay-amount-input" data-iid="'+r.id+'" data-bal="'+bal.toFixed(2)+'" min="0" max="'+bal.toFixed(2)+'" step="0.01" value="'+bal.toFixed(2)+'" style="width:90px;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:13px;"></td>'+
+        '</tr>';
+    }).join('');
+    payPanel='<div style="margin-top:16px;padding:16px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;">'+
+      '<div style="font-weight:700;margin-bottom:10px;color:#065f46;">💳 Record Payment</div>'+
+      '<table style="width:100%;border-collapse:collapse;">'+
+      '<thead><tr style="background:#dcfce7;"><th style="padding:6px 8px;text-align:left;font-size:12px;">Item</th>'+
+      '<th style="padding:6px 8px;text-align:right;font-size:12px;">Balance</th>'+
+      '<th style="padding:6px 8px;text-align:left;font-size:12px;">Paying now</th></tr></thead>'+
+      '<tbody>'+inputRows+'</tbody></table>'+
+      '<div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">'+
+      '<div><label style="font-size:12px;color:#6b7280;">Method</label><br>'+
+      '<select id="pay-method" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:13px;">'+
+      '<option value="cash">Cash</option><option value="card">Card</option>'+
+      '<option value="bank_transfer">Bank Transfer</option><option value="cheque">Cheque</option></select></div>'+
+      '<div style="flex:1;"><label style="font-size:12px;color:#6b7280;">Reference / Notes</label><br>'+
+      '<input id="pay-ref" type="text" placeholder="Optional" style="width:100%;padding:5px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:13px;box-sizing:border-box;"></div></div>'+
+      '<div style="margin-top:10px;display:flex;gap:8px;">'+
+      '<button class="btn btn-primary no-print" data-action="confirm-batch-payment">✅ Confirm Payment</button>'+
+      '<button class="btn no-print" onclick="state.modal.showPayment=false;render()">Cancel</button></div></div>';
+  }
+
+  const receiptHeader=showReceipt?'<thead><tr style="background:#e5e7eb;"><th style="padding:8px 12px;text-align:left;font-size:12px;">Charge</th><th style="padding:8px 12px;text-align:left;font-size:12px;">Description</th><th style="padding:8px 12px;text-align:right;font-size:12px;">Amount</th><th style="padding:8px 12px;text-align:right;font-size:12px;">Paid</th><th style="padding:8px 12px;text-align:right;font-size:12px;">Balance</th></tr></thead>':
+    '<thead><tr style="background:#e5e7eb;"><th style="padding:8px 12px;text-align:left;font-size:12px;">Charge</th><th style="padding:8px 12px;text-align:left;font-size:12px;">Description</th><th style="padding:8px 12px;text-align:right;font-size:12px;">Amount</th></tr></thead>';
+
+  const footerTotal=showReceipt?
+    '<tfoot><tr style="background:#eff6ff;"><td colspan="2" style="padding:10px 12px;font-weight:700;">'+(batch.every(r=>r.status==='paid')?'Total Paid':'Total / Paid / Balance')+'</td>'+
+    '<td style="padding:10px 12px;text-align:right;font-weight:700;">£'+total.toFixed(2)+'</td>'+
+    '<td style="padding:10px 12px;text-align:right;font-weight:700;color:#059669;">£'+totalPaid.toFixed(2)+'</td>'+
+    '<td style="padding:10px 12px;text-align:right;font-weight:700;color:#dc2626;">£'+(total-totalPaid).toFixed(2)+'</td></tr></tfoot>':
+    '<tfoot><tr style="background:#eff6ff;"><td colspan="2" style="padding:10px 12px;font-weight:700;">Total</td><td style="padding:10px 12px;text-align:right;font-weight:700;font-size:16px;color:#2563eb;">£'+total.toFixed(2)+'</td></tr></tfoot>';
+
+  const methodLabel={cash:'Cash',card:'Card',bank_transfer:'Bank Transfer',cheque:'Cheque'};
+  const paymentInfoHtml=showReceipt&&state.modal?.paymentInfo?
+    '<div style="margin-top:10px;padding:10px;background:#f0fdf4;border-radius:6px;font-size:13px;">'+
+    '<strong>Payment Method:</strong> '+(methodLabel[state.modal.paymentInfo.method]||state.modal.paymentInfo.method)+
+    (state.modal.paymentInfo.reference?' &nbsp;|&nbsp; <strong>Ref:</strong> '+state.modal.paymentInfo.reference:'')+
+    ' &nbsp;|&nbsp; <strong>Date:</strong> '+new Date().toLocaleDateString('en-GB')+'</div>':'';
+
   const body='<div id="batch-inv-print">'+
     '<div style="text-align:center;margin-bottom:16px;">'+
     '<div style="font-size:20px;font-weight:800;color:#1e3a5f;">Fine Tutors</div>'+
     '<div style="color:#2563eb;font-weight:600;">'+(st.branch_name||'')+'</div>'+
-    '<div style="font-size:16px;font-weight:700;margin-top:4px;">Invoice</div></div>'+
+    '<div style="font-size:16px;font-weight:700;margin-top:4px;">'+(showReceipt?'Receipt':'Invoice')+'</div></div>'+
+    stampHtml+
     '<table style="width:100%;font-size:13px;margin-bottom:16px;border-collapse:collapse;">'+
     '<tr><td style="color:#6b7280;padding:4px 0;width:40%;">Student</td><td style="font-weight:600;">'+(st.student_name||'')+'</td></tr>'+
     '<tr><td style="color:#6b7280;padding:4px 0;">Admission ID</td><td>'+(st.admission_id||'')+'</td></tr>'+
     '<tr><td style="color:#6b7280;padding:4px 0;">Month</td><td>'+(st.month||'')+'</td></tr>'+
-    '<tr><td style="color:#6b7280;padding:4px 0;">Date issued</td><td>'+(st.issued||'')+'</td></tr></table>'+
+    '<tr><td style="color:#6b7280;padding:4px 0;">Date</td><td>'+(st.issued||new Date().toISOString().slice(0,10))+'</td></tr></table>'+
     '<table style="width:100%;border-collapse:collapse;background:#f9fafb;border-radius:6px;overflow:hidden;">'+
-    '<thead><tr style="background:#e5e7eb;"><th style="padding:8px 12px;text-align:left;font-size:12px;">Charge</th><th style="padding:8px 12px;text-align:left;font-size:12px;">Description</th><th style="padding:8px 12px;text-align:right;font-size:12px;">Amount</th></tr></thead>'+
-    '<tbody>'+tableRows+'</tbody>'+
-    '<tfoot><tr style="background:#eff6ff;"><td colspan="2" style="padding:10px 12px;font-weight:700;">Total</td><td style="padding:10px 12px;text-align:right;font-weight:700;font-size:16px;color:#2563eb;">£'+total.toFixed(2)+'</td></tr></tfoot></table>'+
-    '<p style="font-size:12px;color:#6b7280;margin-top:16px;">Monthly fees are due on the 1st of each month. Please contact us if you have any questions.</p></div>';
+    receiptHeader+'<tbody>'+tableRows+'</tbody>'+footerTotal+'</table>'+
+    paymentInfoHtml+
+    '<p style="font-size:12px;color:#6b7280;margin-top:16px;">Monthly fees are due on the 1st of each month. Please contact us if you have any questions.</p>'+
+    '</div>'+payPanel;
+
+  const allPaid2=batch.every(r=>r.status==='paid');
   const footer='<button class="btn no-print" onclick="state.modal=null;render();">Close</button>'+
-    '<button class="btn no-print" onclick="window.print()">🖨 Print</button>'+
-    '<button class="btn no-print btn-primary" data-action="email-batch-invoice">✉ Email to parent</button>';
-  return mWrap('✅ Invoice Created — '+st.student_name+' · £'+total.toFixed(2),body,footer);}
+    '<button class="btn no-print" onclick="printBatchInvoice(document.getElementById(\'batch-inv-print\').outerHTML)">🖨 Print</button>'+
+    (!allPaid2&&!showPayment&&!showReceipt?'<button class="btn btn-primary no-print" onclick="state.modal.showPayment=true;render()">💳 Record Payment</button>':'')+
+    (!showReceipt?'<button class="btn no-print btn-primary" data-action="email-batch-invoice">✉ Email to parent</button>':'');
+  return mWrap((showReceipt?'🧾 Receipt':'✅ Invoice')+' — '+st.student_name+' · £'+total.toFixed(2),body,footer);
+}
+
 function modalMarkPaid(){
   const inv=state.editTarget||{};
   const feeLabels={monthly_fee:'Monthly fee',opening_balance:'Opening balance',admission_fee:'Admission fee',book_fee:'Book fee',past_papers_fee:'Past papers fee',miscellaneous:'Miscellaneous'};
@@ -6068,6 +6155,20 @@ if(action==='save-batch-invoice'){
   if(r&&r.error){toast(r.error,'error');return;}
   await loadData('invoices','/api/invoices',branchParam());
   state.modal={name:'batch-invoice-result',batch:r.items,batch_id:r.batch_id};render();return;}
+if(action==='confirm-batch-payment'){
+  const batchId=state.modal?.batch_id;
+  if(!batchId)return;
+  const inputs=[...document.querySelectorAll('.pay-amount-input')];
+  const payments=inputs.map(el=>({invoice_id:parseInt(el.dataset.iid),amount_paid:parseFloat(el.value)||0})).filter(p=>p.amount_paid>0);
+  if(!payments.length){toast('Enter at least one payment amount','error');return;}
+  const method=document.getElementById('pay-method')?.value||'cash';
+  const reference=document.getElementById('pay-ref')?.value||'';
+  try{
+    const r=await API.post('/api/invoices/batch/'+batchId+'/pay',{payments,method,reference});
+    state.modal={name:'batch-invoice-result',batch:r.items,batch_id:batchId,showReceipt:true,paymentInfo:{method,reference}};
+    render();toast('Payment recorded');
+  }catch(err){toast((err&&err.error)||'Payment failed','error');}
+  return;}
 if(action==='email-batch-invoice'){
   const bid=state.modal?.batch_id;if(!bid)return;
   const r=await API.post('/api/invoices/batch/'+bid+'/email',{});

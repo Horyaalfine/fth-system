@@ -4589,3 +4589,60 @@ def email_admission_slip(sid):
 
     cur.close(); conn.close()
     return jsonify({'ok': True, 'sent_to': sent_to})
+
+# ── Batch Payment ──────────────────────────────────────────────────────────────
+
+@api_bp.route('/api/invoices/batch/<batch_id>/pay', methods=['POST'])
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches','admin','receptionist')
+def batch_pay(batch_id):
+    """Record payment against one or more invoices in a batch."""
+    d = request.json or {}
+    payments = d.get('payments', [])  # [{invoice_id, amount_paid, method, reference}]
+    method    = d.get('method','cash')
+    reference = d.get('reference','')
+    if not payments:
+        return jsonify({'error':'No payments provided'}), 400
+
+    conn = get_conn(); cur = conn.cursor()
+    results = []
+    for p in payments:
+        iid        = p.get('invoice_id')
+        pay_amount = float(p.get('amount_paid', 0))
+        if not iid or pay_amount <= 0:
+            continue
+        cur.execute("SELECT * FROM invoices WHERE id=%s AND batch_id=%s", (iid, batch_id))
+        inv = row(cur)
+        if not inv:
+            continue
+        total      = float(inv['amount'])
+        already    = float(inv.get('amount_paid') or 0)
+        new_paid   = round(already + pay_amount, 2)
+        new_status = 'paid' if new_paid >= total else 'partial'
+        if new_paid > total: new_paid = total
+        cur.execute("""
+            UPDATE invoices SET status=%s, amount_paid=%s,
+                paid_date=CASE WHEN %s='paid' THEN CURRENT_DATE ELSE paid_date END
+            WHERE id=%s
+        """, (new_status, new_paid, new_status, iid))
+        cur.execute("""
+            INSERT INTO payments (student_id, branch_id, amount, payment_date, method, reference, notes, recorded_by)
+            VALUES (%s,%s,%s,CURRENT_DATE,%s,%s,%s,%s)
+        """, (inv['student_id'], inv['branch_id'], pay_amount, method, reference,
+              f"Batch {batch_id[:8]} inv#{iid} ({inv.get('month','')})" + (' [partial]' if new_status=='partial' else ''),
+              session.get('user_id')))
+        results.append({'invoice_id': iid, 'status': new_status, 'amount_paid': new_paid, 'balance': round(total - new_paid, 2)})
+
+    conn.commit()
+    # Return updated batch
+    cur.execute("""
+        SELECT i.*, s.name as student_name, s.admission_id, b.name as branch_name,
+               s.carer1_email, s.carer2_email, s.carer1_first_name, s.carer2_first_name
+        FROM invoices i JOIN students s ON s.id=i.student_id JOIN branches b ON b.id=i.branch_id
+        WHERE i.batch_id=%s ORDER BY i.id
+    """, (batch_id,))
+    batch = rows(cur)
+    cur.close(); conn.close()
+    for r in batch:
+        for k,v in r.items():
+            if hasattr(v,'isoformat'): r[k]=str(v)
+    return jsonify({'ok': True, 'results': results, 'items': batch})

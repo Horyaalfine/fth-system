@@ -541,6 +541,7 @@ CREATE INDEX IF NOT EXISTS idx_ann_email_log_ann ON announcement_email_log(annou
 
 -- ── CREDIT CONTROL ──
 ALTER TABLE students ADD COLUMN IF NOT EXISTS pause_reminders BOOLEAN DEFAULT FALSE;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS fee_type TEXT NOT NULL DEFAULT 'monthly_fee';
 ALTER TABLE invoices ADD COLUMN IF NOT EXISTS batch_id TEXT;
 ALTER TABLE invoices ADD COLUMN IF NOT EXISTS description TEXT;
 ALTER TABLE invoices ADD COLUMN IF NOT EXISTS due_date DATE;
