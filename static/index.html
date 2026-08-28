@@ -2490,7 +2490,7 @@ function renderMgmtReports(){
   html+='<div class="tab '+(tab==='daily'?'active':'')+'" data-action="mgmt-tab" data-tab="daily">Daily</div>';
   html+='<div class="tab '+(tab==='monthly'?'active':'')+'" data-action="mgmt-tab" data-tab="monthly">Monthly</div>';
   html+='<div class="tab '+(tab==='yearly'?'active':'')+'" data-action="mgmt-tab" data-tab="yearly">Yearly</div>';
-  html+='</div>';
+  html+='<div class="tab '+(tab==="fees_12m"?'active':'')+" data-action=\"mgmt-tab\" data-tab=\"fees_12m\">12-Month Fees</div>';\n  html+='<div class="tab '+(tab==="daily_att"?'active':'')+" data-action=\"mgmt-tab\" data-tab=\"daily_att\">Attendance</div>';\n  html+='<div class="tab '+(tab==="staff_hours"?'active':'')+" data-action=\"mgmt-tab\" data-tab=\"staff_hours\">Staff Hours</div>';\n  html+='<div class="tab '+(tab==="student_list"?'active':'')+" data-action=\"mgmt-tab\" data-tab=\"student_list\">Students</div>';\n  html+='<div class="tab '+(tab==="teacher_planner"?'active':'')+" data-action=\"mgmt-tab\" data-tab=\"teacher_planner\">Teacher Planner</div>';\n  html+='<div class="tab '+(tab==="progress_monthly"?'active':'')+" data-action=\"mgmt-tab\" data-tab=\"progress_monthly\">Progress</div>';\n  html+='</div>';
 
   // ── SUMMARY TAB ──
   if(tab==='summary'){
@@ -2706,6 +2706,199 @@ function renderMgmtReports(){
       html+='<td style="color:var(--danger-text);font-weight:700;">'+fmtGBP(totO)+'</td>';
       html+='<td><strong>'+fmtGBP(totC+totO)+'</strong></td></tr>';
       html+='</tbody></table></div></div>';
+    }
+  }
+
+
+  // ── 12-MONTH FEE REPORT ──
+  if(tab==='fees_12m'){
+    const d=state.data.rpt_fees||{};const months=d.months||[];const students=d.students||[];const bkd=d.breakdown||{};
+    html+='<div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">';
+    html+='<button class="btn btn-sm no-print" data-action="load-rpt-fees">🔄 Load</button>';
+    html+='<button class="btn btn-sm no-print" onclick="window.print()">🖨 Print</button>';
+    html+='</div>';
+    if(students.length){
+      html+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:800px;">';
+      html+='<thead><tr style="background:var(--accent);color:#fff;"><th style="padding:8px;text-align:left;white-space:nowrap;">Student</th><th style="padding:8px;text-align:left;">Adm. No.</th>';
+      months.forEach(function(m){html+='<th style="padding:6px 4px;text-align:center;white-space:nowrap;">'+m.slice(0,7)+'</th>';});
+      html+='<th style="padding:8px;text-align:right;">Total Inv.</th><th style="padding:8px;text-align:right;">Paid</th><th style="padding:8px;text-align:right;">Outstanding</th></tr></thead><tbody>';
+      students.forEach(function(s,si){
+        const mb=bkd[s.id]||{};
+        const outstanding=parseFloat(s.total_invoiced||0)-parseFloat(s.total_paid||0);
+        html+='<tr style="border-bottom:1px solid var(--border);background:'+(si%2?'var(--surface2)':'var(--surface)')+';">';
+        html+='<td style="padding:6px 8px;font-weight:600;">'+s.name+(s.branch_name?' <span style="font-size:10px;color:var(--text3);">('+s.branch_name+')</span>':'')+'</td>';
+        html+='<td style="padding:6px 8px;color:var(--text3);">'+s.admission_id+'</td>';
+        months.forEach(function(m){
+          const cell=mb[m]||{inv:0,paid:0};const os=cell.inv-cell.paid;
+          const bg=os>0?'#fef2f2':cell.paid>0?'#f0fdf4':'';
+          html+='<td style="padding:4px;text-align:center;background:'+bg+';font-size:11px;">'+(cell.inv?'£'+cell.inv.toFixed(0):'—')+'</td>';
+        });
+        html+='<td style="padding:6px 8px;text-align:right;font-weight:600;">£'+parseFloat(s.total_invoiced||0).toFixed(2)+'</td>';
+        html+='<td style="padding:6px 8px;text-align:right;color:var(--success-text);">£'+parseFloat(s.total_paid||0).toFixed(2)+'</td>';
+        html+='<td style="padding:6px 8px;text-align:right;color:'+(outstanding>0?'var(--danger-text)':'var(--text3)')+';">£'+outstanding.toFixed(2)+'</td></tr>';
+      });
+      html+='</tbody></table></div>';
+    } else {
+      html+='<div class="empty-state">Click Load to generate the 12-month fee report</div>';
+    }
+  }
+
+  // ── DAILY ATTENDANCE REPORT ──
+  else if(tab==='daily_att'){
+    const d=state.data.rpt_daily_att||{};const rows=d.rows||[];
+    html+='<div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">';
+    html+='<input type="date" id="rpt-att-date" value="'+(state.rptAttDate||new Date().toISOString().slice(0,10))+'" style="border:1px solid var(--border);border-radius:var(--radius);padding:7px 10px;background:var(--surface2);color:var(--text);font-size:13px;">';
+    html+='<button class="btn btn-sm" data-action="load-rpt-daily-att">🔄 Load</button>';
+    html+='<button class="btn btn-sm no-print" onclick="window.print()">🖨 Print</button>';
+    if(d.total){html+='<span style="font-size:13px;color:var(--text3);">'+d.present+' present &nbsp;·&nbsp; '+d.absent+' absent &nbsp;·&nbsp; '+d.total+' total</span>';}
+    html+='</div>';
+    if(rows.length){
+      html+='<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+      html+='<thead><tr style="background:var(--surface2);"><th style="padding:8px 12px;text-align:left;">Adm. No.</th><th style="padding:8px 12px;text-align:left;">Student</th><th style="padding:8px 12px;">Year</th><th style="padding:8px 12px;">Slot</th><th style="padding:8px 12px;">Teacher</th><th style="padding:8px 12px;">Branch</th><th style="padding:8px 12px;">Status</th><th style="padding:8px 12px;">Notes</th></tr></thead><tbody>';
+      rows.forEach(function(r,i){
+        const st=r.status==='present'?'#dcfce7':r.status==='absent'?'#fef2f2':'';
+        html+='<tr style="border-bottom:1px solid var(--border);background:'+(i%2?'var(--surface2)':'')+';">';
+        html+='<td style="padding:7px 12px;font-size:12px;color:var(--text3);">'+r.admission_id+'</td>';
+        html+='<td style="padding:7px 12px;font-weight:600;">'+r.student_name+'</td>';
+        html+='<td style="padding:7px 12px;text-align:center;">'+r.year_group+'</td>';
+        html+='<td style="padding:7px 12px;font-size:12px;">'+r.slot+'</td>';
+        html+='<td style="padding:7px 12px;font-size:12px;">'+(r.teacher_name||'—')+'</td>';
+        html+='<td style="padding:7px 12px;font-size:12px;">'+(r.branch_name||'—')+'</td>';
+        html+='<td style="padding:7px 12px;"><span style="background:'+st+';border-radius:12px;padding:2px 10px;font-size:12px;font-weight:600;">'+r.status+'</span></td>';
+        html+='<td style="padding:7px 12px;font-size:12px;color:var(--text3);">'+(r.notes||'')+'</td></tr>';
+      });
+      html+='</tbody></table>';
+    } else {
+      html+='<div class="empty-state">Select a date and click Load</div>';
+    }
+  }
+
+  // ── STAFF HOURS REPORT ──
+  else if(tab==='staff_hours'){
+    const d=state.data.rpt_staff_hrs||{};const rows=d.rows||[];
+    const sp=state.rptHrsPeriod||'weekly';
+    html+='<div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">';
+    html+='<select id="rpt-hrs-period" style="border:1px solid var(--border);border-radius:var(--radius);padding:7px 10px;background:var(--surface2);color:var(--text);font-size:13px;">';
+    ['daily','weekly','monthly'].forEach(function(p){html+='<option value="'+p+'"'+(sp===p?' selected':'')+'>'+p.charAt(0).toUpperCase()+p.slice(1)+'</option>';});
+    html+='</select>';
+    html+='<input type="date" id="rpt-hrs-date" value="'+(state.rptHrsDate||new Date().toISOString().slice(0,10))+'" style="border:1px solid var(--border);border-radius:var(--radius);padding:7px 10px;background:var(--surface2);color:var(--text);font-size:13px;">';
+    html+='<button class="btn btn-sm" data-action="load-rpt-staff-hrs">🔄 Load</button>';
+    html+='<button class="btn btn-sm no-print" onclick="window.print()">🖨 Print</button>';
+    html+='</div>';
+    if(d.period){html+='<div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:12px;">'+d.period+'</div>';}
+    if(rows.length){
+      const totalMins=rows.reduce(function(a,r){return a+parseInt(r.total_mins||0);},0);
+      html+='<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+      html+='<thead><tr style="background:var(--surface2);"><th style="padding:8px 12px;text-align:left;">Teacher</th><th style="padding:8px 12px;text-align:left;">Subject</th><th style="padding:8px 12px;">Sessions</th><th style="padding:8px 12px;">Hours</th><th style="padding:8px 12px;text-align:left;">Branch</th></tr></thead><tbody>';
+      rows.forEach(function(r,i){
+        const hrs=Math.floor(r.total_mins/60);const m=r.total_mins%60;
+        const hrsLabel=r.total_mins?(hrs+(m?'h '+m+'m':'h')):'—';
+        html+='<tr style="border-bottom:1px solid var(--border);background:'+(i%2?'var(--surface2)':'')+';">';
+        html+='<td style="padding:7px 12px;font-weight:600;">'+r.name+'</td>';
+        html+='<td style="padding:7px 12px;color:var(--text3);">'+(r.subject||'—')+'</td>';
+        html+='<td style="padding:7px 12px;text-align:center;">'+r.sessions_count+'</td>';
+        html+='<td style="padding:7px 12px;font-weight:600;color:var(--accent);">'+hrsLabel+'</td>';
+        html+='<td style="padding:7px 12px;color:var(--text3);">'+(r.branch_name||'')+'</td></tr>';
+      });
+      const th=Math.floor(totalMins/60);const tm=totalMins%60;
+      html+='<tr style="background:var(--accent);color:#fff;"><td colspan="3" style="padding:8px 12px;font-weight:700;">Total</td><td style="padding:8px 12px;font-weight:700;">'+(th+(tm?'h '+tm+'m':'h'))+'</td><td></td></tr>';
+      html+='</tbody></table>';
+    } else {
+      html+='<div class="empty-state">Select a period and click Load</div>';
+    }
+  }
+
+  // ── STUDENT REPORT ──
+  else if(tab==='student_list'){
+    const d=state.data.rpt_students||{};const rows=d.rows||[];
+    html+='<div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">';
+    html+='<button class="btn btn-sm" data-action="load-rpt-students">🔄 Load</button>';
+    html+='<button class="btn btn-sm no-print" onclick="window.print()">🖨 Print</button>';
+    html+='</div>';
+    if(rows.length){
+      html+='<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+      html+='<thead><tr style="background:var(--surface2);"><th style="padding:8px 12px;text-align:left;">Adm. No.</th><th style="padding:8px 12px;text-align:left;">Student Name</th><th style="padding:8px 12px;">Year</th><th style="padding:8px 12px;text-align:left;">Subject</th><th style="padding:8px 12px;text-align:left;">Day</th><th style="padding:8px 12px;text-align:left;">Time / Slot</th><th style="padding:8px 12px;text-align:left;">Branch</th></tr></thead><tbody>';
+      rows.forEach(function(r,i){
+        html+='<tr style="border-bottom:1px solid var(--border);background:'+(i%2?'var(--surface2)':'')+';">';
+        html+='<td style="padding:7px 12px;font-size:12px;color:var(--text3);">'+r.admission_id+'</td>';
+        html+='<td style="padding:7px 12px;font-weight:600;">'+r.name+'</td>';
+        html+='<td style="padding:7px 12px;text-align:center;">'+(r.year_group||'—')+'</td>';
+        html+='<td style="padding:7px 12px;">'+(r.subject||'—')+'</td>';
+        html+='<td style="padding:7px 12px;">'+(r.day_type||'—')+'</td>';
+        html+='<td style="padding:7px 12px;font-size:12px;">'+(r.slot||'—')+'</td>';
+        html+='<td style="padding:7px 12px;font-size:12px;color:var(--text3);">'+(r.branch_name||'')+'</td></tr>';
+      });
+      html+='</tbody></table>';
+    } else {
+      html+='<div class="empty-state">Click Load to generate the student report</div>';
+    }
+  }
+
+  // ── TEACHER-WISE SESSION PLANNER ──
+  else if(tab==='teacher_planner'){
+    const d=state.data.rpt_teacher_plan||{};const sessions=d.sessions||[];
+    html+='<div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">';
+    html+='<input type="date" id="rpt-plan-date" value="'+(state.rptPlanDate||new Date().toISOString().slice(0,10))+'" style="border:1px solid var(--border);border-radius:var(--radius);padding:7px 10px;background:var(--surface2);color:var(--text);font-size:13px;">';
+    html+='<button class="btn btn-sm" data-action="load-rpt-teacher-plan">🔄 Load</button>';
+    html+='<button class="btn btn-sm no-print" onclick="window.print()">🖨 Print</button>';
+    html+='</div>';
+    if(sessions.length){
+      // Group by slot
+      const bySlot={};
+      sessions.forEach(function(s){(bySlot[s.slot]=bySlot[s.slot]||[]).push(s);});
+      Object.keys(bySlot).sort().forEach(function(slot){
+        const group=bySlot[slot];
+        html+='<div style="margin-bottom:20px;">';
+        html+='<div style="font-weight:700;font-size:14px;background:var(--accent);color:#fff;padding:8px 12px;border-radius:var(--radius) var(--radius) 0 0;">Session: '+slot+'</div>';
+        html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);">';
+        group.forEach(function(sess){
+          html+='<div style="background:var(--surface);padding:10px;">';
+          html+='<div style="font-weight:700;font-size:13px;color:#1e3a5f;margin-bottom:6px;border-bottom:1px solid var(--border);padding-bottom:4px;">'+(sess.teacher_name||'Unassigned')+(sess.teacher_subject?' <span style="font-size:11px;color:var(--accent);">('+sess.teacher_subject+')</span>':'')+'</div>';
+          html+='<table style="width:100%;font-size:12px;border-collapse:collapse;">';
+          html+='<tr style="color:var(--text3);font-size:11px;"><th style="text-align:left;padding:2px;">Ad No.</th><th style="text-align:left;padding:2px;">Name</th><th style="text-align:center;padding:2px;">Yr</th></tr>';
+          (sess.students||[]).forEach(function(st){
+            html+='<tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:3px 2px;color:var(--text3);">'+st.admission_id+'</td><td style="padding:3px 2px;">'+st.name+'</td><td style="padding:3px 2px;text-align:center;">'+st.year_group+'</td></tr>';
+          });
+          if(!sess.students.length) html+='<tr><td colspan="3" style="color:var(--text3);font-style:italic;padding:4px 0;">No students recorded</td></tr>';
+          html+='</table></div>';
+        });
+        html+='</div></div>';
+      });
+    } else {
+      html+='<div class="empty-state">Select a date and click Load to see the teacher-wise session plan</div>';
+    }
+  }
+
+  // ── MONTHLY PROGRESS REPORT ──
+  else if(tab==='progress_monthly'){
+    const d=state.data.rpt_progress||{};const rows=d.rows||[];
+    html+='<div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">';
+    html+='<input type="month" id="rpt-prog-month" value="'+(state.rptProgMonth||new Date().toISOString().slice(0,7))+'" style="border:1px solid var(--border);border-radius:var(--radius);padding:7px 10px;background:var(--surface2);color:var(--text);font-size:13px;">';
+    html+='<button class="btn btn-sm" data-action="load-rpt-progress">🔄 Load</button>';
+    html+='<button class="btn btn-sm no-print" onclick="window.print()">🖨 Print</button>';
+    html+='</div>';
+    if(rows.length){
+      // Group by student
+      const byStudent={};
+      rows.forEach(function(r){(byStudent[r.admission_id]=byStudent[r.admission_id]||{name:r.name,year:r.year_group,branch:r.branch_name,entries:[]}).entries.push(r);});
+      const stars=function(n){return'★'.repeat(n||0)+'☆'.repeat(5-(n||0));};
+      html+='<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+      html+='<thead><tr style="background:var(--surface2);"><th style="padding:8px 12px;text-align:left;">Adm. No.</th><th style="padding:8px 12px;text-align:left;">Student</th><th style="padding:8px 12px;">Yr</th><th style="padding:8px 12px;text-align:left;">Subject</th><th style="padding:8px 12px;">Rating</th><th style="padding:8px 12px;text-align:left;">Comment</th><th style="padding:8px 12px;text-align:left;">Teacher</th><th style="padding:8px 12px;text-align:left;">Date</th></tr></thead><tbody>';
+      Object.keys(byStudent).forEach(function(aid){
+        const s=byStudent[aid];
+        s.entries.forEach(function(e,ei){
+          html+='<tr style="border-bottom:1px solid var(--border);">';
+          if(ei===0){html+='<td style="padding:7px 12px;font-size:12px;color:var(--text3);" rowspan="'+s.entries.length+'">'+aid+'</td><td style="padding:7px 12px;font-weight:600;" rowspan="'+s.entries.length+'">'+s.name+'</td><td style="padding:7px 12px;text-align:center;" rowspan="'+s.entries.length+'">'+(s.year||'')+'</td>';}
+          html+='<td style="padding:7px 12px;">'+(e.subject||'—')+'</td>';
+          html+='<td style="padding:7px 12px;color:#f59e0b;font-size:14px;">'+stars(e.rating)+'</td>';
+          html+='<td style="padding:7px 12px;font-size:12px;color:var(--text3);">'+(e.comment||'')+'</td>';
+          html+='<td style="padding:7px 12px;font-size:12px;">'+(e.teacher_name||'—')+'</td>';
+          html+='<td style="padding:7px 12px;font-size:12px;color:var(--text3);">'+(e.date||'')+'</td></tr>';
+        });
+      });
+      html+='</tbody></table>';
+    } else {
+      html+='<div class="empty-state">Select a month and click Load to see progress records</div>';
     }
   }
 
@@ -5785,6 +5978,23 @@ if(action==='add-test-record'){state.modal='add-test-record';state.editTarget=nu
 if(action==='edit-test-record'){state.modal='edit-test-record';state.editTarget=(state.data.test_records||[]).find(t=>t.id===id)||(state.trStudentId?(state.data['tr_'+state.trStudentId]||[]).find(t=>t.id===id):null);render();return;}
 if(action==='record-retest'){state.modal='record-retest';state.editTarget=(state.data.test_records||[]).find(t=>t.id===id)||(state.trStudentId?(state.data['tr_'+state.trStudentId]||[]).find(t=>t.id===id):null);render();return;}
 if(action==='del-test-record'){if(!confirm('Delete this test record?'))return;await API.delete('/api/test-records/'+id);toast('Deleted');refreshPage();return;}
+if(action==='load-rpt-fees'){
+  state.data.rpt_fees=await API.get('/api/reports/fees-12month');render();return;}
+if(action==='load-rpt-daily-att'){
+  state.rptAttDate=document.getElementById('rpt-att-date')?.value||state.rptAttDate;
+  state.data.rpt_daily_att=await API.get('/api/reports/daily-attendance?date='+state.rptAttDate);render();return;}
+if(action==='load-rpt-staff-hrs'){
+  state.rptHrsPeriod=document.getElementById('rpt-hrs-period')?.value||state.rptHrsPeriod||'weekly';
+  state.rptHrsDate=document.getElementById('rpt-hrs-date')?.value||state.rptHrsDate;
+  state.data.rpt_staff_hrs=await API.get('/api/reports/staff-hours?period='+state.rptHrsPeriod+'&date='+state.rptHrsDate);render();return;}
+if(action==='load-rpt-students'){
+  state.data.rpt_students=await API.get('/api/reports/student-list');render();return;}
+if(action==='load-rpt-teacher-plan'){
+  state.rptPlanDate=document.getElementById('rpt-plan-date')?.value||state.rptPlanDate;
+  state.data.rpt_teacher_plan=await API.get('/api/reports/teacher-planner?date='+state.rptPlanDate);render();return;}
+if(action==='load-rpt-progress'){
+  state.rptProgMonth=document.getElementById('rpt-prog-month')?.value||state.rptProgMonth;
+  state.data.rpt_progress=await API.get('/api/reports/progress?month='+state.rptProgMonth);render();return;}
 if(action==='mgmt-tab'){
   state.mgmtTab=el.dataset.tab;
   refreshPage();return;}

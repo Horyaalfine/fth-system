@@ -4096,3 +4096,256 @@ def get_teacher_hours():
         return jsonify({'period':label,'start':str(start),'end':str(end),'rows':rows})
     finally:
         cur.close(); conn.close()
+
+# ─────────────────────────────────────────────────────────
+# REPORTS HUB — 6 new reports
+# ─────────────────────────────────────────────────────────
+RPT_ROLES = ('super_admin','branch_manager','head_of_centre','head_of_branches','admin','reports_viewer')
+
+@api_bp.route('/api/reports/fees-12month', methods=['GET'])
+@require_roles(*RPT_ROLES)
+def report_fees_12month():
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        import datetime as dt
+        branch_id = branch_scope(session)
+        today = dt.date.today()
+        months = []
+        for i in range(11, -1, -1):
+            m = today.month - i
+            y = today.year
+            while m <= 0: m += 12; y -= 1
+            months.append((y, m))
+
+        if branch_id:
+            cur.execute("""SELECT s.id, s.admission_id, s.name,
+                                  COALESCE(SUM(i.amount),0) as total_invoiced,
+                                  COALESCE(SUM(p.amount),0) as total_paid
+                           FROM students s
+                           LEFT JOIN invoices i ON i.student_id=s.id
+                           LEFT JOIN payments p ON p.student_id=s.id
+                           WHERE s.branch_id=%s AND s.status='active'
+                           GROUP BY s.id,s.admission_id,s.name ORDER BY s.name""", (branch_id,))
+        else:
+            cur.execute("""SELECT s.id, s.admission_id, s.name, b.name as branch_name,
+                                  COALESCE(SUM(i.amount),0) as total_invoiced,
+                                  COALESCE(SUM(p.amount),0) as total_paid
+                           FROM students s
+                           LEFT JOIN branches b ON b.id=s.branch_id
+                           LEFT JOIN invoices i ON i.student_id=s.id
+                           LEFT JOIN payments p ON p.student_id=s.id
+                           WHERE s.status='active'
+                           GROUP BY s.id,s.admission_id,s.name,b.name ORDER BY b.name,s.name""")
+        students = [dict(r) for r in cur.fetchall()]
+
+        # Monthly breakdown per student
+        if branch_id:
+            cur.execute("""SELECT student_id, month, COALESCE(SUM(amount),0) as inv,
+                                  COALESCE(SUM(CASE WHEN status='paid' THEN amount ELSE 0 END),0) as paid
+                           FROM invoices WHERE branch_id=%s GROUP BY student_id,month""", (branch_id,))
+        else:
+            cur.execute("""SELECT student_id, month, COALESCE(SUM(amount),0) as inv,
+                                  COALESCE(SUM(CASE WHEN status='paid' THEN amount ELSE 0 END),0) as paid
+                           FROM invoices GROUP BY student_id,month""")
+        breakdown = {}
+        for r in cur.fetchall():
+            breakdown.setdefault(r['student_id'], {})[r['month']] = {'inv': float(r['inv']), 'paid': float(r['paid'])}
+
+        month_labels = [f"{y}-{m:02d}" for y, m in months]
+        return jsonify({'months': month_labels, 'students': students, 'breakdown': breakdown})
+    finally:
+        cur.close(); conn.close()
+
+@api_bp.route('/api/reports/daily-attendance', methods=['GET'])
+@require_roles(*RPT_ROLES)
+def report_daily_attendance():
+    import datetime as dt
+    date_str = request.args.get('date', str(dt.date.today()))
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        branch_id = branch_scope(session)
+        if branch_id:
+            cur.execute("""SELECT a.status, a.notes,
+                                  s2.name as student_name, s2.admission_id, s2.year_group,
+                                  sess.slot, st.name as teacher_name, b.name as branch_name
+                           FROM attendance a
+                           JOIN students s2 ON s2.id=a.student_id
+                           JOIN sessions sess ON sess.id=a.session_id
+                           LEFT JOIN staff st ON st.id=sess.staff_id
+                           LEFT JOIN branches b ON b.id=sess.branch_id
+                           WHERE sess.date=%s AND sess.branch_id=%s
+                           ORDER BY sess.slot, s2.name""", (date_str, branch_id))
+        else:
+            cur.execute("""SELECT a.status, a.notes,
+                                  s2.name as student_name, s2.admission_id, s2.year_group,
+                                  sess.slot, st.name as teacher_name, b.name as branch_name
+                           FROM attendance a
+                           JOIN students s2 ON s2.id=a.student_id
+                           JOIN sessions sess ON sess.id=a.session_id
+                           LEFT JOIN staff st ON st.id=sess.staff_id
+                           LEFT JOIN branches b ON b.id=sess.branch_id
+                           WHERE sess.date=%s
+                           ORDER BY b.name, sess.slot, s2.name""", (date_str,))
+        rows = [dict(r) for r in cur.fetchall()]
+        present = sum(1 for r in rows if r['status']=='present')
+        absent  = sum(1 for r in rows if r['status']=='absent')
+        return jsonify({'date': date_str, 'rows': rows, 'present': present, 'absent': absent, 'total': len(rows)})
+    finally:
+        cur.close(); conn.close()
+
+@api_bp.route('/api/reports/staff-hours', methods=['GET'])
+@require_roles(*RPT_ROLES)
+def report_staff_hours():
+    import datetime as dt
+    period = request.args.get('period', 'weekly')
+    ref_date = request.args.get('date', str(dt.date.today()))
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        ref = dt.date.fromisoformat(ref_date)
+        if period == 'daily':
+            start = end = ref; label = ref.strftime('%A, %d %B %Y')
+        elif period == 'monthly':
+            start = ref.replace(day=1)
+            nxt = (start.replace(month=start.month % 12 + 1, day=1) if start.month < 12
+                   else start.replace(year=start.year+1, month=1, day=1))
+            end = nxt - dt.timedelta(days=1)
+            label = start.strftime('%B %Y')
+        else:
+            start = ref - dt.timedelta(days=ref.weekday()); end = start + dt.timedelta(days=6)
+            label = f"Week {start.strftime('%d %b')} – {end.strftime('%d %b %Y')}"
+
+        branch_id = branch_scope(session)
+        if branch_id:
+            cur.execute("""SELECT s.id,s.name,s.subject,b.name as branch_name,
+                                  COUNT(ts.id) as sessions_count,
+                                  COALESCE(SUM(ts.paid_mins),0) as total_mins,
+                                  STRING_AGG(DISTINCT ts.date::text,',' ORDER BY ts.date::text) as dates
+                           FROM staff s
+                           LEFT JOIN branches b ON b.id=s.branch_id
+                           LEFT JOIN teacher_sessions ts ON ts.staff_id=s.id AND ts.date BETWEEN %s AND %s
+                           WHERE s.branch_id=%s AND s.status='active'
+                           GROUP BY s.id,s.name,s.subject,b.name ORDER BY s.name""",
+                        (start, end, branch_id))
+        else:
+            cur.execute("""SELECT s.id,s.name,s.subject,b.name as branch_name,
+                                  COUNT(ts.id) as sessions_count,
+                                  COALESCE(SUM(ts.paid_mins),0) as total_mins,
+                                  STRING_AGG(DISTINCT ts.date::text,',' ORDER BY ts.date::text) as dates
+                           FROM staff s
+                           LEFT JOIN branches b ON b.id=s.branch_id
+                           LEFT JOIN teacher_sessions ts ON ts.staff_id=s.id AND ts.date BETWEEN %s AND %s
+                           WHERE s.status='active'
+                           GROUP BY s.id,s.name,s.subject,b.name ORDER BY b.name,s.name""",
+                        (start, end))
+        rows = [dict(r) for r in cur.fetchall()]
+        return jsonify({'period': label, 'start': str(start), 'end': str(end), 'rows': rows})
+    finally:
+        cur.close(); conn.close()
+
+@api_bp.route('/api/reports/student-list', methods=['GET'])
+@require_roles(*RPT_ROLES)
+def report_student_list():
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        branch_id = branch_scope(session)
+        if branch_id:
+            cur.execute("""SELECT s.admission_id, s.name, s.year_group, b.name as branch_name,
+                                  t.day_type, t.slot, t.subject
+                           FROM students s
+                           JOIN branches b ON b.id=s.branch_id
+                           LEFT JOIN student_timetable t ON t.student_id=s.id AND t.active=true
+                           WHERE s.branch_id=%s AND s.status='active'
+                           ORDER BY s.name, t.day_type, t.slot""", (branch_id,))
+        else:
+            cur.execute("""SELECT s.admission_id, s.name, s.year_group, b.name as branch_name,
+                                  t.day_type, t.slot, t.subject
+                           FROM students s
+                           JOIN branches b ON b.id=s.branch_id
+                           LEFT JOIN student_timetable t ON t.student_id=s.id AND t.active=true
+                           WHERE s.status='active'
+                           ORDER BY b.name, s.name, t.day_type, t.slot""")
+        rows = [dict(r) for r in cur.fetchall()]
+        return jsonify({'rows': rows})
+    finally:
+        cur.close(); conn.close()
+
+@api_bp.route('/api/reports/teacher-planner', methods=['GET'])
+@require_roles(*RPT_ROLES)
+def report_teacher_planner():
+    import datetime as dt
+    date_str = request.args.get('date', str(dt.date.today()))
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        branch_id = branch_scope(session)
+        # Get sessions for the date
+        if branch_id:
+            cur.execute("""SELECT sess.id, sess.slot, sess.branch_id, b.name as branch_name,
+                                  st.name as teacher_name, st.subject as teacher_subject
+                           FROM sessions sess
+                           JOIN branches b ON b.id=sess.branch_id
+                           LEFT JOIN staff st ON st.id=sess.staff_id
+                           WHERE sess.date=%s AND sess.branch_id=%s
+                           ORDER BY sess.slot, st.name""", (date_str, branch_id))
+        else:
+            cur.execute("""SELECT sess.id, sess.slot, sess.branch_id, b.name as branch_name,
+                                  st.name as teacher_name, st.subject as teacher_subject
+                           FROM sessions sess
+                           JOIN branches b ON b.id=sess.branch_id
+                           LEFT JOIN staff st ON st.id=sess.staff_id
+                           WHERE sess.date=%s
+                           ORDER BY b.name, sess.slot, st.name""", (date_str,))
+        sessions = [dict(r) for r in cur.fetchall()]
+
+        # Get students for each session via attendance or table_allocations
+        for s in sessions:
+            cur.execute("""SELECT st2.admission_id, st2.name, st2.year_group
+                           FROM attendance a
+                           JOIN students st2 ON st2.id=a.student_id
+                           WHERE a.session_id=%s ORDER BY st2.name""", (s['id'],))
+            s['students'] = [dict(r) for r in cur.fetchall()]
+
+        return jsonify({'date': date_str, 'sessions': sessions})
+    finally:
+        cur.close(); conn.close()
+
+@api_bp.route('/api/reports/progress', methods=['GET'])
+@require_roles(*RPT_ROLES)
+def report_progress():
+    import datetime as dt
+    month_str = request.args.get('month', dt.date.today().strftime('%Y-%m'))
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        branch_id = branch_scope(session)
+        try:
+            y, m = map(int, month_str.split('-'))
+            start = dt.date(y, m, 1)
+            end = (dt.date(y, m+1, 1) - dt.timedelta(days=1)) if m < 12 else dt.date(y, 12, 31)
+        except:
+            start = dt.date.today().replace(day=1); end = dt.date.today()
+
+        if branch_id:
+            cur.execute("""SELECT s.admission_id, s.name, s.year_group,
+                                  p.subject, p.rating, p.comment, p.date,
+                                  st.name as teacher_name, b.name as branch_name
+                           FROM progress p
+                           JOIN students s ON s.id=p.student_id
+                           JOIN branches b ON b.id=s.branch_id
+                           LEFT JOIN staff st ON st.id=p.staff_id
+                           WHERE p.date BETWEEN %s AND %s AND s.branch_id=%s
+                           ORDER BY s.name, p.date""", (start, end, branch_id))
+        else:
+            cur.execute("""SELECT s.admission_id, s.name, s.year_group,
+                                  p.subject, p.rating, p.comment, p.date,
+                                  st.name as teacher_name, b.name as branch_name
+                           FROM progress p
+                           JOIN students s ON s.id=p.student_id
+                           JOIN branches b ON b.id=s.branch_id
+                           LEFT JOIN staff st ON st.id=p.staff_id
+                           WHERE p.date BETWEEN %s AND %s
+                           ORDER BY b.name, s.name, p.date""", (start, end))
+        rows = [dict(r) for r in cur.fetchall()]
+        for r in rows:
+            r['date'] = str(r['date'])
+        return jsonify({'month': month_str, 'rows': rows})
+    finally:
+        cur.close(); conn.close()
