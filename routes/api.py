@@ -2592,14 +2592,19 @@ def hq_transfer_summary():
     conn = get_conn(); cur = conn.cursor()
     cur.execute("""
         SELECT b.id, b.name as branch_name,
-            COALESCE(SUM(p.amount) FILTER (WHERE p.method='cash'), 0) as cash_collected,
-            COALESCE(SUM(t.amount), 0) as transferred_to_hq,
-            COALESCE(SUM(p.amount) FILTER (WHERE p.method='cash'), 0) -
-            COALESCE(SUM(t.amount), 0) as held_at_branch
+            COALESCE(p.cash_collected, 0) as cash_collected,
+            COALESCE(t.transferred_to_hq, 0) as transferred_to_hq,
+            COALESCE(p.cash_collected, 0) - COALESCE(t.transferred_to_hq, 0) as held_at_branch
         FROM branches b
-        LEFT JOIN payments p ON p.branch_id=b.id
-        LEFT JOIN hq_transfers t ON t.branch_id=b.id
-        GROUP BY b.id, b.name ORDER BY b.name
+        LEFT JOIN (
+            SELECT branch_id, SUM(amount) FILTER (WHERE method='cash') as cash_collected
+            FROM payments GROUP BY branch_id
+        ) p ON p.branch_id = b.id
+        LEFT JOIN (
+            SELECT branch_id, SUM(amount) as transferred_to_hq
+            FROM hq_transfers GROUP BY branch_id
+        ) t ON t.branch_id = b.id
+        ORDER BY b.name
     """)
     data = rows(cur)
     for d in data:
