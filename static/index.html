@@ -3344,7 +3344,7 @@ function renderSessionPlan(){
             html+='<tr><td colspan="4" style="padding-top:4px;">';
             html+='<select data-action="lp-add-student" data-idx="'+tblIdx+'" style="width:100%;font-size:11px;padding:2px 4px;">';
             html+='<option value="">＋ Add student...</option>';
-            addable.forEach(function(st){html+='<option value="'+st.admission_id+'">'+st.student_name+' ('+st.admission_id+')</option>';});
+            addable.forEach(function(st){html+='<option value="'+st.admission_id+'">'+st.student_name+' ('+st.admission_id+(st.year_group?' · '+st.year_group:'')+')' +'</option>';});
             html+='</select>';
             html+='</td></tr>';
           }
@@ -3502,7 +3502,7 @@ function renderSessionPlan(){
               html+='<div style="margin-top:6px;">';
               html+='<select data-action="rpt-add-student" data-id="'+s.id+'" style="width:100%;font-size:11px;padding:3px 6px;">';
               html+='<option value="">＋ Add student to this table...</option>';
-              addable.forEach(function(st){html+='<option value="'+st.id+'">'+st.name+' ('+st.admission_id+')</option>';});
+              addable.forEach(function(st){html+='<option value="'+st.id+'">'+st.name+' ('+st.admission_id+(st.year_group?' · '+st.year_group:'')+')' +'</option>';});
               html+='</select>';
               html+='</div>';
             }
