@@ -6607,7 +6607,9 @@ document.querySelectorAll('[data-action="lp-move-student"]').forEach(function(se
     if(!isNaN(toIdx)&&state.planDraft&&state.planDraft.tables){
       var st=state.planDraft.tables[fromIdx].students.splice(stIdx,1)[0];
       state.planDraft.tables[toIdx].students.push(st);
-      state.planDraft.tables.forEach(function(t,i){t.table_no=i+1;});
+      // Renumber per slot
+    var _slotsRenums={};
+    state.planDraft.tables.forEach(function(t){if(!_slotsRenums[t.slot])_slotsRenums[t.slot]=1;t.table_no=_slotsRenums[t.slot]++;});
       render();
     }
   });
@@ -7204,17 +7206,19 @@ if(action==='lp-generate'){
     if(!groups[k])groups[k]={slot:t.slot,subject:t.subject,ks:ks,students:[]};
     groups[k].students.push(t);
   });
-  // Split into tables, ordered by slot → subject → KS
-  var tables=[];var tableNo=1;
+  // Split into tables, ordered by slot → subject → KS; number resets per slot
+  var tables=[];
+  var slotCounters={};
   Object.keys(groups).sort().forEach(function(k){
     var g=groups[k];
+    if(!slotCounters[g.slot])slotCounters[g.slot]=1;
     var studs=g.students.slice().sort(function(a,b){
       var ya=parseInt((a.year_group||'0').match(/\d+/)||0);
       var yb=parseInt((b.year_group||'0').match(/\d+/)||0);
       return ya-yb;
     });
     for(var i=0;i<studs.length;i+=maxPer){
-      tables.push({table_no:tableNo++,slot:g.slot,subject:g.subject,ks:ksLabel(g.ks),teacher_id:null,students:studs.slice(i,i+maxPer)});
+      tables.push({table_no:slotCounters[g.slot]++,slot:g.slot,subject:g.subject,ks:ksLabel(g.ks),teacher_id:null,students:studs.slice(i,i+maxPer)});
     }
   });
   state.planDraft={date:lpDate,dayType:dayType,tables:tables};
@@ -7239,7 +7243,9 @@ if(action==='lp-move-student'){
     var st=state.planDraft.tables[fromIdx].students.splice(stIdx,1)[0];
     state.planDraft.tables[toIdx].students.push(st);
     // Renumber tables
-    state.planDraft.tables.forEach(function(t,i){t.table_no=i+1;});
+    // Renumber per slot
+    var _slotsRenums={};
+    state.planDraft.tables.forEach(function(t){if(!_slotsRenums[t.slot])_slotsRenums[t.slot]=1;t.table_no=_slotsRenums[t.slot]++;});
     render();
   }
   return;
@@ -7251,7 +7257,9 @@ if(action==='lp-remove-table'){
   if(state.planDraft&&state.planDraft.tables){
     state.planDraft.tables.splice(idx,1);
     // Renumber
-    state.planDraft.tables.forEach(function(t,i){t.table_no=i+1;});
+    // Renumber per slot
+    var _slotsRenums={};
+    state.planDraft.tables.forEach(function(t){if(!_slotsRenums[t.slot])_slotsRenums[t.slot]=1;t.table_no=_slotsRenums[t.slot]++;});
     render();
   }
   return;
@@ -7347,7 +7355,8 @@ if(action==='lp-add-table-confirm'){
   if(!slot||!subj){toast('Pick a slot and subject','danger');return;}
   var draft=state.planDraft;
   if(!draft){state.planDraft={date:state.lpDate,dayType:state.lpDayType||'saturday',tables:[]};draft=state.planDraft;}
-  var nextNo=(draft.tables.length>0?Math.max.apply(null,draft.tables.map(function(t){return t.table_no;}))+1:1);
+  var slotTbls=draft.tables.filter(function(t){return t.slot===slot;});
+  var nextNo=slotTbls.length>0?Math.max.apply(null,slotTbls.map(function(t){return t.table_no;}))+1:1;
   draft.tables.push({table_no:nextNo,slot:slot,subject:subj,teacher_id:null,students:[]});
   state.lpAddingTable=false;
   toast('Blank table added','success');render();return;
@@ -7375,7 +7384,8 @@ if(action==='rpt-add-table'){
   if(!subj)return;
   var sessions=state.data.sessions||[];
   var slotTables=sessions.filter(function(s){return s.date===rptDate&&s.slot===slot;});
-  var nextNo=slotTables.length>0?Math.max.apply(null,slotTables.map(function(s){return s.table_no||0;}))+1:1;
+  var slotSessions=(state.data.sessions||[]).filter(function(x){return x.date===rptDate&&x.slot===slot;});
+  var nextNo=slotSessions.length>0?Math.max.apply(null,slotSessions.map(function(s){return s.table_no||0;}))+1:1;
   var branch=state.currentBranch||(state.currentUser&&state.currentUser.branch_id);
   if(!branch){toast('No branch selected','danger');return;}
   try{
