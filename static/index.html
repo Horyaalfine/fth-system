@@ -739,7 +739,7 @@ return`
 <td style="font-weight:600;color:var(--accent);">${s.monthly_fee?'£'+parseFloat(s.monthly_fee).toFixed(0):'—'}</td>
 <td style="color:var(--text3);">${s.hours_per_week?s.hours_per_week+'h':'—'}</td>
 <td>${statusDot(s.status)}</td>
-<td><div class="row-actions"><button class="btn btn-sm" data-action="edit-student" data-id="${s.id}">Edit</button><button class="btn btn-sm" data-action="reg-form" data-id="${s.id}" title="Registration Form">📄 Form</button><button class="btn btn-sm btn-danger" data-action="del-student" data-id="${s.id}">Del</button></div></td>
+<td><div class="row-actions"><button class="btn btn-sm" data-action="edit-student" data-id="${s.id}">Edit</button><button class="btn btn-sm" data-action="reg-form" data-id="${s.id}" title="Registration Form">📄 Contract</button><button class="btn btn-sm btn-danger" data-action="del-student" data-id="${s.id}">Del</button></div></td>
 </tr>`).join(''):`<tr><td colspan="8"><div class="empty-state">No students found</div></td></tr>`}</tbody>
 </table></div></div>`;}
 
@@ -4065,7 +4065,7 @@ if(m==='reg-form'){
   const footer='<button class="btn no-print" onclick="window.print()">🖨 Print</button>'+
     '<button class="btn no-print" data-action="email-reg-form">✉ Email to parent</button>'+
     '<button class="btn no-print" data-action="save-reg-portal">💾 Save to portal</button>';
-  return mWrap('📄 Registration Form — '+s.name,body,footer);}
+  return mWrap('📄 Contract Form — '+s.name,body,footer);}
 if(m==='reminder-history'){
   return mWrap('📋 Reminder History — '+( state.modal?.studentName||''),state.modal?.html||'','');}
 if(m==='fee-reminder-preview'){
