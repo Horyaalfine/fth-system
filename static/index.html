@@ -617,7 +617,7 @@ async function doLogin(){const email=document.getElementById('l-email')?.value.t
 async function doParentLogin(){const email=document.getElementById('l-email')?.value.trim();const pass=document.getElementById('l-pass')?.value;document.getElementById('login-err').textContent='';try{const pu=await API.post('/api/parent-login',{email,password:pass});if(!pu)return;state.parentUser=pu;const children=await API.get('/api/parent/children');state.data.parent_children=children||[];for(const child of(children||[])){state.data['p_att_'+child.id]=await API.get('/api/parent/attendance/'+child.id)||[];
         state.data['p_diary_'+child.id]=await API.get('/api/parent/diary/'+child.id)||[];
         state.data['p_tests_'+child.id]=await API.get('/api/parent/test-records/'+child.id)||[];state.data['p_mnotes_'+child.id]=await API.get('/api/parent/meeting-notes/'+child.id)||[];
-        state.data['p_ann_'+child.id]=await API.get('/api/parent/announcements/'+child.id)||[];state.data['p_inv_'+child.id]=await API.get('/api/parent/invoices/'+child.id)||[];state.data['p_prog_'+child.id]=await API.get('/api/parent/progress/'+child.id)||[];}render();}catch(e){document.getElementById('login-err').textContent=e.error||'Login failed';}}
+        state.data['p_ann_'+child.id]=await API.get('/api/parent/announcements/'+child.id)||[];state.data['p_inv_'+child.id]=await API.get('/api/parent/invoices/'+child.id)||[];state.data['p_prog_'+child.id]=await API.get('/api/parent/progress/'+child.id)||[];state.data['p_contract_'+child.id]=await API.get('/api/parent/contract/'+child.id).catch(()=>({available:false}))||{available:false};}render();}catch(e){document.getElementById('login-err').textContent=e.error||'Login failed';}}
 
 function renderSidebar(){const u=state.currentUser;const isSA=u.role==='super_admin'||u.role==='reports_viewer';const pages=[
   {id:'dashboard',icon:icoHome(),label:'Dashboard',group:'main'},
@@ -3944,7 +3944,7 @@ return mWrap(isEdit?'Edit note':'Add note',body,footer);}
 function renderParentPortal(){const pu=state.parentUser;const children=state.data.parent_children||[];function childCard(st){const att=state.data['p_att_'+st.id]||[];const invs=state.data['p_inv_'+st.id]||[];const prog=state.data['p_prog_'+st.id]||[];const tests=state.data['p_tests_'+st.id]||[];const mnotes=state.data['p_mnotes_'+st.id]||[];const present=att.filter(a=>a.status==='present').length;const pct=att.length?Math.round(present/att.length*100):0;const outstanding=invs.filter(i=>i.status!=='paid').reduce((s,i)=>s+i.amount,0);
 state.parentTabs=state.parentTabs||{};
 const activeTab=state.parentTabs[st.id]||'attendance';
-const TAB_DEFS=[{k:'attendance',label:'Attendance'},{k:'tests',label:'Test Records'},{k:'notes',label:'Notes'},{k:'fees',label:'Fees'},{k:'announcements',label:'📢 Announcements'}];
+const TAB_DEFS=[{k:'attendance',label:'Attendance'},{k:'tests',label:'Test Records'},{k:'notes',label:'Notes'},{k:'fees',label:'Fees'},{k:'announcements',label:'📢 Announcements'},{k:'contract',label:'📋 Contract'}];
 const tabBar=TAB_DEFS.map(t=>'<button class="parent-tab-btn" data-sid="'+st.id+'" data-tab="'+t.k+'" style="padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:600;border-bottom:2px solid '+(activeTab===t.k?'var(--accent)':'transparent')+';color:'+(activeTab===t.k?'var(--accent)':'var(--text3)')+';transition:all .15s;">'+t.label+'</button>').join('');
 const attContent='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;"><div><div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px;">Recent attendance</div>'+
 (att.slice(0,10).map(a=>'<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;"><span style="color:var(--text2);">'+new Date(a.date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})+' &middot; <span style="color:var(--text3);">'+a.subject+'</span></span><span class="badge '+(a.status==='present'?'badge-success':'badge-danger')+'">'+a.status+'</span></div>').join('')||'<p style="color:var(--text3);font-size:13px;padding:10px 0;">No attendance yet</p>')+
@@ -3956,7 +3956,43 @@ const notesContent=mnotes.length?mnotes.map(n=>'<div style="padding:10px 0;borde
 const feesContent=invs.length?invs.map(inv=>'<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;"><span style="color:var(--text2);">'+inv.month+'</span><strong style="color:var(--text);">£'+inv.amount+'</strong>'+invBadge(inv.status)+'<span style="font-size:11px;color:var(--text3);">'+(inv.paid_date?'Paid '+inv.paid_date:'')+' </span></div>').join(''):'<p style="color:var(--text3);font-size:13px;">No invoices yet</p>';
 const pAnns=state.data['p_ann_'+st.id]||[];
 const annContent=pAnns.length?pAnns.map(a=>'<div style="padding:12px 0;border-bottom:1px solid var(--border);"><div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;">'+a.title+'</div><div style="font-size:13px;color:var(--text2);line-height:1.5;">'+a.body+'</div><div style="font-size:11px;color:var(--text3);margin-top:4px;">'+a.created_at+'</div></div>').join(''):'<p style="color:var(--text3);font-size:13px;padding:10px 0;">No announcements at this time</p>';
-const contentMap={attendance:attContent,tests:testsContent,notes:notesContent,fees:feesContent,announcements:annContent};
+const contractData=state.data['p_contract_'+st.id]||{};
+const contractContent=contractData.available?
+  '<div style="background:#f0f4ff;border-radius:8px;border-left:4px solid #2563eb;padding:16px;margin-bottom:16px;"><div style="font-weight:700;color:#1e3a5f;font-size:14px;margin-bottom:4px;">📋 Contract on file</div><div style="font-size:12px;color:var(--text3);">Issued: '+contractData.contract_sent_at+'</div></div>'+
+  '<div style="font-weight:700;color:#1e3a5f;font-size:15px;margin-bottom:12px;text-align:center;">Terms and Conditions</div>'+
+  '<div style="font-weight:700;color:#1e3a5f;margin:10px 0 4px;">Parents — I agree to:</div>'+
+  '<ol style="margin:0 0 12px;padding-left:20px;font-size:13px;line-height:1.8;">'+
+  '<li>Attendance and punctuality are important for your child’s progress. Children must come on time for lessons.</li>'+
+  '<li>If your child has been absent, they will have up to 30 days from the day of absence to book in a catch-up session.</li>'+
+  '<li>If you have informed us about their absence prior to the lesson starting, your child will be entitled to a catch-up session.</li>'+
+  '<li>Inform about any changes to lesson plan before the 25th of the month so that it can be changed for the following month.</li>'+
+  '<li>Give 4 weeks’ notice required upon pausing or ending lessons.</li>'+
+  '<li>Support my child at home with their learning and make sure homework is completed.</li></ol>'+
+  '<hr style="border:none;border-top:1px solid #d1d5db;margin:8px 0;">'+
+  '<div style="font-weight:700;color:#1e3a5f;margin:10px 0 4px;">Pupil — I agree to:</div>'+
+  '<ol style="margin:0 0 10px;padding-left:20px;font-size:13px;line-height:1.8;">'+
+  '<li>I will always come in for all my lessons and be on time at the beginning of the day, after lunch and breaks.</li>'+
+  '<li>Come prepared with my books, stationery, notebooks and completed homework.</li>'+
+  '<li>Treat others how you want to be treated, with kindness. Be respectful towards my classmates, teachers, and belongings.</li>'+
+  '<li>I will listen to my teachers and wait for my turn when speaking.</li>'+
+  '<li>Have a good attitude and positive behaviour when I come into class.</li>'+
+  '<li>Use the bathroom before lesson starts and only allowed to use the bathroom once during the lesson (unless you have provided a medical note).</li>'+
+  '<li>Do not eat or drink in class (except for water).</li>'+
+  '<li>Come prepared with my snacks and will not leave my classroom during break times.</li>'+
+  '<li>No phones allowed during lesson.</li></ol>'+
+  '<div style="font-size:13px;margin-bottom:4px;"><u>If the following terms have not been met:</u></div>'+
+  '<ul style="margin:0 0 12px;padding-left:20px;font-size:13px;line-height:1.8;">'+
+  '<li><strong>First warning</strong> – Parents are informed, and pupil sent home.</li>'+
+  '<li><strong>Second warning</strong> – Lessons will be suspended for one week and parents called in for a meeting.</li>'+
+  '<li><strong>Final decision</strong> – Pupil will be suspended.</li></ul>'+
+  '<hr style="border:none;border-top:1px solid #d1d5db;margin:8px 0;">'+
+  '<div style="font-weight:700;color:#1e3a5f;margin:10px 0 4px;">Fine Tutors — I agree to:</div>'+
+  '<ol style="margin:0 0 12px;padding-left:20px;font-size:13px;line-height:1.8;">'+
+  '<li>Create a safe and welcoming environment.</li>'+
+  '<li>Provide excellent learning support for all pupils.</li>'+
+  '<li>Provide regular updates on pupil progress with parents. You are welcome to arrange a face-to-face appointment for updates on your child’s progress at any point in the year.</li></ol>'
+  :'<div style="padding:40px;text-align:center;color:var(--text3);"><div style="font-size:32px;margin-bottom:12px;">📋</div><div style="font-size:14px;">No contract on file yet.</div><div style="font-size:12px;margin-top:4px;">Your centre will upload your contract when it has been signed.</div></div>';
+const contentMap={attendance:attContent,tests:testsContent,notes:notesContent,fees:feesContent,announcements:annContent,contract:contractContent};
 return`<div class="card" style="margin-bottom:18px;border-left:3px solid var(--accent);">
 <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--border);">
 <div class="avatar av-teal" style="width:48px;height:48px;font-size:17px;">${avatarInitials(st.name)}</div>

@@ -4346,3 +4346,24 @@ def report_progress():
         return jsonify({'month': month_str, 'rows': rows})
     finally:
         cur.close(); conn.close()
+
+@api_bp.route('/api/parent/contract/<int:student_id>', methods=['GET'])
+@require_parent
+def parent_contract(student_id):
+    pid = session['parent_id']
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("SELECT 1 FROM parent_students WHERE parent_id=%s AND student_id=%s", (pid, student_id))
+    if not cur.fetchone(): cur.close(); conn.close(); return jsonify({'error':'Forbidden'}), 403
+    cur.execute(
+        "SELECT s.*, b.name as branch_name, rs.sent_at as contract_sent_at "
+        "FROM students s JOIN branches b ON b.id=s.branch_id "
+        "LEFT JOIN registration_sent rs ON rs.student_id=s.id "
+        "WHERE s.id=%s", (student_id,))
+    row = cur.fetchone()
+    cur.close(); conn.close()
+    if not row: return jsonify({'available': False})
+    data = dict(row)
+    for k,v in data.items():
+        if hasattr(v,'isoformat'): data[k]=str(v)
+    data['available'] = data.get('contract_sent_at') is not None
+    return jsonify(data)
