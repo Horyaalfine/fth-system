@@ -4020,7 +4020,7 @@ def get_teacher_schedule():
     week_str = request.args.get('week','')  # YYYY-WW
     conn = get_conn(); cur = conn.cursor()
     try:
-        branch_id = branch_scope(session)
+        branch_id = branch_scope()
         # parse week → mon..sun
         if week_str:
             import datetime as dt
@@ -4125,7 +4125,7 @@ def get_teacher_hours():
             end = start + dt.timedelta(days=6)
             label = f"Week {start.strftime('%d %b')} – {end.strftime('%d %b %Y')}"
 
-        branch_id = branch_scope(session)
+        branch_id = branch_scope()
         if branch_id:
             cur.execute("""SELECT s.id, s.name, s.subject,
                                   COUNT(ts.id) as sessions_count,
@@ -4160,7 +4160,7 @@ def report_fees_12month():
     conn = get_conn(); cur = conn.cursor()
     try:
         import datetime as dt
-        branch_id = branch_scope(session)
+        branch_id = branch_scope()
         today = dt.date.today()
         months = []
         for i in range(11, -1, -1):
@@ -4215,7 +4215,7 @@ def report_daily_attendance():
     date_str = request.args.get('date', str(dt.date.today()))
     conn = get_conn(); cur = conn.cursor()
     try:
-        branch_id = branch_scope(session)
+        branch_id = branch_scope()
         if branch_id:
             cur.execute("""SELECT a.status, a.notes,
                                   s2.name as student_name, s2.admission_id, s2.year_group,
@@ -4266,7 +4266,7 @@ def report_staff_hours():
             start = ref - dt.timedelta(days=ref.weekday()); end = start + dt.timedelta(days=6)
             label = f"Week {start.strftime('%d %b')} – {end.strftime('%d %b %Y')}"
 
-        branch_id = branch_scope(session)
+        branch_id = branch_scope()
         if branch_id:
             cur.execute("""SELECT s.id,s.name,s.subject,b.name as branch_name,
                                   COUNT(ts.id) as sessions_count,
@@ -4299,7 +4299,7 @@ def report_staff_hours():
 def report_student_list():
     conn = get_conn(); cur = conn.cursor()
     try:
-        branch_id = branch_scope(session)
+        branch_id = branch_scope()
         if branch_id:
             cur.execute("""SELECT s.admission_id, s.name, s.year_group, b.name as branch_name,
                                   t.day_type, t.slot, t.subject
@@ -4328,7 +4328,7 @@ def report_teacher_planner():
     date_str = request.args.get('date', str(dt.date.today()))
     conn = get_conn(); cur = conn.cursor()
     try:
-        branch_id = branch_scope(session)
+        branch_id = branch_scope()
         # Get sessions for the date
         if branch_id:
             cur.execute("""SELECT sess.id, sess.slot, sess.branch_id, b.name as branch_name,
@@ -4367,7 +4367,7 @@ def report_progress():
     month_str = request.args.get('month', dt.date.today().strftime('%Y-%m'))
     conn = get_conn(); cur = conn.cursor()
     try:
-        branch_id = branch_scope(session)
+        branch_id = branch_scope()
         try:
             y, m = map(int, month_str.split('-'))
             start = dt.date(y, m, 1)
