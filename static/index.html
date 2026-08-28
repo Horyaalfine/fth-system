@@ -3168,7 +3168,7 @@ function renderSessionPlan(){
   // ── TAB 2: LESSON PLAN ──────────────────────────────────────────
   if(planTab==='lesson'){
     var lpDate=state.lpDate||new Date().toISOString().slice(0,10);
-    var lpMaxPer=state.lpMaxPer||6;
+    var lpMaxPer=state.lpMaxPer||5;
     var draft=state.planDraft||null;
     function getDayType(d){var wd=new Date(d+'T00:00:00').getDay();return wd===6?'saturday':wd===0?'sunday':'weekday';}
     var dayType=getDayType(lpDate);
@@ -3178,7 +3178,7 @@ function renderSessionPlan(){
     html+='<div class="card" style="margin-bottom:14px;">';
     html+='<div class="form-grid">';
     html+='<div class="field"><label>Plan date</label><input type="date" id="lp-date" value="'+lpDate+'"></div>';
-    html+='<div class="field"><label>Max students per table</label><input type="number" id="lp-max-per" value="'+lpMaxPer+'" min="1" max="20" style="width:80px;"></div>';
+    html+='<div class="field"><label>Max students per table</label><input type="number" id="lp-max-per" value="'+lpMaxPer+'" min="5" max="20" style="width:80px;"></div>';
     html+='</div>';
     html+='<div style="margin-top:8px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">';
     var dtLabel=dayType.charAt(0).toUpperCase()+dayType.slice(1);
