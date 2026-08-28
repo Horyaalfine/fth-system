@@ -432,6 +432,28 @@ def add_session():
     log_action('add', 'sessions', r['id'])
     return jsonify(r), 201
 
+@api_bp.route('/api/sessions/<int:sid>', methods=['PUT'])
+@require_auth
+def update_session(sid):
+    d = request.json or {}
+    conn = get_conn(); cur = conn.cursor()
+    fields = []
+    params = []
+    if 'staff_id' in d:
+        fields.append("staff_id=%s")
+        params.append(d['staff_id'] if d['staff_id'] else None)
+    if 'subject' in d:
+        fields.append("subject=%s"); params.append(d['subject'])
+    if 'slot' in d:
+        fields.append("slot=%s"); params.append(d['slot'])
+    if not fields:
+        return jsonify({'error': 'Nothing to update'}), 400
+    params.append(sid)
+    cur.execute(f"UPDATE sessions SET {', '.join(fields)} WHERE id=%s", params)
+    conn.commit(); cur.close(); conn.close()
+    log_action('edit', 'sessions', sid)
+    return jsonify({'ok': True})
+
 @api_bp.route('/api/sessions/<int:sid>', methods=['DELETE'])
 @require_auth
 def delete_session(sid):

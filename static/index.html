@@ -3311,12 +3311,20 @@ function renderSessionPlan(){
           attRecs.forEach(function(a){attMap[a.student_id]={status:a.status};});
           var borderLeft=ti>0?'border-left:1px solid var(--border);':'';
           html+='<div style="padding:12px 14px;'+borderLeft+'border-top:'+(ti>=0?'1px solid var(--border)':'none')+'">';
-          html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+          html+='<div style="margin-bottom:8px;">';
+          html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
           html+='<div>';
           html+='<span style="font-size:13px;font-weight:700;">Table '+s.table_no+'</span>';
           html+='<span class="badge badge-gray" style="margin-left:8px;">'+(s.subject||'—')+'</span>';
           html+='</div>';
-          html+='<span style="font-size:12px;color:var(--text3);">'+(s.staff_name||'No teacher assigned')+'</span>';
+          html+='<button class="btn btn-sm btn-danger" data-action="rpt-del-session" data-id="'+s.id+'" style="padding:2px 8px;font-size:11px;" onclick="if(!confirm('Delete Table '+s.table_no+'?'))event.stopPropagation()">🗑 Delete</button>';
+          html+='</div>';
+          html+='<div style="display:flex;gap:6px;align-items:center;">';
+          html+='<select data-action="rpt-set-teacher" data-id="'+s.id+'" style="font-size:12px;flex:1;padding:4px 6px;">';
+          html+='<option value="">— assign teacher —</option>';
+          staff.forEach(function(t){html+='<option value="'+t.id+'" '+(s.staff_id===t.id?'selected':'')+'>'+t.name+'</option>';});
+          html+='</select>';
+          html+='</div>';
           html+='</div>';
           if(studs.length===0){
             html+='<div style="font-size:12px;color:var(--text3);font-style:italic;">No students allocated</div>';
@@ -6396,6 +6404,23 @@ document.getElementById('setup-subject-sel')?.addEventListener('change',function
 document.getElementById('setup-check-all')?.addEventListener('change',function(e){
   document.querySelectorAll('.setup-entry').forEach(function(c){c.checked=e.target.checked;});
 });
+// Report teacher selects
+document.querySelectorAll('[data-action="rpt-set-teacher"]').forEach(function(sel){
+  sel.addEventListener('change',async function(){
+    var id=parseInt(sel.dataset.id);
+    var teacherId=sel.value?parseInt(sel.value):null;
+    try{
+      await API.put('/api/sessions/'+id,{staff_id:teacherId});
+      var sessIdx=(state.data.sessions||[]).findIndex(function(s){return s.id===id;});
+      if(sessIdx>=0){
+        var teacher=(state.data.staff||[]).find(function(t){return t.id===teacherId;});
+        state.data.sessions[sessIdx].staff_id=teacherId;
+        state.data.sessions[sessIdx].staff_name=teacher?teacher.name:null;
+      }
+      toast('Teacher assigned','success');
+    }catch(err){toast('Error','danger');}
+  });
+});
 // Lesson plan teacher selects (dynamic, use event delegation)
 document.querySelectorAll('[data-action="lp-set-teacher"]').forEach(function(sel){
   sel.addEventListener('change',function(){
@@ -7002,6 +7027,35 @@ if(action==='rpt-date-select'){state.rptDate=el.value;render();return;}
 
 // Register mode toggle
 if(action==='reg-mode'){state.regMode=el.dataset.mode;render();return;}
+
+// Report: assign teacher to saved session
+if(action==='rpt-set-teacher'){
+  var teacherId=el.value?parseInt(el.value):null;
+  try{
+    await API.put('/api/sessions/'+id,{staff_id:teacherId});
+    // Update local state immediately
+    var sessIdx=(state.data.sessions||[]).findIndex(function(s){return s.id===id;});
+    if(sessIdx>=0){
+      var teacher=(state.data.staff||[]).find(function(t){return t.id===teacherId;});
+      state.data.sessions[sessIdx].staff_id=teacherId;
+      state.data.sessions[sessIdx].staff_name=teacher?teacher.name:null;
+    }
+    toast('Teacher assigned','success');
+  }catch(err){toast('Error: '+(err.message||err),'danger');}
+  return;
+}
+
+// Report: delete a saved session
+if(action==='rpt-del-session'){
+  if(!confirm('Delete this table? This cannot be undone.'))return;
+  try{
+    await API.delete('/api/sessions/'+id);
+    state.data.sessions=(state.data.sessions||[]).filter(function(s){return s.id!==id;});
+    toast('Table deleted','success');
+    render();
+  }catch(err){toast('Error: '+(err.message||err),'danger');}
+  return;
+}
 
 // Bulk setup select all / clear all
 if(action==='setup-select-all'){document.querySelectorAll('.setup-entry').forEach(function(c){c.checked=true;});return;}
