@@ -3948,3 +3948,151 @@ def email_batch_invoice(batch_id):
     except Exception as e:
         return jsonify({'error':str(e)}), 500
     return jsonify({'ok':True,'sent_to':[r['email'] for r in recipients],'total':total})
+
+# ─────────────────────────────────────────────────────────
+# TEACHER SCHEDULE / HOURS
+# ─────────────────────────────────────────────────────────
+TS_ROLES = ('super_admin','branch_manager','head_of_centre','head_of_branches','admin')
+
+SLOT_DEFS = {
+    'wd_main': {'label':'4:45 PM – 9:00 PM','paid_mins':240,'day_type':'weekday'},
+    'we_1':    {'label':'9:00 AM – 11:00 AM','paid_mins':120,'day_type':'weekend'},
+    'we_2':    {'label':'11:15 AM – 1:15 PM','paid_mins':120,'day_type':'weekend'},
+    'we_3':    {'label':'2:15 PM – 4:15 PM', 'paid_mins':120,'day_type':'weekend'},
+    'we_4':    {'label':'4:30 PM – 6:30 PM', 'paid_mins':120,'day_type':'weekend'},
+}
+
+@api_bp.route('/api/teacher-schedule', methods=['GET'])
+@require_roles(*TS_ROLES)
+def get_teacher_schedule():
+    week_str = request.args.get('week','')  # YYYY-WW
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        branch_id = branch_scope(session)
+        # parse week → mon..sun
+        if week_str:
+            import datetime as dt
+            year, week = map(int, week_str.split('-W'))
+            mon = dt.datetime.strptime(f'{year}-W{week:02d}-1','%G-W%V-%u').date()
+        else:
+            import datetime as dt
+            today = dt.date.today()
+            mon = today - dt.timedelta(days=today.weekday())
+        sun = mon + dt.timedelta(days=6)
+
+        if branch_id:
+            cur.execute("SELECT id,name,role,subject,status FROM staff WHERE branch_id=%s AND status='active' ORDER BY name", (branch_id,))
+        else:
+            cur.execute("SELECT id,name,role,subject,status FROM staff WHERE status='active' ORDER BY name")
+        teachers = [dict(r) for r in cur.fetchall()]
+
+        if branch_id:
+            cur.execute("""SELECT ts.*, s.name as teacher_name, s.branch_id
+                           FROM teacher_sessions ts JOIN staff s ON s.id=ts.staff_id
+                           WHERE ts.branch_id=%s AND ts.date BETWEEN %s AND %s
+                           ORDER BY ts.date, ts.slot_key""", (branch_id, mon, sun))
+        else:
+            cur.execute("""SELECT ts.*, s.name as teacher_name, s.branch_id
+                           FROM teacher_sessions ts JOIN staff s ON s.id=ts.staff_id
+                           WHERE ts.date BETWEEN %s AND %s
+                           ORDER BY ts.date, ts.slot_key""", (mon, sun))
+        sessions = [dict(r) for r in cur.fetchall()]
+        for s in sessions:
+            s['date'] = str(s['date'])
+
+        return jsonify({'week':str(mon), 'teachers':teachers, 'sessions':sessions, 'slots':SLOT_DEFS})
+    finally:
+        cur.close(); conn.close()
+
+@api_bp.route('/api/teacher-sessions', methods=['POST'])
+@require_roles(*TS_ROLES)
+def add_teacher_session():
+    d = request.json or {}
+    staff_id = d.get('staff_id')
+    date_str = d.get('date','')
+    slot_key = d.get('slot_key','')
+    notes = d.get('notes','')
+    if not all([staff_id, date_str, slot_key]):
+        return jsonify({'error':'Missing fields'}), 400
+    if slot_key not in SLOT_DEFS:
+        return jsonify({'error':'Invalid slot'}), 400
+    paid_mins = SLOT_DEFS[slot_key]['paid_mins']
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        cur.execute("SELECT branch_id FROM staff WHERE id=%s", (staff_id,))
+        row = cur.fetchone()
+        if not row: return jsonify({'error':'Staff not found'}), 404
+        branch_id = row['branch_id']
+        cur.execute("""INSERT INTO teacher_sessions (branch_id,staff_id,date,slot_key,paid_mins,notes,created_by)
+                       VALUES (%s,%s,%s,%s,%s,%s,%s)
+                       ON CONFLICT (staff_id,date,slot_key) DO UPDATE SET notes=EXCLUDED.notes, paid_mins=EXCLUDED.paid_mins
+                       RETURNING *""",
+                    (branch_id, staff_id, date_str, slot_key, paid_mins, notes, session.get('user_id')))
+        row = dict(cur.fetchone())
+        row['date'] = str(row['date'])
+        conn.commit()
+        return jsonify(row)
+    except Exception as e:
+        conn.rollback(); return jsonify({'error':str(e)}), 500
+    finally:
+        cur.close(); conn.close()
+
+@api_bp.route('/api/teacher-sessions/<int:sid>', methods=['DELETE'])
+@require_roles(*TS_ROLES)
+def delete_teacher_session(sid):
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM teacher_sessions WHERE id=%s", (sid,))
+        conn.commit()
+        return jsonify({'ok':True})
+    finally:
+        cur.close(); conn.close()
+
+@api_bp.route('/api/teacher-hours', methods=['GET'])
+@require_roles(*TS_ROLES)
+def get_teacher_hours():
+    period = request.args.get('period','weekly')  # weekly | monthly
+    ref_date = request.args.get('date','')
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        import datetime as dt
+        if ref_date:
+            ref = dt.date.fromisoformat(ref_date)
+        else:
+            ref = dt.date.today()
+
+        if period == 'monthly':
+            start = ref.replace(day=1)
+            if ref.month == 12:
+                end = ref.replace(year=ref.year+1, month=1, day=1) - dt.timedelta(days=1)
+            else:
+                end = ref.replace(month=ref.month+1, day=1) - dt.timedelta(days=1)
+            label = start.strftime('%B %Y')
+        else:
+            start = ref - dt.timedelta(days=ref.weekday())
+            end = start + dt.timedelta(days=6)
+            label = f"Week {start.strftime('%d %b')} – {end.strftime('%d %b %Y')}"
+
+        branch_id = branch_scope(session)
+        if branch_id:
+            cur.execute("""SELECT s.id, s.name, s.subject,
+                                  COUNT(ts.id) as sessions_count,
+                                  COALESCE(SUM(ts.paid_mins),0) as total_mins
+                           FROM staff s
+                           LEFT JOIN teacher_sessions ts ON ts.staff_id=s.id AND ts.date BETWEEN %s AND %s
+                           WHERE s.branch_id=%s AND s.status='active'
+                           GROUP BY s.id,s.name,s.subject ORDER BY s.name""",
+                        (start, end, branch_id))
+        else:
+            cur.execute("""SELECT s.id, s.name, s.subject,
+                                  COUNT(ts.id) as sessions_count,
+                                  COALESCE(SUM(ts.paid_mins),0) as total_mins
+                           FROM staff s
+                           LEFT JOIN teacher_sessions ts ON ts.staff_id=s.id AND ts.date BETWEEN %s AND %s
+                           WHERE s.status='active'
+                           GROUP BY s.id,s.name,s.subject ORDER BY s.name""",
+                        (start, end))
+        rows = [dict(r) for r in cur.fetchall()]
+        return jsonify({'period':label,'start':str(start),'end':str(end),'rows':rows})
+    finally:
+        cur.close(); conn.close()

@@ -590,6 +590,23 @@ ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_english_book TEXT;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_science_pct TEXT;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS assess_science_book TEXT;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS hours_per_week TEXT;
+
+-- ── TEACHER SESSIONS (hours tracking) ──
+CREATE TABLE IF NOT EXISTS teacher_sessions (
+    id          SERIAL PRIMARY KEY,
+    branch_id   INT NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+    staff_id    INT NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
+    date        DATE NOT NULL,
+    slot_key    TEXT NOT NULL,
+    paid_mins   INT NOT NULL DEFAULT 0,
+    notes       TEXT,
+    created_by  INT REFERENCES users(id) ON DELETE SET NULL,
+    created_at  TIMESTAMP DEFAULT NOW(),
+    UNIQUE(staff_id, date, slot_key)
+);
+CREATE INDEX IF NOT EXISTS idx_teacher_sessions_staff ON teacher_sessions(staff_id);
+CREATE INDEX IF NOT EXISTS idx_teacher_sessions_date  ON teacher_sessions(date);
+CREATE INDEX IF NOT EXISTS idx_teacher_sessions_branch ON teacher_sessions(branch_id);
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
 ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('super_admin','branch_manager','head_of_centre','head_of_branches','supervisor','teacher','receptionist','admin','reports_viewer'));
 """

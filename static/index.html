@@ -432,9 +432,9 @@ function branchParam(){
 function canAccess(page){
   const r=state.currentUser?.role;
   if(r==='super_admin') return true;
-  if(r==='branch_manager') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup','session_plan','mgmt_reports','parent_portal','users','notes','announcements','credit_control'].includes(page);
-  if(r==='head_of_centre') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup','session_plan','mgmt_reports','parent_portal','users','notes','announcements','credit_control'].includes(page);
-  if(r==='head_of_branches') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup','session_plan','mgmt_reports','parent_portal','users','notes','announcements','credit_control'].includes(page);
+  if(r==='branch_manager') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup','session_plan','mgmt_reports','parent_portal','users','notes','announcements','credit_control','teacher_schedule'].includes(page);
+  if(r==='head_of_centre') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup','session_plan','mgmt_reports','parent_portal','users','notes','announcements','credit_control','teacher_schedule'].includes(page);
+  if(r==='head_of_branches') return['dashboard','students','staff','sessions','attendance','invoices','session_reports','lesson_reports','test_records','staff_timesheets','finance','reports','catchup','session_plan','mgmt_reports','parent_portal','users','notes','announcements','credit_control','teacher_schedule'].includes(page);
   if(r==='supervisor') return['dashboard','students','sessions','attendance','session_reports','lesson_reports','test_records','staff_timesheets','catchup','session_plan','notes'].includes(page);
   if(r==='teacher') return['dashboard','sessions','attendance','session_reports','lesson_reports','test_records','staff_timesheets'].includes(page);
   if(r==='receptionist') return['dashboard','students','sessions','attendance','invoices','finance'].includes(page);
@@ -520,7 +520,7 @@ else if(page==='catchup'){
   ]);
 }
 else if(page==='notes'){await Promise.all([loadData('meeting_notes','/api/meeting-notes',b),loadData('students','/api/students',b),loadData('branches','/api/branches')]);}
-else if(page==='announcements'){await Promise.all([loadData('announcements','/api/announcements',b),loadData('students','/api/students',b),loadData('branches','/api/branches')]);}else if(page==='credit_control'){await loadData('credit_control','/api/credit-control',b);}else if(page==='test_records'){
+else if(page==='announcements'){await Promise.all([loadData('announcements','/api/announcements',b),loadData('students','/api/students',b),loadData('branches','/api/branches')]);}else if(page==='credit_control'){await loadData('credit_control','/api/credit-control',b);}else if(page==='teacher_schedule'){state.tsWeek=state.tsWeek||'';await loadTeacherSchedule();}else if(page==='test_records'){
   await Promise.all([loadData('students','/api/students',b),loadData('test_records','/api/test-records',b),loadData('branches','/api/branches')]);
   if(state.trStudentId) await loadData('tr_'+state.trStudentId,'/api/test-records',{student_id:state.trStudentId});
 }
@@ -630,6 +630,7 @@ function renderSidebar(){const u=state.currentUser;const isSA=u.role==='super_ad
   {id:'invoices',icon:icoPound(),label:'Invoices & fees',group:'finance'},
   {id:'finance',icon:icoFinance(),label:'Finance',group:'finance'},
   {id:'credit_control',icon:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>',label:'Credit Control',group:'finance'},
+  {id:'teacher_schedule',icon:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',label:'Teacher Hours',group:'finance'},
   {id:'staff_timesheets',icon:icoClipboard(),label:'Staff timesheets',group:'finance'},
   {id:'session_reports',icon:icoDoc(),label:'Session reports',group:'reports'},
   {id:'lesson_reports',icon:icoBook(),label:'Lesson reports',group:'reports'},
@@ -650,7 +651,7 @@ ${(u.role==='super_admin'||u.role==='branch_manager'||u.role==='head_of_centre'|
 <div class="nav-item" data-action="change-password" style="font-size:12px;color:var(--sb-text3);padding:6px 4px;margin-top:4px;cursor:pointer;">🔑 Change password</div><button class="btn btn-sm" id="logout-btn" style="width:100%;margin-top:6px;justify-content:center;background:var(--sb-surface2);color:var(--sb-text);border-color:var(--sb-border);">Sign out</button>
 </div></div>`;}
 
-function renderTopbar(){const titles={dashboard:'Dashboard',students:'Students',staff:'Staff',sessions:'Sessions',attendance:'Attendance',invoices:'Invoices & fees',session_reports:'Session reports',staff_timesheets:'Staff timesheets',lesson_reports:'Lesson reports',test_records:'Test records',catchup:'Catch-up lessons',session_plan:'Session planner',mgmt_reports:'Management reports',finance:'Finance',reports:'Analytics',users:'User management',branches:'Branches',parent_portal:'Parent portal',notes:'Notes',announcements:'Announcements',credit_control:'Credit Control',audit:'Audit log'};const b=state.currentBranch?(state.data.branches||[]).find(br=>br.id===state.currentBranch):null;
+function renderTopbar(){const titles={dashboard:'Dashboard',students:'Students',staff:'Staff',sessions:'Sessions',attendance:'Attendance',invoices:'Invoices & fees',session_reports:'Session reports',staff_timesheets:'Staff timesheets',lesson_reports:'Lesson reports',test_records:'Test records',catchup:'Catch-up lessons',session_plan:'Session planner',mgmt_reports:'Management reports',finance:'Finance',reports:'Analytics',users:'User management',branches:'Branches',parent_portal:'Parent portal',notes:'Notes',announcements:'Announcements',credit_control:'Credit Control',teacher_schedule:'Teacher Hours',audit:'Audit log'};const b=state.currentBranch?(state.data.branches||[]).find(br=>br.id===state.currentBranch):null;
 const u=state.currentUser;
   const isMobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   const branches=state.data.branches||[];
@@ -661,7 +662,7 @@ const u=state.currentUser;
     '</select></div>':'';
   return mobileBranchBar+`<div class="topbar"><button class="hamburger" id="hamburger-btn"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><div class="page-title">${titles[state.page]||''}</div><div class="topbar-right"><button id="mobile-logout-btn" style="display:none;background:#0f2557;color:#fff;border:1px solid #2a4d9c;border-radius:var(--radius);padding:6px 12px;font-size:13px;cursor:pointer;font-family:var(--font);">Sign out</button>${b?`<span class="badge badge-accent">${b.name}</span>`:`<span class="badge badge-purple">${(state.currentUser.role==='super_admin'||state.currentUser.role==='head_of_branches')?'All branches':''}</span>`}<div class="user-chip" style="padding:6px 10px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border);"><div class="avatar ${avatarClass(state.currentUser.role)}" style="width:26px;height:26px;font-size:10px;">${avatarInitials(state.currentUser.name)}</div><span style="font-size:13px;color:var(--text2);margin-left:6px;">${state.currentUser.name}</span></div></div></div>`;}
 
-function renderPage(){const map={dashboard:renderDashboard,student_profile:renderStudentProfile,students:renderStudents,staff:renderStaff,sessions:renderSessions,attendance:renderAttendance,invoices:renderInvoices,session_reports:renderSessionReports,staff_timesheets:renderStaffTimesheets,lesson_reports:renderLessonReports,test_records:renderTestRecords,catchup:renderCatchup,session_plan:renderSessionPlan,mgmt_reports:renderMgmtReports,finance:renderFinance,reports:renderReports,users:renderUsers,branches:renderBranches,parent_portal:renderParentPortalAdmin,notes:renderNotes,announcements:renderAnnouncements,credit_control:renderCreditControl,audit:renderAudit};return(map[state.page]||renderDashboard)();}
+function renderPage(){const map={dashboard:renderDashboard,student_profile:renderStudentProfile,students:renderStudents,staff:renderStaff,sessions:renderSessions,attendance:renderAttendance,invoices:renderInvoices,session_reports:renderSessionReports,staff_timesheets:renderStaffTimesheets,lesson_reports:renderLessonReports,test_records:renderTestRecords,catchup:renderCatchup,session_plan:renderSessionPlan,mgmt_reports:renderMgmtReports,finance:renderFinance,reports:renderReports,users:renderUsers,branches:renderBranches,parent_portal:renderParentPortalAdmin,notes:renderNotes,announcements:renderAnnouncements,credit_control:renderCreditControl,teacher_schedule:renderTeacherSchedule,audit:renderAudit};return(map[state.page]||renderDashboard)();}
 
 function renderDashboard(){const s=state.data.summary||{};const bs=s.branch_stats||[];const audit=(state.data.audit||[]).slice(0,5);
 return`
@@ -3316,6 +3317,206 @@ return`
 </table></div></div>`;}
 
 
+
+// ─── TEACHER SCHEDULE ─────────────────────────────────────────────
+const TS_SLOTS = {
+  wd_main:{label:'4:45 PM – 9:00 PM', paid_mins:240, day_type:'weekday'},
+  we_1:  {label:'9:00 AM – 11:00 AM', paid_mins:120, day_type:'weekend'},
+  we_2:  {label:'11:15 AM – 1:15 PM', paid_mins:120, day_type:'weekend'},
+  we_3:  {label:'2:15 PM – 4:15 PM',  paid_mins:120, day_type:'weekend'},
+  we_4:  {label:'4:30 PM – 6:30 PM',  paid_mins:120, day_type:'weekend'},
+};
+
+async function loadTeacherSchedule(){
+  const w=state.tsWeek||'';
+  const data=await API.get('/api/teacher-schedule'+(w?'?week='+w:''));
+  state.data.teacher_schedule=data;
+  render();
+}
+
+function renderTeacherSchedule(){
+  const d=state.data.teacher_schedule||{};
+  const teachers=d.teachers||[];
+  const sessions=d.sessions||[];
+  const weekStart=d.week||'';
+
+  // build week days array
+  const days=[];
+  if(weekStart){
+    const base=new Date(weekStart+'T00:00:00');
+    for(let i=0;i<7;i++){
+      const dt=new Date(base);dt.setDate(base.getDate()+i);
+      days.push({date:dt.toISOString().slice(0,10),label:dt.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'}),isWe:(dt.getDay()===0||dt.getDay()===6)});
+    }
+  }
+
+  // week nav
+  let prevWeek='',nextWeek='';
+  if(weekStart){
+    const b=new Date(weekStart+'T00:00:00');
+    const p=new Date(b);p.setDate(b.getDate()-7);
+    const n=new Date(b);n.setDate(b.getDate()+7);
+    const toISO=dt=>{const y=dt.getFullYear();const jan4=new Date(y,0,4);const diff=(dt-jan4)/86400000;const w=Math.ceil((diff+jan4.getDay()+1)/7);return y+'-W'+(w<10?'0'+w:w);};
+    prevWeek=toISO(p);nextWeek=toISO(n);
+  }
+
+  // session lookup: date+slot_key → [teacher_name, session_id]
+  const slotMap={};
+  sessions.forEach(s=>{
+    const k=s.date+'|'+s.slot_key;
+    if(!slotMap[k])slotMap[k]=[];
+    slotMap[k].push(s);
+  });
+
+  // hours summary per teacher this week
+  const hoursMap={};
+  sessions.forEach(s=>{hoursMap[s.staff_id]=(hoursMap[s.staff_id]||0)+s.paid_mins;});
+
+  // summary bar
+  const totalHrs=Object.values(hoursMap).reduce((a,b)=>a+b,0)/60;
+  const totalSess=sessions.length;
+
+  // grid
+  const dayHeaders=days.map(d=>'<th style="padding:10px 8px;font-size:12px;font-weight:600;text-align:center;border-bottom:2px solid var(--border);white-space:nowrap;background:'+(d.isWe?'var(--accent-light,#eff6ff)':'var(--surface)')+';">'+d.label+'</th>').join('');
+
+  // rows: one per slot type visible for that day type
+  const weekdaySlots=['wd_main'];
+  const weekendSlots=['we_1','we_2','we_3','we_4'];
+
+  let rows='';
+  // weekday row
+  rows+='<tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;font-size:12px;font-weight:600;white-space:nowrap;color:var(--text2);background:var(--surface2);border-right:1px solid var(--border);">'+TS_SLOTS.wd_main.label+'<br><span style="font-size:10px;color:var(--text3);">Weekday · 4h</span></td>';
+  days.forEach(function(day){
+    if(day.isWe){rows+='<td style="background:var(--surface2);border-right:1px solid var(--border);"></td>';return;}
+    const k=day.date+'|wd_main';
+    const assigned=slotMap[k]||[];
+    const chips=assigned.map(s=>'<div style="display:flex;align-items:center;gap:4px;background:#dbeafe;border-radius:12px;padding:2px 8px 2px 6px;font-size:11px;font-weight:600;color:#1e40af;margin:2px;">'+
+      '<span>'+s.teacher_name+'</span>'+
+      '<button onclick="removeTSession('+s.id+')" style="background:none;border:none;cursor:pointer;color:#64748b;font-size:10px;line-height:1;padding:0 0 0 2px;">✕</button></div>').join('');
+    rows+='<td style="padding:6px;border-right:1px solid var(--border);vertical-align:top;min-width:100px;">'+
+      '<div style="display:flex;flex-wrap:wrap;gap:2px;min-height:28px;">'+chips+'</div>'+
+      '<button onclick="openAssignModal(\''+day.date+'\',\'wd_main\')" style="margin-top:4px;background:none;border:1px dashed #cbd5e1;border-radius:8px;padding:2px 8px;font-size:11px;color:var(--text3);cursor:pointer;width:100%;">+ Add</button></td>';
+  });
+  rows+='</tr>';
+
+  // weekend slots rows
+  ['we_1','we_2','we_3','we_4'].forEach(function(sk){
+    const sl=TS_SLOTS[sk];
+    const breakNote=sk==='we_3'?'<br><span style="font-size:9px;color:#dc2626;">(break 1:15–2:15)</span>':'';
+    rows+='<tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;font-size:12px;font-weight:600;white-space:nowrap;color:var(--text2);background:var(--surface2);border-right:1px solid var(--border);">'+sl.label+breakNote+'<br><span style="font-size:10px;color:var(--text3);">Weekend · 2h</span></td>';
+    days.forEach(function(day){
+      if(!day.isWe){rows+='<td style="background:var(--surface2);border-right:1px solid var(--border);"></td>';return;}
+      const k=day.date+'|'+sk;
+      const assigned=slotMap[k]||[];
+      const chips=assigned.map(s=>'<div style="display:flex;align-items:center;gap:4px;background:#d1fae5;border-radius:12px;padding:2px 8px 2px 6px;font-size:11px;font-weight:600;color:#065f46;margin:2px;">'+
+        '<span>'+s.teacher_name+'</span>'+
+        '<button onclick="removeTSession('+s.id+')" style="background:none;border:none;cursor:pointer;color:#64748b;font-size:10px;line-height:1;padding:0 0 0 2px;">✕</button></div>').join('');
+      rows+='<td style="padding:6px;border-right:1px solid var(--border);vertical-align:top;min-width:100px;">'+
+        '<div style="display:flex;flex-wrap:wrap;gap:2px;min-height:28px;">'+chips+'</div>'+
+        '<button onclick="openAssignModal(\''+day.date+'\',\''+sk+'\')" style="margin-top:4px;background:none;border:1px dashed #cbd5e1;border-radius:8px;padding:2px 8px;font-size:11px;color:var(--text3);cursor:pointer;width:100%;">+ Add</button></td>';
+    });
+    rows+='</tr>';
+  });
+
+  // teacher summary table
+  const summaryRows=teachers.map(t=>{
+    const mins=hoursMap[t.id]||0;
+    const hrs=Math.floor(mins/60);const m=mins%60;
+    const hrsLabel=hrs+(m?'h '+m+'m':'h');
+    const bar=mins?'<div style="background:#dbeafe;border-radius:4px;height:6px;margin-top:3px;"><div style="background:#2563eb;border-radius:4px;height:6px;width:'+Math.min(100,Math.round(mins/480*100))+'%;"></div></div>':'';
+    return '<tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;font-size:13px;">'+t.name+'</td>'+
+      '<td style="padding:8px 12px;font-size:12px;color:var(--text3);">'+(t.subject||'—')+'</td>'+
+      '<td style="padding:8px 12px;font-size:13px;font-weight:600;color:'+(mins?'#2563eb':'var(--text3)')+';">'+hrsLabel+bar+'</td>'+
+      '<td style="padding:8px 12px;font-size:12px;color:var(--text3);">'+(hoursMap[t.id]?Math.round(hoursMap[t.id]/60*10)/10+' sessions':'-')+'</td></tr>';
+  }).join('');
+
+  return '<div style="padding:24px;max-width:1400px;">'+
+    // header + week nav
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">'+
+    '<div style="font-size:22px;font-weight:700;">📅 Teacher Hours</div>'+
+    '<div style="display:flex;align-items:center;gap:8px;">'+
+    '<button onclick="navTSWeek(\''+prevWeek+'\')" class="btn" style="padding:6px 12px;">‹ Prev</button>'+
+    '<span style="font-size:14px;font-weight:600;padding:6px 12px;background:var(--surface2);border-radius:var(--radius);">'+(weekStart?new Date(weekStart+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'')+(days.length?' – '+days[6].label:'')+'</span>'+
+    '<button onclick="navTSWeek(\''+nextWeek+'\')" class="btn" style="padding:6px 12px;">Next ›</button>'+
+    '</div>'+
+    '<button onclick="openHoursSummary()" class="btn btn-primary">📊 Hours Summary</button>'+
+    '</div>'+
+    // summary cards
+    '<div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">'+
+    '<div style="background:var(--surface2);border-radius:var(--radius);padding:14px 20px;min-width:140px;"><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;">Total hours</div><div style="font-size:24px;font-weight:700;color:var(--accent);">'+totalHrs.toFixed(1)+'h</div></div>'+
+    '<div style="background:var(--surface2);border-radius:var(--radius);padding:14px 20px;min-width:140px;"><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;">Sessions logged</div><div style="font-size:24px;font-weight:700;">'+totalSess+'</div></div>'+
+    '<div style="background:var(--surface2);border-radius:var(--radius);padding:14px 20px;min-width:140px;"><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;">Active teachers</div><div style="font-size:24px;font-weight:700;">'+teachers.length+'</div></div>'+
+    '</div>'+
+    // schedule grid
+    '<div style="overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);margin-bottom:24px;">'+
+    '<table style="width:100%;border-collapse:collapse;min-width:700px;">'+
+    '<thead><tr><th style="padding:10px 12px;font-size:12px;font-weight:600;text-align:left;border-bottom:2px solid var(--border);white-space:nowrap;background:var(--surface2);border-right:1px solid var(--border);">Slot</th>'+dayHeaders+'</tr></thead>'+
+    '<tbody>'+rows+'</tbody></table></div>'+
+    // teacher summary
+    '<div style="font-size:16px;font-weight:700;margin-bottom:12px;">Teacher Summary — This Week</div>'+
+    '<div style="border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;">'+
+    '<table style="width:100%;border-collapse:collapse;">'+
+    '<thead><tr style="background:var(--surface2);"><th style="padding:10px 12px;text-align:left;font-size:12px;">Teacher</th><th style="padding:10px 12px;text-align:left;font-size:12px;">Subject</th><th style="padding:10px 12px;text-align:left;font-size:12px;">Hours this week</th><th style="padding:10px 12px;text-align:left;font-size:12px;">Sessions</th></tr></thead>'+
+    '<tbody>'+summaryRows+'</tbody></table></div></div>';
+}
+
+async function navTSWeek(w){state.tsWeek=w;await loadTeacherSchedule();}
+
+function openAssignModal(date,slotKey){
+  state.modal={name:'assign-teacher',date,slotKey};render();
+}
+
+async function removeTSession(id){
+  if(!confirm('Remove this teacher from this slot?'))return;
+  await API.del('/api/teacher-sessions/'+id);
+  await loadTeacherSchedule();
+}
+
+async function openHoursSummary(){
+  state.modal={name:'teacher-hours-summary',period:'weekly'};
+  const data=await API.get('/api/teacher-hours?period=weekly');
+  state.data.ts_hours_summary=data;render();
+}
+
+function modalAssignTeacher(){
+  const m=state.modal;
+  const teachers=(state.data.teacher_schedule?.teachers||[]);
+  const dayLabel=new Date(m.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+  const sl=TS_SLOTS[m.slotKey];
+  const opts=teachers.map(t=>'<option value="'+t.id+'">'+t.name+(t.subject?' · '+t.subject:'')+'</option>').join('');
+  const body='<div style="background:var(--surface2);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px;">'+
+    '<div style="font-weight:600;">'+dayLabel+'</div>'+
+    '<div style="color:var(--accent);font-size:14px;margin-top:4px;">'+sl.label+' · '+(sl.paid_mins/60)+'h paid</div></div>'+
+    '<div class="field"><label>Teacher</label><select id="at-teacher">'+opts+'</select></div>'+
+    '<div class="field"><label>Notes (optional)</label><input type="text" id="at-notes" placeholder="e.g. Cover teacher, Maths group"></div>';
+  return mWrap('Assign Teacher',body,'<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" data-action="confirm-assign-teacher">Assign</button>');}
+
+async function modalTeacherHoursSummary(){
+  const d=state.data.ts_hours_summary||{};
+  const rows=(d.rows||[]).map(r=>{
+    const hrs=Math.floor(r.total_mins/60);const m=r.total_mins%60;
+    const hrsLabel=r.total_mins?(hrs+(m?'h '+m+'m':'h')):'—';
+    return '<tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;font-size:13px;">'+r.name+'</td>'+
+      '<td style="padding:8px 12px;font-size:12px;color:var(--text3);">'+(r.subject||'—')+'</td>'+
+      '<td style="padding:8px 12px;font-size:13px;text-align:center;">'+r.sessions_count+'</td>'+
+      '<td style="padding:8px 12px;font-size:13px;font-weight:600;color:'+(r.total_mins?'#2563eb':'var(--text3)')+';">'+hrsLabel+'</td></tr>';
+  }).join('');
+  const body='<div style="text-align:center;font-size:13px;color:var(--text3);margin-bottom:16px;">'+d.period+'</div>'+
+    '<div style="display:flex;gap:8px;justify-content:center;margin-bottom:16px;">'+
+    '<button onclick="switchHoursPeriod(\'weekly\')" class="btn '+(state.modal?.period==='weekly'?'btn-primary':'')+'">Weekly</button>'+
+    '<button onclick="switchHoursPeriod(\'monthly\')" class="btn '+(state.modal?.period==='monthly'?'btn-primary':'')+'">Monthly</button></div>'+
+    '<div style="border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;">'+
+    '<table style="width:100%;border-collapse:collapse;">'+
+    '<thead><tr style="background:var(--surface2);"><th style="padding:10px 12px;text-align:left;font-size:12px;">Teacher</th><th style="padding:10px 12px;text-align:left;font-size:12px;">Subject</th><th style="padding:10px 12px;text-align:center;font-size:12px;">Sessions</th><th style="padding:10px 12px;text-align:left;font-size:12px;">Hours</th></tr></thead>'+
+    '<tbody>'+rows+'</tbody></table></div>';
+  return mWrap('📊 Hours Summary',body,'<button class="btn" id="modal-cancel">Close</button>');}
+
+async function switchHoursPeriod(p){
+  state.modal.period=p;
+  const data=await API.get('/api/teacher-hours?period='+p);
+  state.data.ts_hours_summary=data;render();
+}
+// ─── END TEACHER SCHEDULE ──────────────────────────────────────────
 function renderCreditControl(){
   const data=state.data.credit_control||[];
   const agingColors={'current':'var(--text3)','1-30':'#d97706','31-60':'#ea580c','61-90':'#dc2626','90+':'#7f1d1d'};
@@ -3676,7 +3877,7 @@ if(m==='gen-weekly-sessions')return modalWeeklySessions();if(m==='add-user'||m==
   if(m==='edit-opening-balance')return modalOpeningBalance();
   if(m==='auto-plan-confirm')return modalAutoPlanConfirm();
   if(m==='gen-monthly-fees')return modalGenMonthlyFees();
-  if(m==='add-fee-invoice')return modalAddFeeInvoice();if(m==='create-batch-invoice')return modalBatchInvoice();if(m==='batch-invoice-result')return modalBatchInvoiceResult();if(m==='add-progress')return modalProgress();if(m==='add-parent-user'||m==='edit-parent-user')return modalParentUser();if(m==='add-staff-att'||m==='edit-staff-att')return modalStaffAtt();
+  if(m==='assign-teacher')return modalAssignTeacher();if(m==='teacher-hours-summary')return modalTeacherHoursSummary();if(m==='add-fee-invoice')return modalAddFeeInvoice();if(m==='create-batch-invoice')return modalBatchInvoice();if(m==='batch-invoice-result')return modalBatchInvoiceResult();if(m==='add-progress')return modalProgress();if(m==='add-parent-user'||m==='edit-parent-user')return modalParentUser();if(m==='add-staff-att'||m==='edit-staff-att')return modalStaffAtt();
   if(m==='add-payment'||m==='edit-payment')return modalPayment();
   if(m==='add-instalment-plan')return modalInstalmentPlan();
   if(m==='add-hq-transfer')return modalHQTransfer();
@@ -5459,6 +5660,14 @@ if(action==='view-reminder-history'){
     '<th style="padding:8px 12px;text-align:left;font-size:12px;color:var(--text3);border-bottom:2px solid var(--border);">Sent By</th>'+
     '</tr></thead><tbody>'+tableRows+'</tbody></table>';
   state.modal={name:'reminder-history',html:body,studentName:st?.student_name||''};render();return;}
+if(action==='confirm-assign-teacher'){
+  const tid=parseInt(document.getElementById('at-teacher')?.value||'0');
+  const notes=document.getElementById('at-notes')?.value||'';
+  const m=state.modal;
+  if(!tid){toast('Select a teacher','error');return;}
+  const r=await API.post('/api/teacher-sessions',{staff_id:tid,date:m.date,slot_key:m.slotKey,notes});
+  if(r&&r.error){toast(r.error,'error');return;}
+  state.modal=null;await loadTeacherSchedule();return;}
 if(action==='create-batch-invoice'){
   state.modal='create-batch-invoice';window._lineCount=1;render();return;}
 if(action==='save-batch-invoice'){
