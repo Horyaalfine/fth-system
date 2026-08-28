@@ -3331,7 +3331,7 @@ function renderSessionPlan(){
             if(otherDraftTables.length>0){
               html+='<select data-action="lp-move-student" data-from="'+tblIdx+'" data-student="'+stIdx+'" style="font-size:10px;padding:1px 2px;max-width:70px;" title="Move to table">';
               html+='<option value="">&#8599; Move</option>';
-              otherDraftTables.forEach(function(t){html+='<option value="'+draft.tables.indexOf(t)+'">&#8594; T'+t.table_no+(t.slot!==tbl.slot?' ('+t.slot.replace(/.*\(|\).*/g,'')+')':''')+'</option>';});
+              otherDraftTables.forEach(function(t){var ds=t.slot!==tbl.slot?' ('+t.slot.replace(/.*\(|\).*/g,'')+')':'';html+='<option value="'+draft.tables.indexOf(t)+'">&#8594; T'+t.table_no+ds+'</option>';});
               html+='</select>';
             }
             html+='</td>';
