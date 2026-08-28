@@ -5791,24 +5791,15 @@ if(action==='sp-create-and-pay'){
   if(!items.length){toast('Add at least one item with an amount','error');return;}
   try{
     const r=await API.post('/api/invoices/batch',{student_id:sid,month,items});
-    const method=document.getElementById('sp-method')?.value||'cash';
-    const reference=document.getElementById('sp-ref')?.value||'';
-    // Pay all newly created invoices at their full amount
-    const payInputs=document.querySelectorAll('.sp-pay-input');
-    const existingPayments=[...payInputs].map(el=>({invoice_id:parseInt(el.dataset.iid),amount_paid:parseFloat(el.value)||0})).filter(p=>p.amount_paid>0);
-    // Pay new invoices
-    for(const item of r.items){
-      const payAmt=parseFloat(item.amount)||0;
-      if(payAmt>0)try{await API.post('/api/invoices/'+item.id+'/mark-paid',{amount:payAmt,method,reference});}catch(e){}
-    }
-    // Also pay existing checked invoices
-    for(const p of existingPayments){
-      if(p.amount_paid>0)try{await API.post('/api/invoices/'+p.invoice_id+'/mark-paid',{amount:p.amount_paid,method,reference});}catch(e){}
-    }
-    toast('Invoices created and payment recorded');
-    state.modal=null;
-    await loadData('invoices','/api/invoices',branchParam());
-    
+    // Load newly created invoices into the outstanding table so user can pay/part-pay
+    // Enrich with balance field (newly created = balance = amount)
+    const newInvs=(r.items||[]).map(inv=>({...inv,balance:parseFloat(inv.amount||0),amount_paid:0,status:'due'}));
+    // Merge with any existing outstanding invoices already in state
+    const existing=(state.modal.invoices||[]).filter(i=>parseFloat(i.balance||0)>0);
+    state.modal.invoices=[...existing,...newInvs];
+    state.modal.showCreate=false;
+    state.modal.lines=[];
+    toast('Invoice created — now enter payment amount and confirm','info');
     render();
   }catch(err){toast((err&&err.error)||'Failed to create invoices','error');}
   return;}
