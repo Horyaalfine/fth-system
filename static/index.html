@@ -1038,13 +1038,34 @@ function renderSessions(){
       html+='<div class="table-wrap"><table style="margin:0;">';
       html+='<thead><tr style="background:transparent;"><th style="padding:5px 16px;font-size:11px;">Table</th><th style="padding:5px 16px;font-size:11px;">Teacher</th><th style="padding:5px 16px;font-size:11px;">Subject</th><th style="padding:5px 16px;font-size:11px;">Attendance</th><th></th></tr></thead><tbody>';
       tables.forEach(function(s){
+        var expanded=(state.expandedSessionStudents||{})[s.id];
+        var studs=state.data['sess_students_'+s.id]||[];
         html+='<tr style="border-top:1px solid var(--border);">';
         html+='<td style="padding:7px 16px;font-size:13px;font-weight:600;color:var(--text2);">T'+s.table_no+'</td>';
         html+='<td style="padding:7px 16px;">'+(s.staff_name||'<span style="color:var(--text3);">—</span>')+'</td>';
         html+='<td style="padding:7px 16px;"><span class="badge badge-gray">'+(s.subject||'—')+'</span></td>';
         html+='<td style="padding:7px 16px;"><span class="badge '+(s.present_count>0?'badge-success':'badge-gray')+'">'+s.present_count+'/'+s.total_count+'</span></td>';
-        html+='<td style="padding:7px 16px;"><div class="row-actions"><button class="btn btn-sm btn-success" data-action="mark-att" data-id="'+s.id+'">Attendance</button><button class="btn btn-sm btn-danger" data-action="del-session" data-id="'+s.id+'">Del</button></div></td>';
+        html+='<td style="padding:7px 16px;"><div class="row-actions"><button class="btn btn-sm btn-outline" data-action="toggle-session-students" data-id="'+s.id+'">'+(expanded?'▲ Hide':'▼ Students')+'</button><button class="btn btn-sm btn-success" data-action="mark-att" data-id="'+s.id+'">Attendance</button><button class="btn btn-sm btn-danger" data-action="del-session" data-id="'+s.id+'">Del</button></div></td>';
         html+='</tr>';
+        if(expanded){
+          html+='<tr style="background:var(--surface2);border-top:1px solid var(--border);">';
+          html+='<td colspan="5" style="padding:8px 16px 12px 32px;">';
+          if(studs.length===0){
+            html+='<span style="font-size:12px;color:var(--text3);">No students allocated to this table</span>';
+          }else{
+            html+='<table style="margin:0;font-size:12px;width:auto;">';
+            html+='<thead><tr><th style="padding:3px 12px 3px 0;color:var(--text3);font-weight:600;">Ad No.</th><th style="padding:3px 12px 3px 0;color:var(--text3);font-weight:600;">Name</th><th style="padding:3px 12px 3px 0;color:var(--text3);font-weight:600;">Year</th></tr></thead><tbody>';
+            studs.forEach(function(st){
+              html+='<tr>';
+              html+='<td style="padding:3px 12px 3px 0;color:var(--text3);">'+(st.admission_id||'—')+'</td>';
+              html+='<td style="padding:3px 12px 3px 0;font-weight:500;">'+(st.name||'—')+'</td>';
+              html+='<td style="padding:3px 12px 3px 0;">'+(st.year_group?'Y'+st.year_group:'—')+'</td>';
+              html+='</tr>';
+            });
+            html+='</tbody></table>';
+          }
+          html+='</td></tr>';
+        }
       });
       html+='</tbody></table></div></div>';
     });
@@ -6378,6 +6399,20 @@ if(action==='del-staff'){if(!confirm('Delete?'))return;await API.delete('/api/st
 if(action==='add-session'){state.modal='add-session';state.editTarget=null;await loadData('staff','/api/staff',branchParam());render();return;}
 if(action==='gen-weekly-sessions'){state.modal='gen-weekly-sessions';state.editTarget=null;await loadData('staff','/api/staff',branchParam());render();return;}
 if(action==='del-session'){if(!confirm('Delete?'))return;await API.delete('/api/sessions/'+id);toast('Session deleted');refreshPage();return;}
+if(action==='toggle-session-students'){
+  if(!state.expandedSessionStudents)state.expandedSessionStudents={};
+  if(state.expandedSessionStudents[id]){
+    delete state.expandedSessionStudents[id];
+    render();
+  }else{
+    state.expandedSessionStudents[id]=true;
+    if(!state.data['sess_students_'+id]){
+      await loadData('sess_students_'+id,'/api/sessions/'+id+'/students');
+    }
+    render();
+  }
+  return;
+}
 if(action==='mark-att'){state.page='attendance';state.attSessionId=id;refreshPage();return;}
 if(action==='add-user'){state.modal='add-user';state.editTarget=null;render();return;}
 if(action==='edit-user'){state.modal='edit-user';state.editTarget=(state.data.users||[]).find(u=>u.id===id);render();return;}
