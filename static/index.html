@@ -4850,7 +4850,7 @@ function modalSmartPayment(){
         <td style="padding:4px;"><select class="sp-fee-type" style="width:100%;padding:5px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;">${feeOpts.replace('value="'+ln.ft+'"','value="'+ln.ft+'" selected')}</select></td>
         <td style="padding:4px;"><input type="text" class="sp-desc" value="${ln.desc||''}" placeholder="Description" style="width:100%;padding:5px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;"></td>
         <td style="padding:4px;"><input type="number" class="sp-amt" min="0" step="0.01" placeholder="0.00" value="${ln.amt||''}" style="width:80px;padding:5px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;"></td>
-        ${i>0?'<td style="padding:4px;"><button class="btn" style="padding:3px 8px;font-size:11px;" onclick="spSaveLinesAndUpdate('remove','+i+')">✕</button></td>':'<td></td>'}
+        ${i>0?'<td style="padding:4px;"><button class="btn" style="padding:3px 8px;font-size:11px;" onclick="spSaveLinesAndUpdate(\'remove\','+i+')">✕</button></td>':'<td></td>'}
       </tr>`;
     });
     createSection='<div style="margin-bottom:16px;padding:14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;">'+
