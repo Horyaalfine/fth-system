@@ -2760,21 +2760,39 @@ function renderMgmtReports(){
   let html='';
   html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">';
   html+='<div><div class="section-title">Management reports</div>';
-  html+='<div class="section-sub">Summary, daily, monthly and yearly performance reports</div></div>';
+  html+='<div class="section-sub">Fees · Attendance · Staff Hours · Students · Progress · Performance</div></div>';
   html+='</div>';
 
-  // Tab bar
-  html+='<div class="tab-bar" style="margin-bottom:20px;">';
-  html+='<div class="tab '+(tab==='summary'?'active':'')+'" data-action="mgmt-tab" data-tab="summary">Summary</div>';
-  html+='<div class="tab '+(tab==='daily'?'active':'')+'" data-action="mgmt-tab" data-tab="daily">Daily</div>';
-  html+='<div class="tab '+(tab==='monthly'?'active':'')+'" data-action="mgmt-tab" data-tab="monthly">Monthly</div>';
-  html+='<div class="tab '+(tab==='yearly'?'active':'')+'" data-action="mgmt-tab" data-tab="yearly">Yearly</div>';
-  html+='<div class="tab '+(tab==='fees_12m'?'active':'')+'" data-action="mgmt-tab" data-tab="fees_12m">12-Month Fees</div>';
-  html+='<div class="tab '+(tab==='daily_att'?'active':'')+'" data-action="mgmt-tab" data-tab="daily_att">Attendance</div>';
-  html+='<div class="tab '+(tab==='staff_hours'?'active':'')+'" data-action="mgmt-tab" data-tab="staff_hours">Staff Hours</div>';
-  html+='<div class="tab '+(tab==='student_list'?'active':'')+'" data-action="mgmt-tab" data-tab="student_list">Students</div>';
-  html+='<div class="tab '+(tab==='teacher_planner'?'active':'')+'" data-action="mgmt-tab" data-tab="teacher_planner">Teacher Planner</div>';
-  html+='<div class="tab '+(tab==='progress_monthly'?'active':'')+'" data-action="mgmt-tab" data-tab="progress_monthly">Progress</div>';
+  // Tab bar — grouped card-style nav
+  var navGroups=[
+    {label:'Performance',items:[
+      {tab:'summary',icon:'📊',title:'Summary'},
+      {tab:'daily',icon:'📅',title:'Daily'},
+      {tab:'monthly',icon:'🗓',title:'Monthly'},
+      {tab:'yearly',icon:'📆',title:'Yearly'}
+    ]},
+    {label:'Reports',items:[
+      {tab:'fees_12m',icon:'💷',title:'12-Month Fees'},
+      {tab:'daily_att',icon:'✅',title:'Attendance'},
+      {tab:'staff_hours',icon:'⏱',title:'Staff Hours'},
+      {tab:'student_list',icon:'👥',title:'Students'},
+      {tab:'teacher_planner',icon:'👩‍🏫',title:'Teacher Planner'},
+      {tab:'progress_monthly',icon:'📈',title:'Progress'}
+    ]}
+  ];
+  html+='<div style="margin-bottom:24px;">';
+  navGroups.forEach(function(grp){
+    html+='<div style="margin-bottom:10px;">';
+    html+='<div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">'+grp.label+'</div>';
+    html+='<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+    grp.items.forEach(function(it){
+      var active=tab===it.tab;
+      html+='<button data-action="mgmt-tab" data-tab="'+it.tab+'" style="display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1.5px solid '+(active?'var(--accent)':'var(--border)')+';background:'+(active?'var(--accent)':'var(--surface)')+';color:'+(active?'#fff':'var(--text)')+';font-size:13px;font-weight:'+(active?'700':'500')+';cursor:pointer;white-space:nowrap;transition:all .15s;">';
+      html+=it.icon+' '+it.title+'</button>';
+    });
+    html+='</div></div>';
+  });
+  html+='</div>';
 
   // ── SUMMARY TAB ──
   if(tab==='summary'){
