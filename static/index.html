@@ -4478,13 +4478,16 @@ function modalStudent(){
     <div id="f-timetable-section">
     ${(function(){
       const slots=[
-        {key:'Saturday Slot 1 (09:00-11:00)',label:'Sat Slot 1 (09:00-11:00)',dayType:'saturday'},
-        {key:'Saturday Slot 2 (11:15-13:15)',label:'Sat Slot 2 (11:15-13:15)',dayType:'saturday'},
-        {key:'Saturday Slot 3 (14:15-16:15)',label:'Sat Slot 3 (14:15-16:15)',dayType:'saturday'},
-        {key:'Saturday Slot 4 (16:30-18:30)',label:'Sat Slot 4 (16:30-18:30)',dayType:'saturday'},
-        {key:'Weekday Slot 1 (12:00-16:00)',label:'Weekday Slot 1 (12:00-16:00)',dayType:'weekday'},
-        {key:'Weekday Slot 2 (17:00-19:00)',label:'Weekday Slot 2 (17:00-19:00)',dayType:'weekday'},
-        {key:'Weekday Slot 3 (19:00-21:00)',label:'Weekday Slot 3 (19:00-21:00)',dayType:'weekday'},
+        {key:'Weekday Session 1 (17:00-19:00)',label:'Weekday Session 1 (17:00-19:00)',dayType:'weekday'},
+        {key:'Weekday Session 2 (19:00-21:00)',label:'Weekday Session 2 (19:00-21:00)',dayType:'weekday'},
+        {key:'Saturday Session 1 (09:00-11:00)',label:'Saturday Session 1 (09:00-11:00)',dayType:'saturday'},
+        {key:'Saturday Session 2 (11:15-13:15)',label:'Saturday Session 2 (11:15-13:15)',dayType:'saturday'},
+        {key:'Saturday Session 3 (14:00-16:00)',label:'Saturday Session 3 (14:00-16:00)',dayType:'saturday'},
+        {key:'Saturday Session 4 (16:15-18:15)',label:'Saturday Session 4 (16:15-18:15)',dayType:'saturday'},
+        {key:'Sunday Session 1 (09:00-11:00)',label:'Sunday Session 1 (09:00-11:00)',dayType:'sunday'},
+        {key:'Sunday Session 2 (11:15-13:15)',label:'Sunday Session 2 (11:15-13:15)',dayType:'sunday'},
+        {key:'Sunday Session 3 (14:00-16:00)',label:'Sunday Session 3 (14:00-16:00)',dayType:'sunday'},
+        {key:'Sunday Session 4 (16:15-18:15)',label:'Sunday Session 4 (16:15-18:15)',dayType:'sunday'},
       ];
       const subjects=['Maths','English','Science','History','Geography','Other'];
       const existing=(state.data['timetable_'+s.id]||[]);
