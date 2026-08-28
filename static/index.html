@@ -1218,8 +1218,9 @@ function renderWeeklyPlanner(){
   function getDayType(d){var day=d.getDay();if(day===6)return'saturday';if(day===0)return'sunday';return'weekday';}
 
   // All unique slots from timetable
-  const allSlots=['Saturday Slot 1 (09:00-11:00)','Saturday Slot 2 (11:15-13:15)','Saturday Slot 3 (14:15-16:15)','Saturday Slot 4 (16:30-18:30)',
-    'Weekday Slot 1 (12:00-16:00)','Weekday Slot 2 (17:00-19:00)','Weekday Slot 3 (19:00-21:00)'];
+  const allSlots=['Weekday Session 1 (17:00-19:00)','Weekday Session 2 (19:00-21:00)',
+    'Saturday Session 1 (09:00-11:00)','Saturday Session 2 (11:15-13:15)','Saturday Session 3 (14:00-16:00)','Saturday Session 4 (16:15-18:15)',
+    'Sunday Session 1 (09:00-11:00)','Sunday Session 2 (11:15-13:15)','Sunday Session 3 (14:00-16:00)','Sunday Session 4 (16:15-18:15)'];
 
   var prevWeek=addDays(weekStartStr,-7);
   var nextWeek=addDays(weekStartStr,7);
@@ -3094,19 +3095,20 @@ function renderSessionPlan(){
   } else if(planTab==='timetable'){
     var ttSelId=state.timetableStudentId;
     var ttSel=students.find(function(s){return s.id===ttSelId;});
-    const SLOTS_WD=['Weekday Slot 1 (12:00-16:00)','Weekday Slot 2 (17:00-19:00)','Weekday Slot 3 (19:00-21:00)'];
-    const SLOTS_SAT=['Saturday Slot 1 (09:00-11:00)','Saturday Slot 2 (11:15-13:15)','Saturday Slot 3 (14:15-16:15)','Saturday Slot 4 (16:30-18:30)'];
+    const SLOTS_WD=['Weekday Session 1 (17:00-19:00)','Weekday Session 2 (19:00-21:00)'];
+    const SLOTS_SAT=['Saturday Session 1 (09:00-11:00)','Saturday Session 2 (11:15-13:15)','Saturday Session 3 (14:00-16:00)','Saturday Session 4 (16:15-18:15)'];
+    const SLOTS_SUN=['Sunday Session 1 (09:00-11:00)','Sunday Session 2 (11:15-13:15)','Sunday Session 3 (14:00-16:00)','Sunday Session 4 (16:15-18:15)'];
     const SUBJECTS=['Maths','English','Science','Other'];
     html+='<div class="card" style="margin-bottom:16px;"><div class="field"><label>Select student</label><select id="tt-student-select"><option value="">— choose student —</option>';
     students.forEach(function(s){html+='<option value="'+s.id+'" '+(s.id===ttSelId?'selected':'')+'>'+s.admission_id+' — '+s.name+' ('+(s.year_group||'—')+')</option>';});
     html+='</select></div></div>';
     if(ttSel){
       var ttData=state.data['timetable_'+ttSelId]||[];
-      html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
-      ['weekday','saturday'].forEach(function(dtype){
-        var slots=dtype==='weekday'?SLOTS_WD:SLOTS_SAT;
-        var label=dtype==='weekday'?'Weekday sessions':'Saturday sessions';
-        var color=dtype==='weekday'?'var(--accent-text)':'var(--teal-text)';
+      html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">';
+      ['weekday','saturday','sunday'].forEach(function(dtype){
+        var slots=dtype==='weekday'?SLOTS_WD:(dtype==='saturday'?SLOTS_SAT:SLOTS_SUN);
+        var label=dtype==='weekday'?'Weekday sessions':(dtype==='saturday'?'Saturday sessions':'Sunday sessions');
+        var color=dtype==='weekday'?'var(--accent-text)':(dtype==='saturday'?'var(--teal-text)':'var(--success-text)');
         html+='<div class="card"><div style="font-weight:700;margin-bottom:12px;color:'+color+';">'+label+'</div>';
         slots.forEach(function(slot){
           var existing=ttData.filter(function(e){return e.slot===slot;});
@@ -3129,13 +3131,16 @@ function renderSessionPlan(){
     html+='</div>';
 
     const SLOTS_ALL=[
-      {key:"Weekday Slot 1 (12:00-16:00)",label:"Weekday 12:00–16:00"},
-      {key:"Weekday Slot 2 (17:00-19:00)",label:"Weekday 17:00–19:00"},
-      {key:"Weekday Slot 3 (19:00-21:00)",label:"Weekday 19:00–21:00"},
-      {key:"Saturday Slot 1 (09:00-11:00)",label:"Saturday 09:00–11:00"},
-      {key:"Saturday Slot 2 (11:15-13:15)",label:"Saturday 11:15–13:15"},
-      {key:"Saturday Slot 3 (14:15-16:15)",label:"Saturday 14:15–16:15"},
-      {key:"Saturday Slot 4 (16:30-18:30)",label:"Saturday 16:30–18:30"},
+      {key:"Weekday Session 1 (17:00-19:00)",label:"Weekday 17:00–19:00"},
+      {key:"Weekday Session 2 (19:00-21:00)",label:"Weekday 19:00–21:00"},
+      {key:"Saturday Session 1 (09:00-11:00)",label:"Saturday 09:00–11:00"},
+      {key:"Saturday Session 2 (11:15-13:15)",label:"Saturday 11:15–13:15"},
+      {key:"Saturday Session 3 (14:00-16:00)",label:"Saturday 14:00–16:00"},
+      {key:"Saturday Session 4 (16:15-18:15)",label:"Saturday 16:15–18:15"},
+      {key:"Sunday Session 1 (09:00-11:00)",label:"Sunday 09:00–11:00"},
+      {key:"Sunday Session 2 (11:15-13:15)",label:"Sunday 11:15–13:15"},
+      {key:"Sunday Session 3 (14:00-16:00)",label:"Sunday 14:00–16:00"},
+      {key:"Sunday Session 4 (16:15-18:15)",label:"Sunday 16:15–18:15"},
     ];
 
     // Load all timetable data
@@ -3579,11 +3584,12 @@ return`
 
 // ─── TEACHER SCHEDULE ─────────────────────────────────────────────
 const TS_SLOTS = {
-  wd_main:{label:'4:45 PM – 9:00 PM', paid_mins:240, day_type:'weekday'},
-  we_1:  {label:'9:00 AM – 11:00 AM', paid_mins:120, day_type:'weekend'},
-  we_2:  {label:'11:15 AM – 1:15 PM', paid_mins:120, day_type:'weekend'},
-  we_3:  {label:'2:15 PM – 4:15 PM',  paid_mins:120, day_type:'weekend'},
-  we_4:  {label:'4:30 PM – 6:30 PM',  paid_mins:120, day_type:'weekend'},
+  wd_main:{label:'17:00 – 19:00', paid_mins:120, day_type:'weekday'},
+  wd_2:  {label:'19:00 – 21:00', paid_mins:120, day_type:'weekday'},
+  we_1:  {label:'09:00 – 11:00', paid_mins:120, day_type:'weekend'},
+  we_2:  {label:'11:15 – 13:15', paid_mins:120, day_type:'weekend'},
+  we_3:  {label:'14:00 – 16:00', paid_mins:120, day_type:'weekend'},
+  we_4:  {label:'16:15 – 18:15', paid_mins:120, day_type:'weekend'},
 };
 
 async function loadTeacherSchedule(){
@@ -3639,7 +3645,7 @@ function renderTeacherSchedule(){
   const dayHeaders=days.map(d=>'<th style="padding:10px 8px;font-size:12px;font-weight:600;text-align:center;border-bottom:2px solid var(--border);white-space:nowrap;background:'+(d.isWe?'var(--accent-light,#eff6ff)':'var(--surface)')+';">'+d.label+'</th>').join('');
 
   // rows: one per slot type visible for that day type
-  const weekdaySlots=['wd_main'];
+  const weekdaySlots=['wd_main','wd_2'];
   const weekendSlots=['we_1','we_2','we_3','we_4'];
 
   let rows='';

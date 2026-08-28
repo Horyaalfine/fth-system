@@ -3957,11 +3957,12 @@ def email_batch_invoice(batch_id):
 TS_ROLES = ('super_admin','branch_manager','head_of_centre','head_of_branches','admin')
 
 SLOT_DEFS = {
-    'wd_main': {'label':'4:45 PM – 9:00 PM','paid_mins':240,'day_type':'weekday'},
-    'we_1':    {'label':'9:00 AM – 11:00 AM','paid_mins':120,'day_type':'weekend'},
-    'we_2':    {'label':'11:15 AM – 1:15 PM','paid_mins':120,'day_type':'weekend'},
-    'we_3':    {'label':'2:15 PM – 4:15 PM', 'paid_mins':120,'day_type':'weekend'},
-    'we_4':    {'label':'4:30 PM – 6:30 PM', 'paid_mins':120,'day_type':'weekend'},
+    'wd_main': {'label':'17:00 – 19:00','paid_mins':120,'day_type':'weekday'},
+    'wd_2':    {'label':'19:00 – 21:00','paid_mins':120,'day_type':'weekday'},
+    'we_1':    {'label':'09:00 – 11:00','paid_mins':120,'day_type':'weekend'},
+    'we_2':    {'label':'11:15 – 13:15','paid_mins':120,'day_type':'weekend'},
+    'we_3':    {'label':'14:00 – 16:00','paid_mins':120,'day_type':'weekend'},
+    'we_4':    {'label':'16:15 – 18:15','paid_mins':120,'day_type':'weekend'},
 }
 
 @api_bp.route('/api/teacher-schedule', methods=['GET'])

@@ -332,6 +332,23 @@ CREATE INDEX IF NOT EXISTS idx_st_student ON student_timetable(student_id);
 CREATE INDEX IF NOT EXISTS idx_st_branch  ON student_timetable(branch_id);
 CREATE INDEX IF NOT EXISTS idx_st_slot    ON student_timetable(day_type, slot);
 
+
+-- ── SESSION SLOT NAME MIGRATION (rename Slot→Session, fix times) ──
+UPDATE student_timetable SET slot='Weekday Session 1 (17:00-19:00)' WHERE slot IN ('Weekday Slot 2 (17:00-19:00)','Weekday Session 1 (17:00-19:00)') AND slot!='Weekday Session 1 (17:00-19:00)';
+UPDATE student_timetable SET slot='Weekday Session 2 (19:00-21:00)' WHERE slot IN ('Weekday Slot 3 (19:00-21:00)','Weekday Session 2 (19:00-21:00)') AND slot!='Weekday Session 2 (19:00-21:00)';
+UPDATE student_timetable SET slot='Saturday Session 1 (09:00-11:00)' WHERE slot IN ('Saturday Slot 1 (09:00-11:00)') AND slot!='Saturday Session 1 (09:00-11:00)';
+UPDATE student_timetable SET slot='Saturday Session 2 (11:15-13:15)' WHERE slot IN ('Saturday Slot 2 (11:15-13:15)') AND slot!='Saturday Session 2 (11:15-13:15)';
+UPDATE student_timetable SET slot='Saturday Session 3 (14:00-16:00)' WHERE slot IN ('Saturday Slot 3 (14:15-16:15)','Saturday Slot 3 (14:00-16:00)') AND slot!='Saturday Session 3 (14:00-16:00)';
+UPDATE student_timetable SET slot='Saturday Session 4 (16:15-18:15)' WHERE slot IN ('Saturday Slot 4 (16:30-18:30)','Saturday Slot 4 (16:15-18:15)') AND slot!='Saturday Session 4 (16:15-18:15)';
+DELETE FROM student_timetable WHERE slot='Weekday Slot 1 (12:00-16:00)';
+UPDATE sessions SET slot='Weekday Session 1 (17:00-19:00)' WHERE slot IN ('Weekday Slot 2 (17:00-19:00)') AND slot!='Weekday Session 1 (17:00-19:00)';
+UPDATE sessions SET slot='Weekday Session 2 (19:00-21:00)' WHERE slot IN ('Weekday Slot 3 (19:00-21:00)') AND slot!='Weekday Session 2 (19:00-21:00)';
+UPDATE sessions SET slot='Saturday Session 1 (09:00-11:00)' WHERE slot IN ('Saturday Slot 1 (09:00-11:00)') AND slot!='Saturday Session 1 (09:00-11:00)';
+UPDATE sessions SET slot='Saturday Session 2 (11:15-13:15)' WHERE slot IN ('Saturday Slot 2 (11:15-13:15)') AND slot!='Saturday Session 2 (11:15-13:15)';
+UPDATE sessions SET slot='Saturday Session 3 (14:00-16:00)' WHERE slot IN ('Saturday Slot 3 (14:15-16:15)','Saturday Slot 3 (14:00-16:00)') AND slot!='Saturday Session 3 (14:00-16:00)';
+UPDATE sessions SET slot='Saturday Session 4 (16:15-18:15)' WHERE slot IN ('Saturday Slot 4 (16:30-18:30)','Saturday Slot 4 (16:15-18:15)') AND slot!='Saturday Session 4 (16:15-18:15)';
+DELETE FROM sessions WHERE slot='Weekday Slot 1 (12:00-16:00)';
+
 -- ── TABLE ALLOCATION (supervisor assigns table/teacher/students per session) ──
 CREATE TABLE IF NOT EXISTS table_allocations (
     id          SERIAL PRIMARY KEY,
