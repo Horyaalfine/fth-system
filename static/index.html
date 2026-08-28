@@ -1394,10 +1394,21 @@ function renderAttendance(){
   if(selSess){
     const sessStus=state.data['sess_students_'+selId]||[];
     if(sessStus.length){
-      sessionStudents=sessStus.map(function(s){return{id:s.student_id,name:s.student_name,admission_id:s.admission_id,table_no:s.table_no,source:s.source};});
+      // Students from lesson plan (table allocations)
+      sessionStudents=sessStus.map(function(s){return{id:s.student_id,name:s.student_name||s.name,admission_id:s.admission_id,table_no:s.table_no,source:s.source};});
     } else {
-      // Still loading or empty - show branch students as fallback
-      sessionStudents=students.filter(function(s){return s.branch_id===selSess.branch_id&&s.status==='active';}).map(function(s){return{id:s.id,name:s.name,admission_id:s.admission_id};});
+      // Fallback: pull from student timetable for this slot
+      const allTT=state.data.all_timetables||[];
+      var ttStudents=allTT.filter(function(t){return t.slot===selSess.slot;});
+      if(ttStudents.length){
+        // De-duplicate by student_id
+        var seen={};
+        sessionStudents=ttStudents.filter(function(t){if(seen[t.student_id])return false;seen[t.student_id]=true;return true;})
+          .map(function(t){return{id:t.student_id,name:t.student_name,admission_id:t.admission_id,subject:t.subject,source:'timetable'};});
+      } else {
+        // Last resort: all active branch students
+        sessionStudents=students.filter(function(s){return s.branch_id===selSess.branch_id&&s.status==='active';}).map(function(s){return{id:s.id,name:s.name,admission_id:s.admission_id};});
+      }
     }
   }
 
