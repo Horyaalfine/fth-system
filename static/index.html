@@ -475,6 +475,75 @@ function printLessonPlanReport(){
   setTimeout(function(){win.print();},500);
 }
 
+function printTeacherPlanner(){
+  var rptDate=state.rptDate;
+  if(!rptDate){alert('No date selected.');return;}
+  var sessions=state.data.sessions||[];
+  var daySess=sessions.filter(function(s){return s.date===rptDate;});
+  var dateLabel=new Date(rptDate+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  var byTeacher={};
+  daySess.forEach(function(s){
+    var key=s.staff_id?('T_'+s.staff_id):'unassigned';
+    if(!byTeacher[key])byTeacher[key]={name:s.staff_name||'Unassigned',tables:[]};
+    byTeacher[key].tables.push(s);
+  });
+  var teacherKeys=Object.keys(byTeacher).sort(function(a,b){
+    if(a==='unassigned')return 1;if(b==='unassigned')return -1;
+    return (byTeacher[a].name||'').localeCompare(byTeacher[b].name||'');
+  });
+  var html='<h2 style="margin:0 0 4px;">Teacher Session Planner</h2><div style="font-size:13px;color:#555;margin-bottom:20px;">'+dateLabel+'</div>';
+  teacherKeys.forEach(function(tk){
+    var t=byTeacher[tk];
+    t.tables.sort(function(a,b){return (a.slot||'').localeCompare(b.slot||'');});
+    html+='<div style="margin-bottom:20px;page-break-inside:avoid;">';
+    html+='<div style="font-size:15px;font-weight:800;color:#1e3a8a;border-bottom:2px solid #1e3a8a;padding-bottom:4px;margin-bottom:8px;">'+t.name+'</div>';
+    html+='<table style="width:100%;border-collapse:collapse;font-size:12px;">';
+    html+='<thead><tr style="background:#f1f5f9;"><th style="padding:5px 8px;text-align:left;border:1px solid #cbd5e1;">Session</th><th style="padding:5px 8px;text-align:left;border:1px solid #cbd5e1;">Table</th><th style="padding:5px 8px;border:1px solid #cbd5e1;">Subject</th><th style="padding:5px 8px;border:1px solid #cbd5e1;">Students</th><th style="padding:5px 8px;border:1px solid #cbd5e1;">Year Groups</th></tr></thead><tbody>';
+    t.tables.forEach(function(s){
+      var studs=state.data['sess_students_'+s.id]||[];
+      var years=[...new Set(studs.map(function(st){return st.year_group||'';}).filter(Boolean))].sort().join(', ');
+      var names=studs.map(function(st){return st.name||st.student_name;}).join(', ');
+      html+='<tr><td style="padding:5px 8px;border:1px solid #e2e8f0;font-size:11px;">'+s.slot+'</td><td style="padding:5px 8px;border:1px solid #e2e8f0;font-weight:600;">Table '+s.table_no+'</td><td style="padding:5px 8px;border:1px solid #e2e8f0;">'+s.subject+'</td><td style="padding:5px 8px;border:1px solid #e2e8f0;font-size:11px;">'+(names||'—')+'</td><td style="padding:5px 8px;border:1px solid #e2e8f0;">'+(years||'—')+'</td></tr>';
+    });
+    html+='</tbody></table></div>';
+  });
+  var win=window.open('','_blank','width=1000,height=750');
+  win.document.write('<html><head><title>Teacher Planner - '+dateLabel+'</title><style>body{font-family:Arial,sans-serif;margin:20px;color:#000;}@media print{body{margin:10px;}}</style></head><body>'+html+'</body></html>');
+  win.document.close();setTimeout(function(){win.print();},500);
+}
+
+function exportTeacherPlannerExcel(){
+  var rptDate=state.rptDate;
+  if(!rptDate){alert('No date selected.');return;}
+  var sessions=state.data.sessions||[];
+  var daySess=sessions.filter(function(s){return s.date===rptDate;});
+  var byTeacher={};
+  daySess.forEach(function(s){
+    var key=s.staff_id?('T_'+s.staff_id):'unassigned';
+    if(!byTeacher[key])byTeacher[key]={name:s.staff_name||'Unassigned',tables:[]};
+    byTeacher[key].tables.push(s);
+  });
+  var teacherKeys=Object.keys(byTeacher).sort(function(a,b){
+    if(a==='unassigned')return 1;if(b==='unassigned')return -1;
+    return (byTeacher[a].name||'').localeCompare(byTeacher[b].name||'');
+  });
+  var wb=XLSX.utils.book_new();
+  teacherKeys.forEach(function(tk){
+    var t=byTeacher[tk];
+    var rows=[['Session','Table','Subject','Ad No.','Student Name','Year Group']];
+    t.tables.sort(function(a,b){return (a.slot||'').localeCompare(b.slot||'');}).forEach(function(s){
+      var studs=state.data['sess_students_'+s.id]||[];
+      if(studs.length===0){rows.push([s.slot,'Table '+s.table_no,s.subject,'','','']);}
+      else{studs.forEach(function(st){rows.push([s.slot,'Table '+s.table_no,s.subject,st.admission_id||'',st.name||st.student_name||'',st.year_group||'']);});}
+    });
+    var sheetName=t.name.slice(0,31);
+    var ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:28},{wch:10},{wch:12},{wch:10},{wch:28},{wch:10}];
+    XLSX.utils.book_append_sheet(wb,ws,sheetName);
+  });
+  XLSX.writeFile(wb,'TeacherPlanner_'+rptDate+'.xlsx');
+}
+
 function exportLessonPlanExcel(){
   var rptDate=state.rptDate;
   if(!rptDate){alert('No report loaded.');return;}
@@ -3133,6 +3202,7 @@ function renderSessionPlan(){
   html+='<button class="tab '+(planTab==='register'?'active':'')+'" data-action="plan-tab" data-tab="register">👥 Student Register</button>';
   html+='<button class="tab '+(planTab==='lesson'?'active':'')+'" data-action="plan-tab" data-tab="lesson">📋 Lesson Plan</button>';
   html+='<button class="tab '+(planTab==='report'?'active':'')+'" data-action="plan-tab" data-tab="report">📊 Lesson Plan Report</button>';
+  html+='<button class="tab '+(planTab==='teacher'?'active':'')+'" data-action="plan-tab" data-tab="teacher">👩‍🏫 Teacher Planner</button>';
   html+='</div>';
 
   // ── TAB 1: STUDENT REGISTER ──────────────────────────────────────
@@ -3528,6 +3598,86 @@ function renderSessionPlan(){
     return html;
   }
   return html;
+
+  // ── TAB 4: TEACHER PLANNER ─────────────────────────────────────
+  if(planTab==='teacher'){
+    var tpDate=state.rptDate||'';
+    var tpLoading=state.rptLoading||false;
+    var dates=[...new Set(sessions.map(function(s){return s.date;}).filter(Boolean))].sort().reverse();
+    html+='<div class="card" style="margin-bottom:14px;">';
+    html+='<div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">';
+    html+='<div class="field" style="margin:0;flex:1;min-width:200px;"><label>Select date</label><select id="rpt-date-select"><option value="">— choose date —</option>';
+    dates.forEach(function(d){
+      var dl=new Date(d+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+      html+='<option value="'+d+'" '+(d===tpDate?'selected':'')+'>'+dl+'</option>';
+    });
+    html+='</select></div>';
+    if(tpDate){
+      html+='<button class="btn btn-primary" onclick="printTeacherPlanner()">&#128438; Print</button>';
+      html+='<button class="btn btn-secondary" onclick="exportTeacherPlannerExcel()">&#128196; Export Excel</button>';
+    }
+    html+='</div></div>';
+
+    if(!tpDate){
+      html+='<div class="card" style="text-align:center;color:var(--text3);padding:40px;">Select a date above to view the Teacher Planner.</div>';
+    }else if(tpLoading){
+      html+='<div class="card" style="text-align:center;color:var(--text3);padding:40px;">Loading...</div>';
+    }else{
+      var daySess=sessions.filter(function(s){return s.date===tpDate;});
+      if(daySess.length===0){
+        html+='<div class="card" style="text-align:center;color:var(--text3);padding:40px;">No lesson plan found for this date. Generate and save a plan first.</div>';
+      }else{
+        var dateLabel=new Date(tpDate+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+        html+='<div style="margin-bottom:16px;">';
+        html+='<div style="font-size:20px;font-weight:800;">Teacher Session Planner</div>';
+        html+='<div style="font-size:14px;color:var(--text3);margin-top:2px;">'+dateLabel+'</div>';
+        html+='</div>';
+        // Group by teacher
+        var byTeacher={};
+        daySess.forEach(function(s){
+          var key=s.staff_id?('T_'+s.staff_id):'unassigned';
+          if(!byTeacher[key])byTeacher[key]={staff_id:s.staff_id,name:s.staff_name||'Unassigned',tables:[]};
+          byTeacher[key].tables.push(s);
+        });
+        // Sort: assigned teachers first (by name), then unassigned
+        var teacherKeys=Object.keys(byTeacher).sort(function(a,b){
+          if(a==='unassigned')return 1;if(b==='unassigned')return -1;
+          return (byTeacher[a].name||'').localeCompare(byTeacher[b].name||'');
+        });
+        teacherKeys.forEach(function(tk){
+          var t=byTeacher[tk];
+          html+='<div class="card" style="margin-bottom:16px;border-top:3px solid var(--accent);">';
+          html+='<div style="font-size:16px;font-weight:800;color:var(--accent);margin-bottom:12px;">'+t.name+'</div>';
+          // Sort tables by slot
+          t.tables.sort(function(a,b){return (a.slot||'').localeCompare(b.slot||'');});
+          html+='<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+          html+='<thead><tr style="background:var(--surface2);">';
+          html+='<th style="padding:6px 10px;text-align:left;">Session</th>';
+          html+='<th style="padding:6px 10px;text-align:left;">Table</th>';
+          html+='<th style="padding:6px 10px;text-align:left;">Subject</th>';
+          html+='<th style="padding:6px 10px;text-align:left;">Students</th>';
+          html+='<th style="padding:6px 10px;text-align:left;">Year Groups</th>';
+          html+='</tr></thead><tbody>';
+          t.tables.forEach(function(s){
+            var studs=state.data['sess_students_'+s.id]||[];
+            var years=[...new Set(studs.map(function(st){return st.year_group||'—';}).filter(Boolean))].sort();
+            html+='<tr style="border-top:1px solid var(--border);">';
+            html+='<td style="padding:6px 10px;font-size:12px;">'+s.slot+'</td>';
+            html+='<td style="padding:6px 10px;font-weight:600;">Table '+s.table_no+'</td>';
+            html+='<td style="padding:6px 10px;"><span class="badge badge-gray">'+s.subject+'</span></td>';
+            html+='<td style="padding:6px 10px;">';
+            if(studs.length===0){html+='<span style="color:var(--text3);font-style:italic;">None</span>';}
+            else{studs.forEach(function(st){html+='<div style="font-size:12px;">'+(st.name||st.student_name)+'</div>';});}
+            html+='</td>';
+            html+='<td style="padding:6px 10px;font-size:12px;">'+years.join(', ')+'</td>';
+            html+='</tr>';
+          });
+          html+='</tbody></table></div>';
+        });
+      }
+    }
+    return html;
+  }
 }
 
 function renderCatchup(){
