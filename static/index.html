@@ -4861,14 +4861,14 @@ function modalSmartPayment(){
     invSection='<div style="padding:24px;text-align:center;color:#6b7280;background:#f9fafb;border-radius:8px;">Select a student to see their outstanding invoices</div>';
   } else if(invoices===null){
     invSection='<div style="padding:24px;text-align:center;color:#6b7280;">Loading invoices...</div>';
-  } else if((invoices.length===0||invoices.every(i=>parseFloat(i.balance||0)<=0))&&!showCreate){
+  } else if((invoices.length===0||invoices.every(i=>(parseFloat(i.amount||0)-parseFloat(i.amount_paid||0))<=0))&&!showCreate){
     invSection='<div style="padding:20px;background:#fef9c3;border:1px solid #fde68a;border-radius:8px;text-align:center;">'+
       '<div style="font-weight:600;color:#92400e;margin-bottom:8px;">No outstanding invoices for this student</div>'+
       '<button class="btn btn-primary" onclick="state.modal.showCreate=true;render()">+ Create Invoice Now</button></div>';
   } else if(invoices.length>0){
-    const invRows=invoices.filter(inv=>parseFloat(inv.balance||0)>0).map(inv=>{
-      const bal=parseFloat(inv.balance||0);
+    const invRows=invoices.filter(inv=>(parseFloat(inv.amount||0)-parseFloat(inv.amount_paid||0))>0).map(inv=>{
       const paid=parseFloat(inv.amount_paid||0);
+      const bal=Math.max(0,parseFloat(inv.amount||0)-paid);
       const badge=inv.status==='partial'?'<span style="background:#fef3c7;color:#92400e;font-size:10px;padding:1px 5px;border-radius:8px;margin-left:4px;">PART PAID</span>':
         inv.status==='overdue'?'<span style="background:#fee2e2;color:#991b1b;font-size:10px;padding:1px 5px;border-radius:8px;margin-left:4px;">OVERDUE</span>':'';
       return `<tr>
