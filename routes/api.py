@@ -1886,7 +1886,7 @@ def get_session_attendance_students(session_id):
         return jsonify([])
     # Source 1: table_allocation_students (Session Planner)
     cur.execute("""
-        SELECT DISTINCT s.id as student_id, s.name as student_name, s.admission_id,
+        SELECT DISTINCT s.id as student_id, s.name as student_name, s.admission_id, s.year_group,
                ta.table_no, 'allocation' as source
         FROM table_allocation_students tas
         JOIN table_allocations ta ON ta.id=tas.allocation_id
@@ -1900,7 +1900,7 @@ def get_session_attendance_students(session_id):
         return jsonify(alloc_students)
     # Source 2: session_students (directly assigned)
     cur.execute("""
-        SELECT s.id as student_id, s.name as student_name, s.admission_id,
+        SELECT s.id as student_id, s.name as student_name, s.admission_id, s.year_group,
                %s as table_no, 'session' as source
         FROM session_students ss
         JOIN students s ON s.id=ss.student_id
@@ -1913,7 +1913,7 @@ def get_session_attendance_students(session_id):
         return jsonify(sess_students)
     # Source 3: already-marked attendance records only
     cur.execute("""
-        SELECT s.id as student_id, s.name as student_name, s.admission_id,
+        SELECT s.id as student_id, s.name as student_name, s.admission_id, s.year_group,
                %s as table_no, 'attendance' as source
         FROM attendance a
         JOIN students s ON s.id=a.student_id
