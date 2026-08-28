@@ -2490,7 +2490,12 @@ function renderMgmtReports(){
   html+='<div class="tab '+(tab==='daily'?'active':'')+'" data-action="mgmt-tab" data-tab="daily">Daily</div>';
   html+='<div class="tab '+(tab==='monthly'?'active':'')+'" data-action="mgmt-tab" data-tab="monthly">Monthly</div>';
   html+='<div class="tab '+(tab==='yearly'?'active':'')+'" data-action="mgmt-tab" data-tab="yearly">Yearly</div>';
-  html+='<div class="tab '+(tab==="fees_12m"?'active':'')+" data-action=\"mgmt-tab\" data-tab=\"fees_12m\">12-Month Fees</div>';\n  html+='<div class="tab '+(tab==="daily_att"?'active':'')+" data-action=\"mgmt-tab\" data-tab=\"daily_att\">Attendance</div>';\n  html+='<div class="tab '+(tab==="staff_hours"?'active':'')+" data-action=\"mgmt-tab\" data-tab=\"staff_hours\">Staff Hours</div>';\n  html+='<div class="tab '+(tab==="student_list"?'active':'')+" data-action=\"mgmt-tab\" data-tab=\"student_list\">Students</div>';\n  html+='<div class="tab '+(tab==="teacher_planner"?'active':'')+" data-action=\"mgmt-tab\" data-tab=\"teacher_planner\">Teacher Planner</div>';\n  html+='<div class="tab '+(tab==="progress_monthly"?'active':'')+" data-action=\"mgmt-tab\" data-tab=\"progress_monthly\">Progress</div>';\n  html+='</div>';
+  html+='<div class="tab '+(tab==='fees_12m'?'active':'')+'" data-action="mgmt-tab" data-tab="fees_12m">12-Month Fees</div>';
+  html+='<div class="tab '+(tab==='daily_att'?'active':'')+'" data-action="mgmt-tab" data-tab="daily_att">Attendance</div>';
+  html+='<div class="tab '+(tab==='staff_hours'?'active':'')+'" data-action="mgmt-tab" data-tab="staff_hours">Staff Hours</div>';
+  html+='<div class="tab '+(tab==='student_list'?'active':'')+'" data-action="mgmt-tab" data-tab="student_list">Students</div>';
+  html+='<div class="tab '+(tab==='teacher_planner'?'active':'')+'" data-action="mgmt-tab" data-tab="teacher_planner">Teacher Planner</div>';
+  html+='<div class="tab '+(tab==='progress_monthly'?'active':'')+'" data-action="mgmt-tab" data-tab="progress_monthly">Progress</div>';
 
   // ── SUMMARY TAB ──
   if(tab==='summary'){
