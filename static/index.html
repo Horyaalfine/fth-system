@@ -4231,6 +4231,7 @@ if(m==='email-log-view'){return mWrap('📋 Email Delivery Log',state.emailLogHt
 if(m==='edit-announcement')return modalAnnouncement();if(m==='add-note'||m==='edit-note')return modalNote();if(m==='add-student'||m==='edit-student')return modalStudent();if(m==='add-staff'||m==='edit-staff')return modalStaff();if(m==='add-session'||m==='edit-session')return modalSession();
 if(m==='gen-weekly-sessions')return modalWeeklySessions();if(m==='add-user'||m==='edit-user')return modalUser();if(m==='add-branch'||m==='edit-branch')return modalBranch();if(m==='edit-invoice')return modalInvoice();
   if(m==='mark-paid')return modalMarkPaid();
+if(m==='payment-receipt')return modalPaymentReceipt();
   if(m==='add-adjustment'||m==='edit-adjustment')return modalAdjustment();
   if(m==='edit-opening-balance')return modalOpeningBalance();
   if(m==='auto-plan-confirm')return modalAutoPlanConfirm();
@@ -4877,6 +4878,47 @@ function modalSmartPayment(){
   return mWrap('💳 Record Payment',body,footer);
 }
 
+function modalPaymentReceipt(){
+  const inv=state.modal?.invoice||{};
+  const amtPaid=parseFloat(state.modal?.amtPaid||0);
+  const method=state.modal?.method||'cash';
+  const reference=state.modal?.reference||'';
+  const methodLabels={cash:'Cash',card:'Card',bank_transfer:'Bank Transfer',cheque:'Cheque',direct_debit:'Direct Debit',standing_order:'Standing Order',other:'Other'};
+  const feeLabels={monthly_fee:'Monthly Fee',opening_balance:'Opening Balance',admission_fee:'Admission Fee',book_fee:'Book Fee',past_papers_fee:'Past Papers Fee',miscellaneous:'Miscellaneous'};
+  const total=parseFloat(inv.amount||0);
+  const totalPaid=parseFloat(inv.amount_paid||0);
+  const balance=Math.max(0,total-totalPaid);
+  const isPaid=inv.status==='paid';
+  const stamp=isPaid?
+    '<div style="text-align:center;margin:12px 0;"><span style="background:#d1fae5;color:#065f46;font-size:18px;font-weight:800;padding:8px 24px;border:3px solid #065f46;border-radius:8px;letter-spacing:2px;">✅ PAID IN FULL</span></div>':
+    '<div style="text-align:center;margin:12px 0;"><span style="background:#fef3c7;color:#92400e;font-size:18px;font-weight:800;padding:8px 24px;border:3px solid #92400e;border-radius:8px;letter-spacing:2px;">⚠️ PART PAID</span></div>'+
+    '<div style="text-align:center;font-size:13px;color:#6b7280;margin-bottom:8px;">Balance remaining: <strong style="color:#dc2626;">£'+balance.toFixed(2)+'</strong></div>';
+  const receiptHtml='<div id="payment-receipt-print" style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;">'+
+    '<div style="text-align:center;margin-bottom:12px;">'+
+    '<div style="font-size:20px;font-weight:800;color:#1e3a5f;">Fine Tutors</div>'+
+    '<div style="color:#2563eb;font-weight:600;">'+(inv.branch_name||'')+'</div>'+
+    '<div style="font-size:15px;font-weight:700;margin-top:4px;">Payment Receipt</div></div>'+
+    stamp+
+    '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:14px;">'+
+    '<tr><td style="color:#6b7280;padding:4px 0;width:40%;">Student</td><td style="font-weight:600;">'+(inv.student_name||'')+'</td></tr>'+
+    '<tr><td style="color:#6b7280;padding:4px 0;">Admission ID</td><td>'+(inv.admission_id||'')+'</td></tr>'+
+    '<tr><td style="color:#6b7280;padding:4px 0;">Fee Type</td><td>'+(feeLabels[inv.fee_type||'monthly_fee'])+'</td></tr>'+
+    '<tr><td style="color:#6b7280;padding:4px 0;">Month</td><td>'+(inv.month||'')+'</td></tr>'+
+    '<tr><td style="color:#6b7280;padding:4px 0;">Invoice Total</td><td>£'+total.toFixed(2)+'</td></tr>'+
+    '<tr><td style="color:#6b7280;padding:4px 0;">Amount Paid Now</td><td style="color:#059669;font-weight:600;">£'+amtPaid.toFixed(2)+'</td></tr>'+
+    (!isPaid?'<tr><td style="color:#6b7280;padding:4px 0;">Balance Remaining</td><td style="color:#dc2626;font-weight:600;">£'+balance.toFixed(2)+'</td></tr>':'')+
+    '<tr><td style="color:#6b7280;padding:4px 0;">Payment Method</td><td>'+(methodLabels[method]||method)+'</td></tr>'+
+    (reference?'<tr><td style="color:#6b7280;padding:4px 0;">Reference</td><td>'+reference+'</td></tr>':'')+
+    '<tr><td style="color:#6b7280;padding:4px 0;">Date</td><td>'+new Date().toLocaleDateString('en-GB')+'</td></tr>'+
+    '</table>'+
+    '<p style="font-size:12px;color:#6b7280;border-top:1px solid #e5e7eb;padding-top:10px;">Thank you for your payment. Please retain this receipt for your records.</p>'+
+    '</div>';
+  const body='<div style="padding:4px 0;">'+receiptHtml+'</div>';
+  const footer='<button class="btn no-print" onclick="state.modal=null;render()">Close</button>'+
+    '<button class="btn no-print" onclick="printBatchInvoice(document.getElementById(\'payment-receipt-print\').outerHTML)">🖨 Print Receipt</button>'+
+    '<button class="btn btn-primary no-print" data-action="email-payment-receipt">✉ Email Receipt</button>';
+  return mWrap('🧾 Receipt — '+inv.student_name,body,footer);
+}
 function modalMarkPaid(){
   const inv=state.editTarget||{};
   const feeLabels={monthly_fee:'Monthly fee',opening_balance:'Opening balance',admission_fee:'Admission fee',book_fee:'Book fee',past_papers_fee:'Past papers fee',miscellaneous:'Miscellaneous'};
@@ -5602,11 +5644,15 @@ if(m==='add-adjustment'||m==='edit-adjustment'){
 if(m==='mark-paid'){
   const amt=parseFloat(v('f-pay-amount'));
   if(!amt||amt<=0){toast('Enter a valid amount','error');return;}
-  const body={amount:amt,method:v('f-pay-method'),reference:v('f-pay-reference'),notes:v('f-pay-notes')};
-  const r=await API.post('/api/invoices/'+state.editTarget.id+'/mark-paid',body);
+  const method=v('f-pay-method');
+  const reference=v('f-pay-reference');
+  const notes=v('f-pay-notes');
+  const r=await API.post('/api/invoices/'+state.editTarget.id+'/mark-paid',{amount:amt,method,reference,notes});
   if(r?.error){toast(r.error,'error');return;}
-  toast(r.status==='paid'?'Invoice marked paid — payment recorded':'Part payment recorded — balance £'+r.balance.toFixed(2)+' remaining');
-}
+  // Show receipt modal
+  state.modal={name:'payment-receipt',invoice:{...state.editTarget,...r,amount_paid:r.amount_paid,status:r.status},amtPaid:amt,method,reference};
+  render();
+  return;}
 if(m==='edit-invoice'){
   const body={
     amount:parseFloat(v('f-amount'))||0,
@@ -6321,6 +6367,19 @@ if(action==='save-batch-invoice'){
   if(r&&r.error){toast(r.error,'error');return;}
   await loadData('invoices','/api/invoices',branchParam());
   state.modal={name:'batch-invoice-result',batch:r.items,batch_id:r.batch_id};render();return;}
+if(action==='email-payment-receipt'){
+  const inv=state.modal?.invoice||{};
+  const sid=inv.student_id;
+  if(!sid){toast('No student found','error');return;}
+  if(!confirm('Email this receipt to the parent?'))return;
+  try{
+    const amtPaid=state.modal?.amtPaid||0;
+    const method=state.modal?.method||'cash';
+    const reference=state.modal?.reference||'';
+    const r=await API.post('/api/invoices/'+inv.id+'/email-receipt',{amount_paid:amtPaid,method,reference});
+    toast('Receipt emailed to: '+r.sent_to.join(', '));
+  }catch(err){toast((err&&err.error)||'Failed to send','error');}
+  return;}
 if(action==='confirm-batch-payment'){
   const batchId=state.modal?.batch_id;
   if(!batchId)return;

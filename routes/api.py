@@ -4646,3 +4646,112 @@ def batch_pay(batch_id):
         for k,v in r.items():
             if hasattr(v,'isoformat'): r[k]=str(v)
     return jsonify({'ok': True, 'results': results, 'items': batch})
+
+# ── Invoice Receipt Email ──────────────────────────────────────────────────────
+
+@api_bp.route('/api/invoices/<int:iid>/email-receipt', methods=['POST'])
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches','admin','receptionist')
+def email_invoice_receipt(iid):
+    import smtplib
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+
+    smtp_email    = os.environ.get('SMTP_EMAIL','')
+    smtp_password = os.environ.get('SMTP_PASSWORD','')
+    if not smtp_email or not smtp_password:
+        return jsonify({'error':'Email not configured'}), 500
+
+    d = request.json or {}
+    amount_paid = float(d.get('amount_paid', 0))
+    method      = d.get('method', 'cash')
+    reference   = d.get('reference', '')
+
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        SELECT i.*, s.name as student_name, s.admission_id, b.name as branch_name,
+               s.carer1_email, s.carer2_email, s.carer1_first_name, s.carer2_first_name,
+               COALESCE(i.fee_type,'monthly_fee') as fee_type
+        FROM invoices i JOIN students s ON s.id=i.student_id JOIN branches b ON b.id=i.branch_id
+        WHERE i.id=%s
+    """, (iid,))
+    inv = row(cur)
+    if not inv:
+        cur.close(); conn.close()
+        return jsonify({'error':'Invoice not found'}), 404
+    data = dict(inv)
+    for k,v in data.items():
+        if hasattr(v,'isoformat'): data[k]=str(v)
+
+    recipients = []
+    for ef, nf in [('carer1_email','carer1_first_name'),('carer2_email','carer2_first_name')]:
+        em = (data.get(ef) or '').strip()
+        if em:
+            recipients.append({'email':em,'name':data.get(nf,'')})
+    if not recipients:
+        cur.close(); conn.close()
+        return jsonify({'error':'No parent email found'}), 400
+
+    fee_labels = {'monthly_fee':'Monthly Fee','opening_balance':'Opening Balance',
+                  'admission_fee':'Admission Fee','book_fee':'Book Fee',
+                  'past_papers_fee':'Past Papers Fee','miscellaneous':'Miscellaneous'}
+    method_labels = {'cash':'Cash','card':'Card','bank_transfer':'Bank Transfer',
+                     'cheque':'Cheque','direct_debit':'Direct Debit',
+                     'standing_order':'Standing Order','other':'Other'}
+
+    total     = float(data.get('amount') or 0)
+    total_paid= float(data.get('amount_paid') or 0)
+    balance   = max(0, total - total_paid)
+    is_paid   = data.get('status') == 'paid'
+
+    stamp = ('<div style="text-align:center;margin:16px 0;"><span style="background:#d1fae5;color:#065f46;font-size:18px;font-weight:800;padding:8px 24px;border:3px solid #065f46;border-radius:8px;">PAID IN FULL</span></div>'
+             if is_paid else
+             f'<div style="text-align:center;margin:16px 0;"><span style="background:#fef3c7;color:#92400e;font-size:18px;font-weight:800;padding:8px 24px;border:3px solid #92400e;border-radius:8px;">PART PAID</span></div>'
+             f'<p style="text-align:center;color:#92400e;">Balance remaining: <strong>£{balance:.2f}</strong></p>')
+
+    from datetime import date
+    today = date.today().strftime('%d/%m/%Y')
+
+    html_body = f"""<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+  <div style="background:#1e3a5f;padding:20px;border-radius:8px 8px 0 0;">
+    <h2 style="color:#fff;margin:0;">Fine Tutors &mdash; Payment Receipt</h2>
+    <div style="color:#93c5fd;">{data['branch_name']}</div>
+  </div>
+  <div style="padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+    {stamp}
+    <table style="width:100%;border-collapse:collapse;font-size:14px;margin:16px 0;">
+      <tr><td style="color:#6b7280;padding:6px 0;width:40%;">Student</td><td style="font-weight:600;">{data['student_name']}</td></tr>
+      <tr><td style="color:#6b7280;padding:6px 0;">Admission ID</td><td>{data['admission_id']}</td></tr>
+      <tr><td style="color:#6b7280;padding:6px 0;">Fee Type</td><td>{fee_labels.get(data['fee_type'], data['fee_type'])}</td></tr>
+      <tr><td style="color:#6b7280;padding:6px 0;">Month</td><td>{data.get('month','')}</td></tr>
+      <tr><td style="color:#6b7280;padding:6px 0;">Invoice Total</td><td>£{total:.2f}</td></tr>
+      <tr><td style="color:#6b7280;padding:6px 0;">Amount Paid</td><td style="color:#059669;font-weight:600;">£{amount_paid:.2f}</td></tr>
+      {'<tr><td style="color:#6b7280;padding:6px 0;">Balance Remaining</td><td style="color:#dc2626;font-weight:600;">£'+f'{balance:.2f}'+'</td></tr>' if not is_paid else ''}
+      <tr><td style="color:#6b7280;padding:6px 0;">Payment Method</td><td>{method_labels.get(method, method)}</td></tr>
+      {'<tr><td style="color:#6b7280;padding:6px 0;">Reference</td><td>'+reference+'</td></tr>' if reference else ''}
+      <tr><td style="color:#6b7280;padding:6px 0;">Date</td><td>{today}</td></tr>
+    </table>
+    <p style="font-size:13px;color:#6b7280;border-top:1px solid #e5e7eb;padding-top:12px;">Thank you for your payment. Please retain this receipt for your records.</p>
+    <p style="font-size:13px;color:#6b7280;">Fine Tutors &mdash; {data['branch_name']}</p>
+  </div>
+</div>"""
+
+    sent_to = []
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(smtp_email, smtp_password)
+        for rec in recipients:
+            msg = MIMEMultipart('alternative')
+            msg['From']    = smtp_email
+            msg['To']      = rec['email']
+            msg['Subject'] = f"Payment Receipt - {data['student_name']} - Fine Tutors {data['branch_name']}"
+            msg.attach(MIMEText(html_body, 'html'))
+            server.sendmail(smtp_email, rec['email'], msg.as_string())
+            sent_to.append(rec['email'])
+        server.quit()
+    except Exception as ex:
+        cur.close(); conn.close()
+        return jsonify({'error': str(ex)}), 500
+
+    cur.close(); conn.close()
+    return jsonify({'ok': True, 'sent_to': sent_to})
