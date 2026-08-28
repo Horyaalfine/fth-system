@@ -3674,17 +3674,14 @@ def get_registration_form(sid):
     conn = get_conn(); cur = conn.cursor()
     cur.execute("""
         SELECT s.*, b.name as branch_name,
-               ss.subjects
+               (SELECT STRING_AGG(DISTINCT se.subject, ', ' ORDER BY se.subject)
+                FROM session_students ss2
+                JOIN sessions se ON se.id=ss2.session_id
+                WHERE ss2.student_id=s.id) as subjects
         FROM students s
         JOIN branches b ON b.id=s.branch_id
-        LEFT JOIN (
-            SELECT student_id, STRING_AGG(DISTINCT subject, ', ' ORDER BY subject) as subjects
-            FROM session_students ss2
-            JOIN sessions se ON se.id=ss2.session_id
-            WHERE ss2.student_id=%s
-        ) ss ON ss.student_id=s.id
         WHERE s.id=%s
-    """, (sid, sid))
+    """, (sid,))
     st = cur.fetchone()
     cur.close(); conn.close()
     if not st:

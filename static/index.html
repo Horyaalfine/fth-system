@@ -5831,11 +5831,17 @@ if(action==='send-announcement-email'){
   if(r&&r.error){toast(r.error,'error');return;}
   toast('Sent to '+r.sent+' parent'+(r.sent!==1?'s':'')+(r.failed?' ('+r.failed+' failed)':''));return;}
 if(action==='reg-form'){
-  const stu=(state.data.students||[]).find(s=>s.id===id);
-  state.modal={name:'reg-form',student:stu||{id}};
-  const rd=await API.get('/api/students/'+id+'/registration-form');
-  if(rd&&rd.error){toast(rd.error,'error');return;}
-  state.modal={name:'reg-form',student:rd};render();return;}
+  e.stopPropagation();
+  const stu=(state.data.students||[]).find(s=>s.id===id)||{id};
+  state.modal={name:'reg-form',student:stu};render();
+  try{
+    const rd=await API.get('/api/students/'+id+'/registration-form');
+    state.modal={name:'reg-form',student:rd};render();
+  }catch(err){
+    toast((err&&err.error)||'Could not load registration form','error');
+    state.modal=null;render();
+  }
+  return;}
 if(action==='email-reg-form'){
   const sid=state.modal?.student?.id;
   if(!sid)return;
