@@ -3224,12 +3224,22 @@ function renderSessionPlan(){
           html+='</select></div>';
           html+='<div style="font-size:11px;color:var(--text3);margin-bottom:4px;">'+tbl.students.length+' students</div>';
           html+='<table style="margin:0;font-size:12px;width:100%;">';
-          html+='<thead><tr><th style="padding:2px 6px 2px 0;">Ad No.</th><th style="padding:2px 6px 2px 0;">Name</th><th style="padding:2px 0;">Year</th></tr></thead><tbody>';
-          tbl.students.forEach(function(st){
+          html+='<thead><tr><th style="padding:2px 6px 2px 0;">Ad No.</th><th style="padding:2px 6px 2px 0;">Name</th><th style="padding:2px 0;">Year</th><th style="padding:2px 0;"></th></tr></thead><tbody>';
+          tbl.students.forEach(function(st,stIdx){
             html+='<tr>';
             html+='<td style="padding:2px 6px 2px 0;color:var(--text3);">'+(st.admission_id||'—')+'</td>';
             html+='<td style="padding:2px 6px 2px 0;font-weight:500;">'+(st.student_name||'—')+'</td>';
-            html+='<td style="padding:2px 0;">'+(st.year_group||'—')+'</td>';
+            html+='<td style="padding:2px 4px 2px 0;">'+(st.year_group||'—')+'</td>';
+            html+='<td style="padding:2px 0;">';
+            // Move to dropdown - only show if other tables exist in same slot
+            var sameSlotTables=draft.tables.filter(function(t){return t.slot===tbl.slot&&t!==tbl;});
+            if(sameSlotTables.length>0){
+              html+='<select data-action="lp-move-student" data-from="'+tblIdx+'" data-student="'+stIdx+'" style="font-size:10px;padding:1px 2px;max-width:70px;" title="Move to table">';
+              html+='<option value="">↗ Move</option>';
+              sameSlotTables.forEach(function(t){html+='<option value="'+draft.tables.indexOf(t)+'">→ T'+t.table_no+'</option>';});
+              html+='</select>';
+            }
+            html+='</td>';
             html+='</tr>';
           });
           html+='</tbody></table></div>';
@@ -6421,6 +6431,21 @@ document.querySelectorAll('[data-action="rpt-set-teacher"]').forEach(function(se
     }catch(err){toast('Error','danger');}
   });
 });
+// Move student select (draft)
+document.querySelectorAll('[data-action="lp-move-student"]').forEach(function(sel){
+  sel.addEventListener('change',function(){
+    if(!sel.value)return;
+    var fromIdx=parseInt(sel.dataset.from);
+    var stIdx=parseInt(sel.dataset.student);
+    var toIdx=parseInt(sel.value);
+    if(!isNaN(toIdx)&&state.planDraft&&state.planDraft.tables){
+      var st=state.planDraft.tables[fromIdx].students.splice(stIdx,1)[0];
+      state.planDraft.tables[toIdx].students.push(st);
+      state.planDraft.tables.forEach(function(t,i){t.table_no=i+1;});
+      render();
+    }
+  });
+});
 // Lesson plan teacher selects (dynamic, use event delegation)
 document.querySelectorAll('[data-action="lp-set-teacher"]').forEach(function(sel){
   sel.addEventListener('change',function(){
@@ -6976,6 +7001,21 @@ if(action==='lp-set-teacher'){
     state.planDraft.tables[idx].teacher_id=el.value?parseInt(el.value):null;
   }
   return; // no full render needed, select already changed
+}
+
+// Move student between draft tables
+if(action==='lp-move-student'){
+  var fromIdx=parseInt(el.dataset.from);
+  var stIdx=parseInt(el.dataset.student);
+  var toIdx=parseInt(el.value);
+  if(!isNaN(toIdx)&&state.planDraft&&state.planDraft.tables){
+    var st=state.planDraft.tables[fromIdx].students.splice(stIdx,1)[0];
+    state.planDraft.tables[toIdx].students.push(st);
+    // Renumber tables
+    state.planDraft.tables.forEach(function(t,i){t.table_no=i+1;});
+    render();
+  }
+  return;
 }
 
 // Remove a draft table
