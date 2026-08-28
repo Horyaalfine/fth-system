@@ -6397,7 +6397,7 @@ document.getElementById('reg-day-filter')?.addEventListener('change',function(e)
 document.getElementById('reg-slot-filter')?.addEventListener('change',function(e){state.regSlot=e.target.value;state.regSubject='';render();});
 document.getElementById('reg-subject-filter')?.addEventListener('change',function(e){state.regSubject=e.target.value;render();});
 document.getElementById('lp-date')?.addEventListener('change',function(e){state.lpDate=e.target.value;state.planDraft=null;render();});
-document.getElementById('lp-max-per')?.addEventListener('change',function(e){state.lpMaxPer=parseInt(e.target.value)||6;render();});
+document.getElementById('lp-max-per')?.addEventListener('change',function(e){state.lpMaxPer=parseInt(e.target.value)||5;render();});
 document.getElementById('rpt-date-select')?.addEventListener('change',async function(e){
   state.rptDate=e.target.value;
   state.rptLoading=true;
@@ -6974,12 +6974,12 @@ if(action==='reg-subject-filter'){state.regSubject=el.value;render();return;}
 
 // Lesson plan date/max change
 if(action==='lp-date'){state.lpDate=el.value;state.planDraft=null;render();return;}
-if(action==='lp-max-per'){state.lpMaxPer=parseInt(el.value)||6;render();return;}
+if(action==='lp-max-per'){state.lpMaxPer=parseInt(el.value)||5;render();return;}
 
 // Auto-generate plan
 if(action==='lp-generate'){
   var lpDate=state.lpDate||new Date().toISOString().slice(0,10);
-  var maxPer=state.lpMaxPer||6;
+  var maxPer=state.lpMaxPer||5;
   function getDT(d){var w=new Date(d+'T00:00:00').getDay();return w===6?'saturday':w===0?'sunday':'weekday';}
   var dayType=getDT(lpDate);
   var allTT=state.data.all_timetables||[];
@@ -7056,7 +7056,7 @@ if(action==='lp-save'){
       var sessId=sessRes.id||sessRes.session_id;
       // Create table allocation
       if(sessId){
-        var allocRes=await API.post('/api/table-allocations',{session_id:sessId,table_no:tbl.table_no,teacher_id:tbl.teacher_id||null,subject:tbl.subject,max_students:tbl.students.length||6});
+        var allocRes=await API.post('/api/table-allocations',{session_id:sessId,table_no:tbl.table_no,teacher_id:tbl.teacher_id||null,subject:tbl.subject,max_students:tbl.students.length||5});
         // Assign students
         if(allocRes&&allocRes.id&&tbl.students.length>0){
           var sids=tbl.students.map(function(s){return s.student_id;});
