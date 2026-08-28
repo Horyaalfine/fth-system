@@ -3497,8 +3497,8 @@ function renderSessionPlan(){
           html+='</div>';
         });
         // Add Table to this slot
-        html+='<div style="padding:6px 14px;background:var(--surface2);border:1px solid var(--accent);border-top:none;border-radius:0 0 var(--radius) var(--radius);text-align:right;">';
-        html+='<button class="btn btn-secondary btn-sm" data-action="rpt-add-table" data-slot="'+slot+'" data-date="'+rptDate+'">＋ Add Table to this Session</button>';
+        html+='<div style="padding:6px 14px;background:var(--surface2);border:1px solid var(--accent);border-top:none;border-radius:0 0 var(--radius) var(--radius);justify-content:flex-end;">';
+        html+='<button class="btn btn-primary btn-sm" data-action="rpt-add-table" data-slot="'+slot+'" data-date="'+rptDate+'" style="background:#2563eb;color:#fff;font-weight:600;">＋ Add Table to Session</button>';
         html+='</div>';
         html+='</div>';
       });
@@ -7326,7 +7326,8 @@ if(action==='rpt-add-table'){
   var sessions=state.data.sessions||[];
   var slotTables=sessions.filter(function(s){return s.date===rptDate&&s.slot===slot;});
   var nextNo=slotTables.length>0?Math.max.apply(null,slotTables.map(function(s){return s.table_no||0;}))+1:1;
-  var branch=state.currentBranch&&state.currentBranch.id;
+  var branch=state.currentBranch||(state.currentUser&&state.currentUser.branch_id);
+  if(!branch){toast('No branch selected','danger');return;}
   try{
     var res=await API.post('/api/sessions',{date:rptDate,slot:slot,subject:subj,table_no:nextNo,branch_id:branch});
     if(res&&res.id){
