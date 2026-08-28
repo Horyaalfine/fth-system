@@ -3753,7 +3753,7 @@ def email_registration_form(sid):
     html_body = f"""
 <div style="font-family:Arial,sans-serif;max-width:700px;margin:0 auto;">
   <div style="background:#1e3a5f;padding:24px;border-radius:8px 8px 0 0;">
-    <h2 style="color:#fff;margin:0;">Fine Tutors — Registration Form</h2>
+    <h2 style="color:#fff;margin:0;">Fine Tutors — Contract Form</h2>
     <div style="color:#93c5fd;margin-top:4px;">{st['branch_name']}</div>
   </div>
   <div style="background:#f9fafb;padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
@@ -3786,7 +3786,7 @@ def email_registration_form(sid):
         server.login(smtp_email, smtp_password)
         for r in recipients:
             msg = MIMEMultipart('alternative')
-            msg['Subject'] = f"Registration Form — {st['name']} — Fine Tutors {st['branch_name']}"
+            msg['Subject'] = f"Contract Form — {st['name']} — Fine Tutors {st['branch_name']}"
             msg['From'] = f"Fine Tutors <{smtp_email}>"
             msg['To'] = r['email']
             msg.attach(MIMEText(html_body, 'html'))
