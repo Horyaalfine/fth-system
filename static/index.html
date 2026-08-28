@@ -5500,7 +5500,7 @@ function modalScheduleCatchup(){
 }
 
 // SAVE
-async function doSave(){const m=state.modal;const v=id=>document.getElementById(id)?.value;const saveBtn=document.getElementById('modal-save');if(saveBtn)saveBtn.disabled=true;
+async function doSave(overrideAction){const action=overrideAction||null;const m=state.modal?.name||state.modal;const modal=state.modal;const v=id=>document.getElementById(id)?.value;const saveBtn=document.getElementById('modal-save');if(saveBtn)saveBtn.disabled=true;
 try{
 if(m==='add-student'||m==='edit-student'){
   const fn=(v('f-first-name')||'').trim();
@@ -6306,6 +6306,7 @@ if(action==='del-branch'){if(!confirm('Delete branch?'))return;await API.delete(
 if(action==='add-parent-user'){state.modal='add-parent-user';state.editTarget=null;render();return;}
 if(action==='edit-parent-user'){state.modal='edit-parent-user';state.editTarget=(state.data.parent_users||[]).find(p=>p.id===id);render();return;}
 if(action==='del-parent-user'){if(!confirm('Delete?'))return;await API.delete('/api/parent-users/'+id);toast('Account deleted');refreshPage();return;}
+if(action==='confirm-smart-payment'||action==='sp-create-and-pay'){await doSave(action);return;}
 if(action==='add-payment'){state.modal={name:'smart-payment',studentId:state.finStudentId||null,invoices:state.finStudentId?null:null,showCreate:false,lineCount:1};render();if(state.finStudentId)smartPaymentLoadStudent(state.finStudentId);return;}
 if(action==='edit-payment'){state.modal='edit-payment';state.editTarget=(state.data.payments||[]).find(p=>p.id===id);render();return;}
 if(action==='del-payment'){if(!confirm('Delete this payment?'))return;await API.delete('/api/payments/'+id);toast('Payment deleted');refreshPage();return;}
