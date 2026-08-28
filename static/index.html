@@ -5718,7 +5718,7 @@ if(action==='confirm-smart-payment'){
   toast(count+' payment'+(count>1?'s':'')+' recorded');
   state.modal=null;
   await loadData('invoices','/api/invoices',branchParam());
-  if(state.page==='finance'){await loadPageData('finance');}
+  
   render();return;}
 if(action==='sp-create-and-pay'){
   const sid=state.modal?.studentId;
@@ -5750,7 +5750,7 @@ if(action==='sp-create-and-pay'){
     toast('Invoices created and payment recorded');
     state.modal=null;
     await loadData('invoices','/api/invoices',branchParam());
-    if(state.page==='finance'){await loadPageData('finance');}
+    
     render();
   }catch(err){toast((err&&err.error)||'Failed to create invoices','error');}
   return;}
