@@ -4761,6 +4761,17 @@ function modalBatchInvoiceResult(){
 }
 
 
+function spSaveLinesAndUpdate(action,idx){
+  // Save current line values into state before re-rendering
+  const fts=[...document.querySelectorAll('.sp-fee-type')].map(el=>el.value);
+  const descs=[...document.querySelectorAll('.sp-desc')].map(el=>el.value);
+  const amts=[...document.querySelectorAll('.sp-amt')].map(el=>el.value);
+  const lines=fts.map((ft,i)=>({ft,desc:descs[i]||'',amt:amts[i]||''}));
+  if(action==='add'){lines.push({ft:'monthly_fee',desc:'',amt:''});}
+  else if(action==='remove'&&idx!=null){lines.splice(idx,1);}
+  state.modal.lines=lines;
+  render();
+}
 async function smartPaymentLoadStudent(sid){
   if(!sid){state.modal.studentId=null;state.modal.invoices=null;state.modal.showCreate=false;render();return;}
   state.modal.studentId=parseInt(sid);state.modal.invoices=null;render();
@@ -4830,15 +4841,18 @@ function modalSmartPayment(){
   let createSection='';
   if(showCreate){
     const today=new Date().toISOString().slice(0,7);
+    // Use state.modal.lines array to preserve values across renders
+    if(!sm.lines||sm.lines.length===0)sm.lines=[{ft:'monthly_fee',desc:'',amt:''}];
+    const lines=sm.lines;
     let lineRows='';
-    for(let i=0;i<lineCount;i++){
+    lines.forEach(function(ln,i){
       lineRows+=`<tr>
-        <td style="padding:4px;"><select class="sp-fee-type" style="width:100%;padding:5px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;">${feeOpts}</select></td>
-        <td style="padding:4px;"><input type="text" class="sp-desc" placeholder="Description" style="width:100%;padding:5px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;"></td>
-        <td style="padding:4px;"><input type="number" class="sp-amt" min="0" step="0.01" placeholder="0.00" style="width:80px;padding:5px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;"></td>
-        ${i>0?`<td style="padding:4px;"><button class="btn" style="padding:3px 8px;font-size:11px;" onclick="state.modal.lineCount=${lineCount-1};render()">✕</button></td>`:'<td></td>'}
+        <td style="padding:4px;"><select class="sp-fee-type" style="width:100%;padding:5px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;">${feeOpts.replace('value="'+ln.ft+'"','value="'+ln.ft+'" selected')}</select></td>
+        <td style="padding:4px;"><input type="text" class="sp-desc" value="${ln.desc||''}" placeholder="Description" style="width:100%;padding:5px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;"></td>
+        <td style="padding:4px;"><input type="number" class="sp-amt" min="0" step="0.01" placeholder="0.00" value="${ln.amt||''}" style="width:80px;padding:5px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;"></td>
+        ${i>0?'<td style="padding:4px;"><button class="btn" style="padding:3px 8px;font-size:11px;" onclick="spSaveLinesAndUpdate('remove','+i+')">✕</button></td>':'<td></td>'}
       </tr>`;
-    }
+    });
     createSection='<div style="margin-bottom:16px;padding:14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;">'+
       '<div style="font-size:12px;font-weight:600;color:#1d4ed8;margin-bottom:10px;">'+(invoices&&invoices.length>0?'➕ Add More Charges':'📋 Create Invoice')+'</div>'+
       '<div style="margin-bottom:8px;display:flex;gap:8px;align-items:center;">'+
@@ -4850,7 +4864,7 @@ function modalSmartPayment(){
       '<th style="padding:5px;font-size:11px;text-align:left;">Amount</th><th></th></tr></thead>'+
       '<tbody>'+lineRows+'</tbody></table>'+
       '<div style="margin-top:8px;display:flex;gap:8px;">'+
-      `<button class="btn" style="font-size:12px;" onclick="state.modal.lineCount=${lineCount+1};render()">+ Add line</button>`+
+      '<button class="btn" style="font-size:12px;" onclick="spSaveLinesAndUpdate(\"add\")">+ Add line</button>'+
       '<button class="btn btn-primary" style="font-size:12px;" data-action="sp-create-and-pay">Create &amp; Pay</button>'+
       (invoices&&invoices.length>0?`<button class="btn" style="font-size:12px;" onclick="state.modal.showCreate=false;render()">Cancel</button>`:'')+
       '</div></div>';
@@ -5713,6 +5727,7 @@ if(action==='sp-create-and-pay'){
   const feeTypes=[...document.querySelectorAll('.sp-fee-type')].map(el=>el.value);
   const descs=[...document.querySelectorAll('.sp-desc')].map(el=>el.value);
   const amts=[...document.querySelectorAll('.sp-amt')].map(el=>parseFloat(el.value)||0);
+  if(!amts.some(a=>a>0)){toast('Enter at least one amount greater than 0','error');return;}
   const items=feeTypes.map((ft,i)=>({fee_type:ft,description:descs[i],amount:amts[i]})).filter(it=>it.amount>0);
   if(!items.length){toast('Add at least one item with an amount','error');return;}
   try{
