@@ -3385,7 +3385,7 @@ function renderSessionPlan(){
           html+='<div style="margin-bottom:8px;"><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Teacher</label>';
           html+='<select data-action="lp-set-teacher" data-idx="'+tblIdx+'" style="width:100%;font-size:13px;">';
           html+='<option value="">— assign teacher —</option>';
-          staff.forEach(function(s){html+='<option value="'+s.id+'" '+(tbl.teacher_id===s.id?'selected':'')+'>'+s.name+'</option>';});
+          staff.forEach(function(s){html+='<option value="'+s.id+'" '+(tbl.teacher_id===s.id?'selected':'')+'>'+s.name+(s.subject?' ('+s.subject+')':'')+' </option>';});
           html+='</select></div>';
           html+='<div style="font-size:11px;color:var(--text3);margin-bottom:4px;">'+tbl.students.length+' students</div>';
           html+='<table style="margin:0;font-size:12px;width:100%;">';
@@ -3534,7 +3534,7 @@ function renderSessionPlan(){
           html+='<div style="display:flex;gap:6px;align-items:center;">';
           html+='<select data-action="rpt-set-teacher" data-id="'+s.id+'" style="font-size:12px;flex:1;padding:4px 6px;">';
           html+='<option value="">— assign teacher —</option>';
-          staff.forEach(function(t){html+='<option value="'+t.id+'" '+(s.staff_id===t.id?'selected':'')+'>'+t.name+'</option>';});
+          staff.forEach(function(t){html+='<option value="'+t.id+'" '+(s.staff_id===t.id?'selected':'')+'>'+t.name+(t.subject?' ('+t.subject+')':'')+' </option>';});
           html+='</select>';
           html+='</div>';
           html+='</div>';
