@@ -481,7 +481,6 @@ def add_student_to_session(sid):
         """, (alloc['id'], student_id))
     else:
         # Fallback: add to session_students
-        session = get_session()
         cur.execute("""
             INSERT INTO session_students (session_id, student_id, added_by, is_catchup)
             VALUES (%s, %s, %s, false) ON CONFLICT DO NOTHING
