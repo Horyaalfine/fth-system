@@ -4367,3 +4367,225 @@ def parent_contract(student_id):
         if hasattr(v,'isoformat'): data[k]=str(v)
     data['available'] = data.get('contract_sent_at') is not None
     return jsonify(data)
+
+
+# ── Admission Slip ─────────────────────────────────────────────────────────────
+
+@api_bp.route('/api/students/<int:sid>/admission-slip', methods=['GET'])
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches','admin','receptionist')
+def get_admission_slip(sid):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        SELECT s.*, b.name as branch_name
+        FROM students s JOIN branches b ON b.id=s.branch_id
+        WHERE s.id=%s
+    """, (sid,))
+    st = cur.fetchone()
+    if not st:
+        cur.close(); conn.close()
+        return jsonify({'error':'Student not found'}), 404
+    data = dict(st)
+    for k,v in data.items():
+        if hasattr(v,'isoformat'): data[k]=str(v)
+    cur.execute("""
+        SELECT day_type, slot, subject FROM student_timetable
+        WHERE student_id=%s AND active=TRUE ORDER BY day_type, slot
+    """, (sid,))
+    data['timetable'] = rows(cur)
+    cur.close(); conn.close()
+    return jsonify(data)
+
+
+def _norm_slot(s):
+    return s.replace('–','-').replace('—','-').replace('−','-').replace(' ','').strip()
+
+def _build_slip_html(st):
+    import datetime
+    subjects = sorted({r['subject'] for r in st.get('timetable',[]) if r.get('subject')})
+    start = (st.get('created_at') or '')[:10]
+    today = datetime.date.today()
+    end_year = today.year if today.month < 8 else today.year + 1
+    end = f"{end_year}-07-31"
+    tm = st.get('timetable', [])
+
+    def get_subj(day_type, slot):
+        ck = _norm_slot(slot)
+        for r in tm:
+            if r['day_type']==day_type and _norm_slot(r['slot'])==ck:
+                return r.get('subject','')
+        return ''
+
+    wd_slots = ['17:00 - 19:00','19:00 - 21:00']
+    we_slots = ['09:00 - 11:00','11:15 - 13:15','14:00 - 16:00','16:15 - 18:15']
+
+    subj_rows = ''
+    for i in range(4):
+        v = subjects[i] if i < len(subjects) else ''
+        subj_rows += f'<tr><td style="border:1px solid #000;padding:5px 8px;">{i+1}. {v}</td></tr>'
+
+    wd_rows = ''
+    for sl in wd_slots:
+        subj = get_subj('weekday', sl)
+        if subj:
+            cells = f'<td colspan="5" style="border:1px solid #000;padding:5px;text-align:center;">{subj}</td>'
+        else:
+            cells = '<td style="border:1px solid #000;padding:5px;"></td>' * 5
+        wd_rows += f'<tr><td style="border:1px solid #000;padding:5px 8px;">{sl}</td>{cells}</tr>'
+
+    we_rows = ''
+    for sl in we_slots:
+        ss = get_subj('saturday', sl)
+        su = get_subj('sunday', sl)
+        we_rows += (f'<tr><td style="border:1px solid #000;padding:5px 8px;">{sl}</td>'
+                    f'<td style="border:1px solid #000;padding:5px;text-align:center;">{ss}</td>'
+                    f'<td style="border:1px solid #000;padding:5px;text-align:center;">{su}</td>'
+                    f'<td style="border:1px solid #000;padding:5px;"></td></tr>')
+
+    tc = """
+<p style="text-decoration:underline;font-weight:bold;margin:8px 0 4px;">Lesson Plan:</p>
+<ul style="margin:0 0 8px 18px;line-height:1.7;font-size:13px;">
+  <li>Only agreed lesson time will be given to the students.</li>
+  <li>Changes to a lesson plan can only be made on the 25th or before of the previous month to the next month and this can be done once a year ONLY.</li>
+  <li>Only when we are informed about your child's absence prior to the lesson starting, they will be entitled for a catch-up session. The catch-up session will expire within 30 days of their absence.</li>
+  <li>It is highly recommended not to change your child's lesson timings as this will lead to change of teacher and will affect the child's progress.</li>
+  <li>4 weeks' notice is required if the student is leaving.</li>
+</ul>
+<p style="text-decoration:underline;font-weight:bold;margin:8px 0 4px;">Materials and Resources</p>
+<ul style="margin:0 0 8px 18px;line-height:1.7;font-size:13px;">
+  <li>Children must bring their own stationery, for example: notebook, pencils, calculator etc.</li>
+</ul>
+<p style="text-decoration:underline;font-weight:bold;margin:8px 0 4px;">Fees:</p>
+<ul style="margin:0 0 8px 18px;line-height:1.7;font-size:13px;">
+  <li>The admission fee is a one-off payment and is non-refundable.</li>
+  <li>The book fee is a one-off payment for the academic year and is non-refundable. If pupils lose their books there will be a charge of &pound;9.95 for a new one.</li>
+  <li>Monthly fee must be paid on the 1st day of each month. We do not accept payment instalments.</li>
+  <li>Monthly fee will not be adjusted for missing lessons; you will need to book a catch-up session.</li>
+</ul>"""
+
+    return f"""<div style="font-family:Arial,sans-serif;max-width:780px;margin:0 auto;border:2px solid #000;padding:20px;box-sizing:border-box;">
+  <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:10px;">
+    <h2 style="margin:0;font-size:22px;">Admission Slip</h2>
+    <span style="font-size:16px;font-weight:bold;color:#1e3a5f;">Fine Tutors &mdash; {st.get('branch_name','')}</span>
+  </div>
+  <table style="width:100%;border-collapse:collapse;">
+    <tr>
+      <th style="border:1px solid #000;padding:6px 10px;width:25%;text-align:left;">Admission No:</th>
+      <th style="border:1px solid #000;padding:6px 10px;width:40%;text-align:left;">Student Name:</th>
+      <th style="border:1px solid #000;padding:6px 10px;text-align:left;">Subjects</th>
+    </tr>
+    <tr>
+      <td rowspan="4" style="border:1px solid #000;padding:8px 10px;vertical-align:middle;font-weight:bold;font-size:15px;">{st.get('admission_id','')}</td>
+      <td rowspan="4" style="border:1px solid #000;padding:8px 10px;vertical-align:middle;">{st.get('name','')}</td>
+      {subj_rows}
+    </tr>
+  </table>
+  <table style="width:100%;border-collapse:collapse;">
+    <tr>
+      <td style="border:1px solid #000;padding:6px 10px;font-weight:bold;width:25%;">Contract Period</td>
+      <td style="border:1px solid #000;padding:6px 10px;">{start} &nbsp;&nbsp; TO &nbsp;&nbsp; {end}</td>
+    </tr>
+  </table>
+  <div style="margin:10px 0;">{tc}</div>
+  <table style="width:100%;border-collapse:collapse;margin-top:10px;">
+    <tr style="background:#f0f0f0;">
+      <th style="border:1px solid #000;padding:6px;">Weekdays</th>
+      <th style="border:1px solid #000;padding:6px;">Monday</th>
+      <th style="border:1px solid #000;padding:6px;">Tuesday</th>
+      <th style="border:1px solid #000;padding:6px;">Wednesday</th>
+      <th style="border:1px solid #000;padding:6px;">Thursday</th>
+      <th style="border:1px solid #000;padding:6px;">Friday</th>
+    </tr>
+    {wd_rows}
+  </table>
+  <table style="width:100%;border-collapse:collapse;margin-top:10px;">
+    <tr style="background:#f0f0f0;">
+      <th style="border:1px solid #000;padding:6px;">Weekends</th>
+      <th style="border:1px solid #000;padding:6px;">Saturday</th>
+      <th style="border:1px solid #000;padding:6px;">Sunday</th>
+      <th style="border:1px solid #000;padding:6px;">Additional Notes</th>
+    </tr>
+    {we_rows}
+  </table>
+  <table style="width:100%;border-collapse:collapse;margin-top:12px;">
+    <tr>
+      <td style="border:1px solid #000;padding:12px;width:50%;">
+        <strong>Parent / Guardian Signature:</strong><br><br><br>
+      </td>
+      <td style="border:1px solid #000;padding:12px;width:50%;">
+        <strong>Date:</strong><br><br><br>
+      </td>
+    </tr>
+  </table>
+</div>"""
+
+
+@api_bp.route('/api/students/<int:sid>/email-admission-slip', methods=['POST'])
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches','admin','receptionist')
+def email_admission_slip(sid):
+    import smtplib
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+
+    smtp_email    = os.environ.get('SMTP_EMAIL','')
+    smtp_password = os.environ.get('SMTP_PASSWORD','')
+    if not smtp_email or not smtp_password:
+        return jsonify({'error':'Email not configured'}), 500
+
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        SELECT s.*, b.name as branch_name FROM students s
+        JOIN branches b ON b.id=s.branch_id WHERE s.id=%s
+    """, (sid,))
+    st = cur.fetchone()
+    if not st:
+        cur.close(); conn.close()
+        return jsonify({'error':'Student not found'}), 404
+    data = dict(st)
+    for k,v in data.items():
+        if hasattr(v,'isoformat'): data[k]=str(v)
+    cur.execute("SELECT day_type, slot, subject FROM student_timetable WHERE student_id=%s AND active=TRUE ORDER BY day_type, slot", (sid,))
+    data['timetable'] = rows(cur)
+
+    recipients = []
+    for ef, nf in [('carer1_email','carer1_first_name'),('carer2_email','carer2_first_name')]:
+        em = (data.get(ef) or '').strip()
+        if em:
+            recipients.append({'email':em,'name':data.get(nf,'')})
+    if not recipients:
+        cur.close(); conn.close()
+        return jsonify({'error':'No parent email found'}), 400
+
+    slip_html = _build_slip_html(data)
+    html_body = f"""<div style="font-family:Arial,sans-serif;max-width:800px;margin:0 auto;">
+      <div style="background:#1e3a5f;padding:20px;border-radius:8px 8px 0 0;">
+        <h2 style="color:#fff;margin:0;">Fine Tutors &mdash; Admission Slip</h2>
+        <div style="color:#93c5fd;">{data['branch_name']}</div>
+      </div>
+      <div style="padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+        <p>Dear Parent/Guardian,</p>
+        <p>Please find your child's admission slip below. Please keep this for your records.</p>
+        {slip_html}
+        <p style="margin-top:20px;color:#666;font-size:13px;">Fine Tutors {data['branch_name']}</p>
+      </div>
+    </div>"""
+
+    sent_to = []
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(smtp_email, smtp_password)
+        for rec in recipients:
+            msg = MIMEMultipart('alternative')
+            msg['From']    = smtp_email
+            msg['To']      = rec['email']
+            msg['Subject'] = f"Admission Slip - {data['name']} - Fine Tutors {data['branch_name']}"
+            msg.attach(MIMEText(html_body,'html'))
+            server.sendmail(smtp_email, rec['email'], msg.as_string())
+            sent_to.append(rec['email'])
+        server.quit()
+    except Exception as ex:
+        cur.close(); conn.close()
+        return jsonify({'error': str(ex)}), 500
+
+    cur.close(); conn.close()
+    return jsonify({'ok': True, 'sent_to': sent_to})

@@ -411,6 +411,12 @@ function exportXLSX(rows, filename, sheetName){
 
 let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',invTab:'list',invFeeFilter:'all',invMonthFilter:'',tsFilterStaff:'',tsFilterRole:'',tsFilterStatus:'',tsFilterDate:'',lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',sessionMonth:'',sessionDate:'',sessionSlot:'',sessionTeacher:'',sessionSubject:'',attTab:'quick',attDateFilter:'',attSlotFilter:'',qaDate:'',qaSlot:'',qaStatusFilter:'all',qaRecords:{},wpWeek:'',attAllSessions:'',attTeacherFilter:'',attStatusFilter:'all',planSessionId:null,planMonth:'',planTab:'allocate',timetableStudentId:null,mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
 
+function printAdmissionSlip(html){
+  var win=window.open('','_blank','width=900,height=700');
+  win.document.write('<html><head><title>Admission Slip</title><style>body{font-family:Arial,sans-serif;margin:20px;color:#000;}table{width:100%;border-collapse:collapse;}td,th{border:1px solid #000;padding:5px 8px;}h2{margin:0;}ul{margin:4px 0 8px 18px;line-height:1.7;font-size:13px;}.no-print,.btn{display:none!important;}</style></head><body>'+html+'</body></html>');
+  win.document.close();win.focus();
+  setTimeout(function(){win.print();win.close();},400);
+}
 function printContractForm(){
   var el=document.getElementById('reg-form-print');
   if(!el){window.print();return;}
@@ -749,7 +755,7 @@ return`
 <td style="font-weight:600;color:var(--accent);">${s.monthly_fee?'£'+parseFloat(s.monthly_fee).toFixed(0):'—'}</td>
 <td style="color:var(--text3);">${s.hours_per_week?s.hours_per_week+'h':'—'}</td>
 <td>${statusDot(s.status)}</td>
-<td><div class="row-actions"><button class="btn btn-sm" data-action="edit-student" data-id="${s.id}">Edit</button><button class="btn btn-sm" data-action="reg-form" data-id="${s.id}" title="Registration Form">📄 Contract</button><button class="btn btn-sm btn-danger" data-action="del-student" data-id="${s.id}">Del</button></div></td>
+<td><div class="row-actions"><button class="btn btn-sm" data-action="edit-student" data-id="${s.id}">Edit</button><button class="btn btn-sm" data-action="reg-form" data-id="${s.id}" title="Contract Form">📄 Contract</button><button class="btn btn-sm" data-action="admission-slip" data-id="${s.id}" title="Admission Slip">📋 Slip</button><button class="btn btn-sm btn-danger" data-action="del-student" data-id="${s.id}">Del</button></div></td>
 </tr>`).join(''):`<tr><td colspan="8"><div class="empty-state">No students found</div></td></tr>`}</tbody>
 </table></div></div>`;}
 
@@ -4026,6 +4032,7 @@ ${children.map(st=>childCard(st)).join('')}`;}
 
 // MODALS
 function renderModal(){const m=state.modal?.name||state.modal;
+if(m==='admission-slip')return modalAdmissionSlip();
 if(m==='reg-form'){
   const s=state.modal?.student||{};
   const field=(label,val)=>val?'<tr><td style="padding:5px 10px 5px 0;color:#6b7280;font-size:13px;width:40%;">'+label+'</td><td style="padding:5px 0;font-size:13px;font-weight:500;">'+val+'</td></tr>':'';
@@ -4112,6 +4119,90 @@ if(m==='reg-form'){
     '<button class="btn no-print" data-action="email-reg-form">✉ Email to parent</button>'+
     '<button class="btn no-print" data-action="save-reg-portal">💾 Save to portal</button>';
   return mWrap('📄 Contract Form — '+s.name,body,footer);}
+
+function modalAdmissionSlip(){
+  var s=state.modal&&state.modal.student||{};
+  var tm=s.timetable||[];
+  function getSubj(dt,slot){
+    var ck=slot.replace(/[-–—]/g,'-').replace(/\s/g,'');
+    for(var i=0;i<tm.length;i++){
+      var r=tm[i];
+      if(r.day_type===dt&&r.slot.replace(/[-–—]/g,'-').replace(/\s/g,'')==ck)return r.subject||'';
+    }return '';
+  }
+  var subjects=[...new Set(tm.map(r=>r.subject).filter(Boolean))].sort();
+  var today=new Date();
+  var endYear=(today.getMonth()<7)?today.getFullYear():today.getFullYear()+1;
+  var start=(s.created_at||'').slice(0,10);
+  var end=endYear+'-07-31';
+  var subjRows='';
+  for(var i=0;i<4;i++){var v=subjects[i]||'';subjRows+='<tr><td style="border:1px solid #000;padding:5px 8px;">'+(i+1)+'. '+v+'</td></tr>';}
+  var wdSlots=['17:00 - 19:00','19:00 - 21:00'];
+  var weSlots=['09:00 - 11:00','11:15 - 13:15','14:00 - 16:00','16:15 - 18:15'];
+  var wdRows='';
+  wdSlots.forEach(function(sl){
+    var subj=getSubj('weekday',sl);
+    var cells=subj?'<td colspan="5" style="border:1px solid #000;padding:5px;text-align:center;">'+subj+'</td>':
+      Array(5).fill('<td style="border:1px solid #000;padding:5px;"></td>').join('');
+    wdRows+='<tr><td style="border:1px solid #000;padding:5px 8px;">'+sl+'</td>'+cells+'</tr>';
+  });
+  var weRows='';
+  weSlots.forEach(function(sl){
+    var ss=getSubj('saturday',sl),su=getSubj('sunday',sl);
+    weRows+='<tr><td style="border:1px solid #000;padding:5px 8px;">'+sl+'</td>'+
+      '<td style="border:1px solid #000;padding:5px;text-align:center;">'+ss+'</td>'+
+      '<td style="border:1px solid #000;padding:5px;text-align:center;">'+su+'</td>'+
+      '<td style="border:1px solid #000;padding:5px;"></td></tr>';
+  });
+  var tcHtml='<p style="text-decoration:underline;font-weight:bold;margin:8px 0 4px;font-size:13px;">Lesson Plan:</p>'+
+    '<ul style="margin:0 0 6px 18px;line-height:1.7;font-size:12px;">'+
+    '<li>Only agreed lesson time will be given to the students.</li>'+
+    '<li>Changes to a lesson plan can only be made on the 25th or before of the previous month to the next month and this can be done once a year ONLY.</li>'+
+    '<li>Only when we are informed about your child\'s absence prior to the lesson starting, they will be entitled for a catch-up session. The catch-up session will expire within 30 days of their absence.</li>'+
+    '<li>It is highly recommended not to change your child\'s lesson timings as this will lead to change of teacher and will affect the child\'s progress.</li>'+
+    '<li>4 weeks\' notice is required if the student is leaving.</li></ul>'+
+    '<p style="text-decoration:underline;font-weight:bold;margin:8px 0 4px;font-size:13px;">Materials and Resources</p>'+
+    '<ul style="margin:0 0 6px 18px;line-height:1.7;font-size:12px;"><li>Children must bring their own stationery, for example: notebook, pencils, calculator etc.</li></ul>'+
+    '<p style="text-decoration:underline;font-weight:bold;margin:8px 0 4px;font-size:13px;">Fees:</p>'+
+    '<ul style="margin:0 0 6px 18px;line-height:1.7;font-size:12px;">'+
+    '<li>The admission fee is a one-off payment and is non-refundable.</li>'+
+    '<li>The book fee is a one-off payment for the academic year and is non-refundable. If pupils lose their books there will be a charge of &pound;9.95 for a new one.</li>'+
+    '<li>Monthly fee must be paid on the 1st day of each month. We do not accept payment instalments.</li>'+
+    '<li>Monthly fee will not be adjusted for missing lessons; you will need to book a catch-up session.</li></ul>';
+  var slipHtml='<div id="admission-slip-print" style="font-family:Arial,sans-serif;max-width:780px;margin:0 auto;border:2px solid #000;padding:20px;box-sizing:border-box;">'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:10px;">'+
+    '<h2 style="margin:0;font-size:22px;">Admission Slip</h2>'+
+    '<span style="font-size:16px;font-weight:bold;color:#1e3a5f;">Fine Tutors &mdash; '+(s.branch_name||'')+'</span></div>'+
+    '<table style="width:100%;border-collapse:collapse;"><tr>'+
+    '<th style="border:1px solid #000;padding:6px 10px;width:25%;text-align:left;">Admission No:</th>'+
+    '<th style="border:1px solid #000;padding:6px 10px;width:40%;text-align:left;">Student Name:</th>'+
+    '<th style="border:1px solid #000;padding:6px 10px;text-align:left;">Subjects</th></tr>'+
+    '<tr><td rowspan="4" style="border:1px solid #000;padding:8px 10px;vertical-align:middle;font-weight:bold;font-size:15px;">'+(s.admission_id||'')+'</td>'+
+    '<td rowspan="4" style="border:1px solid #000;padding:8px 10px;vertical-align:middle;">'+(s.name||'')+'</td>'+
+    subjRows+'</tr></table>'+
+    '<table style="width:100%;border-collapse:collapse;"><tr>'+
+    '<td style="border:1px solid #000;padding:6px 10px;font-weight:bold;width:25%;">Contract Period</td>'+
+    '<td style="border:1px solid #000;padding:6px 10px;">'+start+' &nbsp; TO &nbsp; '+end+'</td></tr></table>'+
+    tcHtml+
+    '<table style="width:100%;border-collapse:collapse;margin-top:10px;"><tr style="background:#f0f0f0;">'+
+    '<th style="border:1px solid #000;padding:6px;">Weekdays</th><th style="border:1px solid #000;padding:6px;">Monday</th>'+
+    '<th style="border:1px solid #000;padding:6px;">Tuesday</th><th style="border:1px solid #000;padding:6px;">Wednesday</th>'+
+    '<th style="border:1px solid #000;padding:6px;">Thursday</th><th style="border:1px solid #000;padding:6px;">Friday</th></tr>'+
+    wdRows+'</table>'+
+    '<table style="width:100%;border-collapse:collapse;margin-top:10px;"><tr style="background:#f0f0f0;">'+
+    '<th style="border:1px solid #000;padding:6px;">Weekends</th><th style="border:1px solid #000;padding:6px;">Saturday</th>'+
+    '<th style="border:1px solid #000;padding:6px;">Sunday</th><th style="border:1px solid #000;padding:6px;">Additional Notes</th></tr>'+
+    weRows+'</table>'+
+    '<table style="width:100%;border-collapse:collapse;margin-top:12px;"><tr>'+
+    '<td style="border:1px solid #000;padding:12px;width:50%;"><strong>Parent / Guardian Signature:</strong><br><br><br></td>'+
+    '<td style="border:1px solid #000;padding:12px;width:50%;"><strong>Date:</strong><br><br><br></td></tr></table></div>';
+  var body='<div style="padding:10px 0;">'+slipHtml+'</div>';
+  var footer='<button class="btn no-print" onclick="printAdmissionSlip(document.getElementById(\'admission-slip-print\').outerHTML)">&#128424; Print</button>'+
+    '<button class="btn no-print" data-action="email-admission-slip">&#9993; Email to parent</button>'+
+    '<button class="btn no-print" onclick="state.modal=null;render()">Close</button>';
+  return mWrap('&#128203; Admission Slip &mdash; '+s.name,body,footer);
+}
+
 if(m==='reminder-history'){
   return mWrap('📋 Reminder History — '+( state.modal?.studentName||''),state.modal?.html||'','');}
 if(m==='fee-reminder-preview'){
@@ -5887,6 +5978,27 @@ if(action==='reg-form'){
     toast((err&&err.error)||'Could not load registration form','error');
     state.modal=null;render();
   }
+  return;}
+if(action==='admission-slip'){
+  e.stopPropagation();
+  const stu=(state.data.students||[]).find(s=>s.id===id)||{id};
+  state.modal={name:'admission-slip',student:stu};render();
+  try{
+    const rd=await API.get('/api/students/'+id+'/admission-slip');
+    state.modal={name:'admission-slip',student:rd};render();
+  }catch(err){
+    toast((err&&err.error)||'Could not load admission slip','error');
+    state.modal=null;render();
+  }
+  return;}
+if(action==='email-admission-slip'){
+  if(!confirm('Send this admission slip to the parent email? This cannot be undone.'))return;
+  const sid=state.modal&&state.modal.student&&state.modal.student.id;
+  if(!sid)return;
+  try{
+    const r=await API.post('/api/students/'+sid+'/email-admission-slip',{});
+    toast('Admission slip sent to: '+r.sent_to.join(', '));
+  }catch(err){toast((err&&err.error)||'Failed to send','error');}
   return;}
 if(action==='email-reg-form'){
   const sid=state.modal?.student?.id;
