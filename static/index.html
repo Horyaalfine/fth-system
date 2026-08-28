@@ -2241,6 +2241,44 @@ function renderAccountsTab(){
   </div>`;
 }
 
+function renderBranchCashPosition(){
+  var summary=state.data.hq_summary||[];
+  var transfers=state.data.hq_transfers||[];
+  var allPayments=state.data.payments||[];
+  var totalCashIn=summary.reduce(function(s,b){return s+parseFloat(b.cash_collected||0);},0);
+  var totalTransferred=summary.reduce(function(s,b){return s+parseFloat(b.transferred_to_hq||0);},0);
+  var netHeld=totalCashIn-totalTransferred;
+  var totalAll=allPayments.reduce(function(s,p){return s+parseFloat(p.amount||0);},0);
+  var nonCashIn=totalAll-totalCashIn;
+  var monthMap={};
+  allPayments.forEach(function(p){
+    var mo=(p.payment_date||'').slice(0,7);if(!mo)return;
+    if(!monthMap[mo])monthMap[mo]={month:mo,cashIn:0,otherIn:0,transferred:0};
+    if(p.method==='cash')monthMap[mo].cashIn+=parseFloat(p.amount||0);
+    else monthMap[mo].otherIn+=parseFloat(p.amount||0);
+  });
+  transfers.forEach(function(t){
+    var mo=(t.transfer_date||'').slice(0,7);if(!mo)return;
+    if(!monthMap[mo])monthMap[mo]={month:mo,cashIn:0,otherIn:0,transferred:0};
+    monthMap[mo].transferred+=parseFloat(t.amount||0);
+  });
+  var months=Object.values(monthMap).sort(function(a,b){return b.month.localeCompare(a.month);});
+  function fmtMo(mo){var p=mo.split('-');return new Date(parseInt(p[0]),parseInt(p[1])-1).toLocaleDateString('en-GB',{month:'short',year:'numeric'});}
+  var c='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:20px;">'
+    +'<div class="card" style="padding:16px;text-align:center;border-top:3px solid #059669;"><div style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Cash Received</div><div style="font-size:22px;font-weight:800;color:#065f46;">&#163;'+totalCashIn.toFixed(2)+'</div><div style="font-size:11px;color:#6b7280;margin-top:4px;">Cash payments from parents</div></div>'
+    +'<div class="card" style="padding:16px;text-align:center;border-top:3px solid #3b82f6;"><div style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Non-Cash Received</div><div style="font-size:22px;font-weight:800;color:#1e40af;">&#163;'+nonCashIn.toFixed(2)+'</div><div style="font-size:11px;color:#6b7280;margin-top:4px;">Bank transfer / card / cheque</div></div>'
+    +'<div class="card" style="padding:16px;text-align:center;border-top:3px solid #f59e0b;"><div style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Transferred to HQ</div><div style="font-size:22px;font-weight:800;color:#92400e;">&#163;'+totalTransferred.toFixed(2)+'</div><div style="font-size:11px;color:#6b7280;margin-top:4px;">Cash sent to head office</div></div>'
+    +'<div class="card" style="padding:16px;text-align:center;border-top:3px solid '+(netHeld>=0?'#0ea5e9':'#dc2626')+';"><div style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Net Cash at Branch</div><div style="font-size:22px;font-weight:800;color:'+(netHeld>=0?'#0369a1':'#dc2626')+';">&#163;'+Math.abs(netHeld).toFixed(2)+'</div><div style="font-size:11px;color:#6b7280;margin-top:4px;">Cash in &#8212; Transferred out</div></div>'
+    +'</div>';
+  var bt='';
+  if(summary.length>1){
+    var brows=summary.map(function(b){var h=parseFloat(b.held_at_branch||0);return '<tr><td style="padding:7px 10px;font-weight:600;">'+b.branch_name+'</td><td style="padding:7px 10px;color:#065f46;font-weight:600;">&#163;'+parseFloat(b.cash_collected||0).toFixed(2)+'</td><td style="padding:7px 10px;color:#92400e;font-weight:600;">&#163;'+parseFloat(b.transferred_to_hq||0).toFixed(2)+'</td><td style="padding:7px 10px;color:'+(h>=0?'#0369a1':'#dc2626')+';font-weight:700;">&#163;'+Math.abs(h).toFixed(2)+'</td></tr>';}).join('');
+    bt='<div class="card" style="padding:16px;margin-bottom:16px;"><div style="font-size:13px;font-weight:700;margin-bottom:10px;">Per-Branch Cash Position</div><table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:#f3f4f6;"><th style="padding:7px 10px;text-align:left;">Branch</th><th style="padding:7px 10px;text-align:left;">Cash Received</th><th style="padding:7px 10px;text-align:left;">Transferred to HQ</th><th style="padding:7px 10px;text-align:left;">Net Held</th></tr></thead><tbody>'+brows+'</tbody></table></div>';
+  }
+  var mr=months.map(function(mo){var net=mo.cashIn-mo.transferred;return '<tr><td style="padding:7px 10px;font-size:13px;">'+fmtMo(mo.month)+'</td><td style="padding:7px 10px;font-size:13px;color:#065f46;font-weight:600;">&#163;'+mo.cashIn.toFixed(2)+'</td><td style="padding:7px 10px;font-size:13px;color:#1e40af;">&#163;'+mo.otherIn.toFixed(2)+'</td><td style="padding:7px 10px;font-size:13px;color:#92400e;font-weight:600;">&#163;'+mo.transferred.toFixed(2)+'</td><td style="padding:7px 10px;font-size:13px;color:'+(net>=0?'#0369a1':'#dc2626')+';font-weight:700;">&#163;'+Math.abs(net).toFixed(2)+(net<0?' (over)':'')+'</td></tr>';}).join('');
+  var mt=months.length?'<div class="card" style="padding:16px;margin-bottom:16px;"><div style="font-size:13px;font-weight:700;margin-bottom:10px;">Monthly Cash Breakdown</div><table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:#f3f4f6;"><th style="padding:7px 10px;text-align:left;">Month</th><th style="padding:7px 10px;text-align:left;">Cash In</th><th style="padding:7px 10px;text-align:left;">Non-Cash In</th><th style="padding:7px 10px;text-align:left;">Transferred to HQ</th><th style="padding:7px 10px;text-align:left;">Net Cash Held</th></tr></thead><tbody>'+mr+'</tbody></table></div>':'';
+  return c+bt+mt;
+}
 function renderFinance(){
   const students=state.data.students||[];
   const payments=state.data.payments||[];
@@ -2417,6 +2455,8 @@ function renderFinance(){
   `:''}
 
   ${tab==='hq'?`
+  ${renderBranchCashPosition()}
+  <div style="font-size:13px;font-weight:700;color:var(--text2);margin:4px 0 8px;">HQ Transfer Records</div>
   <div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>
     <thead><tr><th>Date</th><th>Branch</th><th>Amount</th><th>Method</th><th>Reference</th><th>Notes</th><th></th></tr></thead>
     <tbody>${(state.data.hq_transfers||[]).map(t=>`<tr>
