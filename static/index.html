@@ -5667,10 +5667,18 @@ if(m==='edit-invoice'){
     notes:v('f-notes'),
     description:v('f-notes')
   };
-  const r=await API.put('/api/invoices/'+state.editTarget.id,body);
-  if(r?.error){toast(r.error,'error');return;}
-  toast('Invoice updated');
-}
+  try{
+    const r=await API.put('/api/invoices/'+state.editTarget.id,body);
+    if(r?.error){toast(r.error,'error');return;}
+    // Update local data immediately
+    if(state.data.invoices){
+      const idx=state.data.invoices.findIndex(i=>i.id===state.editTarget.id);
+      if(idx>=0)state.data.invoices[idx]={...state.data.invoices[idx],...body,id:state.editTarget.id};
+    }
+    toast('Invoice updated');
+    state.modal=null;render();
+  }catch(err){toast((err&&err.error)||err.message||'Update failed — '+JSON.stringify(err),'error');}
+  return;}
 else if(m==='add-progress'){const sessId=state.editTarget?.session_id;const sess=(state.data.sessions||[]).find(s=>s.id===sessId);await API.post('/api/progress',{student_id:parseInt(v('f-student')),session_id:sessId,staff_id:sess?.staff_id||null,subject:v('f-subject'),rating:parseInt(v('f-rating'))||4,comment:v('f-comment')});toast('Progress note added');}
 else if(m==='add-parent-user'||m==='edit-parent-user'){const studentIds=Array.from(document.querySelectorAll('#f-students-list .f-student-cb:checked')).map(cb=>parseInt(cb.value));const body={name:v('f-name'),email:v('f-email'),student_ids:studentIds,status:v('f-status')};if(v('f-password'))body.password=v('f-password');if(!body.name||!body.email){toast('Name and email required','error');return;}if(m==='add-parent-user'){if(!body.password){toast('Password required','error');return;}await API.post('/api/parent-users',body);}else await API.put('/api/parent-users/'+state.editTarget.id,body);toast(m==='add-parent-user'?'Parent account added':'Parent account updated');}
 if(m==='add-staff-att'||m==='edit-staff-att'){
