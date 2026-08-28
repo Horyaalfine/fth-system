@@ -285,10 +285,18 @@ body.readonly-user [data-action="change-password"]{
 
 @media print {
   .sidebar,.topbar,.mobile-nav-test,.hamburger,#mobile-logout-btn,.branch-switcher,
-  .no-print,.btn,.row-actions,nav { display:none!important; }
+  .no-print,.btn,.row-actions,nav,.tab-bar,#rpt-no-print { display:none!important; }
   body { background:#fff!important; color:#000!important; }
+  .main { margin:0!important; }
+  .content { padding:8px!important; }
   .reg-form-wrap { max-width:100%!important; padding:0!important; }
   .reg-form-wrap * { color:#000!important; background:#fff!important; border-color:#999!important; }
+  .card { box-shadow:none!important; border:1px solid #ccc!important; }
+  .badge { border:1px solid #ccc!important; }
+  .badge-success { background:#d4edda!important; color:#155724!important; }
+  .badge-danger { background:#f8d7da!important; color:#721c24!important; }
+  .badge-gray { background:#f3f4f6!important; color:#374151!important; }
+  div[style*="page-break-inside:avoid"] { page-break-inside:avoid; }
 }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -3232,67 +3240,105 @@ function renderSessionPlan(){
     return html;
   }
 
-  // ── TAB 3: SESSION REPORT ──────────────────────────────────────
+  // ── TAB 3: LESSON PLAN REPORT ──────────────────────────────────────
   if(planTab==='report'){
     var rptDate=state.rptDate||'';
+    var rptLoading=state.rptLoading||false;
     var dates=[...new Set(sessions.map(function(s){return s.date;}).filter(Boolean))].sort().reverse();
-    html+='<div class="card" style="margin-bottom:14px;">';
-    html+='<div class="form-grid">';
-    html+='<div class="field"><label>Select date</label><select id="rpt-date-select"><option value="">— choose date —</option>';
+    html+='<div class="card" style="margin-bottom:14px;" id="rpt-no-print">';
+    html+='<div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">';
+    html+='<div class="field" style="margin:0;flex:1;min-width:200px;"><label>Select date</label><select id="rpt-date-select"><option value="">— choose date —</option>';
     dates.forEach(function(d){
       var dl=new Date(d+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
       html+='<option value="'+d+'" '+(d===rptDate?'selected':'')+'>'+dl+'</option>';
     });
-    html+='</select></div></div></div>';
+    html+='</select></div>';
+    if(rptDate){
+      html+='<button class="btn btn-primary" onclick="window.print()">🖨 Print Report</button>';
+    }
+    html+='</div></div>';
 
     if(!rptDate){
-      html+='<div class="card" style="text-align:center;color:var(--text3);padding:32px;">Select a date to view the session report.</div>';
+      html+='<div class="card" style="text-align:center;color:var(--text3);padding:40px;">Select a date above to generate the Lesson Plan Report.</div>';
+    }else if(rptLoading){
+      html+='<div class="card" style="text-align:center;color:var(--text3);padding:40px;">Loading report data...</div>';
     }else{
       var daySessions=sessions.filter(function(s){return s.date===rptDate;});
       var bySlot={};
       daySessions.forEach(function(s){if(!bySlot[s.slot])bySlot[s.slot]=[];bySlot[s.slot].push(s);});
-      var slots=Object.keys(bySlot).sort();
-      var totalStudents=daySessions.reduce(function(sum,s){return sum+(s.total_count||0);},0);
-      var totalPresent=daySessions.reduce(function(sum,s){return sum+(s.present_count||0);},0);
-      var teachers=[...new Set(daySessions.map(function(s){return s.staff_name;}).filter(Boolean))];
-      // Summary cards
-      html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:16px;">';
-      html+='<div class="card" style="text-align:center;padding:12px;"><div style="font-size:22px;font-weight:700;">'+slots.length+'</div><div style="font-size:12px;color:var(--text3);">Sessions</div></div>';
-      html+='<div class="card" style="text-align:center;padding:12px;"><div style="font-size:22px;font-weight:700;">'+daySessions.length+'</div><div style="font-size:12px;color:var(--text3);">Tables</div></div>';
-      html+='<div class="card" style="text-align:center;padding:12px;"><div style="font-size:22px;font-weight:700;">'+teachers.length+'</div><div style="font-size:12px;color:var(--text3);">Teachers</div></div>';
-      html+='<div class="card" style="text-align:center;padding:12px;"><div style="font-size:22px;font-weight:700;">'+totalPresent+'/'+totalStudents+'</div><div style="font-size:12px;color:var(--text3);">Attended</div></div>';
+      var rptSlots=Object.keys(bySlot).sort();
+      var totalStudents=0;var totalPresent=0;var allTeachers=new Set();
+      daySessions.forEach(function(s){
+        totalStudents+=(state.data['sess_students_'+s.id]||[]).length||s.total_count||0;
+        totalPresent+=s.present_count||0;
+        if(s.staff_name)allTeachers.add(s.staff_name);
+      });
+      var dateLabel=new Date(rptDate+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+      // Print header
+      html+='<div style="margin-bottom:16px;">';
+      html+='<div style="font-size:20px;font-weight:800;">Lesson Plan Report</div>';
+      html+='<div style="font-size:14px;color:var(--text3);margin-top:2px;">'+dateLabel+'</div>';
       html+='</div>';
-      // Breakdown by slot → table → students
-      slots.forEach(function(slot){
-        html+='<div style="margin-bottom:16px;">';
-        html+='<div style="font-size:13px;font-weight:700;padding:8px 0;border-bottom:2px solid var(--border);margin-bottom:8px;">'+slot+'</div>';
-        bySlot[slot].forEach(function(s){
+
+      // Summary row
+      html+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;">';
+      html+='<div class="card" style="text-align:center;padding:14px;"><div style="font-size:26px;font-weight:800;color:var(--accent);">'+rptSlots.length+'</div><div style="font-size:12px;color:var(--text3);margin-top:2px;">Sessions</div></div>';
+      html+='<div class="card" style="text-align:center;padding:14px;"><div style="font-size:26px;font-weight:800;color:var(--accent);">'+daySessions.length+'</div><div style="font-size:12px;color:var(--text3);margin-top:2px;">Tables</div></div>';
+      html+='<div class="card" style="text-align:center;padding:14px;"><div style="font-size:26px;font-weight:800;color:var(--accent);">'+allTeachers.size+'</div><div style="font-size:12px;color:var(--text3);margin-top:2px;">Teachers</div></div>';
+      html+='<div class="card" style="text-align:center;padding:14px;"><div style="font-size:26px;font-weight:800;color:var(--success-text);">'+totalPresent+'/'+totalStudents+'</div><div style="font-size:12px;color:var(--text3);margin-top:2px;">Attended</div></div>';
+      html+='</div>';
+
+      // Per session
+      rptSlots.forEach(function(slot,si){
+        var slotTables=bySlot[slot];
+        var slotPresent=slotTables.reduce(function(s,t){return s+(t.present_count||0);},0);
+        var slotTotal=slotTables.reduce(function(sum,t){
+          return sum+((state.data['sess_students_'+t.id]||[]).length||t.total_count||0);
+        },0);
+        html+='<div style="margin-bottom:24px;page-break-inside:avoid;">';
+        // Session header bar
+        html+='<div style="background:var(--accent);color:#fff;padding:10px 16px;border-radius:var(--radius) var(--radius) 0 0;display:flex;justify-content:space-between;align-items:center;">';
+        html+='<span style="font-size:15px;font-weight:700;">Session '+(si+1)+': '+slot+'</span>';
+        html+='<span style="font-size:13px;">'+slotTables.length+' tables · '+slotPresent+'/'+slotTotal+' present</span>';
+        html+='</div>';
+        // Tables inside session
+        html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0;border:1px solid var(--accent);border-top:none;border-radius:0 0 var(--radius) var(--radius);overflow:hidden;">';
+        slotTables.forEach(function(s,ti){
           var studs=state.data['sess_students_'+s.id]||[];
-          html+='<div class="card" style="margin-bottom:8px;padding:12px;">';
-          html+='<div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">';
-          html+='<span style="font-weight:700;">T'+s.table_no+'</span>';
-          html+='<span>'+(s.staff_name||'<em style="color:var(--text3);">No teacher</em>')+'</span>';
-          html+='<span class="badge badge-gray">'+(s.subject||'—')+'</span>';
-          html+='<span class="badge '+(s.present_count>0?'badge-success':'badge-gray')+'">'+s.present_count+'/'+s.total_count+' present</span>';
-          if(studs.length===0){
-            html+='<button class="btn btn-sm btn-outline" data-action="toggle-session-students" data-id="'+s.id+'">Load students</button>';
-          }
+          var attMap={};
+          var attRecs=state.data['rpt_att_'+s.id]||[];
+          attRecs.forEach(function(a){attMap[a.student_id]={status:a.status};});
+          var borderLeft=ti>0?'border-left:1px solid var(--border);':'';
+          html+='<div style="padding:12px 14px;'+borderLeft+'border-top:'+(ti>=0?'1px solid var(--border)':'none')+'">';
+          html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+          html+='<div>';
+          html+='<span style="font-size:13px;font-weight:700;">Table '+s.table_no+'</span>';
+          html+='<span class="badge badge-gray" style="margin-left:8px;">'+(s.subject||'—')+'</span>';
           html+='</div>';
-          if(studs.length>0){
-            html+='<table style="margin:0;font-size:12px;"><thead><tr><th style="padding:2px 10px 2px 0;">Ad No.</th><th style="padding:2px 10px 2px 0;">Name</th><th style="padding:2px 10px 2px 0;">Year</th><th style="padding:2px 0;">Status</th></tr></thead><tbody>';
+          html+='<span style="font-size:12px;color:var(--text3);">'+(s.staff_name||'No teacher assigned')+'</span>';
+          html+='</div>';
+          if(studs.length===0){
+            html+='<div style="font-size:12px;color:var(--text3);font-style:italic;">No students allocated</div>';
+          }else{
+            html+='<table style="margin:0;font-size:12px;width:100%;">';
+            html+='<thead><tr style="background:var(--surface2);"><th style="padding:4px 8px 4px 0;font-size:11px;">Ad No.</th><th style="padding:4px 8px 4px 0;font-size:11px;">Name</th><th style="padding:4px 8px 4px 0;font-size:11px;">Year</th><th style="padding:4px 0;font-size:11px;">Att.</th></tr></thead><tbody>';
             studs.forEach(function(st){
-              html+='<tr>';
-              html+='<td style="padding:2px 10px 2px 0;color:var(--text3);">'+(st.admission_id||'—')+'</td>';
-              html+='<td style="padding:2px 10px 2px 0;font-weight:500;">'+(st.name||'—')+'</td>';
-              html+='<td style="padding:2px 10px 2px 0;">'+(st.year_group||'—')+'</td>';
-              html+='<td><span class="badge '+(st.status==='present'?'badge-success':st.status==='absent'?'badge-danger':'badge-gray')+'">'+(st.status||'—')+'</span></td>';
+              var attSt=attMap[st.student_id]||attMap[st.id]||{};
+              var stBadge=attSt.status==='present'?'badge-success':attSt.status==='absent'?'badge-danger':'badge-gray';
+              var stLabel=attSt.status||'—';
+              html+='<tr style="border-top:1px solid var(--border);">';
+              html+='<td style="padding:4px 8px 4px 0;color:var(--text3);">'+(st.admission_id||'—')+'</td>';
+              html+='<td style="padding:4px 8px 4px 0;font-weight:500;">'+(st.name||st.student_name||'—')+'</td>';
+              html+='<td style="padding:4px 8px 4px 0;">'+(st.year_group||'—')+'</td>';
+              html+='<td><span class="badge '+stBadge+'" style="font-size:10px;">'+stLabel+'</span></td>';
               html+='</tr>';
             });
             html+='</tbody></table>';
           }
           html+='</div>';
         });
-        html+='</div>';
+        html+='</div></div>';
       });
     }
     return html;
@@ -6324,7 +6370,22 @@ document.getElementById('reg-slot-filter')?.addEventListener('change',function(e
 document.getElementById('reg-subject-filter')?.addEventListener('change',function(e){state.regSubject=e.target.value;render();});
 document.getElementById('lp-date')?.addEventListener('change',function(e){state.lpDate=e.target.value;state.planDraft=null;render();});
 document.getElementById('lp-max-per')?.addEventListener('change',function(e){state.lpMaxPer=parseInt(e.target.value)||6;render();});
-document.getElementById('rpt-date-select')?.addEventListener('change',function(e){state.rptDate=e.target.value;render();});
+document.getElementById('rpt-date-select')?.addEventListener('change',async function(e){
+  state.rptDate=e.target.value;
+  state.rptLoading=true;
+  render();
+  if(state.rptDate){
+    var daySessions=(state.data.sessions||[]).filter(function(s){return s.date===state.rptDate;});
+    var loads=[];
+    daySessions.forEach(function(s){
+      loads.push(loadData('sess_students_'+s.id,'/api/sessions/'+s.id+'/students'));
+      loads.push(loadData('rpt_att_'+s.id,'/api/attendance/'+s.id));
+    });
+    await Promise.all(loads);
+  }
+  state.rptLoading=false;
+  render();
+});
 document.getElementById('setup-slot-sel')?.addEventListener('change',function(e){
   state.setupSlot=e.target.value;
   var opt=e.target.selectedOptions[0];
