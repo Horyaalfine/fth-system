@@ -3355,6 +3355,7 @@ function renderSessionPlan(){
     if(rptDate){
       html+='<button class="btn btn-primary" onclick="printLessonPlanReport()">&#128438; Print Report</button>';
       html+='<button class="btn btn-secondary" onclick="exportLessonPlanExcel()">&#128196; Export Excel</button>';
+      html+='<button class="btn btn-danger" data-action="rpt-clear-plan" data-date="'+rptDate+'">&#128465; Clear Plan</button>';
     }
     html+='</div></div>';
 
@@ -7192,6 +7193,23 @@ if(action==='rpt-del-session'){
     await API.delete('/api/sessions/'+id);
     state.data.sessions=(state.data.sessions||[]).filter(function(s){return s.id!==id;});
     toast('Table deleted','success');
+    render();
+  }catch(err){toast('Error: '+(err.message||err),'danger');}
+  return;
+}
+
+// Report: clear all sessions for a date
+if(action==='rpt-clear-plan'){
+  var clearDate=el.dataset.date;
+  if(!confirm('Delete ALL tables for '+clearDate+'? You will need to regenerate the plan. This cannot be undone.'))return;
+  try{
+    var sessionsToDelete=(state.data.sessions||[]).filter(function(s){return s.date===clearDate;});
+    for(var i=0;i<sessionsToDelete.length;i++){
+      await API.delete('/api/sessions/'+sessionsToDelete[i].id);
+    }
+    state.data.sessions=(state.data.sessions||[]).filter(function(s){return s.date!==clearDate;});
+    state.rptDate='';
+    toast('Plan cleared — go to Lesson Plan tab to regenerate','success');
     render();
   }catch(err){toast('Error: '+(err.message||err),'danger');}
   return;
