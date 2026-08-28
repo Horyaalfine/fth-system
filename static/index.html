@@ -282,6 +282,14 @@ body.readonly-user [data-action^="reset-"],
 body.readonly-user [data-action="change-password"]{
   display:none !important;
 }
+
+@media print {
+  .sidebar,.topbar,.mobile-nav-test,.hamburger,#mobile-logout-btn,.branch-switcher,
+  .no-print,.btn,.row-actions,nav { display:none!important; }
+  body { background:#fff!important; color:#000!important; }
+  .reg-form-wrap { max-width:100%!important; padding:0!important; }
+  .reg-form-wrap * { color:#000!important; background:#fff!important; border-color:#999!important; }
+}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -730,7 +738,7 @@ return`
 <td style="font-weight:600;color:var(--accent);">${s.monthly_fee?'£'+parseFloat(s.monthly_fee).toFixed(0):'—'}</td>
 <td style="color:var(--text3);">${s.hours_per_week?s.hours_per_week+'h':'—'}</td>
 <td>${statusDot(s.status)}</td>
-<td><div class="row-actions"><button class="btn btn-sm" data-action="edit-student" data-id="${s.id}">Edit</button><button class="btn btn-sm btn-danger" data-action="del-student" data-id="${s.id}">Del</button></div></td>
+<td><div class="row-actions"><button class="btn btn-sm" data-action="edit-student" data-id="${s.id}">Edit</button><button class="btn btn-sm" data-action="reg-form" data-id="${s.id}" title="Registration Form">📄 Form</button><button class="btn btn-sm btn-danger" data-action="del-student" data-id="${s.id}">Del</button></div></td>
 </tr>`).join(''):`<tr><td colspan="8"><div class="empty-state">No students found</div></td></tr>`}</tbody>
 </table></div></div>`;}
 
@@ -3572,6 +3580,74 @@ ${children.map(st=>childCard(st)).join('')}`;}
 
 // MODALS
 function renderModal(){const m=state.modal?.name||state.modal;
+if(m==='reg-form'){
+  const s=state.modal?.student||{};
+  const field=(label,val)=>val?'<tr><td style="padding:5px 10px 5px 0;color:#6b7280;font-size:13px;width:40%;">'+label+'</td><td style="padding:5px 0;font-size:13px;font-weight:500;">'+val+'</td></tr>':'';
+  const section=(title)=>'<tr><td colspan="2" style="padding:10px 0 4px;font-weight:700;color:#1e3a5f;font-size:14px;border-bottom:2px solid #2563eb;">'+title+'</td></tr>';
+  const body='<div class="reg-form-wrap" id="reg-form-print">'+
+    '<div style="text-align:center;margin-bottom:16px;">'+
+    '<div style="font-size:22px;font-weight:800;color:#1e3a5f;">Fine Tutors</div>'+
+    '<div style="font-size:14px;color:#2563eb;font-weight:600;">'+(s.branch_name||'')+'</div>'+
+    '<div style="font-size:18px;font-weight:700;margin-top:6px;color:#111;">Student Registration Form</div></div>'+
+    '<table style="width:100%;border-collapse:collapse;margin-bottom:16px;">'+
+    section('Student Details')+
+    field('Full Name',s.name)+
+    field('Admission ID',s.admission_id)+
+    field('Date of Birth',s.date_of_birth)+
+    field('Gender',s.gender)+
+    field('Year Group',s.year_group)+
+    field('Current School',s.current_school)+
+    section('Parent / Carer 1')+
+    field('Name',(s.carer1_first_name||'')+' '+(s.carer1_last_name||''))+
+    field('Address',s.carer1_address)+
+    field('Postcode',s.carer1_postcode)+
+    field('Telephone',s.carer1_telephone)+
+    field('Mobile',s.carer1_mobile)+
+    field('Email',s.carer1_email)+
+    field('Occupation',s.carer1_occupation)+
+    ((s.carer2_first_name||s.carer2_last_name)?
+    section('Parent / Carer 2')+
+    field('Name',(s.carer2_first_name||'')+' '+(s.carer2_last_name||''))+
+    field('Address',s.carer2_address)+
+    field('Postcode',s.carer2_postcode)+
+    field('Telephone',s.carer2_telephone)+
+    field('Mobile',s.carer2_mobile)+
+    field('Email',s.carer2_email)+
+    field('Occupation',s.carer2_occupation):'')+
+    ((s.emergency_name)?
+    section('Emergency Contact')+
+    field('Name',s.emergency_name)+
+    field('Telephone',s.emergency_telephone)+
+    field('Relationship',s.emergency_relation):'')+
+    '</table>'+
+    '<div style="margin-top:16px;padding:14px;background:#f0f4ff;border-radius:8px;border-left:4px solid #2563eb;">'+
+    '<div style="font-weight:700;color:#1e3a5f;font-size:15px;margin-bottom:10px;">Terms and Conditions</div>'+
+    '<div style="font-weight:600;color:#2563eb;margin:8px 0 4px;">Lesson Plan</div><ul style="margin:0 0 8px;padding-left:20px;font-size:13px;line-height:1.7;">'+
+    '<li>Only agreed lesson time will be given to the students.</li>'+
+    '<li>Changes to a lesson plan can only be made on the 25th or before of the previous month to the next month and this can be done once a year ONLY.</li>'+
+    '<li>Only when we are informed about your child's absence prior to the lesson starting, they will be entitled for a catch-up session. The catch-up session will expire within 30 days of their absence.</li>'+
+    '<li>It is highly recommended not to change your child's lesson timings as this will lead to change of teacher and will affect the child's progress.</li>'+
+    '<li>4 weeks' notice is required if the student is leaving.</li></ul>'+
+    '<div style="font-weight:600;color:#2563eb;margin:8px 0 4px;">Materials and Resources</div><ul style="margin:0 0 8px;padding-left:20px;font-size:13px;line-height:1.7;">'+
+    '<li>Children must bring their own stationery, for example: notebook, pencils, calculator etc.</li></ul>'+
+    '<div style="font-weight:600;color:#2563eb;margin:8px 0 4px;">Fees</div><ul style="margin:0 0 0;padding-left:20px;font-size:13px;line-height:1.7;">'+
+    '<li>The admission fee is a one-off payment and is non-refundable.</li>'+
+    '<li>The book fee is a one-off payment for the academic year and is non-refundable. If pupils lose their books there will be a charge of £9.95 for a new one.</li>'+
+    '<li>Monthly fee must be paid on the 1st day of each month. We do not accept payment instalments.</li>'+
+    '<li>Monthly fee will not be adjusted for missing lessons; you will need to book a catch-up session.</li></ul></div>'+
+    '<table style="width:100%;margin-top:28px;border-collapse:collapse;">'+
+    '<tr>'+
+    '<td style="width:38%;border-top:1px solid #374151;padding-top:8px;font-size:12px;color:#6b7280;">Parent/Guardian Signature</td>'+
+    '<td style="width:8%;"></td>'+
+    '<td style="width:38%;border-top:1px solid #374151;padding-top:8px;font-size:12px;color:#6b7280;">Fine Tutors Signature</td>'+
+    '<td style="width:8%;"></td>'+
+    '<td style="width:8%;border-top:1px solid #374151;padding-top:8px;font-size:12px;color:#6b7280;">Date</td>'+
+    '</tr></table>'+
+    '</div>';
+  const footer='<button class="btn no-print" onclick="window.print()">🖨 Print</button>'+
+    '<button class="btn no-print" data-action="email-reg-form">✉ Email to parent</button>'+
+    '<button class="btn no-print" data-action="save-reg-portal">💾 Save to portal</button>';
+  return mWrap('📄 Registration Form — '+s.name,body,footer);}
 if(m==='reminder-history'){
   return mWrap('📋 Reminder History — '+( state.modal?.studentName||''),state.modal?.html||'','');}
 if(m==='fee-reminder-preview'){
@@ -5263,6 +5339,25 @@ if(action==='send-announcement-email'){
   const r=await API.post('/api/announcements/'+id+'/send-email',{});
   if(r&&r.error){toast(r.error,'error');return;}
   toast('Sent to '+r.sent+' parent'+(r.sent!==1?'s':'')+(r.failed?' ('+r.failed+' failed)':''));return;}
+if(action==='reg-form'){
+  const stu=(state.data.students||[]).find(s=>s.id===id);
+  state.modal={name:'reg-form',student:stu||{id}};
+  const rd=await API.get('/api/students/'+id+'/registration-form');
+  if(rd&&rd.error){toast(rd.error,'error');return;}
+  state.modal={name:'reg-form',student:rd};render();return;}
+if(action==='email-reg-form'){
+  const sid=state.modal?.student?.id;
+  if(!sid)return;
+  const r=await API.post('/api/students/'+sid+'/email-registration',{});
+  if(r&&r.error){toast(r.error,'error');return;}
+  toast('Registration form sent to: '+r.sent_to.join(', '));
+  state.modal.student._reg_sent=true;render();return;}
+if(action==='save-reg-portal'){
+  const sid=state.modal?.student?.id;
+  if(!sid)return;
+  await API.post('/api/students/'+sid+'/save-registration',{});
+  toast('Saved to parent portal');
+  state.modal.student._reg_sent=true;render();return;}
 if(action==='send-fee-reminder'){
   const cc=state.data.credit_control||[];
   const st=cc.find(r=>r.student_id===id);

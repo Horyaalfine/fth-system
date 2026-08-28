@@ -3664,3 +3664,146 @@ def get_reminder_history(student_id):
     result = rows(cur)
     cur.close(); conn.close()
     return jsonify(result)
+
+# ── Registration Form ─────────────────────────────────────────────────────────
+REG_ROLES = ('super_admin','branch_manager','head_of_centre','head_of_branches','admin','receptionist')
+
+@api_bp.route('/api/students/<int:sid>/registration-form', methods=['GET'])
+@require_roles(*REG_ROLES)
+def get_registration_form(sid):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        SELECT s.*, b.name as branch_name,
+               ss.subjects
+        FROM students s
+        JOIN branches b ON b.id=s.branch_id
+        LEFT JOIN (
+            SELECT student_id, STRING_AGG(DISTINCT subject, ', ' ORDER BY subject) as subjects
+            FROM session_students ss2
+            JOIN sessions se ON se.id=ss2.session_id
+            WHERE ss2.student_id=%s
+        ) ss ON ss.student_id=s.id
+        WHERE s.id=%s
+    """, (sid, sid))
+    st = cur.fetchone()
+    cur.close(); conn.close()
+    if not st:
+        return jsonify({'error':'Student not found'}), 404
+    data = dict(st)
+    for k,v in data.items():
+        if hasattr(v,'isoformat'): data[k]=str(v)
+    return jsonify(data)
+
+@api_bp.route('/api/students/<int:sid>/save-registration', methods=['POST'])
+@require_roles(*REG_ROLES)
+def save_registration_sent(sid):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO registration_sent (student_id, sent_by, sent_at)
+        VALUES (%s, %s, NOW())
+        ON CONFLICT (student_id) DO UPDATE SET sent_by=EXCLUDED.sent_by, sent_at=NOW()
+    """, (sid, session.get('user_id')))
+    conn.commit(); cur.close(); conn.close()
+    return jsonify({'ok': True})
+
+@api_bp.route('/api/students/<int:sid>/email-registration', methods=['POST'])
+@require_roles(*REG_ROLES)
+def email_registration_form(sid):
+    smtp_email    = os.environ.get('SMTP_EMAIL','')
+    smtp_password = os.environ.get('SMTP_PASSWORD','')
+    if not smtp_email or not smtp_password:
+        return jsonify({'error':'Email not configured'}), 500
+
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("SELECT s.*, b.name as branch_name FROM students s JOIN branches b ON b.id=s.branch_id WHERE s.id=%s", (sid,))
+    st = cur.fetchone()
+    if not st:
+        cur.close(); conn.close()
+        return jsonify({'error':'Student not found'}), 404
+
+    recipients = []
+    for em_field, nm_field in [('carer1_email','carer1_first_name'),('carer2_email','carer2_first_name')]:
+        em = (st.get(em_field) or '').strip()
+        if em:
+            recipients.append({'email':em,'name':st.get(nm_field,'')})
+
+    if not recipients:
+        cur.close(); conn.close()
+        return jsonify({'error':'No parent email found for this student'}), 400
+
+    tc_html = """
+<h3 style="color:#1e3a5f;margin-top:20px;">Terms and Conditions</h3>
+<h4 style="color:#2563eb;">Lesson Plan</h4>
+<ul>
+<li>Only agreed lesson time will be given to the students.</li>
+<li>Changes to a lesson plan can only be made on the 25th or before of the previous month to the next month and this can be done once a year ONLY.</li>
+<li>Only when we are informed about your child's absence prior to the lesson starting, they will be entitled for a catch-up session. The catch-up session will expire within 30 days of their absence.</li>
+<li>It is highly recommended not to change your child's lesson timings as this will lead to change of teacher and will affect the child's progress.</li>
+<li>4 weeks' notice is required if the student is leaving.</li>
+</ul>
+<h4 style="color:#2563eb;">Materials and Resources</h4>
+<ul>
+<li>Children must bring their own stationery, for example: notebook, pencils, calculator etc.</li>
+</ul>
+<h4 style="color:#2563eb;">Fees</h4>
+<ul>
+<li>The admission fee is a one-off payment and is non-refundable.</li>
+<li>The book fee is a one-off payment for the academic year and is non-refundable. If pupils lose their books there will be a charge of £9.95 for a new one.</li>
+<li>Monthly fee must be paid on the 1st day of each month. We do not accept payment instalments.</li>
+<li>Monthly fee will not be adjusted for missing lessons; you will need to book a catch-up session.</li>
+</ul>"""
+
+    html_body = f"""
+<div style="font-family:Arial,sans-serif;max-width:700px;margin:0 auto;">
+  <div style="background:#1e3a5f;padding:24px;border-radius:8px 8px 0 0;">
+    <h2 style="color:#fff;margin:0;">Fine Tutors — Registration Form</h2>
+    <div style="color:#93c5fd;margin-top:4px;">{st['branch_name']}</div>
+  </div>
+  <div style="background:#f9fafb;padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+    <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+      <tr><td style="padding:6px 0;color:#6b7280;width:40%;">Student Name</td><td style="padding:6px 0;font-weight:600;">{st['name']}</td></tr>
+      <tr><td style="padding:6px 0;color:#6b7280;">Admission ID</td><td style="padding:6px 0;">{st['admission_id']}</td></tr>
+      <tr><td style="padding:6px 0;color:#6b7280;">Date of Birth</td><td style="padding:6px 0;">{st.get('date_of_birth') or '—'}</td></tr>
+      <tr><td style="padding:6px 0;color:#6b7280;">Year Group</td><td style="padding:6px 0;">{st.get('year_group') or '—'}</td></tr>
+      <tr><td style="padding:6px 0;color:#6b7280;">Current School</td><td style="padding:6px 0;">{st.get('current_school') or '—'}</td></tr>
+    </table>
+    <hr style="border:none;border-top:1px solid #e5e7eb;">
+    {tc_html}
+    <div style="margin-top:30px;padding-top:20px;border-top:1px solid #e5e7eb;">
+      <p style="font-size:13px;color:#374151;">By enrolling your child at Fine Tutors, you agree to the above Terms and Conditions.</p>
+      <table style="width:100%;margin-top:20px;">
+        <tr>
+          <td style="width:45%;border-top:1px solid #374151;padding-top:8px;font-size:13px;color:#6b7280;">Parent/Guardian Signature</td>
+          <td style="width:10%;"></td>
+          <td style="width:45%;border-top:1px solid #374151;padding-top:8px;font-size:13px;color:#6b7280;">Date</td>
+        </tr>
+      </table>
+    </div>
+    <p style="font-size:11px;color:#9ca3af;margin-top:24px;">Fine Tutors · {st['branch_name']}</p>
+  </div>
+</div>"""
+
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(smtp_email, smtp_password)
+        for r in recipients:
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = f"Registration Form — {st['name']} — Fine Tutors {st['branch_name']}"
+            msg['From'] = f"Fine Tutors <{smtp_email}>"
+            msg['To'] = r['email']
+            msg.attach(MIMEText(html_body, 'html'))
+            server.sendmail(smtp_email, r['email'], msg.as_string())
+        server.quit()
+    except Exception as e:
+        cur.close(); conn.close()
+        return jsonify({'error': str(e)}), 500
+
+    # Mark as sent
+    cur.execute("""
+        INSERT INTO registration_sent (student_id, sent_by, sent_at)
+        VALUES (%s,%s,NOW())
+        ON CONFLICT (student_id) DO UPDATE SET sent_by=EXCLUDED.sent_by, sent_at=NOW()
+    """, (sid, session.get('user_id')))
+    conn.commit(); cur.close(); conn.close()
+    return jsonify({'ok': True, 'sent_to': [r['email'] for r in recipients]})

@@ -553,6 +553,13 @@ CREATE TABLE IF NOT EXISTS fee_reminder_log (
 );
 CREATE INDEX IF NOT EXISTS idx_fee_reminder_student ON fee_reminder_log(student_id);
 
+-- ── Registration sent log ──
+CREATE TABLE IF NOT EXISTS registration_sent (
+    student_id  INT PRIMARY KEY REFERENCES students(id) ON DELETE CASCADE,
+    sent_by     INT REFERENCES users(id) ON DELETE SET NULL,
+    sent_at     TIMESTAMP DEFAULT NOW()
+);
+
 
 
 ALTER TABLE students ADD COLUMN IF NOT EXISTS carer1_postcode TEXT;
