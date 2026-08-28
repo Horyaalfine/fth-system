@@ -755,7 +755,7 @@ return`
 <td style="font-weight:600;color:var(--accent);">${s.monthly_fee?'£'+parseFloat(s.monthly_fee).toFixed(0):'—'}</td>
 <td style="color:var(--text3);">${s.hours_per_week?s.hours_per_week+'h':'—'}</td>
 <td>${statusDot(s.status)}</td>
-<td><div class="row-actions"><button class="btn btn-sm" data-action="edit-student" data-id="${s.id}">Edit</button><button class="btn btn-sm" data-action="reg-form" data-id="${s.id}" title="Contract Form">📄 Contract</button><button class="btn btn-sm" data-action="admission-slip" data-id="${s.id}" title="Admission Slip">📋 Slip</button><button class="btn btn-sm btn-danger" data-action="del-student" data-id="${s.id}">Del</button></div></td>
+<td><div class="row-actions"><button class="btn btn-sm" data-action="edit-student" data-id="${s.id}">Edit</button><button class="btn btn-sm" data-action="reg-form" data-id="${s.id}" title="Contract Form">📄 Contract</button><button class="btn btn-sm" data-action="admission-slip" data-id="${s.id}" title="Admission Slip">📋 Adm Slip</button><button class="btn btn-sm btn-danger" data-action="del-student" data-id="${s.id}">Del</button></div></td>
 </tr>`).join(''):`<tr><td colspan="8"><div class="empty-state">No students found</div></td></tr>`}</tbody>
 </table></div></div>`;}
 
