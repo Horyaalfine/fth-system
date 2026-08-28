@@ -3277,22 +3277,26 @@ function renderSessionPlan(){
       html+='<span class="badge badge-gray">'+parts[1]+' ('+parts[0].replace(/.*\(|\).*/g,'')+') ×'+subjSlotCounts[k]+'</span>';
     });
     html+='</div>';
-    html+='<div style="margin-top:12px;display:flex;gap:8px;">';
+    html+='<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">';
     html+='<button class="btn btn-primary" data-action="lp-generate">&#9889; Auto-Generate Plan</button>';
-    if(draft&&draft.tables&&draft.tables.length>0){
+    html+='<button class="btn btn-secondary" data-action="lp-manual">&#9998; Manual Plan</button>';
+    if(draft&&draft.tables!==undefined){
       html+='<button class="btn btn-success" data-action="lp-save">✓ Save Plan</button>';
-      html+='<button class="btn btn-sm" onclick="window.print()">&#128438; Print</button>';
+      html+='<button class="btn btn-danger btn-sm" data-action="lp-clear-draft">&#128465; Clear</button>';
     }
     html+='</div></div>';
 
-    if(!draft||!draft.tables||draft.tables.length===0){
+    if(!draft||!draft.tables){
       if(expected.length===0){
         html+='<div class="card" style="text-align:center;color:var(--text3);padding:32px;">No students registered for '+dtLabel+' sessions.<br>Go to a student profile and set their timetable first.</div>';
       }else{
-        html+='<div class="card" style="text-align:center;color:var(--text3);padding:32px;">Click <strong>Auto-Generate Plan</strong> to create tables from the student register,<br>or build manually by adding tables below.</div>';
+        html+='<div class="card" style="text-align:center;color:var(--text3);padding:32px;">Click <strong>Auto-Generate Plan</strong> to auto-create tables, or <strong>Manual Plan</strong> to build from scratch.</div>';
       }
     }else{
       // Show draft tables
+      if(draft.tables.length===0){
+        html+='<div class="card" style="text-align:center;color:var(--text3);padding:20px;margin-bottom:12px;">Draft started — use <strong>＋ Add Blank Table</strong> below to build your plan.</div>';
+      }
       var slots=[...new Set(draft.tables.map(function(t){return t.slot;}))].sort();
       slots.forEach(function(slot){
         var slotTables=draft.tables.filter(function(t){return t.slot===slot;});
@@ -7286,6 +7290,20 @@ if(action==='rpt-del-session'){
     render();
   }catch(err){toast('Error: '+(err.message||err),'danger');}
   return;
+}
+
+// Draft: start manual plan (empty draft)
+if(action==='lp-manual'){
+  var lpDate=state.lpDate||new Date().toISOString().slice(0,10);
+  function _getDT(d){var w=new Date(d+'T00:00:00').getDay();return w===6?'saturday':w===0?'sunday':'weekday';}
+  state.planDraft={date:lpDate,dayType:_getDT(lpDate),tables:[]};
+  state.lpAddingTable=true;
+  render();return;
+}
+// Draft: clear current draft
+if(action==='lp-clear-draft'){
+  if(!confirm('Clear the current draft plan?'))return;
+  state.planDraft=null;state.lpAddingTable=false;render();return;
 }
 
 // Draft: toggle add-table form
