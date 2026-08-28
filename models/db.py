@@ -541,6 +541,10 @@ CREATE INDEX IF NOT EXISTS idx_ann_email_log_ann ON announcement_email_log(annou
 
 -- ── CREDIT CONTROL ──
 ALTER TABLE students ADD COLUMN IF NOT EXISTS pause_reminders BOOLEAN DEFAULT FALSE;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS batch_id TEXT;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS due_date DATE;
+CREATE INDEX IF NOT EXISTS idx_invoices_batch ON invoices(batch_id);
 CREATE TABLE IF NOT EXISTS fee_reminder_log (
     id               SERIAL PRIMARY KEY,
     student_id       INT NOT NULL REFERENCES students(id) ON DELETE CASCADE,

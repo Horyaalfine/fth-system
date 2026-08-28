@@ -1609,7 +1609,8 @@ function renderInvoices(){
   html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">';
   html+='<div><div class="section-title">Invoices & fees</div><div class="section-sub">Fee tracking, editing and management</div></div>';
   html+='<div style="display:flex;gap:8px;">';
-  html+='<button class="btn btn-primary" data-action="add-fee-invoice">+ Generate invoice</button>';
+  html+='<button class="btn btn-primary" data-action="add-fee-invoice">+ Generate invoice</button>'+
+  '<button class="btn" data-action="create-batch-invoice" style="margin-left:8px;">📋 Create invoice</button>';
   html+='<button class="btn btn-success" data-action="gen-monthly-fees" style="background:var(--success);color:#fff;border-color:var(--success);">⚡ Generate monthly fees</button>';
   html+='</div></div>';
 
@@ -3675,7 +3676,7 @@ if(m==='gen-weekly-sessions')return modalWeeklySessions();if(m==='add-user'||m==
   if(m==='edit-opening-balance')return modalOpeningBalance();
   if(m==='auto-plan-confirm')return modalAutoPlanConfirm();
   if(m==='gen-monthly-fees')return modalGenMonthlyFees();
-  if(m==='add-fee-invoice')return modalAddFeeInvoice();if(m==='add-progress')return modalProgress();if(m==='add-parent-user'||m==='edit-parent-user')return modalParentUser();if(m==='add-staff-att'||m==='edit-staff-att')return modalStaffAtt();
+  if(m==='add-fee-invoice')return modalAddFeeInvoice();if(m==='create-batch-invoice')return modalBatchInvoice();if(m==='batch-invoice-result')return modalBatchInvoiceResult();if(m==='add-progress')return modalProgress();if(m==='add-parent-user'||m==='edit-parent-user')return modalParentUser();if(m==='add-staff-att'||m==='edit-staff-att')return modalStaffAtt();
   if(m==='add-payment'||m==='edit-payment')return modalPayment();
   if(m==='add-instalment-plan')return modalInstalmentPlan();
   if(m==='add-hq-transfer')return modalHQTransfer();
@@ -4044,6 +4045,79 @@ function modalAddFeeInvoice(){
     '</div>',footer);
 }
 
+
+function modalBatchInvoice(){
+  const students=(state.data.students||[]).filter(s=>s.status==='active');
+  const today=new Date().toISOString().slice(0,7);
+  const studOpts='<option value="">— Select student —</option>'+students.map(s=>'<option value="'+s.id+'">'+s.admission_id+' — '+s.name+'</option>').join('');
+  const feeOpts='<option value="monthly_fee">Monthly fee</option><option value="admission_fee">Admission fee</option><option value="book_fee">Book fee</option><option value="past_papers_fee">Past papers fee</option><option value="opening_balance">Opening balance</option><option value="miscellaneous">Miscellaneous</option>';
+  const lineRow=(i)=>'<div class="line-item-row" style="display:grid;grid-template-columns:1fr 100px 1fr auto;gap:8px;align-items:end;margin-bottom:8px;" id="li-'+i+'">'+
+    '<div><label style="font-size:11px;color:var(--text3);">Charge type</label><select class="li-type" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface2);color:var(--text);font-size:13px;">'+feeOpts+'</select></div>'+
+    '<div><label style="font-size:11px;color:var(--text3);">Amount £</label><input type="number" class="li-amount" placeholder="0.00" min="0" step="0.01" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface2);color:var(--text);font-size:13px;" oninput="batchUpdateTotal()"></div>'+
+    '<div><label style="font-size:11px;color:var(--text3);">Description (optional)</label><input type="text" class="li-desc" placeholder="e.g. KS3 Maths book" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface2);color:var(--text);font-size:13px;"></div>'+
+    '<div style="padding-bottom:2px;"><button onclick="removeLine('+i+')" style="background:none;border:1px solid var(--danger-text,#dc2626);color:var(--danger-text,#dc2626);border-radius:var(--radius);padding:7px 10px;cursor:pointer;font-size:13px;">✕</button></div>'+
+    '</div>';
+  const body='<div class="form-grid" style="margin-bottom:16px;">'+
+    '<div class="field"><label>Student</label><select id="bi-student">'+studOpts+'</select></div>'+
+    '<div class="field"><label>Month</label><input type="month" id="bi-month" value="'+today+'"></div>'+
+    '</div>'+
+    '<div style="font-weight:600;font-size:13px;color:var(--text2);margin-bottom:8px;">Charges</div>'+
+    '<div id="bi-lines">'+lineRow(0)+'</div>'+
+    '<button onclick="addLine()" style="margin-top:4px;background:none;border:1px dashed var(--border);color:var(--accent);border-radius:var(--radius);padding:8px 16px;cursor:pointer;font-size:13px;width:100%;">+ Add another charge</button>'+
+    '<div style="margin-top:16px;padding:12px 16px;background:var(--surface2);border-radius:var(--radius);display:flex;justify-content:space-between;align-items:center;">'+
+    '<span style="font-size:13px;color:var(--text3);">Total</span>'+
+    '<span id="bi-total" style="font-size:20px;font-weight:700;color:var(--accent);">£0.00</span></div>';
+  return mWrap('📋 Create Invoice',body,'<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" data-action="save-batch-invoice">Save Invoice</button>');}
+
+window._lineCount=1;
+function addLine(){
+  const c=window._lineCount++;
+  const feeOpts='<option value="monthly_fee">Monthly fee</option><option value="admission_fee">Admission fee</option><option value="book_fee">Book fee</option><option value="past_papers_fee">Past papers fee</option><option value="opening_balance">Opening balance</option><option value="miscellaneous">Miscellaneous</option>';
+  const div=document.createElement('div');
+  div.className='line-item-row';div.id='li-'+c;
+  div.style.cssText='display:grid;grid-template-columns:1fr 100px 1fr auto;gap:8px;align-items:end;margin-bottom:8px;';
+  div.innerHTML='<div><label style="font-size:11px;color:var(--text3);">Charge type</label><select class="li-type" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface2);color:var(--text);font-size:13px;">'+feeOpts+'</select></div>'+
+    '<div><label style="font-size:11px;color:var(--text3);">Amount £</label><input type="number" class="li-amount" placeholder="0.00" min="0" step="0.01" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface2);color:var(--text);font-size:13px;" oninput="batchUpdateTotal()"></div>'+
+    '<div><label style="font-size:11px;color:var(--text3);">Description (optional)</label><input type="text" class="li-desc" placeholder="e.g. KS3 Maths book" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface2);color:var(--text);font-size:13px;"></div>'+
+    '<div style="padding-bottom:2px;"><button onclick="removeLine('+c+')" style="background:none;border:1px solid var(--danger-text,#dc2626);color:var(--danger-text,#dc2626);border-radius:var(--radius);padding:7px 10px;cursor:pointer;font-size:13px;">✕</button></div>';
+  document.getElementById('bi-lines')?.appendChild(div);
+}
+function removeLine(i){const el=document.getElementById('li-'+i);if(el)el.remove();batchUpdateTotal();}
+function batchUpdateTotal(){
+  let t=0;
+  document.querySelectorAll('.li-amount').forEach(function(inp){t+=parseFloat(inp.value||0)||0;});
+  const el=document.getElementById('bi-total');if(el)el.textContent='£'+t.toFixed(2);
+}
+
+function modalBatchInvoiceResult(){
+  const batch=state.modal?.batch||[];
+  if(!batch.length) return mWrap('Invoice','No items','<button class="btn" id="modal-cancel">Close</button>');
+  const st=batch[0];
+  const feeLabels={monthly_fee:'Monthly Fee',opening_balance:'Opening Balance',admission_fee:'Admission Fee',book_fee:'Book Fee',past_papers_fee:'Past Papers Fee',miscellaneous:'Miscellaneous'};
+  const total=batch.reduce((s,r)=>s+parseFloat(r.amount||0),0);
+  const tableRows=batch.map(r=>'<tr>'+
+    '<td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;">'+(feeLabels[r.fee_type]||r.fee_type)+'</td>'+
+    '<td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;color:var(--text3);">'+(r.description||'—')+'</td>'+
+    '<td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;font-weight:600;text-align:right;">£'+parseFloat(r.amount).toFixed(2)+'</td></tr>').join('');
+  const body='<div id="batch-inv-print">'+
+    '<div style="text-align:center;margin-bottom:16px;">'+
+    '<div style="font-size:20px;font-weight:800;color:#1e3a5f;">Fine Tutors</div>'+
+    '<div style="color:#2563eb;font-weight:600;">'+(st.branch_name||'')+'</div>'+
+    '<div style="font-size:16px;font-weight:700;margin-top:4px;">Invoice</div></div>'+
+    '<table style="width:100%;font-size:13px;margin-bottom:16px;border-collapse:collapse;">'+
+    '<tr><td style="color:#6b7280;padding:4px 0;width:40%;">Student</td><td style="font-weight:600;">'+(st.student_name||'')+'</td></tr>'+
+    '<tr><td style="color:#6b7280;padding:4px 0;">Admission ID</td><td>'+(st.admission_id||'')+'</td></tr>'+
+    '<tr><td style="color:#6b7280;padding:4px 0;">Month</td><td>'+(st.month||'')+'</td></tr>'+
+    '<tr><td style="color:#6b7280;padding:4px 0;">Date issued</td><td>'+(st.issued||'')+'</td></tr></table>'+
+    '<table style="width:100%;border-collapse:collapse;background:#f9fafb;border-radius:6px;overflow:hidden;">'+
+    '<thead><tr style="background:#e5e7eb;"><th style="padding:8px 12px;text-align:left;font-size:12px;">Charge</th><th style="padding:8px 12px;text-align:left;font-size:12px;">Description</th><th style="padding:8px 12px;text-align:right;font-size:12px;">Amount</th></tr></thead>'+
+    '<tbody>'+tableRows+'</tbody>'+
+    '<tfoot><tr style="background:#eff6ff;"><td colspan="2" style="padding:10px 12px;font-weight:700;">Total</td><td style="padding:10px 12px;text-align:right;font-weight:700;font-size:16px;color:#2563eb;">£'+total.toFixed(2)+'</td></tr></tfoot></table>'+
+    '<p style="font-size:12px;color:#6b7280;margin-top:16px;">Monthly fees are due on the 1st of each month. Please contact us if you have any questions.</p></div>';
+  const footer='<button class="btn no-print" onclick="state.modal=null;render();">Close</button>'+
+    '<button class="btn no-print" onclick="window.print()">🖨 Print</button>'+
+    '<button class="btn no-print btn-primary" data-action="email-batch-invoice">✉ Email to parent</button>';
+  return mWrap('✅ Invoice Created — '+st.student_name+' · £'+total.toFixed(2),body,footer);}
 function modalMarkPaid(){
   const inv=state.editTarget||{};
   const feeLabels={monthly_fee:'Monthly fee',opening_balance:'Opening balance',admission_fee:'Admission fee',book_fee:'Book fee',past_papers_fee:'Past papers fee',miscellaneous:'Miscellaneous'};
@@ -5385,6 +5459,30 @@ if(action==='view-reminder-history'){
     '<th style="padding:8px 12px;text-align:left;font-size:12px;color:var(--text3);border-bottom:2px solid var(--border);">Sent By</th>'+
     '</tr></thead><tbody>'+tableRows+'</tbody></table>';
   state.modal={name:'reminder-history',html:body,studentName:st?.student_name||''};render();return;}
+if(action==='create-batch-invoice'){
+  state.modal='create-batch-invoice';window._lineCount=1;render();return;}
+if(action==='save-batch-invoice'){
+  const sid=parseInt(document.getElementById('bi-student')?.value||'0');
+  const month=document.getElementById('bi-month')?.value||'';
+  if(!sid){toast('Please select a student','error');return;}
+  if(!month){toast('Please select a month','error');return;}
+  const items=[];
+  document.querySelectorAll('.line-item-row').forEach(function(row){
+    const ft=row.querySelector('.li-type')?.value||'monthly_fee';
+    const amt=parseFloat(row.querySelector('.li-amount')?.value||'0');
+    const desc=row.querySelector('.li-desc')?.value||'';
+    if(amt>0) items.push({fee_type:ft,amount:amt,description:desc});
+  });
+  if(!items.length){toast('Add at least one charge','error');return;}
+  const r=await API.post('/api/invoices/batch',{student_id:sid,month,items});
+  if(r&&r.error){toast(r.error,'error');return;}
+  await loadData('invoices','/api/invoices',branchParam());
+  state.modal={name:'batch-invoice-result',batch:r.items,batch_id:r.batch_id};render();return;}
+if(action==='email-batch-invoice'){
+  const bid=state.modal?.batch_id;if(!bid)return;
+  const r=await API.post('/api/invoices/batch/'+bid+'/email',{});
+  if(r&&r.error){toast(r.error,'error');return;}
+  toast('Invoice emailed to: '+r.sent_to.join(', '));return;}
 if(action==='confirm-fee-reminder'){
   const st=state.modal?.student;
   if(!st){return;}

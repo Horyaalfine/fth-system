@@ -3807,3 +3807,144 @@ def email_registration_form(sid):
     """, (sid, session.get('user_id')))
     conn.commit(); cur.close(); conn.close()
     return jsonify({'ok': True, 'sent_to': [r['email'] for r in recipients]})
+
+# ── Batch Invoice ─────────────────────────────────────────────────────────────
+import uuid as _uuid
+
+@api_bp.route('/api/invoices/batch', methods=['POST'])
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches','admin','receptionist')
+def create_batch_invoice():
+    data = request.json or {}
+    student_id = data.get('student_id')
+    month      = data.get('month')
+    items      = data.get('items', [])
+    if not student_id or not month or not items:
+        return jsonify({'error':'student_id, month and items are required'}), 400
+
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("SELECT id,branch_id,name,admission_id FROM students WHERE id=%s", (student_id,))
+    st = cur.fetchone()
+    if not st:
+        cur.close(); conn.close()
+        return jsonify({'error':'Student not found'}), 404
+
+    batch_id = str(_uuid.uuid4())
+    created_ids = []
+    for item in items:
+        fee_type    = item.get('fee_type','monthly_fee')
+        amount      = float(item.get('amount',0))
+        description = item.get('description','')
+        due_date    = item.get('due_date') or None
+        if amount <= 0:
+            continue
+        cur.execute("""
+            INSERT INTO invoices (student_id, branch_id, month, amount, amount_paid,
+                                  status, fee_type, description, due_date, batch_id, issued)
+            VALUES (%s,%s,%s,%s,0,'due',%s,%s,%s,%s,CURRENT_DATE)
+            RETURNING id
+        """, (student_id, st['branch_id'], month, amount, fee_type, description, due_date, batch_id))
+        created_ids.append(cur.fetchone()['id'])
+
+    conn.commit()
+    # Return full batch for printing/emailing
+    cur.execute("""
+        SELECT i.*, s.name as student_name, s.admission_id,
+               b.name as branch_name,
+               s.carer1_email, s.carer2_email,
+               s.carer1_first_name, s.carer2_first_name
+        FROM invoices i
+        JOIN students s ON s.id=i.student_id
+        JOIN branches b ON b.id=i.branch_id
+        WHERE i.batch_id=%s ORDER BY i.id
+    """, (batch_id,))
+    batch = rows(cur)
+    cur.close(); conn.close()
+    for r in batch:
+        for k,v in r.items():
+            if hasattr(v,'isoformat'): r[k]=str(v)
+    return jsonify({'ok':True,'batch_id':batch_id,'items':batch})
+
+@api_bp.route('/api/invoices/batch/<batch_id>/email', methods=['POST'])
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches','admin','receptionist')
+def email_batch_invoice(batch_id):
+    smtp_email    = os.environ.get('SMTP_EMAIL','')
+    smtp_password = os.environ.get('SMTP_PASSWORD','')
+    if not smtp_email or not smtp_password:
+        return jsonify({'error':'Email not configured'}), 500
+
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        SELECT i.*, s.name as student_name, s.admission_id,
+               b.name as branch_name,
+               s.carer1_email, s.carer2_email,
+               s.carer1_first_name, s.carer2_first_name
+        FROM invoices i
+        JOIN students s ON s.id=i.student_id
+        JOIN branches b ON b.id=i.branch_id
+        WHERE i.batch_id=%s ORDER BY i.id
+    """, (batch_id,))
+    batch = rows(cur)
+    cur.close(); conn.close()
+    if not batch:
+        return jsonify({'error':'Invoice batch not found'}), 404
+
+    st = batch[0]
+    feeLabels = {'monthly_fee':'Monthly Fee','opening_balance':'Opening Balance',
+                 'admission_fee':'Admission Fee','book_fee':'Book Fee',
+                 'past_papers_fee':'Past Papers Fee','miscellaneous':'Miscellaneous'}
+    total = sum(float(r['amount']) for r in batch)
+    rows_html = ''.join([
+        f"<tr><td style='padding:8px 12px;border-bottom:1px solid #e5e7eb;'>{feeLabels.get(r['fee_type'],r['fee_type'])}</td>"
+        f"<td style='padding:8px 12px;border-bottom:1px solid #e5e7eb;'>{r.get('description') or '—'}</td>"
+        f"<td style='padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:600;'>£{float(r['amount']):.2f}</td></tr>"
+        for r in batch
+    ])
+    html_body = f"""
+<div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;">
+  <div style="background:#1e3a5f;padding:24px;border-radius:8px 8px 0 0;">
+    <h2 style="color:#fff;margin:0;">Fine Tutors — Invoice</h2>
+    <div style="color:#93c5fd;margin-top:4px;">{st['branch_name']}</div>
+  </div>
+  <div style="background:#f9fafb;padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+    <table style="width:100%;margin-bottom:16px;font-size:13px;">
+      <tr><td style="color:#6b7280;padding:4px 0;">Student</td><td style="font-weight:600;">{st['student_name']} ({st['admission_id']})</td></tr>
+      <tr><td style="color:#6b7280;padding:4px 0;">Month</td><td>{st['month']}</td></tr>
+      <tr><td style="color:#6b7280;padding:4px 0;">Issued</td><td>{st.get('issued','')}</td></tr>
+    </table>
+    <table style="width:100%;border-collapse:collapse;background:#fff;border-radius:6px;overflow:hidden;">
+      <thead><tr style="background:#e5e7eb;">
+        <th style="padding:8px 12px;text-align:left;font-size:13px;">Charge</th>
+        <th style="padding:8px 12px;text-align:left;font-size:13px;">Description</th>
+        <th style="padding:8px 12px;text-align:right;font-size:13px;">Amount</th>
+      </tr></thead>
+      <tbody>{rows_html}</tbody>
+      <tfoot><tr style="background:#eff6ff;">
+        <td colspan="2" style="padding:10px 12px;font-weight:700;font-size:14px;">Total</td>
+        <td style="padding:10px 12px;text-align:right;font-weight:700;font-size:16px;color:#2563eb;">£{total:.2f}</td>
+      </tr></tfoot>
+    </table>
+    <p style="margin-top:16px;font-size:13px;color:#374151;">Monthly fees are due on the <strong>1st of each month</strong>. Please contact us if you have any questions.</p>
+    <p style="font-size:11px;color:#9ca3af;margin-top:20px;">Fine Tutors · {st['branch_name']}</p>
+  </div>
+</div>"""
+
+    recipients = []
+    for em_f, nm_f in [('carer1_email','carer1_first_name'),('carer2_email','carer2_first_name')]:
+        em = (st.get(em_f) or '').strip()
+        if em: recipients.append({'email':em,'name':st.get(nm_f,'')})
+    if not recipients:
+        return jsonify({'error':'No parent email on file'}), 400
+
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls(); server.login(smtp_email, smtp_password)
+        for r in recipients:
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = f"Invoice — {st['student_name']} — {st['month']} — £{total:.2f}"
+            msg['From'] = f"Fine Tutors <{smtp_email}>"; msg['To'] = r['email']
+            msg.attach(MIMEText(html_body,'html'))
+            server.sendmail(smtp_email, r['email'], msg.as_string())
+        server.quit()
+    except Exception as e:
+        return jsonify({'error':str(e)}), 500
+    return jsonify({'ok':True,'sent_to':[r['email'] for r in recipients],'total':total})
