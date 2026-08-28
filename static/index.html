@@ -3317,7 +3317,7 @@ function renderSessionPlan(){
           html+='<span style="font-size:13px;font-weight:700;">Table '+s.table_no+'</span>';
           html+='<span class="badge badge-gray" style="margin-left:8px;">'+(s.subject||'—')+'</span>';
           html+='</div>';
-          html+='<button class="btn btn-sm btn-danger" data-action="rpt-del-session" data-id="'+s.id+'" style="padding:2px 8px;font-size:11px;" onclick="if(!confirm('Delete Table '+s.table_no+'?'))event.stopPropagation()">🗑 Delete</button>';
+          html+='<button class="btn btn-sm btn-danger" data-action="rpt-del-session" data-id="'+s.id+'" style="padding:2px 8px;font-size:11px;">🗑 Delete</button>';
           html+='</div>';
           html+='<div style="display:flex;gap:6px;align-items:center;">';
           html+='<select data-action="rpt-set-teacher" data-id="'+s.id+'" style="font-size:12px;flex:1;padding:4px 6px;">';
