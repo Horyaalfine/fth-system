@@ -6087,7 +6087,20 @@ document.getElementById('modal-delete')?.addEventListener('click',async function
   await API.delete('/api/invoices/'+state.editTarget.id);
   toast('Invoice deleted');
   closeModal();refreshPage();
-});document.getElementById('student-search')?.addEventListener('input',e=>{state.studentSearch=e.target.value;refreshPage();});document.getElementById('att-date-filter')?.addEventListener('change',function(e){state.attDateFilter=e.target.value;state.attSlotFilter='';state.attTeacherFilter='';state.attSessionId=null;state.attAllSessions='';render();});
+});(function(){
+  var _searchTimer=null;
+  function doStudentSearch(){state.studentSearch=document.getElementById('student-search')?.value||'';refreshPage();}
+  document.getElementById('student-search')?.addEventListener('keydown',function(e){
+    if(e.key==='Enter'){clearTimeout(_searchTimer);doStudentSearch();}
+  });
+  document.getElementById('student-search')?.addEventListener('input',function(e){
+    // Just keep the state in sync locally — no API call until Enter or button
+    // (debounce as fallback for accessibility: fire after 600ms idle)
+    clearTimeout(_searchTimer);
+    _searchTimer=setTimeout(doStudentSearch,600);
+  });
+  document.getElementById('student-search-btn')?.addEventListener('click',function(){clearTimeout(_searchTimer);doStudentSearch();});
+})();document.getElementById('att-date-filter')?.addEventListener('change',function(e){state.attDateFilter=e.target.value;state.attSlotFilter='';state.attTeacherFilter='';state.attSessionId=null;state.attAllSessions='';render();});
 document.getElementById('att-tab-quick')?.addEventListener('click',function(){state.attTab='quick';render();});
 // Parent account student lookup - auto-fill parent details + auto-check siblings
 document.getElementById('f-student-lookup')?.addEventListener('change',function(){
