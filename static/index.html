@@ -952,7 +952,8 @@ function renderSessions(){
   var html='';
   html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">';
   html+='<div><div class="section-title">Sessions</div>';
-  html+='<div class="section-sub">'+filtered.length+' session'+(filtered.length!==1?'s':'')+' shown'+(activeFilters?' · '+activeFilters+' filter'+(activeFilters>1?'s':'')+' active':'')+' · '+totalPresent+'/'+totalStudents+' attendance</div></div>';
+  const uniqueSlots=[...new Set(filtered.map(function(s){return s.date+'|'+s.slot;}))];
+  html+='<div class="section-sub">'+uniqueSlots.length+' session'+(uniqueSlots.length!==1?'s':'')+' ('+filtered.length+' table'+(filtered.length!==1?'s':'')+') shown'+(activeFilters?' · '+activeFilters+' filter'+(activeFilters>1?'s':'')+' active':'')+' · '+totalPresent+'/'+totalStudents+' attendance</div></div>';
   html+='<button class="btn btn-primary" data-action="add-session">+ Add session</button><button class="btn" data-action="gen-weekly-sessions" style="margin-left:8px;">📅 Weekly</button>';
   html+='</div>';
 
@@ -1001,7 +1002,7 @@ function renderSessions(){
   html+='</div>';
   html+='</div></div>';
 
-  // Results
+  // Results — grouped by slot within each day
   if(groupedDates.length===0){
     html+='<div class="empty-state" style="padding:40px;">No sessions match these filters.</div>';
   }
@@ -1011,25 +1012,47 @@ function renderSessions(){
     const dayLabel=new Date(date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
     const dayPresent=daySessions.reduce(function(s,x){return s+(x.present_count||0);},0);
     const dayTotal=daySessions.reduce(function(s,x){return s+(x.total_count||0);},0);
+    // Group tables by slot
+    const slotMap={};
+    daySessions.forEach(function(s){if(!slotMap[s.slot])slotMap[s.slot]=[];slotMap[s.slot].push(s);});
+    const slotKeys=Object.keys(slotMap).sort();
     html+='<div style="margin-bottom:14px;">';
     html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
     html+='<div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;">'+dayLabel+'</div>';
-    html+='<div style="font-size:12px;color:var(--text3);">'+daySessions.length+' session'+(daySessions.length>1?'s':'')+' · '+dayPresent+'/'+dayTotal+' present</div>';
+    html+='<div style="font-size:12px;color:var(--text3);">'+slotKeys.length+' session'+(slotKeys.length!==1?'s':'')+' · '+daySessions.length+' table'+(daySessions.length!==1?'s':'')+' · '+dayPresent+'/'+dayTotal+' present</div>';
     html+='</div>';
-    html+='<div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>';
-    html+='<thead><tr><th>Slot</th><th>Teacher</th><th>Subject</th><th>Table</th><th>Attendance</th><th></th></tr></thead><tbody>';
-    daySessions.forEach(function(s){
-      html+='<tr>';
-      html+='<td style="font-size:13px;">'+s.slot+'</td>';
-      html+='<td>'+(s.staff_name||'—')+'</td>';
-      html+='<td><span class="badge badge-gray">'+(s.subject||'—')+'</span></td>';
-      html+='<td style="color:var(--text3);font-size:13px;">T'+s.table_no+'</td>';
-      html+='<td><span class="badge '+(s.present_count>0?'badge-success':'badge-gray')+'">'+s.present_count+'/'+s.total_count+' present</span></td>';
-      html+='<td><div class="row-actions"><button class="btn btn-sm btn-success" data-action="mark-att" data-id="'+s.id+'">Attendance</button><button class="btn btn-sm btn-danger" data-action="del-session" data-id="'+s.id+'">Del</button></div></td>';
-      html+='</tr>';
+    html+='<div class="card" style="padding:0;overflow:hidden;">';
+    slotKeys.forEach(function(slot,si){
+      const tables=slotMap[slot];
+      const slotPresent=tables.reduce(function(s,x){return s+(x.present_count||0);},0);
+      const slotTotal=tables.reduce(function(s,x){return s+(x.total_count||0);},0);
+      const borderTop=si>0?'border-top:2px solid var(--border);':'';
+      html+='<div style="'+borderTop+'">';
+      // Session header row
+      html+='<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--surface2);">';
+      html+='<div style="font-size:13px;font-weight:700;flex:1;">'+slot+'</div>';
+      html+='<div style="font-size:12px;color:var(--text3);">'+tables.length+' table'+(tables.length!==1?'s':'')+'</div>';
+      html+='<span class="badge '+(slotPresent>0?'badge-success':'badge-gray')+'">'+slotPresent+'/'+slotTotal+' present</span>';
+      html+='</div>';
+      // Tables sub-rows
+      html+='<div class="table-wrap"><table style="margin:0;">';
+      html+='<thead><tr style="background:transparent;"><th style="padding:5px 16px;font-size:11px;">Table</th><th style="padding:5px 16px;font-size:11px;">Teacher</th><th style="padding:5px 16px;font-size:11px;">Subject</th><th style="padding:5px 16px;font-size:11px;">Attendance</th><th></th></tr></thead><tbody>';
+      tables.forEach(function(s){
+        html+='<tr style="border-top:1px solid var(--border);">';
+        html+='<td style="padding:7px 16px;font-size:13px;font-weight:600;color:var(--text2);">T'+s.table_no+'</td>';
+        html+='<td style="padding:7px 16px;">'+(s.staff_name||'<span style="color:var(--text3);">—</span>')+'</td>';
+        html+='<td style="padding:7px 16px;"><span class="badge badge-gray">'+(s.subject||'—')+'</span></td>';
+        html+='<td style="padding:7px 16px;"><span class="badge '+(s.present_count>0?'badge-success':'badge-gray')+'">'+s.present_count+'/'+s.total_count+'</span></td>';
+        html+='<td style="padding:7px 16px;"><div class="row-actions"><button class="btn btn-sm btn-success" data-action="mark-att" data-id="'+s.id+'">Attendance</button><button class="btn btn-sm btn-danger" data-action="del-session" data-id="'+s.id+'">Del</button></div></td>';
+        html+='</tr>';
+      });
+      html+='</tbody></table></div></div>';
     });
-    html+='</tbody></table></div></div></div>';
+    html+='</div></div>';
   });
+
+  // Also fix the count in the sub-header to show slot count not table count
+  // (already done above via slotKeys.length)
   return html;
 }
 
