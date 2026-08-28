@@ -3017,223 +3017,214 @@ function renderMgmtReports(){
 }
 
 function renderSessionPlan(){
-  const sessions=state.data.sessions||[];
-  const students=(state.data.students||[]).filter(function(s){return s.status==='active';});
-  const staff=state.data.staff||[];
-  const selId=state.planSessionId;
-  const sel=sessions.find(function(s){return s.id===selId;});
-  // Combine allocs from all sessions in the selected slot
-  const selSlotSessions=state.planSlotKey?(sessions.filter(function(s){return (s.date+'__'+s.slot)===state.planSlotKey;})):(selId?[sel].filter(Boolean):[]);
-  var allocs=[];
-  selSlotSessions.forEach(function(ss){
-    var sa=state.data['table_allocs_'+ss.id]||[];
-    allocs=allocs.concat(sa);
-  });
-  const planTab=state.planTab||'allocate';
-  const planMonth=state.planMonth||'';
-  const months=[...new Set(sessions.map(function(s){return s.date?s.date.slice(0,7):'';}).filter(Boolean))].sort().reverse();
-  const filteredSessions=planMonth?sessions.filter(function(s){return s.date&&s.date.slice(0,7)===planMonth;}):sessions;
+  var allTT=state.data.all_timetables||[];
+  var students=(state.data.students||[]).filter(function(s){return s.status==='active';});
+  var staff=state.data.staff||[];
+  var sessions=state.data.sessions||[];
+  var planTab=state.planTab||'register';
   var html='';
-  html+='<div class="section-title" style="margin-bottom:4px;">Session planner</div>';
-  html+='<div class="section-sub">Table allocation and student timetable management</div>';
+  html+='<div class="section-title">Session Planner</div>';
+  html+='<div class="section-sub">Student register · Lesson planning · Session reports</div>';
   html+='<div class="tab-bar" style="margin-bottom:16px;">';
-  html+='<div class="tab '+(planTab==='weekly'?'active':'')+'" data-action="plan-tab" data-tab="weekly">📅 Weekly planner</div>';
-  html+='<div class="tab '+(planTab==='allocate'?'active':'')+'" data-action="plan-tab" data-tab="allocate">Table allocation</div>';
-  html+='<div class="tab '+(planTab==='timetable'?'active':'')+'" data-action="plan-tab" data-tab="timetable">Student timetables</div>';
-  html+='<div class="tab '+(planTab==='overview'?'active':'')+'" data-action="plan-tab" data-tab="overview">All students overview</div>';
+  html+='<button class="tab '+(planTab==='register'?'active':'')+'" data-action="plan-tab" data-tab="register">👥 Student Register</button>';
+  html+='<button class="tab '+(planTab==='lesson'?'active':'')+'" data-action="plan-tab" data-tab="lesson">📋 Lesson Plan</button>';
+  html+='<button class="tab '+(planTab==='report'?'active':'')+'" data-action="plan-tab" data-tab="report">📊 Session Report</button>';
   html+='</div>';
-  if(planTab==='weekly')return html+renderWeeklyPlanner();
-  if(planTab==='allocate'){
-    html+='<div class="card" style="margin-bottom:16px;"><div class="form-grid">';
-    html+='<div class="field"><label>Filter by month</label><select id="plan-month-filter"><option value="">All sessions</option>';
-    months.forEach(function(m){html+='<option value="'+m+'" '+(m===planMonth?'selected':'')+'>'+new Date(m+'-01T00:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'})+'</option>';});
-    html+='</select></div>';
-    // Group sessions by date+slot
-    var slotGroups={};
-    filteredSessions.forEach(function(s){
-      var key=s.date+'__'+s.slot;
-      if(!slotGroups[key]){slotGroups[key]={date:s.date,slot:s.slot,sessions:[]};}
-      slotGroups[key].sessions.push(s);
+
+  // ── TAB 1: STUDENT REGISTER ──────────────────────────────────────
+  if(planTab==='register'){
+    var regDay=state.regDay||'';
+    var regSlot=state.regSlot||'';
+    var regSubject=state.regSubject||'';
+    // Build filter options
+    var dayTypes=[...new Set(allTT.map(function(t){return t.day_type;}))].sort();
+    var allSlots=[...new Set(allTT.filter(function(t){return !regDay||t.day_type===regDay;}).map(function(t){return t.slot;}))].sort();
+    var allSubjects=[...new Set(allTT.filter(function(t){return (!regDay||t.day_type===regDay)&&(!regSlot||t.slot===regSlot);}).map(function(t){return t.subject;}))].sort();
+    // Filter
+    var filtered=allTT.filter(function(t){
+      return (!regDay||t.day_type===regDay)&&(!regSlot||t.slot===regSlot)&&(!regSubject||t.subject===regSubject);
     });
-    var slotKeys=Object.keys(slotGroups).sort();
-    var selSlotKey=state.planSlotKey||'';
-    html+='<div class="field"><label>Select slot</label><select id="plan-session-select"><option value="">— choose slot —</option>';
-    slotKeys.forEach(function(key){
-      var g=slotGroups[key];
-      var dateLabel=new Date(g.date+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
-      var tableCount=g.sessions.length;
-      html+='<option value="'+key+'" '+(key===selSlotKey?'selected':'')+'>'+dateLabel+' · '+g.slot+' ('+tableCount+' table'+(tableCount!==1?'s':'')+')</option>';
+    // Summary
+    var subjCounts={};
+    filtered.forEach(function(t){subjCounts[t.subject]=(subjCounts[t.subject]||0)+1;});
+    html+='<div class="card" style="margin-bottom:14px;">';
+    html+='<div class="form-grid">';
+    html+='<div class="field"><label>Day type</label><select id="reg-day-filter"><option value="">All days</option>';
+    dayTypes.forEach(function(d){html+='<option value="'+d+'" '+(d===regDay?'selected':'')+'>'+d.charAt(0).toUpperCase()+d.slice(1)+'</option>';});
+    html+='</select></div>';
+    html+='<div class="field"><label>Session</label><select id="reg-slot-filter"><option value="">All sessions</option>';
+    allSlots.forEach(function(s){html+='<option value="'+s+'" '+(s===regSlot?'selected':'')+'>'+s+'</option>';});
+    html+='</select></div>';
+    html+='<div class="field"><label>Subject</label><select id="reg-subject-filter"><option value="">All subjects</option>';
+    allSubjects.forEach(function(s){html+='<option value="'+s+'" '+(s===regSubject?'selected':'')+'>'+s+'</option>';});
+    html+='</select></div>';
+    html+='</div>';
+    html+='<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">';
+    html+='<span style="font-size:13px;font-weight:600;">'+filtered.length+' students</span>';
+    Object.keys(subjCounts).sort().forEach(function(subj){
+      html+='<span class="badge badge-accent">'+subj+': '+subjCounts[subj]+'</span>';
+    });
+    html+='</div></div>';
+    // Table
+    html+='<div class="table-wrap"><table>';
+    html+='<thead><tr><th>Ad No.</th><th>Name</th><th>Year</th><th>Day</th><th>Session</th><th>Subject</th></tr></thead><tbody>';
+    if(filtered.length===0){
+      html+='<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px;">No students match these filters</td></tr>';
+    }else{
+      filtered.sort(function(a,b){return (a.admission_id||'').localeCompare(b.admission_id||'');}).forEach(function(t){
+        html+='<tr>';
+        html+='<td style="font-size:12px;color:var(--text3);">'+(t.admission_id||'—')+'</td>';
+        html+='<td style="font-weight:500;">'+(t.student_name||'—')+'</td>';
+        html+='<td>'+(t.year_group?'Y'+t.year_group:'—')+'</td>';
+        html+='<td>'+t.day_type.charAt(0).toUpperCase()+t.day_type.slice(1)+'</td>';
+        html+='<td style="font-size:12px;">'+t.slot+'</td>';
+        html+='<td><span class="badge badge-gray">'+t.subject+'</span></td>';
+        html+='</tr>';
+      });
+    }
+    html+='</tbody></table></div>';
+    return html;
+  }
+
+  // ── TAB 2: LESSON PLAN ──────────────────────────────────────────
+  if(planTab==='lesson'){
+    var lpDate=state.lpDate||new Date().toISOString().slice(0,10);
+    var lpMaxPer=state.lpMaxPer||6;
+    var draft=state.planDraft||null;
+    function getDayType(d){var wd=new Date(d+'T00:00:00').getDay();return wd===6?'saturday':wd===0?'sunday':'weekday';}
+    var dayType=getDayType(lpDate);
+    var expected=allTT.filter(function(t){return t.day_type===dayType;});
+    var subjSlotCounts={};
+    expected.forEach(function(t){var k=t.slot+'||'+t.subject;if(!subjSlotCounts[k])subjSlotCounts[k]=0;subjSlotCounts[k]++;});
+    html+='<div class="card" style="margin-bottom:14px;">';
+    html+='<div class="form-grid">';
+    html+='<div class="field"><label>Plan date</label><input type="date" id="lp-date" value="'+lpDate+'"></div>';
+    html+='<div class="field"><label>Max students per table</label><input type="number" id="lp-max-per" value="'+lpMaxPer+'" min="1" max="20" style="width:80px;"></div>';
+    html+='</div>';
+    html+='<div style="margin-top:8px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">';
+    var dtLabel=dayType.charAt(0).toUpperCase()+dayType.slice(1);
+    html+='<span style="font-size:13px;"><strong>'+dtLabel+'</strong> · <strong>'+expected.length+'</strong> students expected</span>';
+    Object.keys(subjSlotCounts).sort().forEach(function(k){
+      var parts=k.split('||');
+      html+='<span class="badge badge-gray">'+parts[1]+' ('+parts[0].replace(/.*\(|\).*/g,'')+') ×'+subjSlotCounts[k]+'</span>';
+    });
+    html+='</div>';
+    html+='<div style="margin-top:12px;display:flex;gap:8px;">';
+    html+='<button class="btn btn-primary" data-action="lp-generate">&#9889; Auto-Generate Plan</button>';
+    if(draft&&draft.tables&&draft.tables.length>0){
+      html+='<button class="btn btn-success" data-action="lp-save">✓ Save Plan</button>';
+      html+='<button class="btn btn-sm" onclick="window.print()">&#128438; Print</button>';
+    }
+    html+='</div></div>';
+
+    if(!draft||!draft.tables||draft.tables.length===0){
+      if(expected.length===0){
+        html+='<div class="card" style="text-align:center;color:var(--text3);padding:32px;">No students registered for '+dtLabel+' sessions.<br>Go to a student profile and set their timetable first.</div>';
+      }else{
+        html+='<div class="card" style="text-align:center;color:var(--text3);padding:32px;">Click <strong>Auto-Generate Plan</strong> to create tables from the student register,<br>or build manually by adding tables below.</div>';
+      }
+    }else{
+      // Show draft tables
+      var slots=[...new Set(draft.tables.map(function(t){return t.slot;}))].sort();
+      slots.forEach(function(slot){
+        var slotTables=draft.tables.filter(function(t){return t.slot===slot;});
+        html+='<div style="margin-bottom:8px;padding:8px 0 4px 0;font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;">'+slot+'</div>';
+        html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:16px;">';
+        slotTables.forEach(function(tbl,idx){
+          var tblIdx=draft.tables.indexOf(tbl);
+          var teacher=staff.find(function(s){return s.id===tbl.teacher_id;});
+          html+='<div class="card" style="border-top:3px solid var(--accent);padding:12px;">';
+          html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+          html+='<span style="font-weight:700;">T'+tbl.table_no+' · <span class="badge badge-gray">'+tbl.subject+'</span></span>';
+          html+='<button class="btn btn-sm btn-danger" data-action="lp-remove-table" data-idx="'+tblIdx+'">×</button>';
+          html+='</div>';
+          html+='<div style="margin-bottom:8px;"><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Teacher</label>';
+          html+='<select data-action="lp-set-teacher" data-idx="'+tblIdx+'" style="width:100%;font-size:13px;">';
+          html+='<option value="">— assign teacher —</option>';
+          staff.forEach(function(s){html+='<option value="'+s.id+'" '+(tbl.teacher_id===s.id?'selected':'')+'>'+s.name+'</option>';});
+          html+='</select></div>';
+          html+='<div style="font-size:11px;color:var(--text3);margin-bottom:4px;">'+tbl.students.length+' students</div>';
+          html+='<table style="margin:0;font-size:12px;width:100%;">';
+          html+='<thead><tr><th style="padding:2px 6px 2px 0;">Ad No.</th><th style="padding:2px 6px 2px 0;">Name</th><th style="padding:2px 0;">Year</th></tr></thead><tbody>';
+          tbl.students.forEach(function(st){
+            html+='<tr>';
+            html+='<td style="padding:2px 6px 2px 0;color:var(--text3);">'+(st.admission_id||'—')+'</td>';
+            html+='<td style="padding:2px 6px 2px 0;font-weight:500;">'+(st.student_name||'—')+'</td>';
+            html+='<td style="padding:2px 0;">'+(st.year_group?'Y'+st.year_group:'—')+'</td>';
+            html+='</tr>';
+          });
+          html+='</tbody></table></div>';
+        });
+        html+='</div>';
+      });
+    }
+    return html;
+  }
+
+  // ── TAB 3: SESSION REPORT ──────────────────────────────────────
+  if(planTab==='report'){
+    var rptDate=state.rptDate||'';
+    var dates=[...new Set(sessions.map(function(s){return s.date;}).filter(Boolean))].sort().reverse();
+    html+='<div class="card" style="margin-bottom:14px;">';
+    html+='<div class="form-grid">';
+    html+='<div class="field"><label>Select date</label><select id="rpt-date-select"><option value="">— choose date —</option>';
+    dates.forEach(function(d){
+      var dl=new Date(d+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+      html+='<option value="'+d+'" '+(d===rptDate?'selected':'')+'>'+dl+'</option>';
     });
     html+='</select></div></div></div>';
-    // Get all sessions for selected slot
-    var slotSessions=selSlotKey&&slotGroups[selSlotKey]?slotGroups[selSlotKey].sessions:[];
-    // sel already defined above from planSessionId
-    if(selSlotSessions&&selSlotSessions.length>0){
-      var slotSel=selSlotSessions[0];
-      html+='<div class="card" style="margin-bottom:16px;border-left:3px solid var(--accent);padding:14px 16px;">';
-      html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
-      html+='<div><div style="font-weight:700;font-size:15px;">'+slotSel.slot+'</div>';
-      html+='<div style="font-size:12px;color:var(--text3);margin-top:3px;">'+new Date(slotSel.date+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+'</div></div>';
-      html+='<div style="display:flex;gap:8px;align-items:center;">';
-      var allTT3=state.data.all_timetables||[];
-      var sessSlot3=sel?sel.slot:'';
-      var placedAll3=[];
-      allocs.forEach(function(a3){(a3.students||[]).forEach(function(s3){if(!placedAll3.includes(s3.student_id))placedAll3.push(s3.student_id);});});
-      var pendingTotal=allTT3.filter(function(e){return e.slot===sessSlot3&&!placedAll3.includes(e.student_id);}).length;
-      html+='<span class="badge badge-accent">'+allocs.length+' tables</span>';
-      html+='<span class="badge badge-success">'+placedAll3.length+' placed</span>';
-      if(pendingTotal>0)html+='<span class="badge badge-amber">'+pendingTotal+' pending</span>';
-      else if(allocs.length>0)html+='<span class="badge badge-teal">All placed ✓</span>';
-      html+='<button class="btn btn-sm btn-primary" data-action="add-table-alloc" data-session="'+(selSlotSessions[0]?selSlotSessions[0].id:'')+'">+ Add table</button>';
-      html+='<button class="btn btn-sm" data-action="set-cover-teacher" data-id="'+(slotSel?slotSel.id:'')+'">Set cover</button>';
-      html+='</div></div>';
-      if(slotSel&&slotSel.cover_staff_id){var cover=staff.find(function(s){return s.id===slotSel.cover_staff_id;});html+='<div style="margin-top:10px;padding:8px 12px;background:var(--amber-bg);border-radius:var(--radius);font-size:13px;color:var(--amber-text);">⚠ Cover: <strong>'+(cover?cover.name:'Unknown')+'</strong>'+(slotSel.cover_notes?' — '+slotSel.cover_notes:'')+'</div>';}
+
+    if(!rptDate){
+      html+='<div class="card" style="text-align:center;color:var(--text3);padding:32px;">Select a date to view the session report.</div>';
+    }else{
+      var daySessions=sessions.filter(function(s){return s.date===rptDate;});
+      var bySlot={};
+      daySessions.forEach(function(s){if(!bySlot[s.slot])bySlot[s.slot]=[];bySlot[s.slot].push(s);});
+      var slots=Object.keys(bySlot).sort();
+      var totalStudents=daySessions.reduce(function(sum,s){return sum+(s.total_count||0);},0);
+      var totalPresent=daySessions.reduce(function(sum,s){return sum+(s.present_count||0);},0);
+      var teachers=[...new Set(daySessions.map(function(s){return s.staff_name;}).filter(Boolean))];
+      // Summary cards
+      html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:16px;">';
+      html+='<div class="card" style="text-align:center;padding:12px;"><div style="font-size:22px;font-weight:700;">'+slots.length+'</div><div style="font-size:12px;color:var(--text3);">Sessions</div></div>';
+      html+='<div class="card" style="text-align:center;padding:12px;"><div style="font-size:22px;font-weight:700;">'+daySessions.length+'</div><div style="font-size:12px;color:var(--text3);">Tables</div></div>';
+      html+='<div class="card" style="text-align:center;padding:12px;"><div style="font-size:22px;font-weight:700;">'+teachers.length+'</div><div style="font-size:12px;color:var(--text3);">Teachers</div></div>';
+      html+='<div class="card" style="text-align:center;padding:12px;"><div style="font-size:22px;font-weight:700;">'+totalPresent+'/'+totalStudents+'</div><div style="font-size:12px;color:var(--text3);">Attended</div></div>';
       html+='</div>';
-      if(allocs.length){
-        html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;">';
-        allocs.forEach(function(ta){
-          var stus=ta.students||[];
-          var pct=Math.round(stus.length/ta.max_students*100);
-          var bc=pct>=100?'var(--danger)':pct>=80?'var(--amber)':'var(--success)';
-          html+='<div class="card" style="border-top:3px solid '+bc+';">';
-          html+='<div class="card-header" style="margin-bottom:10px;">';
-          html+='<div><div style="font-weight:700;">Table '+ta.table_no+'</div><div style="font-size:12px;color:var(--text3);">'+(ta.teacher_name||'No teacher')+' · <span class="badge badge-gray">'+(ta.subject||'—')+'</span></div></div>';
-          html+='<div style="display:flex;gap:6px;align-items:center;"><span style="font-size:12px;color:'+(stus.length>=ta.max_students?'var(--danger-text)':'var(--text3)')+';">'+stus.length+'/'+ta.max_students+'</span>';
-          html+='<button class="btn btn-sm" data-action="edit-table-alloc" data-id="'+ta.id+'" title="Assign teacher">✏ Teacher</button>';
-          html+='<button class="btn btn-sm btn-primary" data-action="add-student-to-table" data-alloc="'+ta.id+'" data-session="'+selId+'">+ Add</button>';
-          html+='<button class="btn btn-sm btn-danger" data-action="del-table-alloc" data-id="'+ta.id+'">Del</button></div></div>';
-          html+='<div style="height:4px;background:var(--border2);border-radius:2px;margin-bottom:10px;"><div style="width:'+Math.min(pct,100)+'%;height:4px;background:'+bc+';border-radius:2px;"></div></div>';
-          if(stus.length){
-          // Build other tables list for move dropdown
-          var otherTables=allocs.filter(function(ot){return ot.id!==ta.id;});
-          stus.forEach(function(s){
-            // Find year group from students list
-            var stuObj=students.find(function(st){return st.id===s.student_id;});
-            var yrGroup=stuObj?stuObj.year_group:'';
-            html+='<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);">';
-            html+='<div style="display:flex;align-items:center;gap:6px;flex:1;">';
-            html+='<span class="id-code" style="font-size:11px;">'+s.admission_id+'</span>';
-            html+='<span style="font-size:13px;">'+s.student_name+(yrGroup?' <span style="font-size:11px;color:var(--text3);">('+yrGroup+')</span>':'')+'</span>';
-            if(s.is_catchup)html+='<span class="badge badge-amber" style="font-size:10px;">CU</span>';
-            html+='</div>';
-            html+='<div style="display:flex;gap:4px;align-items:center;">';
-            // Move to table dropdown
-            if(otherTables.length>0){
-              html+='<select class="move-student-select" data-alloc="'+ta.id+'" data-student="'+s.student_id+'" style="font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--text);max-width:110px;">';
-              html+='<option value="">Move to...</option>';
-              otherTables.forEach(function(ot){
-                html+='<option value="'+ot.id+'">Table '+ot.table_no+(ot.subject?' · '+ot.subject:'')+'</option>';
-              });
-              html+='</select>';
-            }
-            html+='<button class="btn btn-sm btn-danger" data-action="remove-table-student" data-alloc="'+ta.id+'" data-student="'+s.student_id+'" style="padding:2px 6px;font-size:11px;">✕</button>';
-            html+='</div></div>';
-          });
-        }
-          else{html+='<div style="color:var(--text3);font-size:13px;padding:6px 0;">No students assigned</div>';}
+      // Breakdown by slot → table → students
+      slots.forEach(function(slot){
+        html+='<div style="margin-bottom:16px;">';
+        html+='<div style="font-size:13px;font-weight:700;padding:8px 0;border-bottom:2px solid var(--border);margin-bottom:8px;">'+slot+'</div>';
+        bySlot[slot].forEach(function(s){
+          var studs=state.data['sess_students_'+s.id]||[];
+          html+='<div class="card" style="margin-bottom:8px;padding:12px;">';
+          html+='<div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">';
+          html+='<span style="font-weight:700;">T'+s.table_no+'</span>';
+          html+='<span>'+(s.staff_name||'<em style="color:var(--text3);">No teacher</em>')+'</span>';
+          html+='<span class="badge badge-gray">'+(s.subject||'—')+'</span>';
+          html+='<span class="badge '+(s.present_count>0?'badge-success':'badge-gray')+'">'+s.present_count+'/'+s.total_count+' present</span>';
+          if(studs.length===0){
+            html+='<button class="btn btn-sm btn-outline" data-action="toggle-session-students" data-id="'+s.id+'">Load students</button>';
+          }
+          html+='</div>';
+          if(studs.length>0){
+            html+='<table style="margin:0;font-size:12px;"><thead><tr><th style="padding:2px 10px 2px 0;">Ad No.</th><th style="padding:2px 10px 2px 0;">Name</th><th style="padding:2px 10px 2px 0;">Year</th><th style="padding:2px 0;">Status</th></tr></thead><tbody>';
+            studs.forEach(function(st){
+              html+='<tr>';
+              html+='<td style="padding:2px 10px 2px 0;color:var(--text3);">'+(st.admission_id||'—')+'</td>';
+              html+='<td style="padding:2px 10px 2px 0;font-weight:500;">'+(st.name||'—')+'</td>';
+              html+='<td style="padding:2px 10px 2px 0;">'+(st.year_group?'Y'+st.year_group:'—')+'</td>';
+              html+='<td><span class="badge '+(st.status==='present'?'badge-success':st.status==='absent'?'badge-danger':'badge-gray')+'">'+(st.status||'—')+'</span></td>';
+              html+='</tr>';
+            });
+            html+='</tbody></table>';
+          }
           html+='</div>';
         });
         html+='</div>';
-      } else {html+='<div class="empty-state" style="padding:40px;">No tables allocated yet. Click &quot;+ Add table&quot; to start planning.</div>';}
-    }
-  } else if(planTab==='timetable'){
-    var ttSelId=state.timetableStudentId;
-    var ttSel=students.find(function(s){return s.id===ttSelId;});
-    const SLOTS_WD=['Weekday Session 1 (17:00-19:00)','Weekday Session 2 (19:00-21:00)'];
-    const SLOTS_SAT=['Saturday Session 1 (09:00-11:00)','Saturday Session 2 (11:15-13:15)','Saturday Session 3 (14:00-16:00)','Saturday Session 4 (16:15-18:15)'];
-    const SLOTS_SUN=['Sunday Session 1 (09:00-11:00)','Sunday Session 2 (11:15-13:15)','Sunday Session 3 (14:00-16:00)','Sunday Session 4 (16:15-18:15)'];
-    const SUBJECTS=['Maths','English','Science','Other'];
-    html+='<div class="card" style="margin-bottom:16px;"><div class="field"><label>Select student</label><select id="tt-student-select"><option value="">— choose student —</option>';
-    students.forEach(function(s){html+='<option value="'+s.id+'" '+(s.id===ttSelId?'selected':'')+'>'+s.admission_id+' — '+s.name+' ('+(s.year_group||'—')+')</option>';});
-    html+='</select></div></div>';
-    if(ttSel){
-      var ttData=state.data['timetable_'+ttSelId]||[];
-      html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">';
-      ['weekday','saturday','sunday'].forEach(function(dtype){
-        var slots=dtype==='weekday'?SLOTS_WD:(dtype==='saturday'?SLOTS_SAT:SLOTS_SUN);
-        var label=dtype==='weekday'?'Weekday sessions':(dtype==='saturday'?'Saturday sessions':'Sunday sessions');
-        var color=dtype==='weekday'?'var(--accent-text)':(dtype==='saturday'?'var(--teal-text)':'var(--success-text)');
-        html+='<div class="card"><div style="font-weight:700;margin-bottom:12px;color:'+color+';">'+label+'</div>';
-        slots.forEach(function(slot){
-          var existing=ttData.filter(function(e){return e.slot===slot;});
-          html+='<div style="margin-bottom:12px;padding:10px;background:var(--surface2);border-radius:var(--radius);">';
-          html+='<div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px;">'+slot+'</div>';
-          existing.forEach(function(e){html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><span class="badge badge-accent">'+e.subject+'</span><button class="btn btn-sm btn-danger" data-action="del-timetable-entry" data-id="'+e.id+'" style="padding:2px 6px;font-size:11px;">✕</button></div>';});
-          html+='<div style="display:flex;gap:6px;margin-top:4px;">';
-          SUBJECTS.forEach(function(sub){var has=existing.find(function(e){return e.subject===sub;});if(!has)html+='<button class="btn btn-sm" data-action="add-timetable-entry" data-student="'+ttSelId+'" data-branch="'+ttSel.branch_id+'" data-daytype="'+dtype+'" data-slot="'+slot+'" data-subject="'+sub+'" style="font-size:11px;">+'+sub+'</button>';});
-          html+='</div></div>';
-        });
-        html+='</div>';
       });
-      html+='</div>';
     }
-  } else if(planTab==='overview'){
-    // ── ALL STUDENTS TIMETABLE OVERVIEW ──
-    html+='<div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">';
-    html+='<div style="font-size:13px;color:var(--text3);">All active students with their scheduled subjects and slots</div>';
-    html+='<button class="btn btn-sm" data-action="export-timetable-csv">⬇ Export Excel</button>';
-    html+='</div>';
-
-    const SLOTS_ALL=[
-      {key:"Weekday Session 1 (17:00-19:00)",label:"Weekday 17:00–19:00"},
-      {key:"Weekday Session 2 (19:00-21:00)",label:"Weekday 19:00–21:00"},
-      {key:"Saturday Session 1 (09:00-11:00)",label:"Saturday 09:00–11:00"},
-      {key:"Saturday Session 2 (11:15-13:15)",label:"Saturday 11:15–13:15"},
-      {key:"Saturday Session 3 (14:00-16:00)",label:"Saturday 14:00–16:00"},
-      {key:"Saturday Session 4 (16:15-18:15)",label:"Saturday 16:15–18:15"},
-      {key:"Sunday Session 1 (09:00-11:00)",label:"Sunday 09:00–11:00"},
-      {key:"Sunday Session 2 (11:15-13:15)",label:"Sunday 11:15–13:15"},
-      {key:"Sunday Session 3 (14:00-16:00)",label:"Sunday 14:00–16:00"},
-      {key:"Sunday Session 4 (16:15-18:15)",label:"Sunday 16:15–18:15"},
-    ];
-
-    // Load all timetable data
-    const allTT=state.data.all_timetables||[];
-
-    // Build student → slot → subjects map
-    const stuMap={};
-    allTT.forEach(function(e){
-      if(!stuMap[e.student_id]){
-        stuMap[e.student_id]={name:e.student_name,admission_id:e.admission_id,year_group:e.year_group,slots:{}};
-      }
-      if(!stuMap[e.student_id].slots[e.slot]) stuMap[e.student_id].slots[e.slot]=[];
-      stuMap[e.student_id].slots[e.slot].push(e.subject);
-    });
-
-    // Sort students by admission_id
-    const stuList=Object.values(stuMap).sort(function(a,b){return a.admission_id>b.admission_id?1:-1;});
-
-    if(!stuList.length){
-      html+='<div class="empty-state" style="padding:40px;">No timetable entries found. Use the Student timetables tab to assign subjects and slots to each student.</div>';
-    } else {
-      html+='<div class="table-wrap"><table>';
-      html+='<thead><tr><th>ID</th><th>Student</th><th>Year</th>';
-      SLOTS_ALL.forEach(function(s){html+='<th style="font-size:11px;white-space:nowrap;">'+s.label+'</th>';});
-      html+='</tr></thead><tbody>';
-      stuList.forEach(function(s){
-        html+='<tr>';
-        html+='<td><span class="id-code">'+s.admission_id+'</span></td>';
-        html+='<td><strong>'+s.name+'</strong></td>';
-        html+='<td style="font-size:12px;color:var(--text3);">'+(s.year_group||'—')+'</td>';
-        SLOTS_ALL.forEach(function(sl){
-          var subs=s.slots[sl.key]||[];
-          if(subs.length){
-            html+='<td>';
-            subs.forEach(function(sub){
-              var col=sub==='Maths'?'var(--blue-text)':sub==='English'?'var(--teal-text)':sub==='Science'?'var(--purple-text)':'var(--text3)';
-              html+='<span class="badge" style="color:'+col+';margin-right:2px;">'+sub+'</span>';
-            });
-            html+='</td>';
-          } else {
-            html+='<td style="color:var(--border2);">—</td>';
-          }
-        });
-        html+='</tr>';
-      });
-      html+='</tbody></table></div>';
-      html+='<div style="margin-top:8px;font-size:12px;color:var(--text3);">'+stuList.length+' students shown · '+allTT.length+' timetable entries total</div>';
-    }
-  
+    return html;
   }
   return html;
 }
@@ -6253,6 +6244,22 @@ document.getElementById('tt-student-select')?.addEventListener('change',async e=
 document.getElementById('plan-month-filter')?.addEventListener('change',e=>{
   state.planMonth=e.target.value||'';render();
 });
+// New session planner filters
+document.getElementById('reg-day-filter')?.addEventListener('change',function(e){state.regDay=e.target.value;state.regSlot='';state.regSubject='';render();});
+document.getElementById('reg-slot-filter')?.addEventListener('change',function(e){state.regSlot=e.target.value;state.regSubject='';render();});
+document.getElementById('reg-subject-filter')?.addEventListener('change',function(e){state.regSubject=e.target.value;render();});
+document.getElementById('lp-date')?.addEventListener('change',function(e){state.lpDate=e.target.value;state.planDraft=null;render();});
+document.getElementById('lp-max-per')?.addEventListener('change',function(e){state.lpMaxPer=parseInt(e.target.value)||6;render();});
+document.getElementById('rpt-date-select')?.addEventListener('change',function(e){state.rptDate=e.target.value;render();});
+// Lesson plan teacher selects (dynamic, use event delegation)
+document.querySelectorAll('[data-action="lp-set-teacher"]').forEach(function(sel){
+  sel.addEventListener('change',function(){
+    var idx=parseInt(sel.dataset.idx);
+    if(state.planDraft&&state.planDraft.tables[idx]){
+      state.planDraft.tables[idx].teacher_id=sel.value?parseInt(sel.value):null;
+    }
+  });
+});
 // Move student between tables
 document.querySelectorAll('.move-student-select').forEach(function(sel){
   sel.addEventListener('change',async function(){
@@ -6754,6 +6761,99 @@ if(action==='export-timetable-csv'){
   });
   exportXLSX(rows, 'fth-student-timetables.xlsx', 'Timetables');return;}
 if(action==='plan-tab'){state.planTab=el.dataset.tab;render();return;}
+
+// Student register filters (inline select onchange wired via bindAll data-action)
+if(action==='reg-day-filter'){state.regDay=el.value;state.regSlot='';state.regSubject='';render();return;}
+if(action==='reg-slot-filter'){state.regSlot=el.value;state.regSubject='';render();return;}
+if(action==='reg-subject-filter'){state.regSubject=el.value;render();return;}
+
+// Lesson plan date/max change
+if(action==='lp-date'){state.lpDate=el.value;state.planDraft=null;render();return;}
+if(action==='lp-max-per'){state.lpMaxPer=parseInt(el.value)||6;render();return;}
+
+// Auto-generate plan
+if(action==='lp-generate'){
+  var lpDate=state.lpDate||new Date().toISOString().slice(0,10);
+  var maxPer=state.lpMaxPer||6;
+  function getDT(d){var w=new Date(d+'T00:00:00').getDay();return w===6?'saturday':w===0?'sunday':'weekday';}
+  var dayType=getDT(lpDate);
+  var allTT=state.data.all_timetables||[];
+  var expected=allTT.filter(function(t){return t.day_type===dayType;});
+  // Group by slot + subject
+  var groups={};
+  expected.forEach(function(t){
+    var k=t.slot+'||'+t.subject;
+    if(!groups[k])groups[k]={slot:t.slot,subject:t.subject,students:[]};
+    groups[k].students.push(t);
+  });
+  // Split into tables
+  var tables=[];var tableNo=1;
+  Object.keys(groups).sort().forEach(function(k){
+    var g=groups[k];
+    var studs=g.students.slice().sort(function(a,b){return (a.year_group||0)-(b.year_group||0);});
+    for(var i=0;i<studs.length;i+=maxPer){
+      tables.push({table_no:tableNo++,slot:g.slot,subject:g.subject,teacher_id:null,students:studs.slice(i,i+maxPer)});
+    }
+  });
+  state.planDraft={date:lpDate,dayType:dayType,tables:tables};
+  render();return;
+}
+
+// Set teacher for a draft table
+if(action==='lp-set-teacher'){
+  var idx=parseInt(el.dataset.idx);
+  if(state.planDraft&&state.planDraft.tables[idx]){
+    state.planDraft.tables[idx].teacher_id=el.value?parseInt(el.value):null;
+  }
+  return; // no full render needed, select already changed
+}
+
+// Remove a draft table
+if(action==='lp-remove-table'){
+  var idx=parseInt(el.dataset.idx);
+  if(state.planDraft&&state.planDraft.tables){
+    state.planDraft.tables.splice(idx,1);
+    // Renumber
+    state.planDraft.tables.forEach(function(t,i){t.table_no=i+1;});
+    render();
+  }
+  return;
+}
+
+// Save plan to DB
+if(action==='lp-save'){
+  var draft=state.planDraft;
+  if(!draft||!draft.tables||draft.tables.length===0){toast('Nothing to save','warn');return;}
+  var b=branchParam();var branchId=state.currentBranch;
+  if(!branchId){toast('Please select a branch first','warn');return;}
+  toast('Saving plan...','info');
+  try{
+    // Group by slot to create one session per slot per table
+    for(var i=0;i<draft.tables.length;i++){
+      var tbl=draft.tables[i];
+      // Create session
+      var sessRes=await API.post('/api/sessions',{branch_id:branchId,staff_id:tbl.teacher_id||null,date:draft.date,slot:tbl.slot,subject:tbl.subject,table_no:tbl.table_no});
+      var sessId=sessRes.id||sessRes.session_id;
+      // Create table allocation
+      if(sessId){
+        var allocRes=await API.post('/api/table-allocations',{session_id:sessId,table_no:tbl.table_no,teacher_id:tbl.teacher_id||null,subject:tbl.subject,max_students:tbl.students.length||6});
+        // Assign students
+        if(allocRes&&allocRes.id&&tbl.students.length>0){
+          var sids=tbl.students.map(function(s){return s.student_id;});
+          await API.post('/api/table-allocations/'+allocRes.id+'/students',{student_ids:sids,is_catchup:false});
+        }
+      }
+    }
+    state.planDraft=null;
+    toast('Plan saved — '+draft.tables.length+' tables created','success');
+    await loadData('sessions','/api/sessions',b);
+    render();
+  }catch(err){toast('Error saving plan: '+(err.message||err),'danger');}
+  return;
+}
+
+// Session report date change
+if(action==='rpt-date-select'){state.rptDate=el.value;render();return;}
 if(action==='edit-table-alloc'){
   const allocId=parseInt(el.dataset.id);
   // Find the alloc object from state
