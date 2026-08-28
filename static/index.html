@@ -419,6 +419,95 @@ function exportXLSX(rows, filename, sheetName){
 
 let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',invTab:'list',invFeeFilter:'all',invMonthFilter:'',tsFilterStaff:'',tsFilterRole:'',tsFilterStatus:'',tsFilterDate:'',lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',sessionMonth:'',sessionDate:'',sessionSlot:'',sessionTeacher:'',sessionSubject:'',attTab:'quick',attDateFilter:'',attSlotFilter:'',qaDate:'',qaSlot:'',qaStatusFilter:'all',qaRecords:{},wpWeek:'',attAllSessions:'',attTeacherFilter:'',attStatusFilter:'all',planSessionId:null,planMonth:'',planTab:'allocate',timetableStudentId:null,mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
 
+function printLessonPlanReport(){
+  var rptDate=state.rptDate;
+  if(!rptDate){alert('No report loaded.');return;}
+  var sessions=state.data.sessions||[];
+  var staff=state.data.staff||[];
+  var daySessions=sessions.filter(function(s){return s.date===rptDate;});
+  var bySlot={};
+  daySessions.forEach(function(s){if(!bySlot[s.slot])bySlot[s.slot]=[];bySlot[s.slot].push(s);});
+  var rptSlots=Object.keys(bySlot).sort();
+  var dateLabel=new Date(rptDate+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  var html='<h2 style="margin:0 0 4px 0;font-size:20px;">Lesson Plan Report</h2>';
+  html+='<div style="font-size:13px;color:#555;margin-bottom:20px;">'+dateLabel+'</div>';
+  rptSlots.forEach(function(slot,si){
+    var slotTables=bySlot[slot];
+    html+='<div style="margin-bottom:20px;page-break-inside:avoid;">';
+    html+='<div style="background:#1e3a8a;color:#fff;padding:8px 14px;font-size:14px;font-weight:700;border-radius:4px 4px 0 0;">Session '+(si+1)+': '+slot+'</div>';
+    html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0;border:2px solid #1e3a8a;border-top:none;border-radius:0 0 4px 4px;overflow:hidden;">';
+    slotTables.forEach(function(s,ti){
+      var studs=state.data['sess_students_'+s.id]||[];
+      var attRecs=state.data['rpt_att_'+s.id]||[];
+      var attMap={};attRecs.forEach(function(a){attMap[a.student_id]={status:a.status};});
+      var teacher=staff.find(function(t){return t.id===s.staff_id;});
+      var borderL=ti>0?'border-left:1px solid #cbd5e1;':'';
+      html+='<div style="padding:10px 12px;'+borderL+'border-top:1px solid #cbd5e1;">';
+      html+='<div style="font-weight:700;font-size:13px;">Table '+s.table_no+'</div>';
+      html+='<div style="font-size:11px;color:#555;margin-bottom:6px;">'+(s.subject||'—')+' · Teacher: '+(teacher?teacher.name:'Unassigned')+'</div>';
+      if(studs.length===0){html+='<div style="font-size:11px;font-style:italic;color:#888;">No students</div>';}
+      else{
+        html+='<table style="width:100%;border-collapse:collapse;font-size:11px;">';
+        html+='<thead><tr style="background:#f1f5f9;"><th style="padding:3px 6px 3px 0;text-align:left;">Ad No.</th><th style="padding:3px 6px 3px 0;text-align:left;">Name</th><th style="padding:3px 6px 3px 0;text-align:left;">Year</th><th style="padding:3px 0;text-align:left;">Att.</th></tr></thead><tbody>';
+        studs.forEach(function(st){
+          var att=(attMap[st.student_id]||attMap[st.id]||{}).status||'—';
+          var attClr=att==='present'?'#166534':att==='absent'?'#991b1b':'#555';
+          html+='<tr style="border-top:1px solid #e2e8f0;">';
+          html+='<td style="padding:3px 6px 3px 0;color:#555;">'+(st.admission_id||'—')+'</td>';
+          html+='<td style="padding:3px 6px 3px 0;font-weight:500;">'+(st.name||st.student_name||'—')+'</td>';
+          html+='<td style="padding:3px 6px 3px 0;">'+(st.year_group||'—')+'</td>';
+          html+='<td style="padding:3px 0;color:'+attClr+';font-weight:600;">'+att+'</td>';
+          html+='</tr>';
+        });
+        html+='</tbody></table>';
+      }
+      html+='</div>';
+    });
+    html+='</div></div>';
+  });
+  var win=window.open('','_blank','width=1000,height=750');
+  win.document.write('<html><head><title>Lesson Plan Report - '+dateLabel+'</title>');
+  win.document.write('<style>body{font-family:Arial,sans-serif;margin:20px;color:#000;}@media print{body{margin:10px;}}</style>');
+  win.document.write('</head><body>'+html+'</body></html>');
+  win.document.close();
+  setTimeout(function(){win.print();},500);
+}
+
+function exportLessonPlanExcel(){
+  var rptDate=state.rptDate;
+  if(!rptDate){alert('No report loaded.');return;}
+  var sessions=state.data.sessions||[];
+  var staff=state.data.staff||[];
+  var daySessions=sessions.filter(function(s){return s.date===rptDate;});
+  var bySlot={};
+  daySessions.forEach(function(s){if(!bySlot[s.slot])bySlot[s.slot]=[];bySlot[s.slot].push(s);});
+  var rptSlots=Object.keys(bySlot).sort();
+  var wb=XLSX.utils.book_new();
+  rptSlots.forEach(function(slot,si){
+    var slotTables=bySlot[slot];
+    var rows=[['Table','Subject','Teacher','Ad No.','Student Name','Year Group','Attendance']];
+    slotTables.forEach(function(s){
+      var studs=state.data['sess_students_'+s.id]||[];
+      var attRecs=state.data['rpt_att_'+s.id]||[];
+      var attMap={};attRecs.forEach(function(a){attMap[a.student_id]={status:a.status};});
+      var teacher=staff.find(function(t){return t.id===s.staff_id;});
+      if(studs.length===0){
+        rows.push(['Table '+s.table_no,s.subject||'—',teacher?teacher.name:'Unassigned','','','','']);
+      }else{
+        studs.forEach(function(st){
+          var att=(attMap[st.student_id]||attMap[st.id]||{}).status||'';
+          rows.push(['Table '+s.table_no,s.subject||'—',teacher?teacher.name:'Unassigned',st.admission_id||'',st.name||st.student_name||'',st.year_group||'',att]);
+        });
+      }
+    });
+    var sheetName=('S'+(si+1)+' '+slot).slice(0,31);
+    var ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:10},{wch:14},{wch:22},{wch:10},{wch:28},{wch:10},{wch:12}];
+    XLSX.utils.book_append_sheet(wb,ws,sheetName);
+  });
+  XLSX.writeFile(wb,'LessonPlan_'+rptDate+'.xlsx');
+}
+
 function printAdmissionSlip(html){
   var win=window.open('','_blank','width=900,height=700');
   win.document.write('<html><head><title>Admission Slip</title><style>body{font-family:Arial,sans-serif;margin:20px;color:#000;}table{width:100%;border-collapse:collapse;}td,th{border:1px solid #000;padding:5px 8px;}h2{margin:0;}ul{margin:4px 0 8px 18px;line-height:1.7;font-size:13px;}.no-print,.btn{display:none!important;}</style></head><body>'+html+'</body></html>');
@@ -3264,7 +3353,8 @@ function renderSessionPlan(){
     });
     html+='</select></div>';
     if(rptDate){
-      html+='<button class="btn btn-primary" onclick="window.print()">🖨 Print Report</button>';
+      html+='<button class="btn btn-primary" onclick="printLessonPlanReport()">&#128438; Print Report</button>';
+      html+='<button class="btn btn-secondary" onclick="exportLessonPlanExcel()">&#128196; Export Excel</button>';
     }
     html+='</div></div>';
 
