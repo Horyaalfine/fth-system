@@ -1059,7 +1059,7 @@ function renderSessions(){
               html+='<tr>';
               html+='<td style="padding:3px 12px 3px 0;color:var(--text3);">'+(st.admission_id||'—')+'</td>';
               html+='<td style="padding:3px 12px 3px 0;font-weight:500;">'+(st.name||'—')+'</td>';
-              html+='<td style="padding:3px 12px 3px 0;">'+(st.year_group?'Y'+st.year_group:'—')+'</td>';
+              html+='<td style="padding:3px 12px 3px 0;">'+(st.year_group||'—')+'</td>';
               html+='</tr>';
             });
             html+='</tbody></table>';
@@ -3075,7 +3075,7 @@ function renderSessionPlan(){
         html+='<tr>';
         html+='<td style="font-size:12px;color:var(--text3);">'+(t.admission_id||'—')+'</td>';
         html+='<td style="font-weight:500;">'+(t.student_name||'—')+'</td>';
-        html+='<td>'+(t.year_group?'Y'+t.year_group:'—')+'</td>';
+        html+='<td>'+(t.year_group||'—')+'</td>';
         html+='<td>'+t.day_type.charAt(0).toUpperCase()+t.day_type.slice(1)+'</td>';
         html+='<td style="font-size:12px;">'+t.slot+'</td>';
         html+='<td><span class="badge badge-gray">'+t.subject+'</span></td>';
@@ -3150,7 +3150,7 @@ function renderSessionPlan(){
             html+='<tr>';
             html+='<td style="padding:2px 6px 2px 0;color:var(--text3);">'+(st.admission_id||'—')+'</td>';
             html+='<td style="padding:2px 6px 2px 0;font-weight:500;">'+(st.student_name||'—')+'</td>';
-            html+='<td style="padding:2px 0;">'+(st.year_group?'Y'+st.year_group:'—')+'</td>';
+            html+='<td style="padding:2px 0;">'+(st.year_group||'—')+'</td>';
             html+='</tr>';
           });
           html+='</tbody></table></div>';
@@ -3213,7 +3213,7 @@ function renderSessionPlan(){
               html+='<tr>';
               html+='<td style="padding:2px 10px 2px 0;color:var(--text3);">'+(st.admission_id||'—')+'</td>';
               html+='<td style="padding:2px 10px 2px 0;font-weight:500;">'+(st.name||'—')+'</td>';
-              html+='<td style="padding:2px 10px 2px 0;">'+(st.year_group?'Y'+st.year_group:'—')+'</td>';
+              html+='<td style="padding:2px 10px 2px 0;">'+(st.year_group||'—')+'</td>';
               html+='<td><span class="badge '+(st.status==='present'?'badge-success':st.status==='absent'?'badge-danger':'badge-gray')+'">'+(st.status||'—')+'</span></td>';
               html+='</tr>';
             });
