@@ -5649,6 +5649,8 @@ if(m==='mark-paid'){
   const notes=v('f-pay-notes');
   const r=await API.post('/api/invoices/'+state.editTarget.id+'/mark-paid',{amount:amt,method,reference,notes});
   if(r?.error){toast(r.error,'error');return;}
+  // Refresh invoice list in background
+  await loadData('invoices','/api/invoices',branchParam());
   // Show receipt modal
   state.modal={name:'payment-receipt',invoice:{...state.editTarget,...r,amount_paid:r.amount_paid,status:r.status},amtPaid:amt,method,reference};
   render();
