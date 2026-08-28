@@ -3497,7 +3497,15 @@ function renderSessionPlan(){
             html+='</tbody></table>';
             // Add student to saved table
             var inTable=studs.map(function(st){return st.student_id||st.id;});
-            var addable=(state.data.students||[]).filter(function(s){return s.status==='active'&&inTable.indexOf(s.id)<0;});
+            // Only show students on the timetable for this slot + subject
+            var allTTr=state.data.all_timetables||[];
+            var ttForSlot=allTTr.filter(function(t){return t.slot===s.slot&&t.subject===s.subject;});
+            var ttIds=ttForSlot.map(function(t){return t.student_id||null;});
+            // Also match by name if student_id not available in allTT
+            var ttAdmIds=ttForSlot.map(function(t){return t.admission_id;});
+            var addable=(state.data.students||[]).filter(function(st){
+              return st.status==='active'&&inTable.indexOf(st.id)<0&&(ttIds.indexOf(st.id)>=0||ttAdmIds.indexOf(st.admission_id)>=0);
+            });
             if(addable.length>0){
               html+='<div style="margin-top:6px;">';
               html+='<select data-action="rpt-add-student" data-id="'+s.id+'" style="width:100%;font-size:11px;padding:3px 6px;">';
