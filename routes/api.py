@@ -463,6 +463,34 @@ def delete_session(sid):
     log_action('delete', 'sessions', sid)
     return jsonify({'ok': True})
 
+@api_bp.route('/api/sessions/<int:sid>/add-student', methods=['POST'])
+@require_auth
+def add_student_to_session(sid):
+    d = request.json or {}
+    student_id = d.get('student_id')
+    if not student_id:
+        return jsonify({'error': 'student_id required'}), 400
+    conn = get_conn(); cur = conn.cursor()
+    # Find the table_allocation for this session
+    cur.execute("SELECT id FROM table_allocations WHERE session_id=%s LIMIT 1", (sid,))
+    alloc = cur.fetchone()
+    if alloc:
+        cur.execute("""
+            INSERT INTO table_allocation_students (allocation_id, student_id, is_catchup)
+            VALUES (%s, %s, false) ON CONFLICT DO NOTHING
+        """, (alloc['id'], student_id))
+    else:
+        # Fallback: add to session_students
+        session = get_session()
+        cur.execute("""
+            INSERT INTO session_students (session_id, student_id, added_by, is_catchup)
+            VALUES (%s, %s, %s, false) ON CONFLICT DO NOTHING
+        """, (sid, student_id, session.get('user_id')))
+    conn.commit(); cur.close(); conn.close()
+    log_action('edit', 'sessions', sid)
+    return jsonify({'ok': True})
+
+
 
 # ════════════════════════════════════════════
 #  AUTO-PLAN SESSION
