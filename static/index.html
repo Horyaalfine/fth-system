@@ -3803,7 +3803,7 @@ function renderStudentProgress(){
   // ── Student picker ──
   html+='<div class="card" style="margin-bottom:20px;padding:16px;">';
   html+='<div class="field" style="margin:0;max-width:400px;"><label>Select student</label>';
-  html+='<select id="sp-student-select" onchange="handleAction('sp-select-student',null,this)">';
+  html+='<select id="sp-student-select" onchange="state.spStudentId=this.value?parseInt(this.value):null;state.spTab=\'attendance\';refreshPage();">';
   html+='<option value="">— choose a student —</option>';
   students.filter(s=>s.status==="active").sort((a,b)=>a.name.localeCompare(b.name)).forEach(function(s){
     html+='<option value="'+s.id+'"'+(s.id===spid?' selected':'')+'>'+s.name+' ('+s.admission_id+')</option>';
@@ -3854,7 +3854,7 @@ function renderStudentProgress(){
   const scoreColor=avgScore===null?'var(--text3)':avgScore>=70?'var(--success)':avgScore>=50?'var(--amber)':'var(--danger)';
   html+='<div class="metric-card" style="border-top:3px solid '+scoreColor+';">';
   html+='<div class="metric-label">Avg Test Score</div>';
-  html+='<div class="metric-value" style="color:'+scoreColor)+';">'+(avgScore!==null?avgScore+'%':'—')+'</div>';
+  html+='<div class="metric-value" style="color:'+scoreColor+';">'+(avgScore!==null?avgScore+'%':'—')+'</div>';
   html+='<div class="metric-sub">'+testRecs.length+' test'+(testRecs.length===1?'':'s')+' recorded</div></div>';
 
   html+='<div class="metric-card" style="border-top:3px solid var(--text3);">';
