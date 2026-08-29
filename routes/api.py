@@ -3123,6 +3123,51 @@ def get_audit():
     cur.close(); conn.close()
     return jsonify(data)
 
+
+@api_bp.route('/api/dashboard/activity', methods=['GET'])
+@require_roles('super_admin','branch_manager','head_of_centre','supervisor','admin')
+def dashboard_activity():
+    conn = get_conn(); cur = conn.cursor()
+    b = branch_scope()
+    # Fetch recent meaningful audit entries (exclude login noise unless nothing else)
+    cur.execute("""
+        SELECT a.id, a.user_name, a.action, a.table_name, a.record_id, a.timestamp,
+               -- student name if table is students/attendance/invoices/payments/progress
+               CASE
+                 WHEN a.table_name IN ('students') THEN s.full_name
+                 WHEN a.table_name IN ('invoices','payments') THEN si.full_name
+                 WHEN a.table_name = 'attendance' THEN NULL
+                 WHEN a.table_name = 'progress' THEN sp.full_name
+                 WHEN a.table_name = 'sessions' THEN TO_CHAR(ss.session_date,'DD Mon') || ' ' || ss.slot
+                 ELSE NULL
+               END AS subject_name,
+               CASE WHEN a.table_name='sessions' THEN ss.subject ELSE NULL END AS session_subject
+        FROM audit_log a
+        LEFT JOIN students s ON a.table_name='students' AND a.record_id::text=s.id::text
+        LEFT JOIN invoices inv ON a.table_name IN ('invoices','payments') AND a.record_id::text=inv.id::text
+        LEFT JOIN students si ON inv.student_id=si.id
+        LEFT JOIN progress_notes pn ON a.table_name='progress' AND a.record_id::text=pn.id::text
+        LEFT JOIN students sp ON pn.student_id=sp.id
+        LEFT JOIN sessions ss ON a.table_name='sessions' AND a.record_id::text=ss.id::text
+        WHERE (""" + ("""a.branch_id=%s AND """ % b if b else "") + """1=1)
+          AND NOT (a.action='login' AND a.table_name='users'
+                   AND a.id NOT IN (
+                     SELECT id FROM audit_log
+                     WHERE NOT (action='login' AND table_name='users')
+                     LIMIT 1
+                   ))
+        ORDER BY a.timestamp DESC
+        LIMIT 30
+    """)
+    events = rows(cur)
+    # If all entries are logins, include them
+    non_login = [e for e in events if not (e['action']=='login' and e['table_name']=='users')]
+    result = non_login if non_login else events[:10]
+    for e in result:
+        if e.get('timestamp'): e['timestamp'] = str(e['timestamp'])
+    cur.close(); conn.close()
+    return jsonify(result)
+
 # ── MEETING NOTES ──
 NOTES_ROLES = ('super_admin','branch_manager','head_of_centre','supervisor','admin')
 
