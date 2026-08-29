@@ -417,7 +417,7 @@ function exportXLSX(rows, filename, sheetName){
   }
 }
 
-let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',invTab:'list',invFeeFilter:'all',invMonthFilter:'',tsFilterStaff:'',tsFilterRole:'',tsFilterStatus:'',tsFilterDate:'',lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',sessionMonth:'',sessionDate:'',sessionSlot:'',sessionTeacher:'',sessionSubject:'',attTab:'quick',attDateFilter:'',attSlotFilter:'',qaDate:'',qaSlot:'',qaStatusFilter:'all',qaRecords:{},wpWeek:'',attAllSessions:'',attTeacherFilter:'',attStatusFilter:'all',planSessionId:null,planMonth:'',planTab:'allocate',timetableStudentId:null,mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
+let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',invTab:'list',invFeeFilter:'all',invMonthFilter:'',tsFilterStaff:'',tsFilterRole:'',tsFilterStatus:'',tsFilterDate:'',tsWorkedOnly:false,lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',sessionMonth:'',sessionDate:'',sessionSlot:'',sessionTeacher:'',sessionSubject:'',attTab:'quick',attDateFilter:'',attSlotFilter:'',qaDate:'',qaSlot:'',qaStatusFilter:'all',qaRecords:{},wpWeek:'',attAllSessions:'',attTeacherFilter:'',attStatusFilter:'all',planSessionId:null,planMonth:'',planTab:'allocate',timetableStudentId:null,mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
 
 function printLessonPlanReport(){
   var rptDate=state.rptDate;
@@ -2163,6 +2163,7 @@ function renderStaffTimesheets(){
       <button class="btn btn-sm" data-action="dedup-staff-att" title="Remove exact duplicate timesheet rows" style="background:var(--danger-bg);color:var(--danger-text);border:1px solid var(--danger-text);">🧹 Remove Duplicates</button>
       <button class="btn btn-sm" data-action="print-all-timesheets">🖨 Print All</button>
       <button class="btn btn-sm" data-action="export-all-timesheets">⬇ Export All</button>
+      <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);cursor:pointer;white-space:nowrap;" title="Only include staff who have at least one record in the selected period"><input type="checkbox" id="ts-worked-only" ${state.tsWorkedOnly?"checked":""} onchange="state.tsWorkedOnly=this.checked"> Worked only</label>
     </div>
   </div>
 
@@ -6682,7 +6683,7 @@ document.getElementById('att-session-select')?.addEventListener('change',async e
     state.attSessionId=val?parseInt(val):null;
     if(state.attSessionId){state.attRecords[state.attSessionId]={};await Promise.all([loadData('attendance_'+state.attSessionId,'/api/attendance/'+state.attSessionId),loadData('sess_students_'+state.attSessionId,'/api/sessions/'+state.attSessionId+'/students')]);const att=state.data['attendance_'+state.attSessionId]||[];att.forEach(function(a){state.attRecords[state.attSessionId][a.student_id]={status:a.status,notes:a.notes||''};});}
   }
-  render();});document.getElementById('staff-att-month')?.addEventListener('change',e=>{state.staffAttMonth=e.target.value;refreshPage();});
+  render();});document.getElementById('staff-att-month')?.addEventListener('change',e=>{state.staffAttMonth=e.target.value;refreshPage();});document.getElementById('ts-worked-only')?.addEventListener('change',e=>{state.tsWorkedOnly=e.target.checked;});;
 document.getElementById('btn-auto-id')?.addEventListener('click',async()=>{
   const branchId=isSuperAdmin()?(document.getElementById('f-branch')?.value):String(state.currentBranch||'');
   if(!branchId){toast('Select a branch first','error');return;}
@@ -7949,7 +7950,7 @@ if(action==='dedup-staff-att'){
   else{toast(r.deleted+' duplicate row'+(r.deleted>1?'s':'')+' removed');refreshPage();}
   return;}
 if(action==='ts-clear-filters'){
-  state.tsFilterStaff='';state.tsFilterRole='';state.tsFilterStatus='';state.tsFilterDate='';
+  state.tsFilterStaff='';state.tsFilterRole='';state.tsFilterStatus='';state.tsFilterDate='';state.tsWorkedOnly=false;
   render();return;}
 if(action==='staff-att-tab'){state.staffAttTab=el.dataset.tab;render();return;}
 if(action==='export-all-timesheets'){
@@ -7958,7 +7959,8 @@ if(action==='export-all-timesheets'){
   const allRecs=state.data.staff_att||[];
   // Apply same filters as the page
   const fs=state.tsFilterStaff,fr=state.tsFilterRole,fst=state.tsFilterStatus,fd=state.tsFilterDate;
-  const filtered=summary.filter(r=>(!fs||r.id===parseInt(fs))&&(!fr||r.role===fr)&&(!fst||fst==='no_sign_out'?r.no_sign_out>0:r.status===fst));
+  let filtered=summary.filter(r=>(!fs||r.id===parseInt(fs))&&(!fr||r.role===fr)&&(!fst||fst==='no_sign_out'?r.no_sign_out>0:r.status===fst));
+  if(state.tsWorkedOnly)filtered=filtered.filter(r=>allRecs.some(rec=>rec.staff_id===r.id&&(!fd||rec.date===fd)));
   const staffIds=filtered.map(r=>r.id);
   const rows=[['Staff','Branch','Role','Date','Session','Sign In','Sign Out','Hours','Status','Notes','Absence Reason']];
   staffIds.forEach(sid=>{
@@ -7979,7 +7981,8 @@ if(action==='print-all-timesheets'){
   const summary=state.data.staff_att_summary||[];
   const allRecs=state.data.staff_att||[];
   const fs=state.tsFilterStaff,fr=state.tsFilterRole,fd=state.tsFilterDate;
-  const filtered=summary.filter(r=>(!fs||r.id===parseInt(fs))&&(!fr||r.role===fr));
+  let filtered=summary.filter(r=>(!fs||r.id===parseInt(fs))&&(!fr||r.role===fr));
+  if(state.tsWorkedOnly)filtered=filtered.filter(r=>allRecs.some(rec=>rec.staff_id===r.id&&(!fd||rec.date===fd)));
   let body='';
   filtered.forEach(st=>{
     const recs=allRecs.filter(r=>r.staff_id===st.id&&(!fd||r.date===fd));
