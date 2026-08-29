@@ -49,7 +49,7 @@ def login():
     cur.close()
     conn.close()
 
-    session.permanent = True
+    session.permanent = False  # Session cookie — cleared when browser closes
     session['user_id']   = user['id']
     session['user_name'] = user['name']
     session['role']      = user['role']
