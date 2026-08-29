@@ -2161,6 +2161,8 @@ function renderStaffTimesheets(){
       <input type="month" id="staff-att-month" value="${month}" style="border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;font-family:var(--font);font-size:13px;background:var(--surface2);color:var(--text);outline:none;">
       <button class="btn btn-primary" data-action="add-staff-att">+ Log attendance</button>
       <button class="btn btn-sm" data-action="dedup-staff-att" title="Remove exact duplicate timesheet rows" style="background:var(--danger-bg);color:var(--danger-text);border:1px solid var(--danger-text);">🧹 Remove Duplicates</button>
+      <button class="btn btn-sm" data-action="print-all-timesheets">🖨 Print All</button>
+      <button class="btn btn-sm" data-action="export-all-timesheets">⬇ Export All</button>
     </div>
   </div>
 
@@ -7950,6 +7952,70 @@ if(action==='ts-clear-filters'){
   state.tsFilterStaff='';state.tsFilterRole='';state.tsFilterStatus='';state.tsFilterDate='';
   render();return;}
 if(action==='staff-att-tab'){state.staffAttTab=el.dataset.tab;render();return;}
+if(action==='export-all-timesheets'){
+  const month=state.staffAttMonth||new Date().toISOString().slice(0,7);
+  const summary=state.data.staff_att_summary||[];
+  const allRecs=state.data.staff_att||[];
+  // Apply same filters as the page
+  const fs=state.tsFilterStaff,fr=state.tsFilterRole,fst=state.tsFilterStatus,fd=state.tsFilterDate;
+  const filtered=summary.filter(r=>(!fs||r.id===parseInt(fs))&&(!fr||r.role===fr)&&(!fst||fst==='no_sign_out'?r.no_sign_out>0:r.status===fst));
+  const staffIds=filtered.map(r=>r.id);
+  const rows=[['Staff','Branch','Role','Date','Session','Sign In','Sign Out','Hours','Status','Notes','Absence Reason']];
+  staffIds.forEach(sid=>{
+    const st=filtered.find(r=>r.id===sid);
+    const recs=allRecs.filter(r=>r.staff_id===sid&&(!fd||r.date===fd));
+    recs.forEach(r=>{
+      let hrs='';
+      if(r.sign_in&&r.sign_out){try{const si=r.sign_in.slice(0,5).split(':');const so=r.sign_out.slice(0,5).split(':');const m=parseInt(so[0])*60+parseInt(so[1])-parseInt(si[0])*60-parseInt(si[1]);hrs=Math.floor(m/60)+'h '+(m%60?m%60+'m':'');}catch(e){}}
+      rows.push([st?.name||'',st?.branch_name||'',st?.role||'',r.date,r.slot||'',r.sign_in||'',r.sign_out||'',hrs,r.status,r.notes||'',r.absence_reason||'']);
+    });
+    if(!recs.length) rows.push([st?.name||'',st?.branch_name||'',st?.role||'','—','','','','','','','']);
+  });
+  const csv=rows.map(r=>r.map(c=>'"'+String(c||'').replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='All_Staff_Timesheets_'+month+'.csv';a.click();toast('All timesheets exported');return;
+}
+if(action==='print-all-timesheets'){
+  const month=state.staffAttMonth||new Date().toISOString().slice(0,7);
+  const summary=state.data.staff_att_summary||[];
+  const allRecs=state.data.staff_att||[];
+  const fs=state.tsFilterStaff,fr=state.tsFilterRole,fd=state.tsFilterDate;
+  const filtered=summary.filter(r=>(!fs||r.id===parseInt(fs))&&(!fr||r.role===fr));
+  let body='';
+  filtered.forEach(st=>{
+    const recs=allRecs.filter(r=>r.staff_id===st.id&&(!fd||r.date===fd));
+    const totalClock=recs.filter(r=>r.sign_in&&r.sign_out).reduce((a,r)=>{try{const si=r.sign_in.slice(0,5).split(':');const so=r.sign_out.slice(0,5).split(':');return a+(parseInt(so[0])*60+parseInt(so[1])-parseInt(si[0])*60-parseInt(si[1]))/60;}catch(e){return a;}},0);
+    const present=recs.filter(r=>r.status==='present').length;
+    const absent=recs.filter(r=>r.status==='absent').length;
+    const trows=recs.map(r=>{
+      let hrs='—';
+      if(r.sign_in&&r.sign_out){try{const si=r.sign_in.slice(0,5).split(':');const so=r.sign_out.slice(0,5).split(':');const m=parseInt(so[0])*60+parseInt(so[1])-parseInt(si[0])*60-parseInt(si[1]);hrs=Math.floor(m/60)+'h '+(m%60?m%60+'m':'');}catch(e){}}
+      const sc=r.status==='present'?'#dcfce7':r.status==='absent'?'#fef2f2':'#fef9c3';
+      return '<tr><td>'+r.date+'</td><td>'+(r.slot||'—')+'</td><td>'+(r.sign_in||'—')+'</td><td>'+(r.sign_out||'—')+'</td><td>'+hrs+'</td><td><span style="background:'+sc+';padding:2px 8px;border-radius:10px;font-size:11px;">'+r.status+'</span></td><td>'+(r.notes||'')+'</td></tr>';
+    }).join('');
+    body+=`<div class="staff-block">
+      <div class="staff-header"><span class="name">${st.name}</span><span class="meta">${st.role} &nbsp;·&nbsp; ${st.branch_name}</span></div>
+      <div class="summary-pills">
+        <span class="pill green">Present: ${present}</span>
+        <span class="pill red">Absent: ${absent}</span>
+        <span class="pill blue">Clock hrs: ${totalClock.toFixed(2)}h</span>
+        <span class="pill purple">Paid hrs: ${st.total_paid_hours!=null?st.total_paid_hours+'h':'—'}</span>
+      </div>
+      <table><thead><tr><th>Date</th><th>Session</th><th>Sign In</th><th>Sign Out</th><th>Hours</th><th>Status</th><th>Notes</th></tr></thead>
+      <tbody>${trows||'<tr><td colspan="7" style="color:#9ca3af;text-align:center;">No records</td></tr>'}</tbody></table>
+    </div>`;
+  });
+  const win=window.open('','_blank','width=1000,height=800');
+  win.document.write(`<!DOCTYPE html><html><head><title>All Staff Timesheets – ${month}</title>
+  <style>body{font-family:Calibri,sans-serif;margin:30px;color:#1e293b;}h1{color:#1e3a5f;font-size:22px;margin:0 0 4px;}h2{color:#6b7280;font-size:14px;font-weight:400;margin:0 0 24px;}.staff-block{margin-bottom:32px;page-break-inside:avoid;}.staff-header{display:flex;align-items:baseline;gap:12px;margin-bottom:8px;border-bottom:2px solid #1e3a5f;padding-bottom:6px;}.staff-header .name{font-size:16px;font-weight:700;color:#1e3a5f;}.staff-header .meta{font-size:12px;color:#6b7280;}.summary-pills{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;}.pill{padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;}.pill.green{background:#dcfce7;color:#15803d;}.pill.red{background:#fef2f2;color:#b91c1c;}.pill.blue{background:#eff6ff;color:#1d4ed8;}.pill.purple{background:#f5f3ff;color:#6d28d9;}table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:4px;}th{background:#1e3a5f;color:#fff;padding:6px 8px;text-align:left;}td{padding:5px 8px;border-bottom:1px solid #e5e7eb;}tr:nth-child(even) td{background:#f9fafb;}@media print{button{display:none;}.staff-block{page-break-inside:avoid;}}</style></head>
+  <body>
+  <h1>All Staff Timesheets</h1>
+  <h2>Month: ${month} &nbsp;·&nbsp; ${filtered.length} staff member${filtered.length!==1?'s':''}</h2>
+  <button onclick="window.print()" style="margin-bottom:24px;padding:10px 24px;background:#1e3a5f;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;">🖨 Print</button>
+  ${body}
+  </body></html>`);
+  win.document.close();
+  return;
+}
 if(action==='print-staff-timesheet'){
   const sid=id;
   const records=(state.data.staff_att||[]).filter(r=>r.staff_id===sid);
