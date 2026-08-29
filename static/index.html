@@ -635,7 +635,7 @@ function canAccess(page){
 function invBadge(s){if(s==='paid')return`<span class="badge badge-success">Paid</span>`;if(s==='overdue')return`<span class="badge badge-danger">Overdue</span>`;return`<span class="badge badge-amber">Due</span>`;}
 function stars(n){return Array.from({length:5},(_,i)=>`<span style="color:${i<n?'var(--amber)':'var(--surface3)'}">★</span>`).join('');}
 async function loadData(key,path,params){try{state.data[key]=await API.get(path,params||{});}catch(e){state.data[key]=state.data[key]||[];}}
-async function refreshPage(){state.loading=true;render();const b=branchParam();const page=state.page;try{if(page==='dashboard'){const loads=[loadData('branches','/api/branches'),loadData('summary','/api/reports/summary',b)];if(state.currentUser?.role==='super_admin')loads.push(loadData('audit','/api/audit'));await Promise.all(loads);}else if(page==='students')await loadData('students','/api/students',{...b,q:state.studentSearch});else if(page==='staff')await loadData('staff','/api/staff',b);else if(page==='sessions')await loadData('sessions','/api/sessions',b);else if(page==='attendance'){await Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('all_timetables','/api/student-timetable',b)]);if(state.attSessionId){await Promise.all([loadData('attendance_'+state.attSessionId,'/api/attendance/'+state.attSessionId),loadData('sess_students_'+state.attSessionId,'/api/sessions/'+state.attSessionId+'/students')]);const att=state.data['attendance_'+state.attSessionId]||[];att.forEach(function(a){if(!state.attRecords[state.attSessionId])state.attRecords[state.attSessionId]={};state.attRecords[state.attSessionId][a.student_id]={status:a.status,notes:a.notes||''};});}}else if(page==='invoices')await Promise.all([loadData('invoices','/api/invoices',b),loadData('students','/api/students',b),loadData('branches','/api/branches')]);else if(page==='session_reports'){
+async function refreshPage(){state.loading=true;render();const b=branchParam();const page=state.page;try{if(page==='dashboard'){const loads=[loadData('branches','/api/branches'),loadData('summary','/api/reports/summary',b),loadData('action_items','/api/dashboard/action-items',b)];if(state.currentUser?.role==='super_admin')loads.push(loadData('audit','/api/audit'));await Promise.all(loads);}else if(page==='students')await loadData('students','/api/students',{...b,q:state.studentSearch});else if(page==='staff')await loadData('staff','/api/staff',b);else if(page==='sessions')await loadData('sessions','/api/sessions',b);else if(page==='attendance'){await Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('all_timetables','/api/student-timetable',b)]);if(state.attSessionId){await Promise.all([loadData('attendance_'+state.attSessionId,'/api/attendance/'+state.attSessionId),loadData('sess_students_'+state.attSessionId,'/api/sessions/'+state.attSessionId+'/students')]);const att=state.data['attendance_'+state.attSessionId]||[];att.forEach(function(a){if(!state.attRecords[state.attSessionId])state.attRecords[state.attSessionId]={};state.attRecords[state.attSessionId][a.student_id]={status:a.status,notes:a.notes||''};});}}else if(page==='invoices')await Promise.all([loadData('invoices','/api/invoices',b),loadData('students','/api/students',b),loadData('branches','/api/branches')]);else if(page==='session_reports'){
   await loadData('sessions','/api/sessions',b);
   const allSessions=state.data.sessions||[];
   const dates=[...new Set(allSessions.map(s=>s.date))].sort().reverse();
@@ -900,7 +900,27 @@ ${audit.map(l=>`<div style="display:flex;justify-content:space-between;font-size
 </div>
 </div>
 </div>
-</div>`;}
+</div>
+${(()=>{
+  const ai=state.data.action_items||{};
+  const items=ai.items||[];
+  if(!items.length) return '<div class="card" style="margin-top:20px;padding:16px;"><div class="card-title" style="margin-bottom:8px;">✅ Action Required</div><div style="color:var(--text3);font-size:13px;padding:10px 0;">All clear — no outstanding actions.</div></div>';
+  const sevColor={high:'var(--danger)',medium:'var(--amber)',low:'var(--accent)'};
+  const sevBg={high:'var(--danger-bg)',medium:'var(--amber-bg)',low:'var(--accent-bg)'};
+  const sevLabel={high:'Urgent',medium:'Attention',low:'Info'};
+  const icons={invoices:'💰',catchup:'📅',attendance:'📊',lesson_reports:'📋',test_scores:'📝'};
+  return '<div class="card" style="margin-top:20px;padding:0;overflow:hidden;"><div style="background:var(--danger);padding:12px 16px;display:flex;align-items:center;gap:8px;"><span style="color:#fff;font-weight:700;font-size:14px;">⚠ Action Required</span><span style="background:rgba(255,255,255,0.25);color:#fff;border-radius:12px;padding:2px 8px;font-size:12px;font-weight:700;">'+items.length+'</span></div>'+
+  items.map(item=>'<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;" onclick="state.page=\''+item.nav+'\';refreshPage();">'+
+    '<span style="font-size:20px;">'+icons[item.type]+'</span>'+
+    '<div style="flex:1;">'+
+      '<div style="font-size:13px;font-weight:600;color:var(--text);">'+item.title+'</div>'+
+      '<div style="font-size:12px;color:var(--text3);margin-top:2px;">'+item.detail+'</div>'+
+    '</div>'+
+    '<span style="font-size:10px;font-weight:700;text-transform:uppercase;padding:3px 8px;border-radius:10px;background:'+sevBg[item.severity]+';color:'+sevColor[item.severity]+';">'+sevLabel[item.severity]+'</span>'+
+    '<span style="color:var(--text3);font-size:16px;">›</span>'+
+  '</div>').join('')+'</div>';
+})()}
+`;}
 
 function renderStudents(){const allStudents=state.data.students||[];
 const sf=state.studentFilter||'active';

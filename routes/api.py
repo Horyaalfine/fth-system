@@ -4977,3 +4977,98 @@ def send_progress_report(sid):
         return jsonify({'error': str(ex)}), 500
 
     return jsonify({'ok': True, 'sent_to': sent_to})
+
+
+# ── Dashboard Action Items ─────────────────────────────────────────────────────
+@api_bp.route('/api/dashboard/action-items', methods=['GET'])
+@require_auth
+def dashboard_action_items():
+    b = branch_scope()
+    conn = get_conn(); cur = conn.cursor()
+    bw = "AND s.branch_id=%s" if b else ""
+    bw2 = "AND branch_id=%s" if b else ""
+    p = (b,) if b else ()
+    items = []
+
+    # 1. Overdue invoices (unpaid, count + total)
+    cur.execute(f"SELECT COUNT(*) as c, COALESCE(SUM(amount),0) as total FROM invoices WHERE status!='paid' {bw2}", p)
+    inv = cur.fetchone()
+    if inv and inv['c']:
+        items.append({
+            'type': 'invoices',
+            'severity': 'high' if float(inv['total']) > 500 else 'medium',
+            'title': f"{inv['c']} unpaid invoice{'s' if inv['c']>1 else ''}",
+            'detail': f"£{int(inv['total'])} outstanding",
+            'nav': 'invoices',
+        })
+
+    # 2. Catch-up lessons owed
+    cur.execute(f"SELECT COUNT(*) as c FROM catchup_lessons WHERE status='owed' {bw2}", p)
+    cu = cur.fetchone()
+    if cu and cu['c']:
+        items.append({
+            'type': 'catchup',
+            'severity': 'medium',
+            'title': f"{cu['c']} catch-up lesson{'s' if cu['c']>1 else ''} owed",
+            'detail': "Students missed sessions without a scheduled catch-up",
+            'nav': 'catchup',
+        })
+
+    # 3. Students with attendance below 75% (min 4 sessions)
+    cur.execute(f"""
+        SELECT COUNT(*) as c FROM (
+            SELECT a.student_id,
+                   COUNT(*) as total,
+                   SUM(CASE WHEN a.status='present' THEN 1 ELSE 0 END) as present
+            FROM attendance a
+            JOIN sessions s ON s.id=a.session_id
+            WHERE 1=1 {bw}
+            GROUP BY a.student_id
+            HAVING COUNT(*) >= 4
+               AND SUM(CASE WHEN a.status='present' THEN 1 ELSE 0 END)::float/COUNT(*) < 0.75
+        ) sub
+    """, p)
+    low_att = cur.fetchone()
+    if low_att and low_att['c']:
+        items.append({
+            'type': 'attendance',
+            'severity': 'high' if low_att['c'] > 3 else 'medium',
+            'title': f"{low_att['c']} student{'s' if low_att['c']>1 else ''} with low attendance",
+            'detail': "Below 75% — may need follow-up",
+            'nav': 'student_progress',
+        })
+
+    # 4. Unchecked lesson reports (supervisor not yet reviewed)
+    cur.execute(f"""
+        SELECT COUNT(*) as c FROM lesson_reports lr
+        JOIN sessions s ON s.id=lr.session_id
+        WHERE lr.supervisor_checked=false {bw}
+    """, p)
+    unchecked = cur.fetchone()
+    if unchecked and unchecked['c']:
+        items.append({
+            'type': 'lesson_reports',
+            'severity': 'low',
+            'title': f"{unchecked['c']} lesson report{'s' if unchecked['c']>1 else ''} awaiting review",
+            'detail': "Supervisor check not completed",
+            'nav': 'lesson_reports',
+        })
+
+    # 5. Students with test score below 60% in last 30 days
+    cur.execute(f"""
+        SELECT COUNT(*) as c FROM test_records
+        WHERE score_pct < 60 AND test_date >= CURRENT_DATE - INTERVAL '30 days'
+        {bw2.replace('branch_id','branch_id')}
+    """, p)
+    low_scores = cur.fetchone()
+    if low_scores and low_scores['c']:
+        items.append({
+            'type': 'test_scores',
+            'severity': 'medium',
+            'title': f"{low_scores['c']} test result{'s' if low_scores['c']>1 else ''} below 60% (last 30 days)",
+            'detail': "Review action plans and consider extra support",
+            'nav': 'test_records',
+        })
+
+    cur.close(); conn.close()
+    return jsonify({'items': items, 'count': len(items)})
