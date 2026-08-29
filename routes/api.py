@@ -5072,3 +5072,49 @@ def dashboard_action_items():
 
     cur.close(); conn.close()
     return jsonify({'items': items, 'count': len(items)})
+
+
+# ── Dashboard Today Stats (injected via separate endpoint) ──────────────────
+@api_bp.route('/api/dashboard/today', methods=['GET'])
+@require_auth
+def dashboard_today():
+    b = branch_scope()
+    conn = get_conn(); cur = conn.cursor()
+    p = (b,) if b else ()
+    bw  = "AND s.branch_id=%s" if b else ""
+    bw2 = "AND branch_id=%s" if b else ""
+
+    # Sessions today
+    cur.execute("SELECT COUNT(*) as c FROM sessions s WHERE s.date=CURRENT_DATE" + (" AND s.branch_id=%s" if b else ""), p)
+    today_sessions = cur.fetchone()['c']
+
+    # Today's sessions list
+    cur.execute(("SELECT s.id, s.slot, s.subject, s.table_no, b.name as branch_name, st.name as staff_name FROM sessions s JOIN branches b ON b.id=s.branch_id LEFT JOIN staff st ON st.id=s.staff_id WHERE s.date=CURRENT_DATE" + (" AND s.branch_id=%s" if b else "") + " ORDER BY s.slot, s.branch_name"), p)
+    today_list = rows(cur)
+
+    # Students expected today
+    cur.execute(("SELECT COUNT(DISTINCT ss.student_id) as c FROM session_students ss JOIN sessions s ON s.id=ss.session_id WHERE s.date=CURRENT_DATE" + bw), p)
+    today_expected = cur.fetchone()['c']
+
+    # Attendance marked today
+    cur.execute(("SELECT SUM(CASE WHEN a.status='present' THEN 1 ELSE 0 END) as present, COUNT(*) as marked FROM attendance a JOIN sessions s ON s.id=a.session_id WHERE s.date=CURRENT_DATE" + bw), p)
+    today_att = cur.fetchone() or {}
+
+    # Revenue this month
+    cur.execute(("SELECT COALESCE(SUM(amount),0) as total FROM payments WHERE TO_CHAR(payment_date,'YYYY-MM')=TO_CHAR(CURRENT_DATE,'YYYY-MM')" + bw2), p)
+    month_revenue = int(cur.fetchone()['total'] or 0)
+
+    # New enrolments this month
+    cur.execute(("SELECT COUNT(*) as c FROM students WHERE TO_CHAR(created_at,'YYYY-MM')=TO_CHAR(CURRENT_DATE,'YYYY-MM') AND status='active'" + bw2), p)
+    new_enrolments = cur.fetchone()['c']
+
+    cur.close(); conn.close()
+    return jsonify({
+        'today_sessions': today_sessions,
+        'today_list': today_list,
+        'today_expected': today_expected,
+        'today_present': int(today_att.get('present') or 0),
+        'today_marked': int(today_att.get('marked') or 0),
+        'month_revenue': month_revenue,
+        'new_enrolments': new_enrolments,
+    })

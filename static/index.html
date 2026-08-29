@@ -635,7 +635,7 @@ function canAccess(page){
 function invBadge(s){if(s==='paid')return`<span class="badge badge-success">Paid</span>`;if(s==='overdue')return`<span class="badge badge-danger">Overdue</span>`;return`<span class="badge badge-amber">Due</span>`;}
 function stars(n){return Array.from({length:5},(_,i)=>`<span style="color:${i<n?'var(--amber)':'var(--surface3)'}">★</span>`).join('');}
 async function loadData(key,path,params){try{state.data[key]=await API.get(path,params||{});}catch(e){state.data[key]=state.data[key]||[];}}
-async function refreshPage(){state.loading=true;render();const b=branchParam();const page=state.page;try{if(page==='dashboard'){const loads=[loadData('branches','/api/branches'),loadData('summary','/api/reports/summary',b),loadData('action_items','/api/dashboard/action-items',b)];if(state.currentUser?.role==='super_admin')loads.push(loadData('audit','/api/audit'));await Promise.all(loads);}else if(page==='students')await loadData('students','/api/students',{...b,q:state.studentSearch});else if(page==='staff')await loadData('staff','/api/staff',b);else if(page==='sessions')await loadData('sessions','/api/sessions',b);else if(page==='attendance'){await Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('all_timetables','/api/student-timetable',b)]);if(state.attSessionId){await Promise.all([loadData('attendance_'+state.attSessionId,'/api/attendance/'+state.attSessionId),loadData('sess_students_'+state.attSessionId,'/api/sessions/'+state.attSessionId+'/students')]);const att=state.data['attendance_'+state.attSessionId]||[];att.forEach(function(a){if(!state.attRecords[state.attSessionId])state.attRecords[state.attSessionId]={};state.attRecords[state.attSessionId][a.student_id]={status:a.status,notes:a.notes||''};});}}else if(page==='invoices')await Promise.all([loadData('invoices','/api/invoices',b),loadData('students','/api/students',b),loadData('branches','/api/branches')]);else if(page==='session_reports'){
+async function refreshPage(){state.loading=true;render();const b=branchParam();const page=state.page;try{if(page==='dashboard'){const loads=[loadData('branches','/api/branches'),loadData('summary','/api/reports/summary',b),loadData('action_items','/api/dashboard/action-items',b),loadData('today','/api/dashboard/today',b)];if(state.currentUser?.role==='super_admin')loads.push(loadData('audit','/api/audit'));await Promise.all(loads);}else if(page==='students')await loadData('students','/api/students',{...b,q:state.studentSearch});else if(page==='staff')await loadData('staff','/api/staff',b);else if(page==='sessions')await loadData('sessions','/api/sessions',b);else if(page==='attendance'){await Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('all_timetables','/api/student-timetable',b)]);if(state.attSessionId){await Promise.all([loadData('attendance_'+state.attSessionId,'/api/attendance/'+state.attSessionId),loadData('sess_students_'+state.attSessionId,'/api/sessions/'+state.attSessionId+'/students')]);const att=state.data['attendance_'+state.attSessionId]||[];att.forEach(function(a){if(!state.attRecords[state.attSessionId])state.attRecords[state.attSessionId]={};state.attRecords[state.attSessionId][a.student_id]={status:a.status,notes:a.notes||''};});}}else if(page==='invoices')await Promise.all([loadData('invoices','/api/invoices',b),loadData('students','/api/students',b),loadData('branches','/api/branches')]);else if(page==='session_reports'){
   await loadData('sessions','/api/sessions',b);
   const allSessions=state.data.sessions||[];
   const dates=[...new Set(allSessions.map(s=>s.date))].sort().reverse();
@@ -870,15 +870,41 @@ function renderPage(){const map={dashboard:renderDashboard,student_profile:rende
 
 function renderDashboard(){const s=state.data.summary||{};const bs=s.branch_stats||[];const audit=(state.data.audit||[]).slice(0,5);
 return`
-<div class="metrics-grid">
-<div class="metric-card"><div class="metric-icon" style="background:var(--accent-bg);">${icoUsers(18)}</div><div class="metric-label">Total students</div><div class="metric-value">${s.student_count||0}</div><div class="metric-sub">Active enrolments</div></div>
-<div class="metric-card"><div class="metric-icon" style="background:var(--teal-bg);">${icoUser(18)}</div><div class="metric-label">Staff active</div><div class="metric-value">${s.staff_count||0}</div><div class="metric-sub">Teachers &amp; support</div></div>
-<div class="metric-card"><div class="metric-icon" style="background:var(--amber-bg);">${icoCal(18)}</div><div class="metric-label">Sessions recorded</div><div class="metric-value">${s.session_count||0}</div><div class="metric-sub">All time</div></div>
-<div class="metric-card"><div class="metric-icon" style="background:var(--success-bg);">${icoCheck(18)}</div><div class="metric-label">Attendance rate</div><div class="metric-value">${s.att_rate||0}%</div><div class="metric-sub">${s.att_present||0}/${s.att_total||0} sessions</div></div>
-</div>
+${(function(){
+var t=state.data.today||{};
+var todayPct=t.today_expected>0?Math.round((t.today_present||0)/t.today_expected*100):null;
+var attColor=todayPct===null?'var(--text3)':todayPct>=80?'var(--success)':todayPct>=60?'var(--amber)':'var(--danger)';
+var today=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+var slots=t.today_list&&t.today_list.length?[...new Set(t.today_list.map(function(x){return x.slot;}))].join(', '):'No sessions today';
+var outstanding=s.outstanding_fees||0;
+var feeColor=outstanding>0?'var(--danger-text)':'var(--success-text)';
+var feeTop=outstanding>0?'var(--danger)':'var(--success)';
+return '<div style="margin-bottom:12px;"><div class=\"section-title\" style=\"margin-bottom:2px;\">Dashboard</div><div class=\"section-sub\">'+today+'</div></div>'+
+'<div class=\"metrics-grid\">'+
+'<div class=\"metric-card\" style=\"border-top:3px solid var(--accent);\">' +
+  '<div class=\"metric-label\">Sessions today</div>' +
+  '<div class=\"metric-value\">'+(t.today_sessions||0)+'</div>' +
+  '<div class=\"metric-sub\">'+slots+'</div></div>'+
+'<div class=\"metric-card\" style=\"border-top:3px solid '+attColor+';\">' +
+  '<div class=\"metric-label\">Attendance today</div>' +
+  '<div class=\"metric-value\" style=\"color:'+attColor+';\">'+(todayPct!==null?todayPct+'%':'—')+'</div>' +
+  '<div class=\"metric-sub\">'+(t.today_present||0)+' present of '+(t.today_expected||0)+' expected</div></div>'+
+'<div class=\"metric-card\" style=\"border-top:3px solid var(--success);\">' +
+  '<div class=\"metric-label\">Revenue this month</div>' +
+  '<div class=\"metric-value\">£'+((t.month_revenue||0).toLocaleString())+'</div>' +
+  '<div class=\"metric-sub\">'+(t.new_enrolments||0)+' new enrolment'+(t.new_enrolments===1?'':'s')+' this month</div></div>'+
+'<div class=\"metric-card\" style=\"border-top:3px solid '+feeTop+';\">' +
+  '<div class=\"metric-label\">Outstanding fees</div>' +
+  '<div class=\"metric-value\" style=\"color:'+feeColor+';">£'+(outstanding.toLocaleString())+'</div>' +
+  '<div class=\"metric-sub\">'+(s.student_count||0)+' active students · '+(s.att_rate||0)+'% overall attendance</div></div>'+
+'</div>';
+})()}
 <div class="two-col">
 <div class="card">
-<div class="card-header"><div class="card-title">Branch utilisation</div></div>
+<div class="card-header"><div class="card-title">Today's sessions</div></div>
+${(()=>{const tl=(state.data.today||{}).today_list||[];if(!tl.length)return '<div style="color:var(--text3);font-size:13px;padding:8px 0;">No sessions scheduled for today.</div>';return tl.map(s=>'<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;"><div><span style="font-weight:600;color:var(--text);">'+s.slot+'</span> <span class="badge badge-gray">'+s.subject+'</span></div><div style="text-align:right;"><div style="font-size:12px;color:var(--text2);">'+s.branch_name+'</div><div style="font-size:11px;color:var(--text3);">'+(s.staff_name||'No teacher')+'</div></div></div>').join('');})()}
+<hr class="divider">
+<div class="card-title" style="margin-bottom:8px;">Branch utilisation</div>
 ${bs.map((b,i)=>{const pct=b.att_total?Math.round(b.present/b.att_total*100):0;const cols=['var(--accent)','var(--teal)','var(--amber)','var(--pink)'];return`<div class="bar-row"><span style="min-width:90px;color:var(--text2);font-weight:500;">${b.name}</span><div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${cols[i%cols.length]};"></div></div><span style="min-width:40px;text-align:right;font-weight:700;color:var(--text);">${pct}%</span><span style="font-size:11px;color:var(--text3);min-width:70px;text-align:right;">${b.students} students</span></div>`;}).join('')}
 <hr class="divider">
 <div class="card-title" style="margin-bottom:12px;">Recent activity</div>
