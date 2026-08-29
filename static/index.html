@@ -714,6 +714,18 @@ else if(page==='announcements'){await Promise.all([loadData('announcements','/ap
   await Promise.all([loadData('students','/api/students',b),loadData('test_records','/api/test-records',b),loadData('branches','/api/branches')]);
   if(state.trStudentId) await loadData('tr_'+state.trStudentId,'/api/test-records',{student_id:state.trStudentId});
 }
+else if(page==='student_progress'){
+  await loadData('students','/api/students',b);
+  const spid=state.spStudentId;
+  if(spid){
+    await Promise.all([
+      loadData('sp_att_'+spid,'/api/students/'+spid+'/attendance-summary'),
+      loadData('sp_prog_'+spid,'/api/progress',{student_id:spid}),
+      loadData('sp_tests_'+spid,'/api/test-records',{student_id:spid}),
+      loadData('sp_catchup_'+spid,'/api/catchup',b),
+    ]);
+  }
+}
 else if(page==='staff_timesheets'){await Promise.all([loadData('sessions','/api/sessions',b),loadData('staff','/api/staff',b),loadData('staff_att_summary','/api/staff-attendance/summary',{...b,month:state.staffAttMonth||new Date().toISOString().slice(0,7)}),loadData('staff_att','/api/staff-attendance',{...b,month:state.staffAttMonth||new Date().toISOString().slice(0,7)})]);}else if(page==='finance'){const mp=state.finMonth?{month:state.finMonth}:{};await Promise.all([loadData('students','/api/students',b),loadData('invoices','/api/invoices',b),loadData('adjustments','/api/adjustments',b),loadData('payments','/api/payments',{...b,...mp}),loadData('instalment_plans','/api/instalment-plans',b),loadData('payment_summary','/api/payments/summary',{...b,...mp}),
     loadData('hq_transfers','/api/hq-transfers',b),
     loadData('hq_summary','/api/hq-transfers/summary')]);if(state.finStudentId)state.data['statement_'+state.finStudentId]=await API.get('/api/statement/'+state.finStudentId).catch(()=>null);}else if(page==='reports')await loadData('summary','/api/reports/summary',b);else if(page==='users')await loadData('users','/api/users');else if(page==='branches')await Promise.all([loadData('branches','/api/branches'),loadData('summary','/api/reports/summary')]);else if(page==='parent_portal'){await Promise.all([loadData('parent_users','/api/parent-users'),loadData('students','/api/students')]);}else if(page==='audit')await loadData('audit','/api/audit');}catch(e){console.error('refreshPage error:',e);}finally{state.loading=false;render();}}
@@ -821,6 +833,7 @@ function renderSidebar(){const u=state.currentUser;const isSA=u.role==='super_ad
   {id:'lesson_reports',icon:icoBook(),label:'Lesson Reports',group:'teaching'},
   {id:'catchup',icon:icoHeart(),label:'Catch-up Lessons',group:'teaching'},
   {id:'test_records',icon:icoTest(),label:'Tests & Assessments',group:'teaching'},
+  {id:'student_progress',icon:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',label:'Student Progress',group:'teaching'},
   {id:'invoices',icon:icoPound(),label:'Invoices & Fees',group:'finance'},
   {id:'finance',icon:icoFinance(),label:'Payments & Transactions',group:'finance'},
   {id:'credit_control',icon:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>',label:'Credit Control',group:'finance'},
@@ -853,7 +866,7 @@ const u=state.currentUser;
     '</select></div>':'';
   return mobileBranchBar+`<div class="topbar"><button class="hamburger" id="hamburger-btn"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><div class="page-title">${titles[state.page]||''}</div><div class="topbar-right"><button id="mobile-logout-btn" style="display:none;background:#0f2557;color:#fff;border:1px solid #2a4d9c;border-radius:var(--radius);padding:6px 12px;font-size:13px;cursor:pointer;font-family:var(--font);">Sign out</button>${b?`<span class="badge badge-accent">${b.name}</span>`:`<span class="badge badge-purple">${(state.currentUser.role==='super_admin'||state.currentUser.role==='head_of_branches')?'All branches':''}</span>`}<div class="user-chip" style="padding:6px 10px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border);"><div class="avatar ${avatarClass(state.currentUser.role)}" style="width:26px;height:26px;font-size:10px;">${avatarInitials(state.currentUser.name)}</div><span style="font-size:13px;color:var(--text2);margin-left:6px;">${state.currentUser.name}</span></div></div></div>`;}
 
-function renderPage(){const map={dashboard:renderDashboard,student_profile:renderStudentProfile,students:renderStudents,staff:renderStaff,sessions:renderSessions,attendance:renderAttendance,invoices:renderInvoices,session_reports:renderSessionReports,staff_timesheets:renderStaffTimesheets,lesson_reports:renderLessonReports,test_records:renderTestRecords,catchup:renderCatchup,session_plan:renderSessionPlan,mgmt_reports:renderMgmtReports,finance:renderFinance,reports:renderReports,users:renderUsers,branches:renderBranches,parent_portal:renderParentPortalAdmin,notes:renderNotes,announcements:renderAnnouncements,credit_control:renderCreditControl,teacher_schedule:renderTeacherSchedule,audit:renderAudit};return(map[state.page]||renderDashboard)();}
+function renderPage(){const map={dashboard:renderDashboard,student_profile:renderStudentProfile,students:renderStudents,staff:renderStaff,sessions:renderSessions,attendance:renderAttendance,invoices:renderInvoices,session_reports:renderSessionReports,staff_timesheets:renderStaffTimesheets,lesson_reports:renderLessonReports,test_records:renderTestRecords,student_progress:renderStudentProgress,catchup:renderCatchup,session_plan:renderSessionPlan,mgmt_reports:renderMgmtReports,finance:renderFinance,reports:renderReports,users:renderUsers,branches:renderBranches,parent_portal:renderParentPortalAdmin,notes:renderNotes,announcements:renderAnnouncements,credit_control:renderCreditControl,teacher_schedule:renderTeacherSchedule,audit:renderAudit};return(map[state.page]||renderDashboard)();}
 
 function renderDashboard(){const s=state.data.summary||{};const bs=s.branch_stats||[];const audit=(state.data.audit||[]).slice(0,5);
 return`
@@ -3772,6 +3785,179 @@ function renderCatchup(){
   html+='<thead><tr><th>Student</th><th>ID</th><th>Subject</th><th>Missed date</th><th>Slot</th><th>Status</th><th>Catch-up date</th><th>Notes</th><th></th></tr></thead>';
   html+='<tbody>'+buildTable(activeList, true)+'</tbody>';
   html+='</table></div></div>';
+  return html;
+}
+
+
+function renderStudentProgress(){
+  const students=state.data.students||[];
+  const spid=state.spStudentId;
+  const student=students.find(s=>s.id===spid);
+
+  // ── Header ──
+  let html='<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">';
+  html+='<div><div class="section-title">Student Progress Hub</div>';
+  html+='<div class="section-sub">Full profile: attendance, test scores, lesson notes, catch-up lessons</div></div>';
+  html+='</div>';
+
+  // ── Student picker ──
+  html+='<div class="card" style="margin-bottom:20px;padding:16px;">';
+  html+='<div class="field" style="margin:0;max-width:400px;"><label>Select student</label>';
+  html+='<select id="sp-student-select" onchange="handleAction('sp-select-student',null,this)">';
+  html+='<option value="">— choose a student —</option>';
+  students.filter(s=>s.status==="active").sort((a,b)=>a.name.localeCompare(b.name)).forEach(function(s){
+    html+='<option value="'+s.id+'"'+(s.id===spid?' selected':'')+'>'+s.name+' ('+s.admission_id+')</option>';
+  });
+  html+='</select></div></div>';
+
+  if(!spid||!student){
+    html+='<div class="empty-state" style="padding:60px;text-align:center;"><div style="font-size:48px;margin-bottom:12px;">👤</div><div style="color:var(--text2);">Select a student to view their full profile</div></div>';
+    return html;
+  }
+
+  const attData  = state.data['sp_att_'+spid]  || {};
+  const attRecs  = attData.records  || [];
+  const attSumm  = attData.summary  || {};
+  const progRecs = state.data['sp_prog_'+spid]  || [];
+  const testRecs = state.data['sp_tests_'+spid] || [];
+  const catchRecs= (state.data['sp_catchup_'+spid]||[]).filter(c=>c.student_id===spid);
+
+  const totalSess = parseInt(attSumm.total)||0;
+  const present   = parseInt(attSumm.present)||0;
+  const absent    = parseInt(attSumm.absent)||0;
+  const attPct    = totalSess>0?Math.round(present/totalSess*100):0;
+
+  const avgScore = testRecs.length
+    ? Math.round(testRecs.reduce((a,t)=>a+(parseFloat(t.score_pct)||0),0)/testRecs.length)
+    : null;
+
+  const latestProg = progRecs[0];
+  const owedCatchup = catchRecs.filter(c=>c.status==='owed').length;
+
+  // ── Student info strip ──
+  html+='<div class="card" style="margin-bottom:16px;padding:16px;background:var(--accent);color:#fff;">';
+  html+='<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center;">';
+  html+='<div><div style="font-size:20px;font-weight:700;">'+student.name+'</div>';
+  html+='<div style="opacity:0.85;font-size:13px;">'+student.admission_id+' · Year '+(student.school_year||'—')+' · '+(student.branch_name||student.branch_id||'')+'</div></div>';
+  const subjs=(student.subjects||(student.subject?student.subject:''))||'';
+  if(subjs) html+='<div style="font-size:13px;opacity:0.85;">📚 '+subjs+'</div>';
+  html+='</div></div>';
+
+  // ── KPI cards ──
+  const pctColor=attPct>=80?'var(--success)':attPct>=60?'var(--amber)':'var(--danger)';
+  html+='<div class="metrics-grid" style="margin-bottom:20px;">';
+  html+='<div class="metric-card" style="border-top:3px solid '+pctColor+';">';
+  html+='<div class="metric-label">Attendance</div>';
+  html+='<div class="metric-value" style="color:'+pctColor+';">'+attPct+'%</div>';
+  html+='<div class="metric-sub">'+present+' present / '+absent+' absent</div></div>';
+
+  const scoreColor=avgScore===null?'var(--text3)':avgScore>=70?'var(--success)':avgScore>=50?'var(--amber)':'var(--danger)';
+  html+='<div class="metric-card" style="border-top:3px solid '+scoreColor+';">';
+  html+='<div class="metric-label">Avg Test Score</div>';
+  html+='<div class="metric-value" style="color:'+scoreColor)+';">'+(avgScore!==null?avgScore+'%':'—')+'</div>';
+  html+='<div class="metric-sub">'+testRecs.length+' test'+(testRecs.length===1?'':'s')+' recorded</div></div>';
+
+  html+='<div class="metric-card" style="border-top:3px solid var(--text3);">';
+  html+='<div class="metric-label">Progress Notes</div>';
+  html+='<div class="metric-value">'+progRecs.length+'</div>';
+  html+='<div class="metric-sub">'+(latestProg?'Last: '+latestProg.date:'No notes yet')+'</div></div>';
+
+  const catchColor=owedCatchup>0?'var(--danger)':'var(--success)';
+  html+='<div class="metric-card" style="border-top:3px solid '+catchColor+';">';
+  html+='<div class="metric-label">Catch-up Owed</div>';
+  html+='<div class="metric-value" style="color:'+catchColor+';">'+owedCatchup+'</div>';
+  html+='<div class="metric-sub">'+catchRecs.length+' total logged</div></div>';
+  html+='</div>';
+
+  // ── Tabs ──
+  const spTab=state.spTab||'attendance';
+  html+='<div class="tab-bar" style="margin-bottom:16px;">';
+  ['attendance','tests','progress','catchup'].forEach(function(t){
+    const labels={attendance:'Attendance ('+attRecs.length+')',tests:'Tests ('+testRecs.length+')',progress:'Progress Notes ('+progRecs.length+')',catchup:'Catch-up ('+catchRecs.length+')'};
+    html+='<div class="tab '+(spTab===t?'active':'')+'" data-action="sp-tab" data-tab="'+t+'">'+labels[t]+'</div>';
+  });
+  html+='</div>';
+
+  // ── Tab content ──
+  html+='<div class="card" style="padding:0;overflow:hidden;">';
+
+  if(spTab==='attendance'){
+    if(!attRecs.length){ html+='<div class="empty-state" style="padding:30px;">No attendance records found</div>'; }
+    else {
+      html+='<div class="table-wrap"><table>';
+      html+='<thead><tr><th>Date</th><th>Subject</th><th>Slot</th><th>Status</th><th>Notes</th></tr></thead><tbody>';
+      attRecs.slice(0,50).forEach(function(r){
+        const badge=r.status==='present'?'<span class="badge badge-success">Present</span>':'<span class="badge badge-danger">Absent</span>';
+        html+='<tr><td>'+r.date+'</td><td>'+(r.subject||'—')+'</td><td>'+(r.slot||'—')+'</td><td>'+badge+'</td><td style="color:var(--text3);font-size:12px;">'+(r.notes||'')+'</td></tr>';
+      });
+      html+='</tbody></table></div>';
+    }
+  }
+
+  else if(spTab==='tests'){
+    if(!testRecs.length){ html+='<div class="empty-state" style="padding:30px;">No test records found</div>'; }
+    else {
+      html+='<div class="table-wrap"><table>';
+      html+='<thead><tr><th>Date</th><th>Subject</th><th>Book / Unit</th><th>Score</th><th>Retest</th><th>Action Plan</th></tr></thead><tbody>';
+      testRecs.forEach(function(r){
+        const sc=parseFloat(r.score_pct)||0;
+        const col=sc>=70?'var(--success)':sc>=50?'var(--amber)':'var(--danger)';
+        const rsc=r.retest_score_pct!=null?parseFloat(r.retest_score_pct)+'%':'—';
+        html+='<tr>';
+        html+='<td>'+r.test_date+'</td>';
+        html+='<td><span class="badge badge-gray">'+(r.subject||'—')+'</span></td>';
+        html+='<td style="font-size:12px;">'+(r.book_unit||'—')+'</td>';
+        html+='<td><strong style="color:'+col+';">'+sc+'%</strong></td>';
+        html+='<td>'+rsc+'</td>';
+        html+='<td style="font-size:12px;color:var(--text3);">'+(r.action_plan||'—')+'</td>';
+        html+='</tr>';
+      });
+      html+='</tbody></table></div>';
+    }
+  }
+
+  else if(spTab==='progress'){
+    if(!progRecs.length){ html+='<div class="empty-state" style="padding:30px;">No progress notes found</div>'; }
+    else {
+      html+='<div style="padding:16px;display:flex;flex-direction:column;gap:12px;">';
+      progRecs.slice(0,30).forEach(function(r){
+        const stars='★'.repeat(r.rating||0)+'☆'.repeat(5-(r.rating||0));
+        const ratingColor=r.rating>=4?'var(--success)':r.rating>=3?'var(--amber)':'var(--danger)';
+        html+='<div style="border:1px solid var(--border);border-radius:8px;padding:12px;">';
+        html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+        html+='<div style="display:flex;gap:8px;align-items:center;">';
+        html+='<span class="badge badge-gray">'+(r.subject||'General')+'</span>';
+        html+='<span style="color:'+ratingColor+';font-size:14px;">'+stars+'</span>';
+        html+='</div>';
+        html+='<div style="font-size:12px;color:var(--text3);">'+r.date+' · '+(r.staff_name||'Unknown')+'</div>';
+        html+='</div>';
+        html+='<div style="font-size:13px;color:var(--text1);">'+(r.comment||'<em style="color:var(--text3);">No comment</em>')+'</div>';
+        html+='</div>';
+      });
+      html+='</div>';
+    }
+  }
+
+  else if(spTab==='catchup'){
+    if(!catchRecs.length){ html+='<div class="empty-state" style="padding:30px;">No catch-up lessons logged for this student</div>'; }
+    else {
+      html+='<div class="table-wrap"><table>';
+      html+='<thead><tr><th>Subject</th><th>Missed date</th><th>Status</th><th>Catch-up date</th><th>Notes</th></tr></thead><tbody>';
+      catchRecs.forEach(function(c){
+        const badge=c.status==='owed'?'<span class="badge badge-danger">Owed</span>':c.status==='scheduled'?'<span class="badge badge-amber">Scheduled</span>':'<span class="badge badge-success">Completed</span>';
+        html+='<tr>';
+        html+='<td><span class="badge badge-gray">'+(c.subject||'—')+'</span></td>';
+        html+='<td>'+(c.missed_date||c.missed_date_actual||'—')+'</td>';
+        html+='<td>'+badge+'</td>';
+        html+='<td>'+(c.catchup_date_actual||c.scheduled_date||'—')+'</td>';
+        html+='<td style="font-size:12px;color:var(--text3);">'+(c.notes||'—')+'</td>';
+        html+='</tr>';
+      });
+      html+='</tbody></table></div>';
+    }
+  }
+
+  html+='</div>';
   return html;
 }
 
@@ -7881,6 +8067,8 @@ if(action==='assign-all-students'){
   toast(toAdd.length+' students assigned');
   render();return;}
 if(action==='catchup-tab'){state.catchupTab=el.dataset.tab;render();return;}
+if(action==='sp-tab'){state.spTab=el.dataset.tab;render();return;}
+if(action==='sp-select-student'){state.spStudentId=el.value?parseInt(el.value):null;state.spTab='attendance';refreshPage();return;}
 if(action==='add-catchup'){state.modal='add-catchup';state.editTarget=null;render();return;}
 if(action==='schedule-catchup'){
   const all=[...(state.data.catchup_owed||[]),...(state.data.catchup_scheduled||[])];
