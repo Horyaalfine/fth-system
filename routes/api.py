@@ -4840,3 +4840,140 @@ def email_invoice_receipt(iid):
 
     cur.close(); conn.close()
     return jsonify({'ok': True, 'sent_to': sent_to})
+
+
+# ── Student Progress Report Email ─────────────────────────────────────────────
+@api_bp.route('/api/students/<int:sid>/send-progress-report', methods=['POST'])
+@require_auth
+def send_progress_report(sid):
+    smtp_email    = os.environ.get('SMTP_EMAIL', '')
+    smtp_password = os.environ.get('SMTP_PASSWORD', '')
+    if not smtp_email or not smtp_password:
+        return jsonify({'error': 'Email not configured on server.'}), 500
+
+    conn = get_conn(); cur = conn.cursor()
+
+    # Student info
+    cur.execute("SELECT s.*, b.name as branch_name FROM students s JOIN branches b ON b.id=s.branch_id WHERE s.id=%s", (sid,))
+    st = cur.fetchone()
+    if not st:
+        cur.close(); conn.close()
+        return jsonify({'error': 'Student not found'}), 404
+
+    # Attendance summary
+    cur.execute("""
+        SELECT COUNT(*) as total,
+               SUM(CASE WHEN a.status='present' THEN 1 ELSE 0 END) as present,
+               SUM(CASE WHEN a.status='absent'  THEN 1 ELSE 0 END) as absent
+        FROM attendance a WHERE a.student_id=%s
+    """, (sid,))
+    att = cur.fetchone() or {}
+
+    # Recent test records (last 5)
+    cur.execute("""
+        SELECT subject, book_unit, test_date, score_pct, action_plan
+        FROM test_records WHERE student_id=%s ORDER BY test_date DESC LIMIT 5
+    """, (sid,))
+    tests = rows(cur)
+
+    # Recent progress notes (last 5)
+    cur.execute("""
+        SELECT p.subject, p.rating, p.comment, p.date, st.name as staff_name
+        FROM progress p LEFT JOIN staff st ON st.id=p.staff_id
+        WHERE p.student_id=%s ORDER BY p.date DESC LIMIT 5
+    """, (sid,))
+    prog = rows(cur)
+
+    cur.close(); conn.close()
+
+    # Build recipients from carer emails
+    recipients = []
+    seen = set()
+    for em_field, fn_field, ln_field in [
+        ('carer1_email','carer1_first_name','carer1_last_name'),
+        ('carer2_email','carer2_first_name','carer2_last_name'),
+    ]:
+        em = (st.get(em_field) or '').strip().lower()
+        if em and em not in seen:
+            seen.add(em)
+            name = ((st.get(fn_field) or '') + ' ' + (st.get(ln_field) or '')).strip()
+            recipients.append({'email': em, 'name': name or 'Parent/Carer'})
+
+    if not recipients:
+        return jsonify({'error': 'No parent email addresses found for this student.'}), 400
+
+    total = int(att.get('total') or 0)
+    present = int(att.get('present') or 0)
+    absent  = int(att.get('absent')  or 0)
+    pct = round(present / total * 100) if total else 0
+    avg_score = round(sum(float(t['score_pct'] or 0) for t in tests) / len(tests)) if tests else None
+
+    att_color = '#16a34a' if pct >= 80 else '#d97706' if pct >= 60 else '#dc2626'
+
+    tests_html = ''
+    for t in tests:
+        sc = float(t['score_pct'] or 0)
+        c = '#16a34a' if sc >= 70 else '#d97706' if sc >= 50 else '#dc2626'
+        tests_html += f'<tr><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;">{t["test_date"]}</td><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;">{t["subject"]}</td><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;font-size:12px;">{t["book_unit"] or "—"}</td><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;font-weight:700;color:{c};">{sc}%</td></tr>'
+
+    prog_html = ''
+    for p in prog:
+        stars = '★' * (p['rating'] or 0) + '☆' * (5 - (p['rating'] or 0))
+        rc = '#16a34a' if (p['rating'] or 0) >= 4 else '#d97706' if (p['rating'] or 0) >= 3 else '#dc2626'
+        prog_html += f'<div style="padding:10px 0;border-bottom:1px solid #e5e7eb;"><div style="display:flex;justify-content:space-between;"><span style="font-weight:600;color:#374151;">{p["subject"] or "General"}</span><span style="color:{rc};">{stars}</span></div><div style="font-size:13px;color:#4b5563;margin-top:4px;">{p["comment"] or ""}</div><div style="font-size:11px;color:#9ca3af;margin-top:2px;">{p["staff_name"] or ""} · {p["date"]}</div></div>'
+
+    html_body = f"""
+<div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;">
+  <div style="background:#2563eb;padding:20px 24px;border-radius:8px 8px 0 0;">
+    <h2 style="color:#fff;margin:0;font-size:20px;">Fine Tutors — Student Progress Report</h2>
+    <p style="color:#bfdbfe;margin:4px 0 0;font-size:13px;">{st['branch_name']}</p>
+  </div>
+  <div style="background:#f9fafb;padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+    <h3 style="color:#111827;margin-top:0;">{st['name']}</h3>
+    <p style="font-size:13px;color:#6b7280;margin-top:-8px;">{st['admission_id']} · {st.get('year_group','') or ''}</p>
+
+    <div style="display:flex;gap:16px;margin-bottom:24px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:130px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px;text-align:center;border-top:3px solid {att_color};">
+        <div style="font-size:11px;color:#6b7280;text-transform:uppercase;font-weight:600;">Attendance</div>
+        <div style="font-size:28px;font-weight:700;color:{att_color};">{pct}%</div>
+        <div style="font-size:11px;color:#9ca3af;">{present} present / {absent} absent</div>
+      </div>
+      <div style="flex:1;min-width:130px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px;text-align:center;border-top:3px solid #2563eb;">
+        <div style="font-size:11px;color:#6b7280;text-transform:uppercase;font-weight:600;">Avg Test Score</div>
+        <div style="font-size:28px;font-weight:700;color:#2563eb;">{str(avg_score)+'%' if avg_score is not None else '—'}</div>
+        <div style="font-size:11px;color:#9ca3af;">{len(tests)} test{'s' if len(tests)!=1 else ''} recorded</div>
+      </div>
+      <div style="flex:1;min-width:130px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px;text-align:center;border-top:3px solid #059669;">
+        <div style="font-size:11px;color:#6b7280;text-transform:uppercase;font-weight:600;">Progress Notes</div>
+        <div style="font-size:28px;font-weight:700;color:#059669;">{len(prog)}</div>
+        <div style="font-size:11px;color:#9ca3af;">from teachers</div>
+      </div>
+    </div>
+
+    {'<h4 style="color:#1e3a5f;border-bottom:2px solid #2563eb;padding-bottom:6px;">Recent Test Results</h4><table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:#f3f4f6;"><th style="padding:6px 8px;text-align:left;font-size:11px;color:#6b7280;">Date</th><th style="padding:6px 8px;text-align:left;font-size:11px;color:#6b7280;">Subject</th><th style="padding:6px 8px;text-align:left;font-size:11px;color:#6b7280;">Book/Unit</th><th style="padding:6px 8px;text-align:left;font-size:11px;color:#6b7280;">Score</th></tr></thead><tbody>'+tests_html+'</tbody></table>' if tests else ''}
+
+    {'<h4 style="color:#1e3a5f;border-bottom:2px solid #2563eb;padding-bottom:6px;margin-top:20px;">Teacher Progress Notes</h4>'+prog_html if prog else ''}
+
+    <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;">
+    <p style="font-size:12px;color:#9ca3af;">This report was generated by the Fine Tutors management system. For queries, please contact your branch directly.</p>
+  </div>
+</div>"""
+
+    sent_to = []
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(smtp_email, smtp_password)
+        for r in recipients:
+            msg = MIMEMultipart('alternative')
+            msg['From']    = f"Fine Tutors <{smtp_email}>"
+            msg['To']      = r['email']
+            msg['Subject'] = f"Progress Report — {st['name']} — Fine Tutors"
+            msg.attach(MIMEText(html_body, 'html'))
+            server.sendmail(smtp_email, r['email'], msg.as_string())
+            sent_to.append(r['email'])
+        server.quit()
+    except Exception as ex:
+        return jsonify({'error': str(ex)}), 500
+
+    return jsonify({'ok': True, 'sent_to': sent_to})

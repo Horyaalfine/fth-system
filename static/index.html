@@ -3834,6 +3834,13 @@ function renderStudentProgress(){
   const latestProg = progRecs[0];
   const owedCatchup = catchRecs.filter(c=>c.status==='owed').length;
 
+  // ── Action buttons ──
+  html+='<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">';
+  html+='<button class="btn btn-primary" data-action="print-student-progress" data-id="'+spid+'">🖨 Print</button>';
+  html+='<button class="btn" data-action="export-student-progress" data-id="'+spid+'">⬇ Export CSV</button>';
+  html+='<button class="btn" data-action="email-student-progress" data-id="'+spid+'">✉ Email to Parent</button>';
+  html+='</div>';
+
   // ── Student info strip ──
   html+='<div class="card" style="margin-bottom:16px;padding:16px;background:var(--accent);color:#fff;">';
   html+='<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center;">';
@@ -8085,6 +8092,58 @@ if(action==='assign-all-students'){
   render();return;}
 if(action==='catchup-tab'){state.catchupTab=el.dataset.tab;render();return;}
 if(action==='sp-tab'){state.spTab=el.dataset.tab;render();return;}
+if(action==='print-student-progress'){
+  const spid=parseInt(el.dataset.id);
+  const st=(state.data.students||[]).find(s=>s.id===spid)||{};
+  const att=state.data['sp_att_'+spid]||{};
+  const attR=att.records||[];const attS=att.summary||{};
+  const tests=state.data['sp_tests_'+spid]||[];
+  const prog=state.data['sp_prog_'+spid]||[];
+  const catchup=(state.data['sp_catchup_'+spid]||[]).filter(c=>c.student_id===spid);
+  const pct=parseInt(attS.total)?Math.round(parseInt(attS.present)/parseInt(attS.total)*100):0;
+  const avg=tests.length?Math.round(tests.reduce((a,t)=>a+(parseFloat(t.score_pct)||0),0)/tests.length):null;
+  let w=window.open('','_blank');
+  w.document.write('<html><head><title>Progress Report - '+st.name+'</title><style>body{font-family:Arial,sans-serif;padding:24px;max-width:800px;margin:0 auto;}h1{color:#1e3a5f;}h2{color:#2563eb;border-bottom:2px solid #2563eb;padding-bottom:4px;font-size:15px;}table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px;}th{background:#f3f4f6;text-align:left;padding:6px 8px;font-size:11px;color:#6b7280;}td{padding:6px 8px;border-bottom:1px solid #e5e7eb;}.kpi{display:inline-block;text-align:center;border:1px solid #e5e7eb;border-radius:8px;padding:12px 20px;margin:0 8px 8px 0;min-width:120px;}.kv{font-size:24px;font-weight:700;}.kl{font-size:11px;color:#6b7280;text-transform:uppercase;}.stars{color:#f59e0b;}</style></head><body>');
+  w.document.write('<h1>'+st.name+'</h1><p style="color:#6b7280;margin-top:-12px;">'+st.admission_id+' · '+(st.year_group||'')+'</p>');
+  w.document.write('<div><div class="kpi"><div class="kl">Attendance</div><div class="kv">'+pct+'%</div><div style="font-size:11px;color:#9ca3af;">'+attS.present+' / '+attS.total+'</div></div>');
+  w.document.write('<div class="kpi"><div class="kl">Avg Test Score</div><div class="kv">'+(avg!==null?avg+'%':'—')+'</div><div style="font-size:11px;color:#9ca3af;">'+tests.length+' tests</div></div>');
+  w.document.write('<div class="kpi"><div class="kl">Progress Notes</div><div class="kv">'+prog.length+'</div></div></div><br>');
+  if(attR.length){w.document.write('<h2>Attendance</h2><table><thead><tr><th>Date</th><th>Subject</th><th>Slot</th><th>Status</th><th>Notes</th></tr></thead><tbody>');attR.forEach(function(r){w.document.write('<tr><td>'+r.date+'</td><td>'+(r.subject||'—')+'</td><td>'+(r.slot||'—')+'</td><td>'+(r.status==='present'?'✓ Present':'✗ Absent')+'</td><td>'+(r.notes||'')+'</td></tr>');});w.document.write('</tbody></table>');}
+  if(tests.length){w.document.write('<h2>Test Records</h2><table><thead><tr><th>Date</th><th>Subject</th><th>Book/Unit</th><th>Score</th><th>Action Plan</th></tr></thead><tbody>');tests.forEach(function(t){w.document.write('<tr><td>'+t.test_date+'</td><td>'+t.subject+'</td><td>'+(t.book_unit||'—')+'</td><td><strong>'+(parseFloat(t.score_pct)||0)+'%</strong></td><td>'+(t.action_plan||'—')+'</td></tr>');});w.document.write('</tbody></table>');}
+  if(prog.length){w.document.write('<h2>Progress Notes</h2><table><thead><tr><th>Date</th><th>Subject</th><th>Rating</th><th>Comment</th><th>Teacher</th></tr></thead><tbody>');prog.forEach(function(p){w.document.write('<tr><td>'+p.date+'</td><td>'+(p.subject||'General')+'</td><td class="stars">'+'★'.repeat(p.rating||0)+'☆'.repeat(5-(p.rating||0))+'</td><td>'+(p.comment||'')+'</td><td>'+(p.staff_name||'')+'</td></tr>');});w.document.write('</tbody></table>');}
+  w.document.write('</body></html>');w.document.close();w.print();
+  return;
+}
+if(action==='export-student-progress'){
+  const spid=parseInt(el.dataset.id);
+  const st=(state.data.students||[]).find(s=>s.id===spid)||{};
+  const attR=(state.data['sp_att_'+spid]||{}).records||[];
+  const tests=state.data['sp_tests_'+spid]||[];
+  const prog=state.data['sp_prog_'+spid]||[];
+  let csv='STUDENT PROGRESS REPORT\r\n';
+  csv+=st.name+','+st.admission_id+','+(st.year_group||'')+'\r\n\r\n';
+  csv+='ATTENDANCE\r\nDate,Subject,Slot,Status,Notes\r\n';
+  attR.forEach(r=>{csv+='"'+r.date+'","'+(r.subject||'')+'","'+(r.slot||'')+'","'+r.status+'","'+(r.notes||'')+'"\r\n';});
+  csv+='\r\nTEST RECORDS\r\nDate,Subject,Book/Unit,Score,Action Plan\r\n';
+  tests.forEach(t=>{csv+='"'+t.test_date+'","'+t.subject+'","'+(t.book_unit||'')+'","'+(t.score_pct||'')+'","'+(t.action_plan||'')+'"\r\n';});
+  csv+='\r\nPROGRESS NOTES\r\nDate,Subject,Rating,Comment,Teacher\r\n';
+  prog.forEach(p=>{const cmt=(p.comment||'').split('"').join("''");csv+='"'+p.date+'","'+(p.subject||'')+'","'+(p.rating||'')+'","'+cmt+'"\r\n';});
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='progress_'+st.name.replace(/\s+/g,'_')+'.csv';a.click();
+  return;
+}
+if(action==='email-student-progress'){
+  const spid=parseInt(el.dataset.id);
+  el.textContent='Sending...';el.disabled=true;
+  API.post('/api/students/'+spid+'/send-progress-report',{}).then(r=>{
+    showToast('✉ Report emailed to: '+r.sent_to.join(', '));
+    el.textContent='✉ Email to Parent';el.disabled=false;
+  }).catch(e=>{
+    showToast('Error: '+(e.error||'Failed to send'),'error');
+    el.textContent='✉ Email to Parent';el.disabled=false;
+  });
+  return;
+}
 if(action==='sp-select-student'){state.spStudentId=el.value?parseInt(el.value):null;state.spTab='attendance';refreshPage();return;}
 if(action==='add-catchup'){state.modal='add-catchup';state.editTarget=null;render();return;}
 if(action==='schedule-catchup'){
