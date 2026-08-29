@@ -1380,7 +1380,15 @@ def save_staff_attendance():
                   d.get('status','present'), d.get('cover_for') or None,
                   d.get('absence_reason',''), d.get('notes','')))
         else:
-            # Without session — plain insert (no upsert, session_id is NULL)
+            # Without session — check for duplicate on same staff + date first
+            cur.execute(
+                "SELECT id FROM staff_attendance WHERE staff_id=%s AND date=%s AND session_id IS NULL",
+                (d['staff_id'], d['date'])
+            )
+            existing = cur.fetchone()
+            if existing and not d.get('force'):
+                cur.close(); conn.close()
+                return jsonify({'error': 'duplicate', 'message': 'A timesheet record already exists for this staff member on this date. Are you sure you want to add another?', 'existing_id': existing['id']}), 409
             cur.execute("""
                 INSERT INTO staff_attendance
                     (session_id, staff_id, branch_id, date, sign_in, sign_out,
@@ -1424,6 +1432,28 @@ def update_staff_attendance(aid):
         if r.get('sign_out'): r['sign_out'] = str(r['sign_out'])
     log_action('edit', 'staff_attendance', aid)
     return jsonify(r)
+
+@api_bp.route('/api/staff-attendance/dedup', methods=['POST'])
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches')
+def dedup_staff_attendance():
+    """Delete exact duplicate staff_attendance rows (same staff_id, date, sign_in, sign_out, session_id IS NULL), keeping the lowest id."""
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        DELETE FROM staff_attendance
+        WHERE id IN (
+            SELECT id FROM (
+                SELECT id,
+                       ROW_NUMBER() OVER (PARTITION BY staff_id, date, sign_in, sign_out
+                                          ORDER BY id) AS rn
+                FROM staff_attendance
+                WHERE session_id IS NULL
+            ) t WHERE rn > 1
+        )
+        RETURNING id
+    """)
+    deleted = [r['id'] for r in cur.fetchall()]
+    conn.commit(); cur.close(); conn.close()
+    return jsonify({'deleted': len(deleted), 'ids': deleted})
 
 @api_bp.route('/api/staff-attendance/<int:aid>', methods=['DELETE'])
 @require_auth

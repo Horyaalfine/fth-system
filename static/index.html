@@ -2160,6 +2160,7 @@ function renderStaffTimesheets(){
     <div style="display:flex;gap:10px;align-items:center;">
       <input type="month" id="staff-att-month" value="${month}" style="border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;font-family:var(--font);font-size:13px;background:var(--surface2);color:var(--text);outline:none;">
       <button class="btn btn-primary" data-action="add-staff-att">+ Log attendance</button>
+      <button class="btn btn-sm" data-action="dedup-staff-att" title="Remove exact duplicate timesheet rows" style="background:var(--danger-bg);color:var(--danger-text);border:1px solid var(--danger-text);">🧹 Remove Duplicates</button>
     </div>
   </div>
 
@@ -6307,8 +6308,15 @@ if(m==='add-staff-att'||m==='edit-staff-att'){
   const selId=document.getElementById('f-session-id')?.value;
   const body={staff_id:parseInt(v('f-staff-id')),branch_id:parseInt(v('f-branch')),session_id:selId?parseInt(selId):null,date:v('f-date'),sign_in:v('f-sign-in')||null,sign_out:v('f-sign-out')||null,status:v('f-status'),cover_for:v('f-cover')?parseInt(v('f-cover')):null,absence_reason:v('f-absence-reason'),notes:v('f-notes')};
   if(!body.staff_id||!body.date){toast('Staff member and date required','error');return;}
-  if(m==='add-staff-att')await API.post('/api/staff-attendance',body);
-  else await API.put('/api/staff-attendance/'+state.editTarget.id,body);
+  if(m==='add-staff-att'){
+    const res=await fetch('/api/staff-attendance',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(res.status===409){
+      const err=await res.json();
+      if(!confirm('⚠️ Duplicate detected\n\n'+err.message+'\n\nClick OK to add anyway, or Cancel to go back.')){return;}
+      body.force=true;
+      await API.post('/api/staff-attendance',body);
+    } else if(!res.ok){const e=await res.json();toast(e.error||'Error saving','error');return;}
+  } else await API.put('/api/staff-attendance/'+state.editTarget.id,body);
   toast(m==='add-staff-att'?'Attendance logged':'Record updated');
 }
 if(action==='confirm-smart-payment'){
@@ -7932,6 +7940,12 @@ if(action==='print-statement'){
 if(action==='add-staff-att'){state.modal='add-staff-att';state.editTarget=null;render();return;}
 if(action==='edit-staff-att'){state.modal='edit-staff-att';state.editTarget=(state.data.staff_att||[]).find(r=>r.id===id);render();return;}
 if(action==='del-staff-att'){if(!confirm('Delete this record?'))return;await API.delete('/api/staff-attendance/'+id);toast('Record deleted');refreshPage();return;}
+if(action==='dedup-staff-att'){
+  if(!confirm('This will remove exact duplicate timesheet rows (same staff, date, sign-in, sign-out). Continue?'))return;
+  const r=await API.post('/api/staff-attendance/dedup',{});
+  if(r.deleted===0){toast('No exact duplicates found','info');}
+  else{toast(r.deleted+' duplicate row'+(r.deleted>1?'s':'')+' removed');refreshPage();}
+  return;}
 if(action==='ts-clear-filters'){
   state.tsFilterStaff='';state.tsFilterRole='';state.tsFilterStatus='';state.tsFilterDate='';
   render();return;}
