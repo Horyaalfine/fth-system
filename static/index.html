@@ -916,14 +916,16 @@ if(!acts.length) return '<p style="color:var(--text3);font-size:13px;padding:10p
 return acts.map(function(l){
   var tbl=l.table_name;
   var act=l.action;
+  var isLogin=(act==='login'&&tbl==='users');
   var icon=(icons[tbl]&&icons[tbl][act])||'📋';
   var label=(labels[tbl]&&labels[tbl][act])||(act+' '+tbl);
   var subj=l.subject_name?(' — <strong>'+l.subject_name+'</strong>'):(l.session_subject?' — <strong>'+l.session_subject+'</strong>':'');
+  if(isLogin){icon='🔐';label='Logged in';}
   var ts=new Date(l.timestamp);
   var now=new Date();
   var diff=Math.floor((now-ts)/60000);
   var timeStr=diff<1?'just now':diff<60?diff+'m ago':diff<1440?Math.floor(diff/60)+'h ago':ts.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
-  return '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">'+
+  return '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);opacity:'+(isLogin?'0.45':'1')+';">'+
     '<span style="font-size:16px;line-height:1.4;">'+icon+'</span>'+
     '<div style="flex:1;min-width:0;">'+
       '<div style="font-size:12px;color:var(--text1);">'+label+subj+'</div>'+

@@ -3156,9 +3156,8 @@ def dashboard_activity():
         LIMIT 50
     """, params)
     events = rows(cur)
-    # Prefer non-login events; fall back to all if nothing else
-    non_login = [e for e in events if not (e['action']=='login' and e['table_name']=='users')]
-    result = (non_login if non_login else events)[:20]
+    # Show all events; mark logins so frontend can style them differently
+    result = events[:20]
     for e in result:
         if e.get('timestamp'): e['timestamp'] = str(e['timestamp'])
     cur.close(); conn.close()
