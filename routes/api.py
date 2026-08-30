@@ -1244,9 +1244,9 @@ def report_summary():
 
     # Outstanding invoices
     if b:
-        cur.execute("SELECT SUM(amount) as total FROM invoices WHERE status!='paid' AND branch_id=%s", (b,))
+        cur.execute("SELECT SUM(amount - COALESCE(amount_paid,0)) as total FROM invoices WHERE status!='paid' AND branch_id=%s", (b,))
     else:
-        cur.execute("SELECT SUM(amount) as total FROM invoices WHERE status!='paid'")
+        cur.execute("SELECT SUM(amount - COALESCE(amount_paid,0)) as total FROM invoices WHERE status!='paid'")
     outstanding = cur.fetchone()['total'] or 0
 
     cur.close(); conn.close()
