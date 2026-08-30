@@ -3129,39 +3129,21 @@ def get_audit():
 def dashboard_activity():
     conn = get_conn(); cur = conn.cursor()
     b = branch_scope()
-    params = []
-    branch_filter = ""
-    if b:
-        branch_filter = "AND a.branch_id=%s"
-        params.append(b)
-    cur.execute("""
-        SELECT a.id, a.user_name, a.action, a.table_name, a.record_id, a.timestamp,
-               CASE
-                 WHEN a.table_name='students' THEN s.full_name
-                 WHEN a.table_name IN ('invoices','payments') THEN si.full_name
-                 WHEN a.table_name='progress' THEN sp.full_name
-                 WHEN a.table_name='sessions' THEN TO_CHAR(ss.session_date,'DD Mon') || COALESCE(' ' || ss.slot,'')
-                 ELSE NULL
-               END AS subject_name,
-               CASE WHEN a.table_name='sessions' THEN ss.subject ELSE NULL END AS session_subject
-        FROM audit_log a
-        LEFT JOIN students s ON a.table_name='students' AND a.record_id::text=s.id::text
-        LEFT JOIN invoices inv ON a.table_name IN ('invoices','payments') AND a.record_id::text=inv.id::text
-        LEFT JOIN students si ON inv.student_id=si.id
-        LEFT JOIN progress_notes pn ON a.table_name='progress' AND a.record_id::text=pn.id::text
-        LEFT JOIN students sp ON pn.student_id=sp.id
-        LEFT JOIN sessions ss ON a.table_name='sessions' AND a.record_id::text=ss.id::text
-        WHERE 1=1 """ + branch_filter + """
-        ORDER BY a.timestamp DESC
-        LIMIT 50
+    params = (b,) if b else ()
+    branch_filter = "AND branch_id=%s" if b else ""
+    cur.execute(f"""
+        SELECT id, user_name, action, table_name, record_id, timestamp, NULL as subject_name, NULL as session_subject
+        FROM audit_log
+        WHERE 1=1 {branch_filter}
+        ORDER BY timestamp DESC
+        LIMIT 20
     """, params)
     events = rows(cur)
-    # Show all events; mark logins so frontend can style them differently
-    result = events[:20]
-    for e in result:
+    for e in events:
         if e.get('timestamp'): e['timestamp'] = str(e['timestamp'])
     cur.close(); conn.close()
-    return jsonify(result)
+    return jsonify(events)
+
 
 # ── MEETING NOTES ──
 NOTES_ROLES = ('super_admin','branch_manager','head_of_centre','supervisor','admin')
