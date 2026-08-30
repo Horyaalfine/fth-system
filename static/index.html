@@ -3488,7 +3488,7 @@ function renderSessionPlan(){
       html+='<div style="margin-top:10px;padding:10px 14px;background:var(--amber-bg);border-radius:var(--radius);border-left:3px solid var(--amber);font-size:13px;color:var(--amber-text);">⚠️ Sessions already exist for '+lpDate+' ('+existingForDate.length+' sessions saved). Check the Report tab before generating a new plan.</div>';
     }
     html+='<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">';
-    var canGenerate=lpMode==='full'||(lpMode==='single'&&lpSlot&&lpSubject);
+    var canGenerate=lpMode==='full'||lpMode==='am'||lpMode==='pm'||(lpMode==='single'&&lpSlot&&lpSubject);
     if(canGenerate){html+='<button class="btn btn-primary" data-action="lp-generate">⚡ Auto-Generate Plan</button>';}
     html+='<button class="btn btn-secondary" data-action="lp-manual">✏ Manual Plan</button>';
     if(draft&&draft.tables!==undefined){
