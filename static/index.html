@@ -3597,6 +3597,7 @@ function renderSessionPlan(){
   if(planTab==='report'){
     var rptDate=state.rptDate||'';
     var rptLoading=state.rptLoading||false;
+    var rptViewMode=state.rptViewMode||'full';
     var dates=[...new Set(sessions.map(function(s){return s.date;}).filter(Boolean))].sort().reverse();
     html+='<div class="card" style="margin-bottom:14px;" id="rpt-no-print">';
     html+='<div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">';
@@ -3611,14 +3612,35 @@ function renderSessionPlan(){
       html+='<button class="btn btn-secondary" onclick="exportLessonPlanExcel()">&#128196; Export Excel</button>';
       html+='<button class="btn btn-danger" data-action="rpt-clear-plan" data-date="'+rptDate+'">&#128465; Clear Plan</button>';
     }
-    html+='</div></div>';
+    html+='</div>';
+    if(rptDate){
+      // Detect day type to show AM/PM vs Session 1/2
+      var _rptDow=new Date(rptDate+'T00:00:00').getDay();
+      var _rptIsWeekday=_rptDow>=1&&_rptDow<=5;
+      if(_rptIsWeekday){
+        html+='<div style="display:flex;gap:8px;margin-top:10px;">';
+        html+='<button class="btn btn-sm '+(rptViewMode==='full'?'btn-primary':'')+'" data-action="rpt-view-mode" data-mode="full">📋 All Sessions</button>';
+        html+='<button class="btn btn-sm '+(rptViewMode==='am'?'btn-primary':'')+'" data-action="rpt-view-mode" data-mode="am">🌙 Session 1 (5–7pm)</button>';
+        html+='<button class="btn btn-sm '+(rptViewMode==='pm'?'btn-primary':'')+'" data-action="rpt-view-mode" data-mode="pm">🌙 Session 2 (7–9pm)</button>';
+        html+='</div>';
+      }else{
+        html+='<div style="display:flex;gap:8px;margin-top:10px;">';
+        html+='<button class="btn btn-sm '+(rptViewMode==='full'?'btn-primary':'')+'" data-action="rpt-view-mode" data-mode="full">📋 Full Day</button>';
+        html+='<button class="btn btn-sm '+(rptViewMode==='am'?'btn-primary':'')+'" data-action="rpt-view-mode" data-mode="am">☀️ AM Block (9am–1:15pm)</button>';
+        html+='<button class="btn btn-sm '+(rptViewMode==='pm'?'btn-primary':'')+'" data-action="rpt-view-mode" data-mode="pm">🌤 PM Block (2pm–6:15pm)</button>';
+        html+='</div>';
+      }
+    }
+    html+='</div>';
 
     if(!rptDate){
       html+='<div class="card" style="text-align:center;color:var(--text3);padding:40px;">Select a date above to generate the Lesson Plan Report.</div>';
     }else if(rptLoading){
       html+='<div class="card" style="text-align:center;color:var(--text3);padding:40px;">Loading report data...</div>';
     }else{
-      var daySessions=sessions.filter(function(s){return s.date===rptDate;});
+      function _rptSlotIsAM(slot){var m=(slot||'').match(/\((\d+):/);return m&&parseInt(m[1])<14;}
+      var _allDaySessions=sessions.filter(function(s){return s.date===rptDate;});
+      var daySessions=rptViewMode==='am'?_allDaySessions.filter(function(s){return _rptSlotIsAM(s.slot);}):rptViewMode==='pm'?_allDaySessions.filter(function(s){return !_rptSlotIsAM(s.slot);}):_allDaySessions;
       var bySlot={};
       daySessions.forEach(function(s){if(!bySlot[s.slot])bySlot[s.slot]=[];bySlot[s.slot].push(s);});
       var rptSlots=Object.keys(bySlot).sort();
@@ -7813,6 +7835,7 @@ if(action==='lp-save'){
 
 // Session report date change
 if(action==='rpt-date-select'){state.rptDate=el.value;render();return;}
+  if(action==='rpt-view-mode'){state.rptViewMode=el.dataset.mode||'full';render();return;}
 
 // Register mode toggle
 if(action==='reg-mode'){state.regMode=el.dataset.mode;render();return;}
