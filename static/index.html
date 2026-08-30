@@ -4112,7 +4112,7 @@ function renderLessonReports(){
   const reports=selId?(state.data['lr_'+selId]||[]):[];
   const attRecs=selId?(state.data['lr_att_'+selId]||[]):[];
   const tab=state.lrTab||'report';
-  const branchStudents=selSess?students.filter(s=>s.branch_id===selSess.branch_id&&s.status==='active'):[];
+  const branchStudents=selId?(state.data['sess_students_'+selId]||[]):[];
   const checkedCount=reports.filter(r=>r.supervisor_checked).length;
   const uncheckedCount=reports.filter(r=>!r.supervisor_checked).length;
 
@@ -4124,7 +4124,7 @@ function renderLessonReports(){
     <div class="field"><label>Select session</label>
     <select id="lr-session-select">
       <option value="">— choose a session —</option>
-      ${sessions.map(s=>`<option value="${s.id}" ${s.id===selId?'selected':''}>${new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})} · ${s.slot} · ${s.branch_name} · ${s.staff_name||'?'}</option>`).join('')}
+      ${sessions.map(s=>`<option value="${s.id}" ${s.id===selId?'selected':''}>${new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})} · ${s.slot} · ${s.branch_name} · Table ${s.table_no||'?'} · ${s.subject||'?'} · ${s.staff_name||'Unassigned'}</option>`).join('')}
     </select></div>
   </div>
 
@@ -7275,7 +7275,8 @@ document.getElementById('lr-session-select')?.addEventListener('change',async e=
   if(state.lrSessionId){
     await Promise.all([
       loadData('lr_'+state.lrSessionId,'/api/lesson-reports/'+state.lrSessionId),
-      loadData('lr_att_'+state.lrSessionId,'/api/attendance/'+state.lrSessionId)
+      loadData('lr_att_'+state.lrSessionId,'/api/attendance/'+state.lrSessionId),
+      loadData('sess_students_'+state.lrSessionId,'/api/sessions/'+state.lrSessionId+'/students')
     ]);
   }
   render();
