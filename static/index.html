@@ -3417,18 +3417,31 @@ function renderSessionPlan(){
     function getDayType(d){var wd=new Date(d+'T00:00:00').getDay();return wd===6?'saturday':wd===0?'sunday':'weekday';}
     var dayType=getDayType(lpDate);
     var allExpected=allTT.filter(function(t){return t.day_type===dayType;});
-    var expected=lpMode==='single'&&lpSlot&&lpSubject?allExpected.filter(function(t){return t.slot===lpSlot&&t.subject===lpSubject;}):allExpected;
+    function slotIsAM2(slot){var m=(slot||'').match(/\((\d+):/);return m&&parseInt(m[1])<14;}
+    var expected=lpMode==='am'?allExpected.filter(function(t){return slotIsAM2(t.slot);}):lpMode==='pm'?allExpected.filter(function(t){return !slotIsAM2(t.slot);}):lpMode==='single'&&lpSlot&&lpSubject?allExpected.filter(function(t){return t.slot===lpSlot&&t.subject===lpSubject;}):allExpected;
     var subjSlotCounts={};
     allExpected.forEach(function(t){var k=t.slot+'||'+t.subject;if(!subjSlotCounts[k])subjSlotCounts[k]=0;subjSlotCounts[k]++;});
     // Duplicate check
     var existingForDate=(state.data.sessions||[]).filter(function(s){return s.date===lpDate&&(!state.currentBranch||s.branch_id===state.currentBranch);});
     var duplicateSlotSubj=lpMode==='single'&&lpSlot&&lpSubject?existingForDate.filter(function(s){return s.slot===lpSlot&&s.subject===lpSubject;}):[];
+    var hasAMDuplicate=lpMode==='am'&&existingForDate.some(function(s){return slotIsAM2(s.slot);});
+    var hasPMDuplicate=lpMode==='pm'&&existingForDate.some(function(s){return !slotIsAM2(s.slot);});
     var hasFullDayDuplicate=lpMode==='full'&&existingForDate.length>0;
     html+='<div class="card" style="margin-bottom:14px;">';
-    // Mode selector
-    html+='<div style="display:flex;gap:8px;margin-bottom:14px;">';
+    // Mode selector — AM/PM for weekends, Session 1/2 for weekdays
+    function slotIsAM(slot){var m=(slot||'').match(/\((\d+):/);return m&&parseInt(m[1])<14;}
+    var hasAM=allExpected.some(function(t){return slotIsAM(t.slot);});
+    var hasPM=allExpected.some(function(t){return !slotIsAM(t.slot);});
+    var isWeekday=dayType==='weekday';
+    html+='<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">';
     html+='<button class="btn '+(lpMode==='full'?'btn-primary':'')+'" data-action="lp-mode" data-mode="full">📅 Full Day</button>';
-    html+='<button class="btn '+(lpMode==='single'?'btn-primary':'')+'" data-action="lp-mode" data-mode="single">📋 Single Lesson</button>';
+    if(isWeekday){
+      html+='<button class="btn '+(lpMode==='am'?'btn-primary':'')+'" data-action="lp-mode" data-mode="am">🌙 Session 1</button>';
+      html+='<button class="btn '+(lpMode==='pm'?'btn-primary':'')+'" data-action="lp-mode" data-mode="pm">🌙 Session 2</button>';
+    }else{
+      if(hasAM)html+='<button class="btn '+(lpMode==='am'?'btn-primary':'')+'" data-action="lp-mode" data-mode="am">☀️ AM Shift (9am–1:15pm)</button>';
+      if(hasPM)html+='<button class="btn '+(lpMode==='pm'?'btn-primary':'')+'" data-action="lp-mode" data-mode="pm">🌤️ PM Shift (2pm–6:15pm)</button>';
+    }
     html+='</div>';
     html+='<div class="form-grid">';
     html+='<div class="field"><label>Plan date</label><input type="date" id="lp-date" value="'+lpDate+'"></div>';
@@ -3446,19 +3459,33 @@ function renderSessionPlan(){
     html+='</div>';
     html+='<div style="margin-top:8px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">';
     var dtLabel=dayType.charAt(0).toUpperCase()+dayType.slice(1);
-    if(lpMode==='full'){
-      html+='<span style="font-size:13px;"><strong>'+dtLabel+'</strong> · <strong>'+allExpected.length+'</strong> students expected</span>';
-      Object.keys(subjSlotCounts).sort().forEach(function(k){
+    html+='<span style="font-size:13px;"><strong>'+dtLabel+'</strong>';
+    if(lpMode==='full')html+=' · <strong>'+allExpected.length+'</strong> students expected (full day)';
+    else if(lpMode==='am')html+=' · <strong>'+expected.length+'</strong> students — AM Shift';
+    else if(lpMode==='pm')html+=' · <strong>'+expected.length+'</strong> students — PM Shift';
+    else if(lpMode==='single'&&lpSlot&&lpSubject)html+=' · <strong>'+expected.length+'</strong> students in this lesson';
+    html+='</span>';
+    if(lpMode==='full'||lpMode==='am'||lpMode==='pm'){
+      Object.keys(subjSlotCounts).sort().filter(function(k){
+        var slot=k.split('||')[0];
+        if(lpMode==='am')return slotIsAM2(slot);
+        if(lpMode==='pm')return !slotIsAM2(slot);
+        return true;
+      }).forEach(function(k){
         var parts=k.split('||');
         html+='<span class="badge badge-gray">'+parts[1]+' ('+parts[0].replace(/.*\(|\).*/g,'')+') ×'+subjSlotCounts[k]+'</span>';
       });
-    }else if(lpSlot&&lpSubject){
-      html+='<span style="font-size:13px;"><strong>'+expected.length+'</strong> students in this lesson</span>';
     }
     html+='</div>';
     // Duplicate warnings
     if(duplicateSlotSubj.length>0){
-      html+='<div style="margin-top:10px;padding:10px 14px;background:var(--amber-bg);border-radius:var(--radius);border-left:3px solid var(--amber);font-size:13px;color:var(--amber-text);">⚠️ A plan already exists for this slot and subject on '+lpDate+'. Saving will add duplicate sessions — consider viewing the existing plan in the Report tab first.</div>';
+      html+='<div style="margin-top:10px;padding:10px 14px;background:var(--amber-bg);border-radius:var(--radius);border-left:3px solid var(--amber);font-size:13px;color:var(--amber-text);">⚠️ A plan already exists for this slot and subject on '+lpDate+'. Check the Report tab before saving.</div>';
+    }
+    if(hasAMDuplicate){
+      html+='<div style="margin-top:10px;padding:10px 14px;background:var(--amber-bg);border-radius:var(--radius);border-left:3px solid var(--amber);font-size:13px;color:var(--amber-text);">⚠️ AM Shift sessions already exist for '+lpDate+'. Check the Report tab before generating a new plan.</div>';
+    }
+    if(hasPMDuplicate){
+      html+='<div style="margin-top:10px;padding:10px 14px;background:var(--amber-bg);border-radius:var(--radius);border-left:3px solid var(--amber);font-size:13px;color:var(--amber-text);">⚠️ PM Shift sessions already exist for '+lpDate+'. Check the Report tab before generating a new plan.</div>';
     }
     if(hasFullDayDuplicate){
       html+='<div style="margin-top:10px;padding:10px 14px;background:var(--amber-bg);border-radius:var(--radius);border-left:3px solid var(--amber);font-size:13px;color:var(--amber-text);">⚠️ Sessions already exist for '+lpDate+' ('+existingForDate.length+' sessions saved). Check the Report tab before generating a new plan.</div>';
@@ -7675,7 +7702,8 @@ if(action==='lp-generate'){
   var lpSlot=state.lpSlot||'';
   var lpSubject=state.lpSubject||'';
   var allForDay=allTT.filter(function(t){return t.day_type===dayType;});
-  var expected=lpMode==='single'&&lpSlot&&lpSubject?allForDay.filter(function(t){return t.slot===lpSlot&&t.subject===lpSubject;}):allForDay;
+  function slotIsAM3(slot){var m=(slot||'').match(/\((\d+):/);return m&&parseInt(m[1])<14;}
+  var expected=lpMode==='am'?allForDay.filter(function(t){return slotIsAM3(t.slot);}):lpMode==='pm'?allForDay.filter(function(t){return !slotIsAM3(t.slot);}):lpMode==='single'&&lpSlot&&lpSubject?allForDay.filter(function(t){return t.slot===lpSlot&&t.subject===lpSubject;}):allForDay;
   // Group by slot + subject + Key Stage
   var groups={};
   expected.forEach(function(t){
