@@ -1852,8 +1852,8 @@ function renderInvoices(){
   const monthFilter=state.invMonthFilter||'';
 
   const total=invs.reduce((s,i)=>s+parseFloat(i.amount||0),0);
-  const paid=invs.filter(i=>i.status==='paid').reduce((s,i)=>s+parseFloat(i.amount||0),0);
-  const out=invs.filter(i=>i.status!=='paid').reduce((s,i)=>s+parseFloat(i.amount||0),0);
+  const paid=invs.reduce((s,i)=>s+parseFloat(i.amount_paid||0),0);
+  const out=invs.filter(i=>i.status!=='paid').reduce((s,i)=>s+parseFloat(i.balance||0),0);
 
   const feeLabels={monthly_fee:'Monthly fee',opening_balance:'Opening balance',admission_fee:'Admission fee',book_fee:'Book fee',past_papers_fee:'Past papers fee',miscellaneous:'Miscellaneous'};
   const feeColors={monthly_fee:'var(--accent)',opening_balance:'var(--danger)',admission_fee:'var(--teal)',book_fee:'var(--purple)',past_papers_fee:'var(--amber-text)',miscellaneous:'var(--text3)'};
