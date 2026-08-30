@@ -896,7 +896,7 @@ return '<div style="margin-bottom:12px;"><div class=\"section-title\" style=\"ma
 '<div class=\"metric-card\" style=\"border-top:3px solid '+feeTop+';\">' +
   '<div class=\"metric-label\">Outstanding fees</div>' +
   '<div class=\"metric-value\" style=\"color:'+feeColor+';">£'+(outstanding.toLocaleString())+'</div>' +
-  '<div class=\"metric-sub\">'+((state.data.action_items||[]).find(function(a){return a.type==='invoices';})||{detail:'No outstanding fees'}).detail+'</div></div>'+
+  '<div class=\"metric-sub\">'+(((state.data.action_items||{}).items||[]).find(function(a){return a.type==='invoices';})||{detail:'No outstanding fees'}).detail+'</div></div>'+
 '</div>';
 })()}
 <div class="two-col">
