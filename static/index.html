@@ -3429,18 +3429,15 @@ function renderSessionPlan(){
     var hasFullDayDuplicate=lpMode==='full'&&existingForDate.length>0;
     html+='<div class="card" style="margin-bottom:14px;">';
     // Mode selector — AM/PM for weekends, Session 1/2 for weekdays
-    function slotIsAM(slot){var m=(slot||'').match(/\((\d+):/);return m&&parseInt(m[1])<14;}
-    var hasAM=allExpected.some(function(t){return slotIsAM(t.slot);});
-    var hasPM=allExpected.some(function(t){return !slotIsAM(t.slot);});
     var isWeekday=dayType==='weekday';
     html+='<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">';
     html+='<button class="btn '+(lpMode==='full'?'btn-primary':'')+'" data-action="lp-mode" data-mode="full">📅 Full Day</button>';
     if(isWeekday){
-      html+='<button class="btn '+(lpMode==='am'?'btn-primary':'')+'" data-action="lp-mode" data-mode="am">🌙 Session 1</button>';
-      html+='<button class="btn '+(lpMode==='pm'?'btn-primary':'')+'" data-action="lp-mode" data-mode="pm">🌙 Session 2</button>';
+      html+='<button class="btn '+(lpMode==='am'?'btn-primary':'')+'" data-action="lp-mode" data-mode="am">🌙 Session 1 (5pm–7pm)</button>';
+      html+='<button class="btn '+(lpMode==='pm'?'btn-primary':'')+'" data-action="lp-mode" data-mode="pm">🌙 Session 2 (7pm–9pm)</button>';
     }else{
-      if(hasAM)html+='<button class="btn '+(lpMode==='am'?'btn-primary':'')+'" data-action="lp-mode" data-mode="am">☀️ AM Shift (9am–1:15pm)</button>';
-      if(hasPM)html+='<button class="btn '+(lpMode==='pm'?'btn-primary':'')+'" data-action="lp-mode" data-mode="pm">🌤️ PM Shift (2pm–6:15pm)</button>';
+      html+='<button class="btn '+(lpMode==='am'?'btn-primary':'')+'" data-action="lp-mode" data-mode="am">☀️ AM Shift (9am–1:15pm)</button>';
+      html+='<button class="btn '+(lpMode==='pm'?'btn-primary':'')+'" data-action="lp-mode" data-mode="pm">🌤️ PM Shift (2pm–6:15pm)</button>';
     }
     html+='</div>';
     html+='<div class="form-grid">';
