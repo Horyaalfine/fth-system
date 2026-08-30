@@ -5013,7 +5013,7 @@ def dashboard_action_items():
     items = []
 
     # 1. Overdue invoices (unpaid, count + total)
-    cur.execute(f"SELECT COUNT(*) as c, COALESCE(SUM(amount),0) as total FROM invoices WHERE status!='paid' {bw2}", p)
+    cur.execute(f"SELECT COUNT(*) as c, COALESCE(SUM(amount - COALESCE(amount_paid,0)),0) as total FROM invoices WHERE status!='paid' {bw2}", p)
     inv = cur.fetchone()
     if inv and inv['c']:
         items.append({
