@@ -3410,31 +3410,66 @@ function renderSessionPlan(){
   if(planTab==='lesson'){
     var lpDate=state.lpDate||new Date().toISOString().slice(0,10);
     var lpMaxPer=state.lpMaxPer||5;
+    var lpMode=state.lpMode||'full';
+    var lpSlot=state.lpSlot||'';
+    var lpSubject=state.lpSubject||'';
     var draft=state.planDraft||null;
     function getDayType(d){var wd=new Date(d+'T00:00:00').getDay();return wd===6?'saturday':wd===0?'sunday':'weekday';}
     var dayType=getDayType(lpDate);
-    var expected=allTT.filter(function(t){return t.day_type===dayType;});
+    var allExpected=allTT.filter(function(t){return t.day_type===dayType;});
+    var expected=lpMode==='single'&&lpSlot&&lpSubject?allExpected.filter(function(t){return t.slot===lpSlot&&t.subject===lpSubject;}):allExpected;
     var subjSlotCounts={};
-    expected.forEach(function(t){var k=t.slot+'||'+t.subject;if(!subjSlotCounts[k])subjSlotCounts[k]=0;subjSlotCounts[k]++;});
+    allExpected.forEach(function(t){var k=t.slot+'||'+t.subject;if(!subjSlotCounts[k])subjSlotCounts[k]=0;subjSlotCounts[k]++;});
+    // Duplicate check
+    var existingForDate=(state.data.sessions||[]).filter(function(s){return s.date===lpDate&&(!state.currentBranch||s.branch_id===state.currentBranch);});
+    var duplicateSlotSubj=lpMode==='single'&&lpSlot&&lpSubject?existingForDate.filter(function(s){return s.slot===lpSlot&&s.subject===lpSubject;}):[];
+    var hasFullDayDuplicate=lpMode==='full'&&existingForDate.length>0;
     html+='<div class="card" style="margin-bottom:14px;">';
+    // Mode selector
+    html+='<div style="display:flex;gap:8px;margin-bottom:14px;">';
+    html+='<button class="btn '+(lpMode==='full'?'btn-primary':'')+'" data-action="lp-mode" data-mode="full">📅 Full Day</button>';
+    html+='<button class="btn '+(lpMode==='single'?'btn-primary':'')+'" data-action="lp-mode" data-mode="single">📋 Single Lesson</button>';
+    html+='</div>';
     html+='<div class="form-grid">';
     html+='<div class="field"><label>Plan date</label><input type="date" id="lp-date" value="'+lpDate+'"></div>';
     html+='<div class="field"><label>Max students per table</label><input type="number" id="lp-max-per" value="'+lpMaxPer+'" min="5" max="20" style="width:80px;"></div>';
+    if(lpMode==='single'){
+      var daySlots=[...new Set(allExpected.map(function(t){return t.slot;}))].sort();
+      var slotSubjects=lpSlot?[...new Set(allExpected.filter(function(t){return t.slot===lpSlot;}).map(function(t){return t.subject;}))].sort():[];
+      html+='<div class="field"><label>Session slot</label><select id="lp-slot-sel"><option value="">— select slot —</option>';
+      daySlots.forEach(function(sl){html+='<option value="'+sl+'" '+(sl===lpSlot?'selected':'')+'>'+sl+'</option>';});
+      html+='</select></div>';
+      html+='<div class="field"><label>Subject</label><select id="lp-subj-sel" '+(lpSlot?'':'disabled')+'><option value="">— select subject —</option>';
+      slotSubjects.forEach(function(sb){html+='<option value="'+sb+'" '+(sb===lpSubject?'selected':'')+'>'+sb+'</option>';});
+      html+='</select></div>';
+    }
     html+='</div>';
     html+='<div style="margin-top:8px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">';
     var dtLabel=dayType.charAt(0).toUpperCase()+dayType.slice(1);
-    html+='<span style="font-size:13px;"><strong>'+dtLabel+'</strong> · <strong>'+expected.length+'</strong> students expected</span>';
-    Object.keys(subjSlotCounts).sort().forEach(function(k){
-      var parts=k.split('||');
-      html+='<span class="badge badge-gray">'+parts[1]+' ('+parts[0].replace(/.*\(|\).*/g,'')+') ×'+subjSlotCounts[k]+'</span>';
-    });
+    if(lpMode==='full'){
+      html+='<span style="font-size:13px;"><strong>'+dtLabel+'</strong> · <strong>'+allExpected.length+'</strong> students expected</span>';
+      Object.keys(subjSlotCounts).sort().forEach(function(k){
+        var parts=k.split('||');
+        html+='<span class="badge badge-gray">'+parts[1]+' ('+parts[0].replace(/.*\(|\).*/g,'')+') ×'+subjSlotCounts[k]+'</span>';
+      });
+    }else if(lpSlot&&lpSubject){
+      html+='<span style="font-size:13px;"><strong>'+expected.length+'</strong> students in this lesson</span>';
+    }
     html+='</div>';
+    // Duplicate warnings
+    if(duplicateSlotSubj.length>0){
+      html+='<div style="margin-top:10px;padding:10px 14px;background:var(--amber-bg);border-radius:var(--radius);border-left:3px solid var(--amber);font-size:13px;color:var(--amber-text);">⚠️ A plan already exists for this slot and subject on '+lpDate+'. Saving will add duplicate sessions — consider viewing the existing plan in the Report tab first.</div>';
+    }
+    if(hasFullDayDuplicate){
+      html+='<div style="margin-top:10px;padding:10px 14px;background:var(--amber-bg);border-radius:var(--radius);border-left:3px solid var(--amber);font-size:13px;color:var(--amber-text);">⚠️ Sessions already exist for '+lpDate+' ('+existingForDate.length+' sessions saved). Check the Report tab before generating a new plan.</div>';
+    }
     html+='<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">';
-    html+='<button class="btn btn-primary" data-action="lp-generate">&#9889; Auto-Generate Plan</button>';
-    html+='<button class="btn btn-secondary" data-action="lp-manual">&#9998; Manual Plan</button>';
+    var canGenerate=lpMode==='full'||(lpMode==='single'&&lpSlot&&lpSubject);
+    if(canGenerate){html+='<button class="btn btn-primary" data-action="lp-generate">⚡ Auto-Generate Plan</button>';}
+    html+='<button class="btn btn-secondary" data-action="lp-manual">✏ Manual Plan</button>';
     if(draft&&draft.tables!==undefined){
       html+='<button class="btn btn-success" data-action="lp-save">✓ Save Plan</button>';
-      html+='<button class="btn btn-danger btn-sm" data-action="lp-clear-draft">&#128465; Clear</button>';
+      html+='<button class="btn btn-danger btn-sm" data-action="lp-clear-draft">🗑 Clear</button>';
     }
     html+='</div></div>';
 
@@ -6986,8 +7021,10 @@ document.getElementById('plan-month-filter')?.addEventListener('change',e=>{
 document.getElementById('reg-day-filter')?.addEventListener('change',function(e){state.regDay=e.target.value;state.regSlot='';state.regSubject='';render();});
 document.getElementById('reg-slot-filter')?.addEventListener('change',function(e){state.regSlot=e.target.value;state.regSubject='';render();});
 document.getElementById('reg-subject-filter')?.addEventListener('change',function(e){state.regSubject=e.target.value;render();});
-document.getElementById('lp-date')?.addEventListener('change',function(e){state.lpDate=e.target.value;state.planDraft=null;render();});
+document.getElementById('lp-date')?.addEventListener('change',function(e){state.lpDate=e.target.value;state.planDraft=null;state.lpSlot='';state.lpSubject='';render();});
 document.getElementById('lp-max-per')?.addEventListener('change',function(e){state.lpMaxPer=parseInt(e.target.value)||5;render();});
+document.getElementById('lp-slot-sel')?.addEventListener('change',function(e){state.lpSlot=e.target.value;state.lpSubject='';state.planDraft=null;render();});
+document.getElementById('lp-subj-sel')?.addEventListener('change',function(e){state.lpSubject=e.target.value;state.planDraft=null;render();});
 document.getElementById('rpt-date-select')?.addEventListener('change',async function(e){
   state.rptDate=e.target.value;
   state.rptLoading=true;
@@ -7616,6 +7653,9 @@ if(action==='lp-date'){state.lpDate=el.value;state.planDraft=null;render();retur
 if(action==='lp-max-per'){state.lpMaxPer=parseInt(el.value)||5;render();return;}
 
 // Auto-generate plan
+if(action==='lp-mode'){state.lpMode=el.dataset.mode;state.planDraft=null;state.lpSlot='';state.lpSubject='';render();return;}
+if(action==='lp-slot-sel'||el.id==='lp-slot-sel'){state.lpSlot=el.value;state.lpSubject='';state.planDraft=null;render();return;}
+if(action==='lp-subj-sel'||el.id==='lp-subj-sel'){state.lpSubject=el.value;state.planDraft=null;render();return;}
 if(action==='lp-generate'){
   var lpDate=state.lpDate||new Date().toISOString().slice(0,10);
   var maxPer=state.lpMaxPer||5;
@@ -7631,7 +7671,11 @@ if(action==='lp-generate'){
   function ksLabel(ks){return ks.slice(2);}
   var dayType=getDT(lpDate);
   var allTT=state.data.all_timetables||[];
-  var expected=allTT.filter(function(t){return t.day_type===dayType;});
+  var lpMode=state.lpMode||'full';
+  var lpSlot=state.lpSlot||'';
+  var lpSubject=state.lpSubject||'';
+  var allForDay=allTT.filter(function(t){return t.day_type===dayType;});
+  var expected=lpMode==='single'&&lpSlot&&lpSubject?allForDay.filter(function(t){return t.slot===lpSlot&&t.subject===lpSubject;}):allForDay;
   // Group by slot + subject + Key Stage
   var groups={};
   expected.forEach(function(t){
