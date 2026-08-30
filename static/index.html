@@ -544,6 +544,47 @@ function exportTeacherPlannerExcel(){
   XLSX.writeFile(wb,'TeacherPlanner_'+rptDate+'.xlsx');
 }
 
+
+function printLessonReportView(){
+  window.print();
+}
+
+function exportLessonReportExcel(){
+  var lrDate=state.lrDate;
+  if(!lrDate){alert('No date selected.');return;}
+  var sessions=state.data.sessions||[];
+  var daySess=sessions.filter(function(s){return s.date===lrDate;});
+  var bySlot={};
+  daySess.forEach(function(s){if(!bySlot[s.slot])bySlot[s.slot]=[];bySlot[s.slot].push(s);});
+  var slotKeys=Object.keys(bySlot).sort();
+  var wb=XLSX.utils.book_new();
+  slotKeys.forEach(function(slot,si){
+    var tables=bySlot[slot].slice().sort(function(a,b){return (a.table_no||0)-(b.table_no||0);});
+    var rows=[];
+    rows.push(['SESSION '+(si+1)+': '+slot,'','','','','','','']);
+    rows.push([]);
+    tables.forEach(function(s){
+      var studs=state.data['sess_students_'+s.id]||[];
+      var rpts=state.data['lr_'+s.id]||[];
+      var atts=state.data['lr_att_'+s.id]||[];
+      var attMap={};atts.forEach(function(a){attMap[a.student_id]=a.status;});
+      var repMap={};rpts.forEach(function(r){repMap[r.student_id]=r;});
+      rows.push(['Table '+s.table_no+' — '+(s.subject||'—'),'','','Teacher: '+(s.staff_name||'Unassigned'),'','','','']);
+      rows.push(['Student','Ad No.','Attendance','Classwork','HW Set','HW Marked','WWW','EBI','Supervisor Check']);
+      studs.forEach(function(st){
+        var stId=st.student_id||st.id;
+        var att=attMap[stId]||'—';
+        var rep=repMap[stId]||{};
+        rows.push([st.student_name||st.name||'?',st.admission_id||'',att,rep.classwork_completed||'',rep.homework_set||'',rep.homework_marked?'Yes':'No',rep.www||'',rep.ebi||'',rep.supervisor_checked?'Checked':'Pending']);
+      });
+      rows.push([]);
+    });
+    var ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:22},{wch:10},{wch:10},{wch:22},{wch:20},{wch:10},{wch:22},{wch:22},{wch:12}];
+    XLSX.utils.book_append_sheet(wb,ws,('S'+(si+1)+' '+slot).slice(0,31));
+  });
+  XLSX.writeFile(wb,'LessonReport_'+lrDate+'.xlsx');
+}
 function exportLessonPlanExcel(){
   var rptDate=state.rptDate;
   if(!rptDate){alert('No report loaded.');return;}
@@ -4106,7 +4147,7 @@ function renderStudentProgress(){
 
 function renderLessonReports(){
   const sessions=state.data.sessions||[];
-  const students=state.data.students||[];
+  const lrMode=state.lrMode||'enter';
   const selId=state.lrSessionId;
   const selSess=sessions.find(s=>s.id===selId);
   const reports=selId?(state.data['lr_'+selId]||[]):[];
@@ -4114,14 +4155,108 @@ function renderLessonReports(){
   const tab=state.lrTab||'report';
   const branchStudents=selId?(state.data['sess_students_'+selId]||[]):[];
   const checkedCount=reports.filter(r=>r.supervisor_checked).length;
-  const uncheckedCount=reports.filter(r=>!r.supervisor_checked).length;
+  const lrDate=state.lrDate||'';
 
-  return `
-  <div class="section-title" style="margin-bottom:4px;">Lesson reports</div>
-  <div class="section-sub">Daily lesson log — teacher notes and supervisor checks</div>
+  // helper
+  function sName(st){return st.student_name||st.name||'Unknown';}
 
+  let html='';
+  html+='<div class="section-title" style="margin-bottom:4px;">Lesson reports</div>';
+  html+='<div class="section-sub">Daily lesson log — teacher notes and supervisor checks</div>';
+
+  // Mode toggle
+  html+='<div style="display:flex;gap:8px;margin-bottom:16px;">';
+  html+='<button class="btn btn-sm '+(lrMode==='enter'?'btn-primary':'')+'" data-action="lr-mode" data-mode="enter">✏️ Enter Reports</button>';
+  html+='<button class="btn btn-sm '+(lrMode==='view'?'btn-primary':'')+'" data-action="lr-mode" data-mode="view">📋 View Report</button>';
+  html+='</div>';
+
+  // ── VIEW REPORT MODE ──────────────────────────────────────
+  if(lrMode==='view'){
+    var dates=[...new Set(sessions.map(function(s){return s.date;}).filter(Boolean))].sort().reverse();
+    html+='<div class="card" style="margin-bottom:14px;">';
+    html+='<div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">';
+    html+='<div class="field" style="margin:0;flex:1;min-width:200px;"><label>Select date</label><select id="lr-date-select"><option value="">— choose date —</option>';
+    dates.forEach(function(d){
+      var dl=new Date(d+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+      html+='<option value="'+d+'" '+(d===lrDate?'selected':'')+'>'+dl+'</option>';
+    });
+    html+='</select></div>';
+    if(lrDate){
+      html+='<button class="btn btn-primary" onclick="printLessonReportView()">🖨 Print</button>';
+      html+='<button class="btn btn-secondary" onclick="exportLessonReportExcel()">📄 Export Excel</button>';
+    }
+    html+='</div></div>';
+
+    if(!lrDate){
+      html+='<div class="card" style="text-align:center;color:var(--text3);padding:40px;">Select a date to view the report.</div>';
+      return html;
+    }
+
+    var daySess=sessions.filter(function(s){return s.date===lrDate;});
+    if(!daySess.length){
+      html+='<div class="card" style="text-align:center;color:var(--text3);padding:40px;">No sessions found for this date.</div>';
+      return html;
+    }
+
+    var bySlot={};
+    daySess.forEach(function(s){if(!bySlot[s.slot])bySlot[s.slot]=[];bySlot[s.slot].push(s);});
+    var slotKeys=Object.keys(bySlot).sort();
+    var dateLabel=new Date(lrDate+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+    html+='<div style="font-size:18px;font-weight:800;margin-bottom:4px;">Lesson Report — '+dateLabel+'</div>';
+
+    slotKeys.forEach(function(slot,si){
+      var tables=bySlot[slot].slice().sort(function(a,b){return (a.table_no||0)-(b.table_no||0);});
+      html+='<div style="margin-bottom:24px;">';
+      html+='<div style="background:var(--accent);color:#fff;padding:10px 16px;border-radius:var(--radius) var(--radius) 0 0;font-size:15px;font-weight:700;">Session '+(si+1)+': '+slot+'</div>';
+      html+='<div style="border:1px solid var(--accent);border-top:none;border-radius:0 0 var(--radius) var(--radius);overflow:hidden;">';
+      tables.forEach(function(s,ti){
+        var studs=state.data['sess_students_'+s.id]||[];
+        var rpts=state.data['lr_'+s.id]||[];
+        var atts=state.data['lr_att_'+s.id]||[];
+        var attMap={};atts.forEach(function(a){attMap[a.student_id]=a.status;});
+        var repMap={};rpts.forEach(function(r){repMap[r.student_id]=r;});
+        var borderTop=ti>0?'border-top:1px solid var(--border);':'';
+        html+='<div style="padding:12px 16px;'+borderTop+'">';
+        html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">';
+        html+='<span style="font-weight:700;font-size:13px;">Table '+s.table_no+'</span>';
+        html+='<span class="badge badge-gray">'+(s.subject||'—')+'</span>';
+        html+='<span style="font-size:12px;color:var(--text3);">Teacher: '+(s.staff_name||'Unassigned')+'</span>';
+        var rptDone=rpts.length;var supDone=rpts.filter(function(r){return r.supervisor_checked;}).length;
+        html+='<span class="badge '+(rptDone===studs.length&&studs.length>0?'badge-success':'badge-amber')+'" style="margin-left:auto;">'+rptDone+'/'+studs.length+' reports</span>';
+        html+='<span class="badge '+(supDone===rptDone&&rptDone>0?'badge-success':'badge-gray')+'">'+supDone+'/'+rptDone+' checked</span>';
+        html+='</div>';
+        if(!studs.length){html+='<div style="font-size:12px;color:var(--text3);">No students loaded — select this table in Enter Reports to initialise.</div></div>';return;}
+        html+='<table style="width:100%;font-size:12px;border-collapse:collapse;">';
+        html+='<thead><tr style="background:var(--surface2);"><th style="padding:5px 8px;text-align:left;">Student</th><th style="padding:5px 8px;">Att.</th><th style="padding:5px 8px;">Classwork</th><th style="padding:5px 8px;">HW set</th><th style="padding:5px 8px;">HW marked</th><th style="padding:5px 8px;">WWW</th><th style="padding:5px 8px;">EBI</th><th style="padding:5px 8px;">Checked</th></tr></thead><tbody>';
+        studs.forEach(function(st){
+          var stId=st.student_id||st.id;
+          var att=attMap[stId]||'—';
+          var rep=repMap[stId]||{};
+          var attBadge=att==='present'?'badge-success':att==='absent'?'badge-danger':'badge-gray';
+          var chkBadge=rep.supervisor_checked?'badge-success':'badge-gray';
+          html+='<tr style="border-top:1px solid var(--border);">';
+          html+='<td style="padding:5px 8px;font-weight:500;">'+(sName(st))+'<br><span style="color:var(--text3);font-size:10px;">'+(st.admission_id||'')+'</span></td>';
+          html+='<td style="padding:5px 8px;text-align:center;"><span class="badge '+attBadge+'">'+att+'</span></td>';
+          html+='<td style="padding:5px 8px;">'+(rep.classwork_completed||'—')+'</td>';
+          html+='<td style="padding:5px 8px;">'+(rep.homework_set||'—')+'</td>';
+          html+='<td style="padding:5px 8px;text-align:center;">'+(rep.homework_marked?'✓':'✗')+'</td>';
+          html+='<td style="padding:5px 8px;">'+(rep.www||'—')+'</td>';
+          html+='<td style="padding:5px 8px;">'+(rep.ebi||'—')+'</td>';
+          html+='<td style="padding:5px 8px;text-align:center;"><span class="badge '+chkBadge+'">'+(rep.supervisor_checked?'✓':'—')+'</span></td>';
+          html+='</tr>';
+        });
+        html+='</tbody></table></div>';
+      });
+      html+='</div></div>';
+    });
+    return html;
+  }
+
+  // ── ENTER REPORTS MODE ────────────────────────────────────
+  html+=`
   <div class="card" style="margin-bottom:16px;">
-    <div class="field"><label>Select session</label>
+    <div class="field"><label>Select session (table)</label>
     <select id="lr-session-select">
       <option value="">— choose a session —</option>
       ${sessions.map(s=>`<option value="${s.id}" ${s.id===selId?'selected':''}>${new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})} · ${s.slot} · ${s.branch_name} · Table ${s.table_no||'?'} · ${s.subject||'?'} · ${s.staff_name||'Unassigned'}</option>`).join('')}
@@ -4144,14 +4279,15 @@ function renderLessonReports(){
   ${tab==='report'?`
   <div style="display:flex;flex-direction:column;gap:12px;">
     ${branchStudents.map(st=>{
-      const att=attRecs.find(a=>a.student_id===st.id);
-      const rep=reports.find(r=>r.student_id===st.id)||{};
+      const sn=st.student_name||st.name||'Unknown';
+      const att=attRecs.find(a=>a.student_id===(st.student_id||st.id));
+      const rep=reports.find(r=>r.student_id===(st.student_id||st.id))||{};
       const isPresent=att?.status==='present';
       return `<div class="card" style="border-left:3px solid ${isPresent?'var(--success)':'var(--border)'};">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border);">
           <div style="display:flex;align-items:center;gap:10px;">
-            <div class="avatar av-teal" style="width:32px;height:32px;font-size:11px;">${avatarInitials(st.name)}</div>
-            <div><strong style="font-size:14px;">${st.name}</strong> <span class="id-code">${st.admission_id}</span></div>
+            <div class="avatar av-teal" style="width:32px;height:32px;font-size:11px;">${avatarInitials(sn)}</div>
+            <div><strong style="font-size:14px;">${sn}</strong> <span class="id-code">${st.admission_id}</span></div>
           </div>
           <div style="display:flex;gap:8px;align-items:center;">
             ${att?`<span class="badge ${att.status==='present'?'badge-success':'badge-danger'}">${att.status}</span>`:'<span class="badge badge-gray">Not marked</span>'}
@@ -4160,20 +4296,20 @@ function renderLessonReports(){
         </div>
         ${isPresent||rep.classwork_completed?`
         <div class="form-grid" style="gap:12px;">
-          <div class="field"><label>Classwork completed</label><input type="text" class="lr-classwork" data-student="${st.id}" value="${rep.classwork_completed||''}" placeholder="e.g. Fractions pp.24-26"></div>
-          <div class="field"><label>Homework set</label><input type="text" class="lr-hw-set" data-student="${st.id}" value="${rep.homework_set||''}" placeholder="e.g. pg 27-30 Q1-10"></div>
-          <div class="field" style="grid-column:1/-1;"><label>Diary entry / activity</label><input type="text" class="lr-diary" data-student="${st.id}" value="${rep.diary_entry||''}" placeholder="Brief description of today's lesson activity"></div>
-          <div class="field"><label>What Went Well (WWW)</label><textarea class="lr-www" data-student="${st.id}" rows="2" style="resize:vertical;">${rep.www||''}</textarea></div>
-          <div class="field"><label>Even Better If (EBI)</label><textarea class="lr-ebi" data-student="${st.id}" rows="2" style="resize:vertical;">${rep.ebi||''}</textarea></div>
+          <div class="field"><label>Classwork completed</label><input type="text" class="lr-classwork" data-student="${st.student_id||st.id}" value="${rep.classwork_completed||''}" placeholder="e.g. Fractions pp.24-26"></div>
+          <div class="field"><label>Homework set</label><input type="text" class="lr-hw-set" data-student="${st.student_id||st.id}" value="${rep.homework_set||''}" placeholder="e.g. pg 27-30 Q1-10"></div>
+          <div class="field" style="grid-column:1/-1;"><label>Diary entry / activity</label><input type="text" class="lr-diary" data-student="${st.student_id||st.id}" value="${rep.diary_entry||''}" placeholder="Brief description of today's lesson activity"></div>
+          <div class="field"><label>What Went Well (WWW)</label><textarea class="lr-www" data-student="${st.student_id||st.id}" rows="2" style="resize:vertical;">${rep.www||''}</textarea></div>
+          <div class="field"><label>Even Better If (EBI)</label><textarea class="lr-ebi" data-student="${st.student_id||st.id}" rows="2" style="resize:vertical;">${rep.ebi||''}</textarea></div>
           <div class="field"><label>Previous homework marked</label>
-            <select class="lr-hw-marked" data-student="${st.id}">
+            <select class="lr-hw-marked" data-student="${st.student_id||st.id}">
               <option value="false" ${!rep.homework_marked?'selected':''}>✗ Not marked</option>
               <option value="true" ${rep.homework_marked?'selected':''}>✓ Marked</option>
             </select>
           </div>
         </div>
         <div style="margin-top:12px;text-align:right;">
-          <button class="btn btn-primary btn-sm" data-action="save-lr" data-student="${st.id}" data-session="${selId}">Save report</button>
+          <button class="btn btn-primary btn-sm" data-action="save-lr" data-student="${st.student_id||st.id}" data-session="${selId}">Save report</button>
         </div>`:'<div style="padding:8px 0;color:var(--text3);font-size:13px;">Student absent — no report needed</div>'}
       </div>`;
     }).join('')}
@@ -4186,12 +4322,13 @@ function renderLessonReports(){
       <div style="font-size:12px;color:var(--text2);line-height:1.8;">For each student: verify ✓ previous HW was marked · classwork was given · new HW was set · diary is complete. Then tick the supervisor check.</div>
     </div>
     ${reports.filter(r=>r.student_id).map(rep=>{
-      const st=branchStudents.find(s=>s.id===rep.student_id);
+      const st=branchStudents.find(s=>(s.student_id||s.id)===rep.student_id);
+      const sn=st?(st.student_name||st.name||'Unknown'):'Unknown';
       if(!st)return '';
       return `<div class="card" style="border-left:3px solid ${rep.supervisor_checked?'var(--success)':'var(--amber)'};">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
           <div>
-            <div style="font-weight:600;font-size:14px;margin-bottom:4px;">${st.name} <span class="id-code">${st.admission_id}</span></div>
+            <div style="font-weight:600;font-size:14px;margin-bottom:4px;">${sn} <span class="id-code">${st.admission_id}</span></div>
             <div style="font-size:12px;color:var(--text3);margin-bottom:8px;">
               ${rep.classwork_completed?'<span style="color:var(--success-text);">✓ CW: '+rep.classwork_completed+'</span>':''} 
               ${rep.homework_marked?'<span style="color:var(--success-text);margin-left:8px;">✓ HW marked</span>':'<span style="color:var(--danger-text);margin-left:8px;">✗ HW not marked</span>'}
@@ -4212,7 +4349,9 @@ function renderLessonReports(){
     }).join('')||'<div class="empty-state">No lesson reports to check for this session. Ask teachers to fill in reports first.</div>'}
   </div>`:''}
   `:''}`;
+  return html;
 }
+
 
 function renderTestRecords(){
   const students=state.data.students||[];
@@ -7269,6 +7408,20 @@ document.getElementById('ts-filter-staff')?.addEventListener('change',e=>{state.
 document.getElementById('ts-filter-role')?.addEventListener('change',e=>{state.tsFilterRole=e.target.value;render();});
 document.getElementById('ts-filter-status')?.addEventListener('change',e=>{state.tsFilterStatus=e.target.value;render();});
 document.getElementById('ts-filter-date')?.addEventListener('change',e=>{state.tsFilterDate=e.target.value;render();});
+document.getElementById('lr-date-select')?.addEventListener('change',async function(e){
+  state.lrDate=e.target.value||'';
+  if(state.lrDate){
+    var daySess=(state.data.sessions||[]).filter(function(s){return s.date===state.lrDate;});
+    var loads=[];
+    daySess.forEach(function(s){
+      loads.push(loadData('lr_'+s.id,'/api/lesson-reports/'+s.id));
+      loads.push(loadData('lr_att_'+s.id,'/api/attendance/'+s.id));
+      loads.push(loadData('sess_students_'+s.id,'/api/sessions/'+s.id+'/students'));
+    });
+    await Promise.all(loads);
+  }
+  render();
+});
 document.getElementById('lr-session-select')?.addEventListener('change',async e=>{
   state.lrSessionId=e.target.value?parseInt(e.target.value):null;
   state.lrTab='report';
@@ -8186,6 +8339,7 @@ if(action==='plan-tab'&&el.dataset.tab==='weekly'){state.planTab='weekly';render
 if(action==='att-status-filter'){state.attStatusFilter=el.dataset.filter||'all';render();return;}
 if(action==='sr-tab'){state.srTab=el.dataset.tab;render();return;}
 if(action==='lr-tab'){state.lrTab=el.dataset.tab;render();return;}
+  if(action==='lr-mode'){state.lrMode=el.dataset.mode;render();return;}
 if(action==='tr-tab'){state.trTab=el.dataset.tab;render();return;}
 if(action==='save-lr'){
   const stId=parseInt(el.dataset.student);const sessId=parseInt(el.dataset.session);
