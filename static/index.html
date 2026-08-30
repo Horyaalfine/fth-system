@@ -555,25 +555,36 @@ function exportLessonPlanExcel(){
   var rptSlots=Object.keys(bySlot).sort();
   var wb=XLSX.utils.book_new();
   rptSlots.forEach(function(slot,si){
-    var slotTables=bySlot[slot];
-    var rows=[['Table','Subject','Teacher','Ad No.','Student Name','Year Group','Attendance']];
+    var slotTables=bySlot[slot].slice().sort(function(a,b){return (a.table_no||0)-(b.table_no||0);});
+    var rows=[];
+    // Session header
+    rows.push(['SESSION '+(si+1)+': '+slot,'','','','']);
+    rows.push(['','','','','']);
     slotTables.forEach(function(s){
       var studs=state.data['sess_students_'+s.id]||[];
       var attRecs=state.data['rpt_att_'+s.id]||[];
       var attMap={};attRecs.forEach(function(a){attMap[a.student_id]={status:a.status};});
       var teacher=staff.find(function(t){return t.id===s.staff_id;});
+      var teacherName=teacher?teacher.name:'Unassigned';
+      var ks=s.ks?(' · '+s.ks):'';
+      // Table header row
+      rows.push(['Table '+s.table_no+' — '+(s.subject||'—')+ks,'','','Teacher: '+teacherName,'']);
+      // Column headers
+      rows.push(['Ad No.','Student Name','Year Group','Attendance','']);
+      // Students
       if(studs.length===0){
-        rows.push(['Table '+s.table_no,s.subject||'—',teacher?teacher.name:'Unassigned','','','','']);
+        rows.push(['—','No students assigned','','','']);
       }else{
         studs.forEach(function(st){
-          var att=(attMap[st.student_id]||attMap[st.id]||{}).status||'';
-          rows.push(['Table '+s.table_no,s.subject||'—',teacher?teacher.name:'Unassigned',st.admission_id||'',st.name||st.student_name||'',st.year_group||'',att]);
+          var att=(attMap[st.student_id]||attMap[st.id]||{}).status||'—';
+          rows.push([st.admission_id||'—',st.name||st.student_name||'',st.year_group||'',att,'']);
         });
       }
+      rows.push(['','','','','']); // blank row between tables
     });
     var sheetName=('S'+(si+1)+' '+slot).slice(0,31);
     var ws=XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols']=[{wch:10},{wch:14},{wch:22},{wch:10},{wch:28},{wch:10},{wch:12}];
+    ws['!cols']=[{wch:12},{wch:28},{wch:12},{wch:24},{wch:4}];
     XLSX.utils.book_append_sheet(wb,ws,sheetName);
   });
   XLSX.writeFile(wb,'LessonPlan_'+rptDate+'.xlsx');
