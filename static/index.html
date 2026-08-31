@@ -4815,6 +4815,7 @@ const canCreate=['super_admin','branch_manager','head_of_centre','supervisor','a
 const TARGETS=[{v:'all',l:'All active parents'},{v:'inactive',l:'📢 Re-engagement (inactive)'},{v:'student',l:'Specific student'}];
 const filterTarget=state.annFilterTarget||'';
 const filterStu=state.annFilterStu||'';
+const inlineTgt=state.annInlineTarget||'all';
 let filtered=anns;
 if(filterTarget)filtered=filtered.filter(a=>a.target_type===filterTarget);
 if(filterStu)filtered=filtered.filter(a=>String(a.student_id)===filterStu);
