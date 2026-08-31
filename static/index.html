@@ -5316,32 +5316,23 @@ function modalImportStudents(){
   const preview=state.importPreview||null;
   const branches=(state.data.branches||[]).filter(b=>b.status==='active');
   if(!preview){
-    return`<div class="modal-title">Import Inactive Students</div>
-<p style="font-size:13px;color:var(--text3);margin-bottom:16px;">
-  Upload a CSV or Excel file to bulk-import inactive students.
-  Download the template below to see the required columns.
-</p>
-<div style="display:flex;gap:10px;margin-bottom:20px;">
-  <button class="btn" data-action="import-download-template">⬇ Download Template</button>
-</div>
+    const body=`<p style="font-size:13px;color:var(--text3);margin-bottom:16px;">Upload a CSV or Excel file to bulk-import inactive students. Download the template to see the required columns.</p>
+<div style="margin-bottom:16px;"><button class="btn" data-action="import-download-template">⬇ Download Template</button></div>
 <div style="margin-bottom:16px;">
-  <label style="font-weight:600;font-size:13px;">Select file (CSV or XLSX)</label>
-  <input type="file" id="import-file-input" accept=".csv,.xlsx,.xls" style="display:block;margin-top:8px;font-size:13px;">
-</div>
-<div style="display:flex;gap:10px;margin-top:20px;">
-  <button class="btn btn-primary" data-action="import-students-preview">Preview Import</button>
-  <button class="btn" data-action="close-modal">Cancel</button>
+  <label style="font-weight:600;font-size:13px;display:block;margin-bottom:8px;">Select file (CSV or XLSX)</label>
+  <input type="file" id="import-file-input" accept=".csv,.xlsx,.xls" style="font-size:13px;">
 </div>`;
+    const footer=`<button class="btn" data-action="close-modal">Cancel</button><button class="btn btn-primary" data-action="import-students-preview">Preview Import →</button>`;
+    return mWrap('⬆ Import Inactive Students',body,footer);
   }
   // Show preview table
   const {rows,valid,skipped,errors}=preview;
-  return`<div class="modal-title">Import Preview</div>
-<div style="display:flex;gap:20px;margin-bottom:16px;font-size:13px;">
-  <span style="color:var(--success,#2d7a4f);font-weight:600;">✓ ${valid.length} ready to import</span>
-  <span style="color:var(--warning,#b45309);font-weight:600;">⚠ ${skipped.length} will be skipped</span>
-  <span style="color:var(--danger,#c0392b);font-weight:600;">✗ ${errors.length} error(s)</span>
+  const body=`<div style="display:flex;gap:20px;margin-bottom:16px;font-size:13px;">
+  <span style="color:#2d7a4f;font-weight:600;">✓ ${valid.length} ready to import</span>
+  <span style="color:#b45309;font-weight:600;">⚠ ${skipped.length} will be skipped</span>
+  <span style="color:#c0392b;font-weight:600;">✗ ${errors.length} error(s)</span>
 </div>
-${valid.length?`<div style="max-height:260px;overflow-y:auto;margin-bottom:16px;">
+${valid.length?`<div style="max-height:260px;overflow-y:auto;margin-bottom:16px;border:1px solid var(--border);border-radius:6px;">
 <table style="width:100%;font-size:12px;border-collapse:collapse;">
 <thead><tr style="background:var(--bg2);">
   <th style="padding:6px 8px;text-align:left;">#</th>
@@ -5358,15 +5349,12 @@ ${valid.length?`<div style="max-height:260px;overflow-y:auto;margin-bottom:16px;
   <td style="padding:5px 8px;color:var(--text3);">${escHtml(r.carer_email||'—')}</td>
 </tr>`).join('')}
 </tbody></table></div>`:''}
-${errors.length?`<div style="margin-bottom:12px;padding:10px;background:var(--bg2);border-radius:6px;font-size:12px;">
+${errors.length?`<div style="margin-bottom:12px;padding:10px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;font-size:12px;">
 <strong>Errors:</strong><br>${errors.map(e=>`Row ${e.row}${e.name?' ('+escHtml(e.name)+')':''}: ${escHtml(e.reason)}`).join('<br>')}</div>`:''}
 ${skipped.length?`<div style="margin-bottom:12px;padding:10px;background:var(--bg2);border-radius:6px;font-size:12px;">
-<strong>Skipped (duplicates):</strong><br>${skipped.map(e=>`Row ${e.row} — ${escHtml(e.name||'')}: ${escHtml(e.reason)}`).join('<br>')}</div>`:''}
-<div style="display:flex;gap:10px;margin-top:8px;">
-  ${valid.length?`<button class="btn btn-primary" data-action="import-students-confirm">⬆ Import ${valid.length} student${valid.length===1?'':'s'}</button>`:''}
-  <button class="btn" data-action="import-students-back">← Back</button>
-  <button class="btn" data-action="close-modal">Cancel</button>
-</div>`;}
+<strong>Skipped (duplicates):</strong><br>${skipped.map(e=>`Row ${e.row} — ${escHtml(e.name||'')}: ${escHtml(e.reason)}`).join('<br>')}</div>`:''}`;
+  const footer=`<button class="btn" data-action="import-students-back">← Back</button><button class="btn" data-action="close-modal">Cancel</button>${valid.length?`<button class="btn btn-primary" data-action="import-students-confirm">⬆ Import ${valid.length} student${valid.length===1?'':'s'}</button>`:''}`;
+  return mWrap('⬆ Import Preview',body,footer);}
 
 function modalStudent(){
   const s=state.editTarget||{};
