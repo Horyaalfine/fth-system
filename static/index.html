@@ -4847,7 +4847,7 @@ leftPanel='<div class="card" style="flex:0 0 340px;min-width:280px;max-width:360
 '<option value="both">Both (portal + email)</option>'+
 '</select></div>'+
 '<div class="field" style="grid-column:1/-1;">'+
-'<button class="btn btn-primary" style="width:100%;" data-action="save-inline-announcement">Send announcement</button></div>'+
+'<button class="btn btn-primary" style="width:100%;" data-action="preview-announcement">👁 Preview & Send</button></div>'+
 '</div></div>';}
 let rightPanel='<div style="flex:1;min-width:280px;">';
 rightPanel+='<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">'+
@@ -5270,7 +5270,7 @@ if(m==='fee-reminder-preview'){
     '<button class="btn btn-primary" data-action="confirm-fee-reminder">✉ Send Reminder</button>';
   return mWrap('📧 Preview — Fee Reminder',body,footer);}
 if(m==='email-log-view'){return mWrap('📋 Email Delivery Log',state.emailLogHtml||'','');}
-if(m==='edit-announcement')return modalAnnouncement();if(m==='add-note'||m==='edit-note')return modalNote();if(m==='add-student'||m==='edit-student')return modalStudent();if(m==='add-staff'||m==='edit-staff')return modalStaff();if(m==='add-session'||m==='edit-session')return modalSession();
+if(m==='edit-announcement')return modalAnnouncement();if(m==='preview-announcement')return modalAnnouncementPreview();if(m==='add-note'||m==='edit-note')return modalNote();if(m==='add-student'||m==='edit-student')return modalStudent();if(m==='add-staff'||m==='edit-staff')return modalStaff();if(m==='add-session'||m==='edit-session')return modalSession();
 if(m==='gen-weekly-sessions')return modalWeeklySessions();if(m==='add-user'||m==='edit-user')return modalUser();if(m==='add-branch'||m==='edit-branch')return modalBranch();if(m==='edit-invoice')return modalInvoice();
   if(m==='mark-paid')return modalMarkPaid();
 if(m==='payment-receipt')return modalPaymentReceipt();
@@ -5568,6 +5568,76 @@ ${branchField}
 <div class="field"><label>Status</label><select id="f-status"><option value="active" ${!u.status||u.status==='active'?'selected':''}>Active</option><option value="inactive" ${u.status==='inactive'?'selected':''}>Inactive</option></select></div>
 </div>`,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${u.id?'Save changes':'Add user'}</button>`);}
 
+
+function modalAnnouncementPreview(){
+  const m=state.modal||{};
+  const title=m.title||'';
+  const body=m.body||'';
+  const target_type=m.target_type||'all';
+  const delivery=m.delivery||'portal';
+  const branch=m.branch||null;
+  const students=state.data.students||[];
+
+  // Count recipients
+  var recips=[];
+  if(target_type==='inactive'){
+    recips=students.filter(function(s){return s.status==='inactive'||s.status==='paused';});
+  }else if(target_type==='student'){
+    var stu=m.student||null;
+    recips=stu?[stu]:[];
+  }else{
+    recips=students.filter(function(s){return s.status==='active';});
+  }
+  var withEmail=recips.filter(function(s){return s.carer1_email||s.carer2_email;});
+  var noEmail=recips.length-withEmail.length;
+
+  // Branch footer
+  var bName=branch?branch.name:'Fine Tutors';
+  var footerParts=[];
+  if(branch){
+    if(branch.address)footerParts.push('📍 '+branch.address);
+    if(branch.phone)footerParts.push('📞 '+branch.phone);
+    if(branch.email)footerParts.push('✉️ '+branch.email);
+    if(branch.website)footerParts.push('🌐 '+branch.website);
+  }
+  var footerHtml=footerParts.length?'<p style="font-size:12px;color:#6b7280;line-height:2;">'+footerParts.join('<br>')+'</p>':'';
+
+  // Target label
+  var targetLabel=target_type==='inactive'?'📢 Inactive & paused students only':target_type==='student'?'Specific student: '+(m.student?.name||''):('All active parents');
+  var targetColor=target_type==='inactive'?'#92400e':target_type==='student'?'#1d4ed8':'#065f46';
+  var targetBg=target_type==='inactive'?'#fef3c7':target_type==='student'?'#dbeafe':'#d1fae5';
+
+  var emailPreview='<div style="font-family:Arial,sans-serif;max-width:100%;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">'+
+    '<div style="background:#2563eb;padding:16px 20px;"><h2 style="color:#fff;margin:0;font-size:16px;">'+bName+'</h2></div>'+
+    '<div style="background:#f9fafb;padding:20px;border-top:none;">'+
+    '<h3 style="color:#111827;margin-top:0;font-size:15px;">'+escHtml(title)+'</h3>'+
+    '<p style="color:#374151;line-height:1.7;white-space:pre-wrap;font-size:13px;">'+escHtml(body)+'</p>'+
+    '<hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0;">'+
+    footerHtml+
+    '<p style="font-size:11px;color:#9ca3af;margin-top:8px;">This message was sent by '+bName+'.</p>'+
+    '</div></div>';
+
+  var bodyHtml='<div style="margin-bottom:14px;padding:10px 14px;border-radius:6px;background:'+targetBg+';border:1px solid '+targetColor+'20;">'+
+    '<div style="font-size:12px;font-weight:600;color:'+targetColor+';margin-bottom:4px;">📋 Recipients: '+targetLabel+'</div>'+
+    '<div style="font-size:12px;color:'+targetColor+';">'+
+      '<strong>'+withEmail.length+'</strong> parents with email addresses will receive this'+
+      (noEmail>0?' · <strong>'+noEmail+'</strong> have no email on file':'')+
+    '</div>'+
+    (delivery==='portal'?'<div style="font-size:11px;color:var(--text3);margin-top:4px;">Delivery: internal portal only (no email will be sent)</div>':
+     delivery==='email'?'<div style="font-size:11px;color:var(--text3);margin-top:4px;">Delivery: email only</div>':
+     '<div style="font-size:11px;color:var(--text3);margin-top:4px;">Delivery: portal + email</div>')+
+    '</div>'+
+    '<div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:8px;">Email preview:</div>'+
+    emailPreview;
+
+  return mWrap('Preview announcement',bodyHtml,
+    '<button class="btn" id="modal-cancel">Cancel</button>'+
+    '<button class="btn btn-primary" id="modal-save" data-action="confirm-send-announcement">'+
+    (delivery==='portal'?'Save to portal':'✉ Confirm & Send')+
+    '</button>');
+}
+
+function escHtml(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function modalBranch(){const b=state.editTarget||{};
 return mWrap(b.id?'Edit branch':'Add branch',`
 <div class="form-grid">
@@ -7531,6 +7601,35 @@ if(action==='edit-payment'){state.modal='edit-payment';state.editTarget=(state.d
 if(action==='del-payment'){if(!confirm('Delete this payment?'))return;await API.delete('/api/payments/'+id);toast('Payment deleted');refreshPage();return;}
 if(action==='add-instalment-plan'){state.modal='add-instalment-plan';state.editTarget=null;render();return;}
 if(action==='del-instalment-plan'){if(!confirm('Delete this plan?'))return;await API.delete('/api/instalment-plans/'+id);toast('Plan deleted');refreshPage();return;}
+if(action==='preview-announcement'){
+  const title=(document.getElementById('ai-title')?.value||'').trim();
+  const body=(document.getElementById('ai-body')?.value||'').trim();
+  const target_type=document.getElementById('ai-target')?.value||'all';
+  const active=document.getElementById('ai-active')?.checked!==false;
+  const student_id=target_type==='student'?(parseInt(document.getElementById('ai-student-id')?.value||'0')||null):null;
+  const delivery=document.getElementById('ai-delivery')?.value||'portal';
+  if(!title){toast('Title is required','error');return;}
+  if(!body){toast('Message is required','error');return;}
+  if(target_type==='student'&&!student_id){toast('Please select a student','error');return;}
+  const stu=student_id?(state.data.students||[]).find(s=>s.id===student_id):null;
+  const branch_id=stu?stu.branch_id:(state.currentUser?.branch_id||null);
+  const branch=(state.data.branches||[]).find(function(b){return b.id===branch_id;})||null;
+  state.modal={name:'preview-announcement',title,body,target_type,active,student_id,student:stu,branch_id,branch,delivery};
+  render();return;}
+if(action==='confirm-send-announcement'){
+  const m=state.modal||{};
+  const r=await API.post('/api/announcements',{title:m.title,body:m.body,target_type:m.target_type,student_id:m.student_id,active:m.active,branch_id:m.branch_id});
+  if(r&&r.error){toast(r.error,'error');return;}
+  await loadData('announcements','/api/announcements',branchParam());
+  state.modal=null;state.annInlineTarget=null;
+  const titleEl=document.getElementById('ai-title');if(titleEl)titleEl.value='';
+  const bodyEl=document.getElementById('ai-body');if(bodyEl)bodyEl.value='';
+  if(m.delivery==='email'||m.delivery==='both'){
+    const er=await API.post('/api/announcements/'+r.id+'/send-email',{});
+    if(er&&er.error){toast('Saved but email failed: '+er.error,'error');}
+    else{toast('Sent to '+er.sent+' parent'+(er.sent!==1?'s':'')+' by email'+(m.delivery==='both'?' + portal':''));}
+  } else {toast('Announcement saved to parent portal');}
+  render();return;}
 if(action==='save-inline-announcement'){
   const title=(document.getElementById('ai-title')?.value||'').trim();
   const body=(document.getElementById('ai-body')?.value||'').trim();
