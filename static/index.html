@@ -4835,7 +4835,19 @@ leftPanel='<div class="card" style="flex:0 0 340px;min-width:280px;max-width:360
 '<select id="ai-target" onchange="state.annInlineTarget=this.value;render();" style="width:100%;padding:8px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;">'+
 '<option value="all"'+(inlineTgt==='inactive'||inlineTgt==='student'?'':' selected')+'>All active parents</option>'+'<option value="inactive"'+(inlineTgt==='inactive'?' selected':'')+'>📢 Re-engagement (inactive/paused)</option>'+'<option value="student"'+(inlineTgt==='student'?' selected':'')+'>Specific student</option></select></div>'+
 ((state.annInlineTarget==='inactive')?
-'<div style="margin-bottom:8px;padding:8px 12px;background:#fef3c7;border-radius:var(--radius);border:1px solid #fde68a;font-size:12px;color:#92400e;">📢 <strong>Re-engagement campaign</strong> — this will email <strong>inactive and paused students only</strong>. Great for win-back outreach.</div>':'')+
+'<div style="padding:10px 12px;background:#fef3c7;border-radius:var(--radius);border:1px solid #fde68a;margin-bottom:8px;">'+
+'<div style="font-size:12px;font-weight:600;color:#92400e;margin-bottom:8px;">📢 Re-engagement — who to contact?</div>'+
+'<div style="display:flex;gap:8px;margin-bottom:8px;">'+
+'<button class="btn btn-sm '+(state.annReengScope==='single'?'':'btn-primary')+'" onclick="state.annReengScope=\'all\';state.annReengStudentId=null;render();" style="flex:1;">All inactive & paused</button>'+
+'<button class="btn btn-sm '+(state.annReengScope==='single'?'btn-primary':'')+'" onclick="state.annReengScope=\'single\';render();" style="flex:1;">One specific parent</button>'+
+'</div>'+
+(state.annReengScope==='single'?
+'<select id="ai-reeng-student-id" onchange="state.annReengStudentId=parseInt(this.value)||null;" style="width:100%;padding:7px 10px;border-radius:var(--radius);border:1px solid #fbbf24;background:#fff;font-size:12px;">'+
+'<option value="">— select inactive student —</option>'+
+students.filter(function(s){return s.status==="inactive"||s.status==="paused";}).map(function(s){return '<option value="'+s.id+'" '+(state.annReengStudentId===s.id?"selected":"")+'>'+s.admission_id+' — '+s.name+' ('+s.status+')</option>';}).join("")+
+'</select>':
+'<div style="font-size:11px;color:#92400e;margin-top:4px;">Will email parents of all inactive &amp; paused students.</div>')+
+'</div>':'')+
 ((state.annInlineTarget==='student')?
 '<div class="field" style="grid-column:1/-1;"><label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px;">Student *</label>'+
 '<select id="ai-student-id" style="width:100%;padding:8px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;">'+stuOpts+'</select></div>':'')+
@@ -5583,7 +5595,7 @@ function modalAnnouncementPreview(){
   var recips=[];
   if(target_type==='inactive'){
     recips=students.filter(function(s){return s.status==='inactive'||s.status==='paused';});
-  }else if(target_type==='student'){
+  }else if(target_type==='inactive_single'||target_type==='student'){
     var stu=m.student||null;
     recips=stu?[stu]:[];
   }else{
@@ -7605,13 +7617,21 @@ if(action==='del-instalment-plan'){if(!confirm('Delete this plan?'))return;await
 if(action==='preview-announcement'){
   const title=(document.getElementById('ai-title')?.value||'').trim();
   const body=(document.getElementById('ai-body')?.value||'').trim();
-  const target_type=document.getElementById('ai-target')?.value||'all';
+  var target_type=document.getElementById('ai-target')?.value||'all';
   const active=document.getElementById('ai-active')?.checked!==false;
-  const student_id=target_type==='student'?(parseInt(document.getElementById('ai-student-id')?.value||'0')||null):null;
   const delivery=document.getElementById('ai-delivery')?.value||'portal';
   if(!title){toast('Title is required','error');return;}
   if(!body){toast('Message is required','error');return;}
-  if(target_type==='student'&&!student_id){toast('Please select a student','error');return;}
+  // Re-engagement: resolve to single student if scope=single
+  var student_id=null;
+  if(target_type==='inactive'&&state.annReengScope==='single'){
+    student_id=state.annReengStudentId||(parseInt(document.getElementById('ai-reeng-student-id')?.value||'0')||null);
+    if(!student_id){toast('Please select a student','error');return;}
+    target_type='inactive_single';
+  }else if(target_type==='student'){
+    student_id=parseInt(document.getElementById('ai-student-id')?.value||'0')||null;
+    if(!student_id){toast('Please select a student','error');return;}
+  }
   const stu=student_id?(state.data.students||[]).find(s=>s.id===student_id):null;
   const branch_id=stu?stu.branch_id:(state.currentUser?.branch_id||null);
   const branch=(state.data.branches||[]).find(function(b){return b.id===branch_id;})||null;
@@ -7619,7 +7639,8 @@ if(action==='preview-announcement'){
   render();return;}
 if(action==='confirm-send-announcement'){
   const m=state.modal||{};
-  const r=await API.post('/api/announcements',{title:m.title,body:m.body,target_type:m.target_type,student_id:m.student_id,active:m.active,branch_id:m.branch_id});
+  const api_target=m.target_type==='inactive_single'?'student':m.target_type;
+  const r=await API.post('/api/announcements',{title:m.title,body:m.body,target_type:api_target,student_id:m.student_id,active:m.active,branch_id:m.branch_id});
   if(r&&r.error){toast(r.error,'error');return;}
   await loadData('announcements','/api/announcements',branchParam());
   state.modal=null;state.annInlineTarget=null;
