@@ -4812,7 +4812,7 @@ const anns=state.data.announcements||[];
 const students=state.data.students||[];
 const role=state.currentUser?.role;
 const canCreate=['super_admin','branch_manager','head_of_centre','supervisor','admin'].includes(role);
-const TARGETS=[{v:'all',l:'All parents'},{v:'student',l:'Specific student'}];
+const TARGETS=[{v:'all',l:'All active parents'},{v:'inactive',l:'📢 Re-engagement (inactive)'},{v:'student',l:'Specific student'}];
 const filterTarget=state.annFilterTarget||'';
 const filterStu=state.annFilterStu||'';
 let filtered=anns;
@@ -4832,7 +4832,9 @@ leftPanel='<div class="card" style="flex:0 0 340px;min-width:280px;max-width:360
 '<textarea id="ai-body" rows="5" placeholder="Enter announcement message..." style="width:100%;padding:8px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;resize:vertical;box-sizing:border-box;font-family:inherit;"></textarea></div>'+
 '<div class="field" style="grid-column:1/-1;"><label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px;">Send to</label>'+
 '<select id="ai-target" onchange="state.annInlineTarget=this.value;render();" style="width:100%;padding:8px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;">'+
-'<option value="all">All parents</option><option value="student">Specific student</option></select></div>'+
+'<option value="all">All active parents</option><option value="inactive">📢 Re-engagement (inactive/paused)</option><option value="student">Specific student</option></select></div>'+
+((state.annInlineTarget==='inactive')?
+'<div style="margin-bottom:8px;padding:8px 12px;background:#fef3c7;border-radius:var(--radius);border:1px solid #fde68a;font-size:12px;color:#92400e;">📢 <strong>Re-engagement campaign</strong> — this will email <strong>inactive and paused students only</strong>. Great for win-back outreach.</div>':'')+
 ((state.annInlineTarget==='student')?
 '<div class="field" style="grid-column:1/-1;"><label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px;">Student *</label>'+
 '<select id="ai-student-id" style="width:100%;padding:8px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;">'+stuOpts+'</select></div>':'')+
@@ -4867,7 +4869,7 @@ rightPanel+='<div class="card" style="padding:14px 16px;border-left:3px solid '+
 '<div style="flex:1;">'+
 '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">'+
 '<span style="font-weight:700;font-size:14px;color:var(--text);">'+a.title+'</span>'+
-(a.target_type==='all'?'<span class="badge badge-accent">All parents</span>':'<span class="badge badge-gray">'+(a.student_name||'Student')+' ('+(a.admission_id||'')+')</span>')+
+(a.target_type==='all'?'<span class="badge badge-accent">All active parents</span>':a.target_type==='inactive'?'<span class="badge badge-amber">📢 Re-engagement</span>':'<span class="badge badge-gray">'+(a.student_name||'Student')+' ('+(a.admission_id||'')+')</span>')+
 (active?'<span class="badge badge-success" style="font-size:11px;">Active</span>':'<span class="badge badge-danger" style="font-size:11px;">Inactive</span>')+
 '</div>'+
 '<div style="font-size:13px;color:var(--text2);line-height:1.5;">'+a.body+'</div>'+
@@ -4888,7 +4890,7 @@ return html;}
 function modalAnnouncement(){
 const students=state.data.students||[];
 const t=state.editTarget||{};
-const CATS=[{v:'all',l:'All parents'},{v:'student',l:'Specific student'}];
+const CATS=[{v:'all',l:'All active parents'},{v:'inactive',l:'📢 Re-engagement (inactive/paused students)'},{v:'student',l:'Specific student'}];
 const body='<div class="form-grid">'+
 '<div class="field" style="grid-column:1/-1;"><label>Title *</label><input type="text" id="f-ann-title" value="'+(t.title||'')+'"></div>'+
 '<div class="field" style="grid-column:1/-1;"><label>Message *</label><textarea id="f-ann-body" rows="5">'+(t.body||'')+'</textarea></div>'+
@@ -5574,6 +5576,7 @@ return mWrap(b.id?'Edit branch':'Add branch',`
 <div class="field" style="grid-column:1/-1;"><label>Address</label><input type="text" id="f-address" value="${b.address||''}"></div>
 <div class="field"><label>Phone</label><input type="text" id="f-phone" value="${b.phone||''}"></div>
 <div class="field"><label>Email</label><input type="email" id="f-email" value="${b.email||''}"></div>
+<div class="field"><label>Website</label><input type="url" id="f-website" value="${b.website||''}" placeholder="https://..."></div>
 <div class="field"><label>Status</label><select id="f-status"><option value="active" ${!b.status||b.status==='active'?'selected':''}>Active</option><option value="inactive" ${b.status==='inactive'?'selected':''}>Inactive</option></select></div>
 </div>`,`<button class="btn" id="modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-save">${b.id?'Save changes':'Add branch'}</button>`);}
 
@@ -6699,7 +6702,7 @@ else if(m==='add-session'||m==='edit-session'){
   toast(m==='add-session'?'Session added (Table '+nextTable+')':'Session updated');
 }
 else if(m==='add-user'||m==='edit-user'){const body={name:v('f-name'),email:v('f-email'),role:v('f-role'),branch_id:v('f-branch')?parseInt(v('f-branch')):null,status:v('f-status')};if(v('f-password'))body.password=v('f-password');if(!body.name||!body.email){toast('Name and email required','error');return;}if(m==='add-user'){if(!body.password){toast('Password required','error');return;}await API.post('/api/users',body);}else await API.put('/api/users/'+state.editTarget.id,body);toast(m==='add-user'?'User added':'User updated');}
-else if(m==='add-branch'||m==='edit-branch'){const body={name:v('f-name'),prefix:(v('f-prefix')||'').toUpperCase(),address:v('f-address'),phone:v('f-phone'),email:v('f-email'),status:v('f-status')};if(!body.name||!body.prefix){toast('Name and prefix required','error');return;}if(m==='add-branch')await API.post('/api/branches',body);else await API.put('/api/branches/'+state.editTarget.id,body);toast(m==='add-branch'?'Branch added':'Branch updated');}
+else if(m==='add-branch'||m==='edit-branch'){const body={name:v('f-name'),prefix:(v('f-prefix')||'').toUpperCase(),address:v('f-address'),phone:v('f-phone'),email:v('f-email'),website:v('f-website')||'',status:v('f-status')};if(!body.name||!body.prefix){toast('Name and prefix required','error');return;}if(m==='add-branch')await API.post('/api/branches',body);else await API.put('/api/branches/'+state.editTarget.id,body);toast(m==='add-branch'?'Branch added':'Branch updated');}
 else if(m==='gen-monthly-fees'){
   const genMonth=v('f-gen-month');
   if(!genMonth){toast('Please select a month','error');return;}

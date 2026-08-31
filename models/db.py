@@ -626,6 +626,7 @@ CREATE INDEX IF NOT EXISTS idx_teacher_sessions_staff ON teacher_sessions(staff_
 CREATE INDEX IF NOT EXISTS idx_teacher_sessions_date  ON teacher_sessions(date);
 CREATE INDEX IF NOT EXISTS idx_teacher_sessions_branch ON teacher_sessions(branch_id);
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE branches ADD COLUMN IF NOT EXISTS website TEXT;
 ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('super_admin','branch_manager','head_of_centre','head_of_branches','supervisor','teacher','receptionist','admin','reports_viewer'));
 """
 

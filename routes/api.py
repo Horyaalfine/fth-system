@@ -127,7 +127,7 @@ def next_admission_id(conn, branch_id):
 @require_auth
 def get_branches():
     conn = get_conn(); cur = conn.cursor()
-    cur.execute("SELECT * FROM branches ORDER BY name")
+    cur.execute("SELECT id, name, prefix, address, phone, email, website, status, created_at FROM branches ORDER BY name")
     data = rows(cur); cur.close(); conn.close()
     return jsonify(data)
 
@@ -137,9 +137,9 @@ def add_branch():
     d = request.json
     conn = get_conn(); cur = conn.cursor()
     cur.execute("""
-        INSERT INTO branches (name, prefix, address, phone, email, status)
-        VALUES (%s,%s,%s,%s,%s,%s) RETURNING *
-    """, (d['name'], d['prefix'].upper(), d.get('address',''), d.get('phone',''), d.get('email',''), d.get('status','active')))
+        INSERT INTO branches (name, prefix, address, phone, email, website, status)
+        VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING *
+    """, (d['name'], d['prefix'].upper(), d.get('address',''), d.get('phone',''), d.get('email',''), d.get('website',''), d.get('status','active')))
     r = row(cur); conn.commit(); cur.close(); conn.close()
     log_action('add', 'branches', r['id'])
     return jsonify(r), 201
@@ -150,9 +150,9 @@ def update_branch(bid):
     d = request.json
     conn = get_conn(); cur = conn.cursor()
     cur.execute("""
-        UPDATE branches SET name=%s, prefix=%s, address=%s, phone=%s, email=%s, status=%s
+        UPDATE branches SET name=%s, prefix=%s, address=%s, phone=%s, email=%s, website=%s, status=%s
         WHERE id=%s RETURNING *
-    """, (d['name'], d['prefix'].upper(), d.get('address',''), d.get('phone',''), d.get('email',''), d.get('status','active'), bid))
+    """, (d['name'], d['prefix'].upper(), d.get('address',''), d.get('phone',''), d.get('email',''), d.get('website',''), d.get('status','active'), bid))
     r = row(cur); conn.commit(); cur.close(); conn.close()
     log_action('edit', 'branches', bid)
     return jsonify(r)
@@ -3430,6 +3430,14 @@ def send_announcement_email(aid):
     role = session.get('role'); branch_id = session.get('branch_id')
     is_all_branches = (role == 'super_admin' or not ann['branch_id'])
     is_specific_student = (ann['target_type'] == 'student' and ann['student_id'])
+    is_inactive = (ann['target_type'] == 'inactive')
+    status_filter = "status IN ('inactive','paused')" if is_inactive else "status='active'"
+
+    # Fetch branch contact details for email footer
+    branch_info = None
+    if ann.get('branch_id'):
+        cur.execute("SELECT name, address, phone, email, website FROM branches WHERE id=%s", (ann['branch_id'],))
+        branch_info = cur.fetchone()
 
     # Pull ALL students (with and without emails) for full audit trail
     if is_specific_student:
@@ -3440,20 +3448,20 @@ def send_announcement_email(aid):
             FROM students WHERE id=%s
         """, (ann['student_id'],))
     elif is_all_branches:
-        cur.execute("""
+        cur.execute(f"""
             SELECT name, carer1_email, carer2_email,
                    carer1_first_name, carer1_last_name,
                    carer2_first_name, carer2_last_name
-            FROM students
+            FROM students WHERE {status_filter}
         """)
     else:
-        cur.execute("""
+        cur.execute(f"""
             SELECT name, carer1_email, carer2_email,
                    carer1_first_name, carer1_last_name,
                    carer2_first_name, carer2_last_name
             FROM students
-            WHERE branch_id=%s
-        """, (branch_id,))
+            WHERE branch_id=%s AND {status_filter}
+        """, (ann['branch_id'] or branch_id,))
 
     student_rows = rows(cur)
 
@@ -3524,16 +3532,34 @@ def send_announcement_email(aid):
                 msg['From']    = f"Fine Tutors <{smtp_email}>"
                 msg['To']      = r['email']
 
+                # Build branch contact footer
+                if branch_info:
+                    b_name = branch_info.get('name','Fine Tutors')
+                    b_addr = branch_info.get('address','') or ''
+                    b_phone = branch_info.get('phone','') or ''
+                    b_email = branch_info.get('email','') or ''
+                    b_web = branch_info.get('website','') or ''
+                    contact_lines = []
+                    if b_addr: contact_lines.append(f'<span>📍 {b_addr}</span>')
+                    if b_phone: contact_lines.append(f'<span>📞 {b_phone}</span>')
+                    if b_email: contact_lines.append(f'<span>✉️ <a href="mailto:{b_email}" style="color:#2563eb;">{b_email}</a></span>')
+                    if b_web: contact_lines.append(f'<span>🌐 <a href="{b_web}" style="color:#2563eb;">{b_web}</a></span>')
+                    contact_html = '<br>'.join(contact_lines) if contact_lines else ''
+                    footer_html = f"""<hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;">
+                    <p style="font-size:12px;color:#6b7280;line-height:1.8;">{contact_html}</p>
+                    <p style="font-size:11px;color:#9ca3af;">This message was sent by {b_name}.</p>"""
+                else:
+                    footer_html = '<hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;"><p style="font-size:12px;color:#9ca3af;">This message was sent via the Fine Tutors parent portal.</p>'
+
                 html_body = f"""
 <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
   <div style="background:#2563eb;padding:20px 24px;border-radius:8px 8px 0 0;">
-    <h2 style="color:#fff;margin:0;font-size:18px;">Fine Tutors</h2>
+    <h2 style="color:#fff;margin:0;font-size:18px;">{branch_info['name'] if branch_info else 'Fine Tutors'}</h2>
   </div>
   <div style="background:#f9fafb;padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
     <h3 style="color:#111827;margin-top:0;">{ann['title']}</h3>
     <p style="color:#374151;line-height:1.6;">{ann['body']}</p>
-    <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;">
-    <p style="font-size:12px;color:#9ca3af;">This message was sent via the Fine Tutors parent portal.</p>
+    {footer_html}
   </div>
 </div>"""
                 msg.attach(MIMEText(html_body, 'html'))
