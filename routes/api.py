@@ -3529,8 +3529,9 @@ def send_announcement_email(aid):
             try:
                 msg = MIMEMultipart('alternative')
                 msg['Subject'] = ann['title']
-                msg['From']    = f"{branch_info['name'] if branch_info else 'Fine Tutors'} <{smtp_email}>"
-                msg['To']      = f"{branch_info['name'] if branch_info else 'Fine Tutors'} <{smtp_email}>"
+                sender_name = f"Fine Tutors - {branch_info['name']}" if branch_info else 'Fine Tutors'
+                msg['From']    = f"{sender_name} <{smtp_email}>"
+                msg['To']      = f"{sender_name} <{smtp_email}>"
                 msg['Reply-To'] = branch_info.get('email', smtp_email) if branch_info else smtp_email
 
                 # Build branch contact footer
@@ -3555,7 +3556,7 @@ def send_announcement_email(aid):
                 html_body = f"""
 <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
   <div style="background:#2563eb;padding:20px 24px;border-radius:8px 8px 0 0;">
-    <h2 style="color:#fff;margin:0;font-size:18px;">{branch_info['name'] if branch_info else 'Fine Tutors'}</h2>
+    <h2 style="color:#fff;margin:0;font-size:18px;">{sender_name}</h2>
   </div>
   <div style="background:#f9fafb;padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
     <h3 style="color:#111827;margin-top:0;">{ann['title']}</h3>
