@@ -3529,8 +3529,9 @@ def send_announcement_email(aid):
             try:
                 msg = MIMEMultipart('alternative')
                 msg['Subject'] = ann['title']
-                msg['From']    = f"Fine Tutors <{smtp_email}>"
-                msg['To']      = r['email']
+                msg['From']    = f"{branch_info['name'] if branch_info else 'Fine Tutors'} <{smtp_email}>"
+                msg['To']      = f"{branch_info['name'] if branch_info else 'Fine Tutors'} <{smtp_email}>"
+                msg['Reply-To'] = branch_info.get('email', smtp_email) if branch_info else smtp_email
 
                 # Build branch contact footer
                 if branch_info:
@@ -3754,7 +3755,7 @@ def send_fee_reminder(student_id):
         msg = MIMEMultipart('alternative')
         msg['Subject'] = f"Fee Reminder — {st['name']} — £{total:.2f} outstanding"
         msg['From'] = f"Fine Tutors <{smtp_email}>"
-        msg['To'] = recipient_email
+        msg['To'] = msg['From']
         msg.attach(MIMEText(html_body, 'html'))
         server.sendmail(smtp_email, recipient_email, msg.as_string())
         server.quit()
@@ -3920,7 +3921,7 @@ def email_registration_form(sid):
             msg = MIMEMultipart('alternative')
             msg['Subject'] = f"Contract Form — {st['name']} — Fine Tutors {st['branch_name']}"
             msg['From'] = f"Fine Tutors <{smtp_email}>"
-            msg['To'] = r['email']
+            msg['To'] = msg['From']
             msg.attach(MIMEText(html_body, 'html'))
             server.sendmail(smtp_email, r['email'], msg.as_string())
         server.quit()
@@ -4070,7 +4071,7 @@ def email_batch_invoice(batch_id):
         for r in recipients:
             msg = MIMEMultipart('alternative')
             msg['Subject'] = f"Invoice — {st['student_name']} — {st['month']} — £{total:.2f}"
-            msg['From'] = f"Fine Tutors <{smtp_email}>"; msg['To'] = r['email']
+            msg['From'] = f"Fine Tutors <{smtp_email}>"; msg['To'] = f"Fine Tutors <{smtp_email}>"
             msg.attach(MIMEText(html_body,'html'))
             server.sendmail(smtp_email, r['email'], msg.as_string())
         server.quit()
@@ -4710,7 +4711,7 @@ def email_admission_slip(sid):
         for rec in recipients:
             msg = MIMEMultipart('alternative')
             msg['From']    = smtp_email
-            msg['To']      = rec['email']
+            msg['To']      = msg['From']
             msg['Subject'] = f"Admission Slip - {data['name']} - Fine Tutors {data['branch_name']}"
             msg.attach(MIMEText(html_body,'html'))
             server.sendmail(smtp_email, rec['email'], msg.as_string())
@@ -4876,7 +4877,7 @@ def email_invoice_receipt(iid):
         for rec in recipients:
             msg = MIMEMultipart('alternative')
             msg['From']    = smtp_email
-            msg['To']      = rec['email']
+            msg['To']      = msg['From']
             msg['Subject'] = f"Payment Receipt - {data['student_name']} - Fine Tutors {data['branch_name']}"
             msg.attach(MIMEText(html_body, 'html'))
             server.sendmail(smtp_email, rec['email'], msg.as_string())
@@ -5015,7 +5016,7 @@ def send_progress_report(sid):
         for r in recipients:
             msg = MIMEMultipart('alternative')
             msg['From']    = f"Fine Tutors <{smtp_email}>"
-            msg['To']      = r['email']
+            msg['To']      = msg['From']
             msg['Subject'] = f"Progress Report — {st['name']} — Fine Tutors"
             msg.attach(MIMEText(html_body, 'html'))
             server.sendmail(smtp_email, r['email'], msg.as_string())
