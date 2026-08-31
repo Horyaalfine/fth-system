@@ -127,7 +127,7 @@ def next_admission_id(conn, branch_id):
 @require_auth
 def get_branches():
     conn = get_conn(); cur = conn.cursor()
-    cur.execute("SELECT id, name, prefix, address, phone, email, website, status, created_at FROM branches ORDER BY name")
+    cur.execute("SELECT * FROM branches ORDER BY name")
     data = rows(cur); cur.close(); conn.close()
     return jsonify(data)
 
