@@ -261,6 +261,85 @@ def get_student_fields(d):
         'status': d.get('status','active'), 'notes': d.get('notes','')
     }
 
+
+# ════════════════════════════════════════════
+#  BULK IMPORT INACTIVE STUDENTS
+# ════════════════════════════════════════════
+@api_bp.route('/api/students/import-inactive', methods=['POST'])
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches','admin')
+def import_inactive_students():
+    rows_in = request.json
+    if not isinstance(rows_in, list):
+        return jsonify({'error': 'Expected a list of student rows'}), 400
+
+    conn = get_conn(); cur = conn.cursor()
+
+    cur.execute("SELECT id, name, prefix FROM branches WHERE status='active'")
+    all_branches = cur.fetchall() or []
+    branch_map = {}
+    for b in all_branches:
+        branch_map[b['name'].strip().lower()] = b
+        branch_map[b['prefix'].strip().lower()] = b
+
+    cur.execute("SELECT LOWER(TRIM(carer1_email)) AS e FROM students WHERE carer1_email IS NOT NULL AND carer1_email != ''")
+    existing_emails = {r['e'] for r in (cur.fetchall() or []) if r['e']}
+    cur.execute("SELECT LOWER(TRIM(carer2_email)) AS e FROM students WHERE carer2_email IS NOT NULL AND carer2_email != ''")
+    existing_emails |= {r['e'] for r in (cur.fetchall() or []) if r['e']}
+
+    imported = []; skipped = []; errors = []
+
+    for i, row_in in enumerate(rows_in):
+        row_num = i + 1
+        name        = (row_in.get('name') or row_in.get('Student Name') or '').strip()
+        carer_name  = (row_in.get('carer_name') or row_in.get('Parent/Carer Name') or '').strip()
+        carer_email = (row_in.get('carer_email') or row_in.get('Parent Email') or '').strip().lower()
+        year_group  = (row_in.get('year_group') or row_in.get('Year Group') or '').strip()
+        branch_key  = (row_in.get('branch') or row_in.get('Branch') or '').strip().lower()
+        notes       = (row_in.get('notes') or row_in.get('Notes') or '').strip()
+
+        if not name:
+            errors.append({'row': row_num, 'reason': 'Missing student name'})
+            continue
+
+        branch = branch_map.get(branch_key)
+        if not branch:
+            avail = ', '.join(b['name'] for b in all_branches)
+            errors.append({'row': row_num, 'name': name, 'reason': 'Branch "' + branch_key + '" not found. Available: ' + avail})
+            continue
+
+        if carer_email and carer_email in existing_emails:
+            skipped.append({'row': row_num, 'name': name, 'email': carer_email, 'reason': 'Email already in system'})
+            continue
+
+        try:
+            branch_id    = branch['id']
+            admission_id = next_admission_id(conn, branch_id)
+            parts    = carer_name.split(' ', 1) if carer_name else ['', '']
+            c1_first = parts[0]
+            c1_last  = parts[1] if len(parts) > 1 else ''
+            cur.execute("""
+                INSERT INTO students (branch_id, admission_id, name, year_group,
+                    carer1_first_name, carer1_last_name, carer1_email,
+                    parent_contact, status, notes)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'inactive', %s)
+                RETURNING id, admission_id, name
+            """, (branch_id, admission_id, name, year_group,
+                  c1_first, c1_last, carer_email, carer_email, notes))
+            r = cur.fetchone()
+            conn.commit()
+            if carer_email:
+                existing_emails.add(carer_email)
+            imported.append({'row': row_num, 'name': name,
+                             'admission_id': r['admission_id'] if r else admission_id,
+                             'branch': branch['name']})
+            log_action('add', 'students', r['id'] if r else 0)
+        except Exception as ex:
+            conn.rollback()
+            errors.append({'row': row_num, 'name': name, 'reason': str(ex)})
+
+    cur.close(); conn.close()
+    return jsonify({'imported': imported, 'skipped': skipped, 'errors': errors})
+
 @api_bp.route('/api/students', methods=['POST'])
 @require_auth
 def add_student():

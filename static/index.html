@@ -1018,6 +1018,7 @@ return`
 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
 <div><div class="section-title">Students</div><div class="section-sub">${students.length} enrolled${state.currentBranch?' · '+(state.data.branches||[]).find(b=>b.id===state.currentBranch)?.name||'':' across all branches'}</div></div>
 <button class="btn btn-primary" data-action="add-student">+ Enrol student</button>
+<button class="btn" data-action="import-students" style="margin-left:8px;" title="Bulk import inactive students from Excel/CSV">⬆ Import Inactive</button>
 <button class="btn" data-action="export-students" style="margin-left:8px;">⬇ Export Excel</button>
 </div>
 <div class="tab-bar" style="margin-bottom:12px;">
@@ -5285,7 +5286,7 @@ if(m==='fee-reminder-preview'){
     '<button class="btn btn-primary" data-action="confirm-fee-reminder">✉ Send Reminder</button>';
   return mWrap('📧 Preview — Fee Reminder',body,footer);}
 if(m==='email-log-view'){return mWrap('📋 Email Delivery Log',state.emailLogHtml||'','');}
-if(m==='edit-announcement')return modalAnnouncement();if(m==='preview-announcement')return modalAnnouncementPreview();if(m==='add-note'||m==='edit-note')return modalNote();if(m==='add-student'||m==='edit-student')return modalStudent();if(m==='add-staff'||m==='edit-staff')return modalStaff();if(m==='add-session'||m==='edit-session')return modalSession();
+if(m==='edit-announcement')return modalAnnouncement();if(m==='preview-announcement')return modalAnnouncementPreview();if(m==='add-note'||m==='edit-note')return modalNote();if(m==='import-students')return modalImportStudents();if(m==='add-student'||m==='edit-student')return modalStudent();if(m==='add-staff'||m==='edit-staff')return modalStaff();if(m==='add-session'||m==='edit-session')return modalSession();
 if(m==='gen-weekly-sessions')return modalWeeklySessions();if(m==='add-user'||m==='edit-user')return modalUser();if(m==='add-branch'||m==='edit-branch')return modalBranch();if(m==='edit-invoice')return modalInvoice();
   if(m==='mark-paid')return modalMarkPaid();
 if(m==='payment-receipt')return modalPaymentReceipt();
@@ -5310,6 +5311,62 @@ if(m==='add-payment'||m==='edit-payment')return modalPayment();
   if(m==='add-test-record'||m==='edit-test-record')return modalTestRecord();if(m==='record-retest')return modalRetest();return'';}
 function mWrap(title,body,footer){return`<div class="modal-backdrop" id="modal-backdrop"><div class="modal modal-lg"><div class="modal-header"><div class="modal-title">${title}</div><button class="btn btn-sm" id="modal-close">✕</button></div><div class="modal-body">${body}</div><div class="modal-footer">${footer}</div></div></div>`;}
 function mWrapDark(title,body,footer){return`<div class="modal-backdrop" id="modal-backdrop"><div class="modal modal-lg" style="background:var(--surface);"><div class="modal-header" style="background:#0f2557;border-bottom:1px solid #2a4d9c;border-radius:var(--radius-xl) var(--radius-xl) 0 0;"><div class="modal-title" style="color:#f9fafb;">${title}</div><button class="btn btn-sm" id="modal-close" style="background:rgba(255,255,255,0.1);color:#f9fafb;border-color:rgba(255,255,255,0.2);">✕</button></div><div class="modal-body">${body}</div><div class="modal-footer">${footer}</div></div></div>`;}
+
+function modalImportStudents(){
+  const preview=state.importPreview||null;
+  const branches=(state.data.branches||[]).filter(b=>b.status==='active');
+  if(!preview){
+    return`<div class="modal-title">Import Inactive Students</div>
+<p style="font-size:13px;color:var(--text3);margin-bottom:16px;">
+  Upload a CSV or Excel file to bulk-import inactive students.
+  Download the template below to see the required columns.
+</p>
+<div style="display:flex;gap:10px;margin-bottom:20px;">
+  <button class="btn" data-action="import-download-template">⬇ Download Template</button>
+</div>
+<div style="margin-bottom:16px;">
+  <label style="font-weight:600;font-size:13px;">Select file (CSV or XLSX)</label>
+  <input type="file" id="import-file-input" accept=".csv,.xlsx,.xls" style="display:block;margin-top:8px;font-size:13px;">
+</div>
+<div style="display:flex;gap:10px;margin-top:20px;">
+  <button class="btn btn-primary" data-action="import-students-preview">Preview Import</button>
+  <button class="btn" data-action="close-modal">Cancel</button>
+</div>`;
+  }
+  // Show preview table
+  const {rows,valid,skipped,errors}=preview;
+  return`<div class="modal-title">Import Preview</div>
+<div style="display:flex;gap:20px;margin-bottom:16px;font-size:13px;">
+  <span style="color:var(--success,#2d7a4f);font-weight:600;">✓ ${valid.length} ready to import</span>
+  <span style="color:var(--warning,#b45309);font-weight:600;">⚠ ${skipped.length} will be skipped</span>
+  <span style="color:var(--danger,#c0392b);font-weight:600;">✗ ${errors.length} error(s)</span>
+</div>
+${valid.length?`<div style="max-height:260px;overflow-y:auto;margin-bottom:16px;">
+<table style="width:100%;font-size:12px;border-collapse:collapse;">
+<thead><tr style="background:var(--bg2);">
+  <th style="padding:6px 8px;text-align:left;">#</th>
+  <th style="padding:6px 8px;text-align:left;">Name</th>
+  <th style="padding:6px 8px;text-align:left;">Year</th>
+  <th style="padding:6px 8px;text-align:left;">Branch</th>
+  <th style="padding:6px 8px;text-align:left;">Parent Email</th>
+</tr></thead>
+<tbody>${valid.map((r,i)=>`<tr style="border-top:1px solid var(--border);">
+  <td style="padding:5px 8px;color:var(--text3);">${r.row}</td>
+  <td style="padding:5px 8px;font-weight:600;">${escHtml(r.name||'')}</td>
+  <td style="padding:5px 8px;">${escHtml(r.year_group||'—')}</td>
+  <td style="padding:5px 8px;">${escHtml(r.branch||'')}</td>
+  <td style="padding:5px 8px;color:var(--text3);">${escHtml(r.carer_email||'—')}</td>
+</tr>`).join('')}
+</tbody></table></div>`:''}
+${errors.length?`<div style="margin-bottom:12px;padding:10px;background:var(--bg2);border-radius:6px;font-size:12px;">
+<strong>Errors:</strong><br>${errors.map(e=>`Row ${e.row}${e.name?' ('+escHtml(e.name)+')':''}: ${escHtml(e.reason)}`).join('<br>')}</div>`:''}
+${skipped.length?`<div style="margin-bottom:12px;padding:10px;background:var(--bg2);border-radius:6px;font-size:12px;">
+<strong>Skipped (duplicates):</strong><br>${skipped.map(e=>`Row ${e.row} — ${escHtml(e.name||'')}: ${escHtml(e.reason)}`).join('<br>')}</div>`:''}
+<div style="display:flex;gap:10px;margin-top:8px;">
+  ${valid.length?`<button class="btn btn-primary" data-action="import-students-confirm">⬆ Import ${valid.length} student${valid.length===1?'':'s'}</button>`:''}
+  <button class="btn" data-action="import-students-back">← Back</button>
+  <button class="btn" data-action="close-modal">Cancel</button>
+</div>`;}
 
 function modalStudent(){
   const s=state.editTarget||{};
@@ -8820,6 +8877,77 @@ if(action==='gen-monthly-fees'){state.modal='gen-monthly-fees';state.editTarget=
 if(action==='gen-invoices'){const r=await API.post('/api/invoices/generate',{month:new Date().toISOString().slice(0,7)});toast(`${r.added} invoice(s) generated`);refreshPage();return;}
 if(action==='add-progress'){state.modal='add-progress';state.editTarget={session_id:parseInt(el.dataset.session)};render();return;}
 if(action==='export-sr'){const att=state.data['sr_att_'+id]||[];const csv=[['Student','ID','Status','Notes'],...att.map(a=>[a.student_name,a.admission_id,a.status,a.notes])].map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`session_${id}_report.csv`;a.click();toast('Exported');return;}
+if(action==='import-students'){state.modal='import-students';state.importPreview=null;render();return;}
+if(action==='import-download-template'){
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet([
+    ['Student Name','Parent/Carer Name','Parent Email','Year Group','Branch','Notes'],
+    ['Example Student','Jane Smith','jane@example.com','Year 6','Harlesden',''],
+  ]);
+  ws['!cols']=[{wch:20},{wch:22},{wch:28},{wch:12},{wch:16},{wch:20}];
+  XLSX.utils.book_append_sheet(wb,ws,'Students');
+  XLSX.writeFile(wb,'import_inactive_students_template.xlsx');
+  return;}
+if(action==='import-students-preview'){
+  const fileInput=document.getElementById('import-file-input');
+  if(!fileInput||!fileInput.files.length){toast('Please select a file first','warn');return;}
+  const file=fileInput.files[0];
+  const reader=new FileReader();
+  reader.onload=async function(e){
+    let rows=[];
+    try{
+      if(file.name.endsWith('.csv')){
+        const text=e.target.result;
+        const lines=text.trim().split('\n');
+        const headers=lines[0].split(',').map(h=>h.replace(/^"|"$/g,'').trim());
+        rows=lines.slice(1).map((line,i)=>{
+          const vals=line.split(',').map(v=>v.replace(/^"|"$/g,'').trim());
+          const obj={row:i+2};
+          headers.forEach((h,j)=>{obj[h]=vals[j]||'';});
+          return obj;
+        }).filter(r=>Object.values(r).some((v,i)=>i>0&&v));
+      } else {
+        const wb=XLSX.read(e.target.result,{type:'array'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const data=XLSX.utils.sheet_to_json(ws,{defval:''});
+        rows=data.map((r,i)=>({row:i+2,...r}));
+      }
+    } catch(ex){toast('Could not parse file: '+ex.message,'error');return;}
+    // Validate rows client-side
+    const branches=(state.data.branches||[]).filter(b=>b.status==='active');
+    const branchNames=branches.map(b=>b.name.trim().toLowerCase());
+    const valid=[],skipped=[],errors=[];
+    rows.forEach(r=>{
+      const name=(r['Student Name']||r['name']||'').trim();
+      const email=(r['Parent Email']||r['carer_email']||'').trim().toLowerCase();
+      const branch=(r['Branch']||r['branch']||'').trim().toLowerCase();
+      if(!name){errors.push({row:r.row,reason:'Missing student name'});return;}
+      if(!branchNames.includes(branch)){errors.push({row:r.row,name,reason:`Branch "${r['Branch']||branch}" not found`});return;}
+      const bObj=branches.find(b=>b.name.trim().toLowerCase()===branch);
+      valid.push({row:r.row,name,year_group:(r['Year Group']||r['year_group']||'').trim(),branch:bObj?bObj.name:branch,carer_name:(r['Parent/Carer Name']||r['carer_name']||'').trim(),carer_email:email,notes:(r['Notes']||r['notes']||'').trim()});
+    });
+    state.importPreview={rows,valid,skipped,errors};
+    state._importValidRows=valid;
+    render();
+  };
+  if(file.name.endsWith('.csv')) reader.readAsText(file);
+  else reader.readAsArrayBuffer(file);
+  return;}
+if(action==='import-students-back'){state.importPreview=null;render();return;}
+if(action==='import-students-confirm'){
+  const rows=state._importValidRows||[];
+  if(!rows.length){toast('Nothing to import','warn');return;}
+  try{
+    const res=await API.post('/api/students/import-inactive',rows);
+    const imp=res.imported||[];
+    const skip=res.skipped||[];
+    const errs=res.errors||[];
+    toast(`Imported ${imp.length} student${imp.length===1?'':'s'}${skip.length?' · '+skip.length+' skipped':''}${errs.length?' · '+errs.length+' error(s)':''}`, imp.length?'success':'warn');
+    state.modal=null;state.importPreview=null;state._importValidRows=null;
+    await loadData('students','/api/students',{branch_id:state.currentBranch||''});
+    render();
+  } catch(ex){toast('Import failed: '+ex.message,'error');}
+  return;}
 if(action==='export-students'){
   const allS=state.data.students||[];
   const sf=state.studentFilter||'active';
