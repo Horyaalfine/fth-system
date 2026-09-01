@@ -5392,3 +5392,20 @@ def dashboard_today():
         return jsonify({'today_sessions':0,'today_list':[],'today_expected':0,'today_present':0,'today_marked':0,'month_revenue':0,'new_enrolments':0,'error':str(e)})
     finally:
         cur.close(); conn.close()
+
+@api_bp.route('/api/diag/timetable', methods=['GET'])
+@require_roles('super_admin')
+def diag_timetable():
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM student_timetable")
+    tt_count = cur.fetchone()[0]
+    cur.execute("SELECT COUNT(*) FROM student_agreed_slots")
+    as_count = cur.fetchone()[0]
+    cur.execute("SELECT COUNT(*) FROM branch_schedule")
+    bs_count = cur.fetchone()[0]
+    cur.execute("SELECT DISTINCT slot FROM student_timetable LIMIT 10")
+    sample_slots = [r[0] for r in cur.fetchall()]
+    cur.execute("SELECT day_of_week, slot_start FROM branch_schedule LIMIT 10")
+    sample_sched = [{'day': r[0], 'start': r[1]} for r in cur.fetchall()]
+    cur.close(); conn.close()
+    return jsonify({'student_timetable_rows': tt_count, 'student_agreed_slots_rows': as_count, 'branch_schedule_rows': bs_count, 'sample_timetable_slots': sample_slots, 'sample_branch_schedule': sample_sched})
