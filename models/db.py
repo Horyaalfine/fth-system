@@ -670,6 +670,42 @@ ON CONFLICT DO NOTHING;
 -- using werkzeug pbkdf2 here for simplicity (set in init_db.py)
 """
 
+def migrate_timetable_to_agreed_slots():
+    """One-time migration: populate student_agreed_slots from legacy student_timetable data.
+    Safe to run multiple times — uses ON CONFLICT DO NOTHING."""
+    import re
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        cur.execute("SELECT DISTINCT student_id, slot, branch_id FROM student_timetable WHERE slot IS NOT NULL")
+        rows = cur.fetchall()
+        if not rows:
+            cur.close(); conn.close(); return
+        def parse_slot(slot):
+            import re as _re
+            m = _re.search(r'\((\d{2}:\d{2})', slot)
+            start = m.group(1) if m else None
+            sl = slot.lower()
+            if 'saturday' in sl: days = ['saturday']
+            elif 'sunday' in sl: days = ['sunday']
+            else: days = ['monday','tuesday','wednesday','thursday','friday']
+            return days, start
+        migrated = 0
+        today = '2026-09-01'
+        for student_id, slot, branch_id in rows:
+            days, start = parse_slot(slot)
+            if not start: continue
+            cur.execute("""SELECT id FROM branch_schedule WHERE day_of_week = ANY(%s) AND slot_start = %s AND (branch_id = %s OR %s IS NULL) AND status = 'active'""", (days, start, branch_id, branch_id))
+            for (sched_id,) in cur.fetchall():
+                cur.execute("INSERT INTO student_agreed_slots (student_id, branch_schedule_id, effective_from) VALUES (%s, %s, %s) ON CONFLICT DO NOTHING", (student_id, sched_id, today))
+                migrated += 1
+        conn.commit()
+        print(f"Timetable migration: inserted {migrated} agreed slot entries.")
+    except Exception as e:
+        conn.rollback(); print(f"Timetable migration error: {e}")
+    finally:
+        cur.close(); conn.close()
+
+
 def init_db():
     """Create all tables and seed initial data."""
     conn = get_conn()
@@ -697,56 +733,3 @@ def init_db():
 if __name__ == '__main__':
     init_db()
 
-
-def migrate_timetable_to_agreed_slots():
-    """One-time migration: populate student_agreed_slots from legacy student_timetable data.
-    Safe to run multiple times — uses ON CONFLICT DO NOTHING."""
-    import re
-    conn = get_conn(); cur = conn.cursor()
-    try:
-        # Get distinct student+slot combos from old timetable
-        cur.execute("SELECT DISTINCT student_id, slot, branch_id FROM student_timetable WHERE slot IS NOT NULL")
-        rows = cur.fetchall()
-        if not rows:
-            cur.close(); conn.close(); return
-
-        # Parse slot name -> (day_of_week candidates, slot_start)
-        def parse_slot(slot):
-            m = re.search(r'\((\d{2}:\d{2})', slot)
-            start = m.group(1) if m else None
-            sl = slot.lower()
-            if 'saturday' in sl:
-                days = ['saturday']
-            elif 'sunday' in sl:
-                days = ['sunday']
-            else:
-                days = ['monday','tuesday','wednesday','thursday','friday']
-            return days, start
-
-        migrated = 0
-        today = '2026-09-01'
-        for student_id, slot, branch_id in rows:
-            days, start = parse_slot(slot)
-            if not start:
-                continue
-            # Find matching branch_schedule slots
-            cur.execute("""
-                SELECT id FROM branch_schedule
-                WHERE day_of_week = ANY(%s) AND slot_start = %s
-                  AND (branch_id = %s OR %s IS NULL)
-                  AND status = 'active'
-            """, (days, start, branch_id, branch_id))
-            sched_rows = cur.fetchall()
-            for (sched_id,) in sched_rows:
-                cur.execute("""
-                    INSERT INTO student_agreed_slots (student_id, branch_schedule_id, effective_from)
-                    VALUES (%s, %s, %s) ON CONFLICT DO NOTHING
-                """, (student_id, sched_id, today))
-                migrated += 1
-        conn.commit()
-        print(f"Timetable migration: inserted {migrated} agreed slot entries.")
-    except Exception as e:
-        conn.rollback()
-        print(f"Timetable migration error: {e}")
-    finally:
-        cur.close(); conn.close()
