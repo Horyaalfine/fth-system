@@ -5392,21 +5392,3 @@ def dashboard_today():
         return jsonify({'today_sessions':0,'today_list':[],'today_expected':0,'today_present':0,'today_marked':0,'month_revenue':0,'new_enrolments':0,'error':str(e)})
     finally:
         cur.close(); conn.close()
-
-@api_bp.route('/api/diag/timetable', methods=['GET'])
-@require_auth
-def diag_timetable():
-    conn = get_conn(); cur = conn.cursor()
-    result = {}
-    def q(sql, key):
-        try:
-            cur.execute(sql); result[key] = cur.fetchall()
-        except Exception as e:
-            conn.rollback(); result[key] = f'ERROR: {e}'
-    q("SELECT COUNT(*) FROM student_timetable", 'tt_count')
-    q("SELECT COUNT(*) FROM student_agreed_slots", 'as_count')
-    q("SELECT COUNT(*) FROM branch_schedule", 'bs_count')
-    q("SELECT DISTINCT slot FROM student_timetable LIMIT 10", 'tt_slots')
-    q("SELECT day_of_week, slot_start FROM branch_schedule LIMIT 10", 'bs_sample')
-    cur.close(); conn.close()
-    return jsonify({k: (v if isinstance(v, str) else [[str(x) for x in r.values()] for r in v]) for k,v in result.items()})
