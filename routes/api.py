@@ -167,6 +167,109 @@ def delete_branch(bid):
     return jsonify({'ok': True})
 
 # ════════════════════════════════════════════
+#  BRANCH SCHEDULE
+# ════════════════════════════════════════════
+@api_bp.route('/api/branch-schedule', methods=['GET'])
+@require_auth
+def get_branch_schedule():
+    conn = get_conn(); cur = conn.cursor()
+    b = branch_scope()
+    if b:
+        cur.execute("""
+            SELECT bs.*, br.name as branch_name
+            FROM branch_schedule bs
+            JOIN branches br ON br.id = bs.branch_id
+            WHERE bs.branch_id = %s
+            ORDER BY bs.day_of_week, bs.slot_start
+        """, (b,))
+    else:
+        cur.execute("""
+            SELECT bs.*, br.name as branch_name
+            FROM branch_schedule bs
+            JOIN branches br ON br.id = bs.branch_id
+            ORDER BY br.name, bs.day_of_week, bs.slot_start
+        """)
+    rows = cur.fetchall() or []
+    cur.close(); conn.close()
+    return jsonify(rows)
+
+@api_bp.route('/api/branch-schedule', methods=['POST'])
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches')
+def add_branch_schedule():
+    d = request.json
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        cur.execute("""
+            INSERT INTO branch_schedule (branch_id, day_of_week, slot_start, slot_end,
+                status, effective_from, notes)
+            VALUES (%s, %s, %s, %s, 'active', %s, %s)
+            RETURNING *
+        """, (d['branch_id'], d['day_of_week'], d['slot_start'], d['slot_end'],
+              d.get('effective_from') or 'today', d.get('notes','')))
+        r = row(cur); conn.commit()
+    except Exception as e:
+        conn.rollback(); cur.close(); conn.close()
+        return jsonify({'error': str(e)}), 400
+    cur.close(); conn.close()
+    log_action('add', 'branch_schedule', r['id'] if r else 0)
+    return jsonify(r), 201
+
+@api_bp.route('/api/branch-schedule/<int:sid>', methods=['PUT'])
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches')
+def update_branch_schedule(sid):
+    d = request.json
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        cur.execute("""
+            UPDATE branch_schedule SET day_of_week=%s, slot_start=%s, slot_end=%s,
+                effective_from=%s, notes=%s
+            WHERE id=%s RETURNING *
+        """, (d['day_of_week'], d['slot_start'], d['slot_end'],
+              d.get('effective_from') or 'today', d.get('notes',''), sid))
+        r = row(cur); conn.commit()
+    except Exception as e:
+        conn.rollback(); cur.close(); conn.close()
+        return jsonify({'error': str(e)}), 400
+    cur.close(); conn.close()
+    log_action('edit', 'branch_schedule', sid)
+    return jsonify(r)
+
+@api_bp.route('/api/branch-schedule/<int:sid>/close', methods=['PATCH'])
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches')
+def close_branch_schedule(sid):
+    d = request.json or {}
+    effective_to = d.get('effective_to') or 'today'
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        UPDATE branch_schedule SET status='closed', effective_to=%s
+        WHERE id=%s RETURNING *
+    """, (effective_to, sid))
+    r = row(cur); conn.commit(); cur.close(); conn.close()
+    log_action('edit', 'branch_schedule', sid)
+    return jsonify(r)
+
+@api_bp.route('/api/branch-schedule/<int:sid>/reopen', methods=['PATCH'])
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches')
+def reopen_branch_schedule(sid):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        UPDATE branch_schedule SET status='active', effective_to=NULL
+        WHERE id=%s RETURNING *
+    """, (sid,))
+    r = row(cur); conn.commit(); cur.close(); conn.close()
+    log_action('edit', 'branch_schedule', sid)
+    return jsonify(r)
+
+@api_bp.route('/api/branch-schedule/<int:sid>', methods=['DELETE'])
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches')
+def delete_branch_schedule(sid):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("DELETE FROM branch_schedule WHERE id=%s", (sid,))
+    conn.commit(); cur.close(); conn.close()
+    log_action('delete', 'branch_schedule', sid)
+    return jsonify({'ok': True})
+
+# ════════════════════════════════════════════
 #  STUDENTS
 # ════════════════════════════════════════════
 @api_bp.route('/api/students', methods=['GET'])

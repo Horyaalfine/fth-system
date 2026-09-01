@@ -628,6 +628,22 @@ CREATE INDEX IF NOT EXISTS idx_teacher_sessions_branch ON teacher_sessions(branc
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
 ALTER TABLE branches ADD COLUMN IF NOT EXISTS website TEXT;
 ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('super_admin','branch_manager','head_of_centre','head_of_branches','supervisor','teacher','receptionist','admin','reports_viewer'));
+-- ── BRANCH SCHEDULE (recurring session slots) ──
+CREATE TABLE IF NOT EXISTS branch_schedule (
+    id             SERIAL PRIMARY KEY,
+    branch_id      INT NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+    day_of_week    TEXT NOT NULL CHECK (day_of_week IN ('monday','tuesday','wednesday','thursday','friday','saturday','sunday')),
+    slot_start     TEXT NOT NULL,
+    slot_end       TEXT NOT NULL,
+    status         TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','closed')),
+    effective_from DATE NOT NULL DEFAULT CURRENT_DATE,
+    effective_to   DATE,
+    notes          TEXT,
+    created_at     TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_bsched_branch ON branch_schedule(branch_id);
+CREATE INDEX IF NOT EXISTS idx_bsched_day    ON branch_schedule(branch_id, day_of_week);
+ALTER TABLE branches ADD COLUMN IF NOT EXISTS website TEXT;
 """
 
 SEED = """
