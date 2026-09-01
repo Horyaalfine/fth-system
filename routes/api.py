@@ -5409,4 +5409,4 @@ def diag_timetable():
     q("SELECT DISTINCT slot FROM student_timetable LIMIT 10", 'tt_slots')
     q("SELECT day_of_week, slot_start FROM branch_schedule LIMIT 10", 'bs_sample')
     cur.close(); conn.close()
-    return jsonify({k: (v if isinstance(v, str) else [list(r) for r in v]) for k,v in result.items()})
+    return jsonify({k: (v if isinstance(v, str) else [[str(x) for x in r.values()] for r in v]) for k,v in result.items()})

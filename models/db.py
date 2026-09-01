@@ -671,11 +671,11 @@ ON CONFLICT DO NOTHING;
 """
 
 def migrate_timetable_to_agreed_slots():
-    """Migrate legacy student_timetable -> student_agreed_slots. Safe to re-run (ON CONFLICT DO NOTHING)."""
+    """Migrate legacy student_timetable -> student_agreed_slots. Safe to re-run (ON CONFLICT DO NOTHING).
+    Uses dict access since connection uses RealDictCursor."""
     import re as _re
     conn = get_conn(); cur = conn.cursor()
     try:
-        # Get distinct student+slot, join with students to get correct branch_id
         cur.execute("""
             SELECT DISTINCT st.student_id, st.slot, s.branch_id
             FROM student_timetable st
@@ -688,7 +688,7 @@ def migrate_timetable_to_agreed_slots():
             cur.close(); conn.close(); return
         def parse_slot(slot):
             m = _re.search(r'\((\d{1,2}:\d{2})', slot)
-            start = m.group(1).zfill(5) if m else None  # ensure HH:MM
+            start = m.group(1).zfill(5) if m else None
             sl = slot.lower()
             if 'saturday' in sl: days = ['saturday']
             elif 'sunday' in sl: days = ['sunday']
@@ -696,10 +696,12 @@ def migrate_timetable_to_agreed_slots():
             return days, start
         migrated = 0
         today = '2026-09-01'
-        for student_id, slot, branch_id in rows:
+        for row in rows:
+            student_id = row['student_id']
+            slot = row['slot']
+            branch_id = row['branch_id']
             days, start = parse_slot(slot)
             if not start: continue
-            # Match by day+time for student's branch; fallback to any branch if no match
             cur.execute("""
                 SELECT id FROM branch_schedule
                 WHERE day_of_week = ANY(%s) AND (slot_start = %s OR slot_start LIKE %s)
@@ -707,18 +709,17 @@ def migrate_timetable_to_agreed_slots():
             """, (days, start, start+'%', branch_id))
             sched_rows = cur.fetchall()
             if not sched_rows:
-                # fallback: any branch with matching day+time
                 cur.execute("""
                     SELECT id FROM branch_schedule
                     WHERE day_of_week = ANY(%s) AND (slot_start = %s OR slot_start LIKE %s)
                       AND status = 'active'
                 """, (days, start, start+'%'))
                 sched_rows = cur.fetchall()
-            for (sched_id,) in sched_rows:
+            for srow in sched_rows:
                 cur.execute("""
                     INSERT INTO student_agreed_slots (student_id, branch_schedule_id, effective_from)
                     VALUES (%s, %s, %s) ON CONFLICT DO NOTHING
-                """, (student_id, sched_id, today))
+                """, (student_id, srow['id'], today))
                 migrated += 1
         conn.commit()
         print(f"Timetable migration: inserted {migrated} agreed slot entries from {len(rows)} timetable rows.")
