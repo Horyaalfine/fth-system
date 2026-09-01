@@ -5397,15 +5397,16 @@ def dashboard_today():
 @require_auth
 def diag_timetable():
     conn = get_conn(); cur = conn.cursor()
-    cur.execute("SELECT COUNT(*) FROM student_timetable")
-    tt_count = cur.fetchone()[0]
-    cur.execute("SELECT COUNT(*) FROM student_agreed_slots")
-    as_count = cur.fetchone()[0]
-    cur.execute("SELECT COUNT(*) FROM branch_schedule")
-    bs_count = cur.fetchone()[0]
-    cur.execute("SELECT DISTINCT slot FROM student_timetable LIMIT 10")
-    sample_slots = [r[0] for r in cur.fetchall()]
-    cur.execute("SELECT day_of_week, slot_start FROM branch_schedule LIMIT 10")
-    sample_sched = [{'day': r[0], 'start': r[1]} for r in cur.fetchall()]
+    result = {}
+    def q(sql, key):
+        try:
+            cur.execute(sql); result[key] = cur.fetchall()
+        except Exception as e:
+            conn.rollback(); result[key] = f'ERROR: {e}'
+    q("SELECT COUNT(*) FROM student_timetable", 'tt_count')
+    q("SELECT COUNT(*) FROM student_agreed_slots", 'as_count')
+    q("SELECT COUNT(*) FROM branch_schedule", 'bs_count')
+    q("SELECT DISTINCT slot FROM student_timetable LIMIT 10", 'tt_slots')
+    q("SELECT day_of_week, slot_start FROM branch_schedule LIMIT 10", 'bs_sample')
     cur.close(); conn.close()
-    return jsonify({'student_timetable_rows': tt_count, 'student_agreed_slots_rows': as_count, 'branch_schedule_rows': bs_count, 'sample_timetable_slots': sample_slots, 'sample_branch_schedule': sample_sched})
+    return jsonify({k: (v if isinstance(v, str) else [list(r) for r in v]) for k,v in result.items()})
