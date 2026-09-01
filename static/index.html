@@ -1100,6 +1100,7 @@ function renderStudentProfile(){
   html+='<div class="tab '+(profileTab==='overview'?'active':'')+'" data-action="profile-tab" data-tab="overview">Overview</div>';
   html+='<div class="tab '+(profileTab==='invoices'?'active':'')+'" data-action="profile-tab" data-tab="invoices">Invoices ('+totalInv+')</div>';
   html+='<div class="tab '+(profileTab==='timetable'?'active':'')+'" data-action="profile-tab" data-tab="timetable">Timetable</div>';
+  html+='<div class="tab '+(profileTab==='agreed-sessions'?'active':'')+'" data-action="profile-tab" data-tab="agreed-sessions">Agreed Sessions</div>';
   html+='</div>';
   if(profileTab==='overview'){
     html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">';
@@ -1157,6 +1158,53 @@ function renderStudentProfile(){
       html+='</tbody></table></div></div>';
     } else html+='<div class="empty-state">No timetable set yet.</div>';
     html+='<div style="margin-top:12px;"><button class="btn" data-action="edit-student" data-id="'+s.id+'">✏ Edit timetable</button></div>';
+  }
+  else if(profileTab==='agreed-sessions'){
+    const agreedSlots=state.data['agreed_slots_'+s.id]||[];
+    const schedule=(state.data.branch_schedule||[]).filter(sc=>sc.status==='active');
+    const agreedIds=new Set(agreedSlots.map(a=>a.branch_schedule_id));
+    const DAYS=['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+    const DAY_LABEL={monday:'Monday',tuesday:'Tuesday',wednesday:'Wednesday',thursday:'Thursday',friday:'Friday',saturday:'Saturday',sunday:'Sunday'};
+    const byDay={};
+    DAYS.forEach(d=>byDay[d]=[]);
+    schedule.forEach(sc=>{if(byDay[sc.day_of_week])byDay[sc.day_of_week].push(sc);});
+    const activeDays=DAYS.filter(d=>byDay[d].length>0);
+    const isManager=['super_admin','branch_manager','head_of_centre','head_of_branches','admin'].includes(state.currentUser?.role);
+    if(!schedule.length){
+      html+='<div class="empty-state">No branch schedule configured yet. Set up slots in Branch Operation first.</div>';
+    } else {
+      html+='<div class="card" style="padding:18px;margin-bottom:12px;">';
+      html+='<div style="font-size:13px;color:var(--text3);margin-bottom:16px;">Tick the sessions this student attends each week. Changes take effect immediately.</div>';
+      html+='<div id="agreed-slots-form">';
+      activeDays.forEach(day=>{
+        const slots=byDay[day].sort((a,b)=>a.slot_start.localeCompare(b.slot_start));
+        html+='<div style="margin-bottom:16px;"><div style="font-weight:700;font-size:13px;color:var(--text1);margin-bottom:8px;text-transform:capitalize;">'+DAY_LABEL[day]+'</div>';
+        slots.forEach((sc,i)=>{
+          const checked=agreedIds.has(sc.id);
+          html+='<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:'+(isManager?'pointer':'default')+';background:'+(checked?'var(--bg2)':'transparent')+';margin-bottom:4px;">';
+          html+='<input type="checkbox" data-sched-id="'+sc.id+'" '+(checked?'checked':'')+' '+(isManager?'':'disabled')+' style="width:16px;height:16px;accent-color:var(--accent);">';
+          html+='<span style="font-size:13px;font-weight:'+(checked?'600':'400')+';color:var(--text1);">Session '+(i+1)+' &nbsp; '+sc.slot_start+' – '+sc.slot_end+'</span>';
+          html+='</label>';
+        });
+        html+='</div>';
+      });
+      html+='</div>';
+      if(isManager){
+        html+='<div style="margin-top:16px;display:flex;gap:10px;">';
+        html+='<button class="btn btn-primary" data-action="save-agreed-slots" data-id="'+s.id+'">💾 Save agreed sessions</button>';
+        html+='</div>';
+      }
+      html+='</div>';
+      if(agreedSlots.length){
+        html+='<div class="card" style="padding:14px 18px;">';
+        html+='<div style="font-size:12px;font-weight:600;color:var(--text3);margin-bottom:8px;">CURRENT AGREED SESSIONS</div>';
+        agreedSlots.forEach(a=>{
+          const sc=schedule.find(x=>x.id===a.branch_schedule_id);
+          if(sc)html+='<div style="font-size:13px;padding:4px 0;color:var(--text1);">✓ '+DAY_LABEL[sc.day_of_week]+' · '+sc.slot_start+' – '+sc.slot_end+'</div>';
+        });
+        html+='</div>';
+      }
+    }
   }
   return html;
 }
@@ -7713,7 +7761,7 @@ if(action==='add-student'){state.modal='add-student';state.editTarget=null;const
 if(action==='view-student-profile'){
   const vs=(state.data.students||[]).find(function(s){return s.id===parseInt(el.dataset.id);});
   if(vs){state.profileStudent=vs;state.profileTab='overview';state.page='student_profile';
-    await Promise.all([loadData('profile_invoices_'+vs.id,'/api/invoices',{student_id:vs.id}),loadData('timetable_'+vs.id,'/api/student-timetable',{student_id:vs.id})]);
+    await Promise.all([loadData('profile_invoices_'+vs.id,'/api/invoices',{student_id:vs.id}),loadData('timetable_'+vs.id,'/api/student-timetable',{student_id:vs.id}),loadData('agreed_slots_'+vs.id,'/api/students/'+vs.id+'/agreed-slots'),loadData('branch_schedule','/api/branch-schedule',{branch_id:vs.branch_id})]);
     render();}return;}
 if(action==='close-student-profile'){state.page='students';state.profileStudent=null;render();return;}
 if(action==='profile-tab'){state.profileTab=el.dataset.tab;render();return;}
@@ -8972,6 +9020,18 @@ if(action==='gen-monthly-fees'){state.modal='gen-monthly-fees';state.editTarget=
 if(action==='gen-invoices'){const r=await API.post('/api/invoices/generate',{month:new Date().toISOString().slice(0,7)});toast(`${r.added} invoice(s) generated`);refreshPage();return;}
 if(action==='add-progress'){state.modal='add-progress';state.editTarget={session_id:parseInt(el.dataset.session)};render();return;}
 if(action==='export-sr'){const att=state.data['sr_att_'+id]||[];const csv=[['Student','ID','Status','Notes'],...att.map(a=>[a.student_name,a.admission_id,a.status,a.notes])].map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`session_${id}_report.csv`;a.click();toast('Exported');return;}
+if(action==='save-agreed-slots'){
+  const sid=id;
+  const checkboxes=document.querySelectorAll('#agreed-slots-form input[type="checkbox"]');
+  const selectedIds=[];
+  checkboxes.forEach(cb=>{if(cb.checked)selectedIds.push(parseInt(cb.dataset.schedId));});
+  try{
+    await API.post('/api/students/'+sid+'/agreed-slots',{schedule_ids:selectedIds,effective_from:new Date().toISOString().slice(0,10)});
+    toast('Agreed sessions saved');
+    await loadData('agreed_slots_'+sid,'/api/students/'+sid+'/agreed-slots');
+    render();
+  }catch(ex){toast('Error: '+ex.message,'error');}
+  return;}
 if(action==='add-schedule-slot'){
   state.modal='add-schedule-slot';state.editTarget=null;
   if(!state.data.branches)await loadData('branches','/api/branches');

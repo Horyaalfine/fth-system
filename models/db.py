@@ -643,6 +643,18 @@ CREATE TABLE IF NOT EXISTS branch_schedule (
 );
 CREATE INDEX IF NOT EXISTS idx_bsched_branch ON branch_schedule(branch_id);
 CREATE INDEX IF NOT EXISTS idx_bsched_day    ON branch_schedule(branch_id, day_of_week);
+-- ── STUDENT AGREED SLOTS (links students to branch schedule slots) ──
+CREATE TABLE IF NOT EXISTS student_agreed_slots (
+    id                  SERIAL PRIMARY KEY,
+    student_id          INT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    branch_schedule_id  INT NOT NULL REFERENCES branch_schedule(id) ON DELETE CASCADE,
+    effective_from      DATE NOT NULL DEFAULT CURRENT_DATE,
+    notes               TEXT,
+    created_at          TIMESTAMP DEFAULT NOW(),
+    UNIQUE (student_id, branch_schedule_id)
+);
+CREATE INDEX IF NOT EXISTS idx_sas_student  ON student_agreed_slots(student_id);
+CREATE INDEX IF NOT EXISTS idx_sas_schedule ON student_agreed_slots(branch_schedule_id);
 ALTER TABLE branches ADD COLUMN IF NOT EXISTS website TEXT;
 """
 

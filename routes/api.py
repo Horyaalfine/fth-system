@@ -167,6 +167,49 @@ def delete_branch(bid):
     return jsonify({'ok': True})
 
 # ════════════════════════════════════════════
+#  STUDENT AGREED SLOTS
+# ════════════════════════════════════════════
+@api_bp.route('/api/students/<int:sid>/agreed-slots', methods=['GET'])
+@require_auth
+def get_agreed_slots(sid):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        SELECT sas.*, bs.day_of_week, bs.slot_start, bs.slot_end, bs.status as slot_status
+        FROM student_agreed_slots sas
+        JOIN branch_schedule bs ON bs.id = sas.branch_schedule_id
+        WHERE sas.student_id = %s
+        ORDER BY bs.day_of_week, bs.slot_start
+    """, (sid,))
+    rows = cur.fetchall() or []
+    cur.close(); conn.close()
+    return jsonify(rows)
+
+@api_bp.route('/api/students/<int:sid>/agreed-slots', methods=['POST'])
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches','admin')
+def save_agreed_slots(sid):
+    """Replace all agreed slots for a student with the posted list of branch_schedule_ids."""
+    d = request.json  # {schedule_ids: [1,2,3], effective_from: '2026-09-01'}
+    ids = d.get('schedule_ids', [])
+    effective_from = d.get('effective_from') or 'today'
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        # Remove old
+        cur.execute("DELETE FROM student_agreed_slots WHERE student_id=%s", (sid,))
+        # Insert new
+        for schedule_id in ids:
+            cur.execute("""
+                INSERT INTO student_agreed_slots (student_id, branch_schedule_id, effective_from)
+                VALUES (%s, %s, %s) ON CONFLICT DO NOTHING
+            """, (sid, schedule_id, effective_from))
+        conn.commit()
+        log_action('edit', 'students', sid)
+    except Exception as e:
+        conn.rollback(); cur.close(); conn.close()
+        return jsonify({'error': str(e)}), 400
+    cur.close(); conn.close()
+    return jsonify({'ok': True, 'saved': len(ids)})
+
+# ════════════════════════════════════════════
 #  BRANCH SCHEDULE
 # ════════════════════════════════════════════
 @api_bp.route('/api/branch-schedule', methods=['GET'])
