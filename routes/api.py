@@ -5394,7 +5394,7 @@ def dashboard_today():
         cur.close(); conn.close()
 
 @api_bp.route('/api/diag/timetable', methods=['GET'])
-@require_roles('super_admin')
+@require_auth
 def diag_timetable():
     conn = get_conn(); cur = conn.cursor()
     cur.execute("SELECT COUNT(*) FROM student_timetable")
