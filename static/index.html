@@ -6855,7 +6855,7 @@ if(m==='add-student'||m==='edit-student'){
     const agreedChecked=[...document.querySelectorAll('.agreed-slot-entry:checked')].map(function(el){return parseInt(el.dataset.schedId);});
     const stuIdForAS=m==='add-student'?((await API.get('/api/students'))?.find?.(function(s){return s.admission_id===body.admission_id;})?.id):state.editTarget?.id;
     if(stuIdForAS&&document.querySelectorAll('.agreed-slot-entry').length>0){
-      await API.post('/api/students/'+stuIdForAS+'/agreed-slots',{slot_ids:agreedChecked});
+      await API.post('/api/students/'+stuIdForAS+'/agreed-slots',{schedule_ids:agreedChecked,effective_from:new Date().toISOString().slice(0,10)});
       await loadData('agreed_slots_'+stuIdForAS,'/api/students/'+stuIdForAS+'/agreed-slots');
     }
   }catch(err){
