@@ -8218,7 +8218,11 @@ if(action==='lp-generate'){
   }
   function ksLabel(ks){return ks.slice(2);}
   var dayType=getDT(lpDate);
-  var allTT=state.data.all_timetables||[];
+  // Merge plan_students (agreed-slots) with old timetable, same as renderSessionPlan
+  var _genPlanStu=state.data['plan_students_'+lpDate]||[];
+  var _genOldTT=state.data.all_timetables||[];
+  var _genIds=new Set(_genPlanStu.map(function(p){return p.student_id+'|'+p.slot+'|'+p.subject;}));
+  var allTT=_genPlanStu.concat(_genOldTT.filter(function(t){return !_genIds.has(t.student_id+'|'+t.slot+'|'+t.subject);}));
   var lpMode=state.lpMode||'full';
   var lpSlot=state.lpSlot||'';
   var lpSubject=state.lpSubject||'';
