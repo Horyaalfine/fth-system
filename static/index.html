@@ -3632,7 +3632,9 @@ function renderSessionPlan(){
     var subjSlotCounts={};
     var _seenSlotSubjStu={};
     function _slotTimeKey(slot){var m=(slot||'').match(/\((\d{2}:\d{2})[–\-](\d{2}:\d{2})\)/);return m?m[1]+'-'+m[2]:slot;}
-    allExpected.forEach(function(t){
+    // Build badge counts from mode-filtered `expected`, not all-day `allExpected`
+    var _badgeSource=lpMode==='full'?allExpected:expected;
+    _badgeSource.forEach(function(t){
       var k=_slotTimeKey(t.slot)+'||'+t.subject;
       if(!subjSlotCounts[k])subjSlotCounts[k]=0;
       var _sk=k+'|'+t.student_id;
