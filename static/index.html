@@ -1526,12 +1526,7 @@ function renderQuickAttendance(){
   const qaKey='qa_'+qDate+'_'+qSlot;
   if(!state.qaRecords)state.qaRecords={};
   const localAtt=state.qaRecords[qaKey]||{};
-  window._DEBUG_RENDERQA_KEY=qaKey;
-  if(Object.keys(state.qaRecords||{}).length){
-    var _allKeys=Object.keys(state.qaRecords);
-    var _match=_allKeys.find(function(k){return k===qaKey;});
-    toast('renderQA: qaKey='+qaKey.slice(-20)+' hasMatch='+!!_match+' allKeys='+_allKeys.map(function(k){return k.slice(-15);}).join('|'),'info');
-  }
+
 
   // Counts
   const presentCount=Object.values(localAtt).filter(function(a){return a==='present';}).length;
@@ -8932,7 +8927,7 @@ if(action==='qa-load-slots'){
 if(action==='qa-status-filter'){state.qaStatusFilter=el.dataset.filter||'all';render();return;}
 if(action==='qa-mark-all'){
   const status=el.dataset.status;
-  const key='qa_'+state.qaDate+'_'+state.qaSlot;
+  const key='qa_'+(state.qaDate||new Date().toISOString().slice(0,10))+'_'+(state.qaSlot||'');
   if(!state.qaRecords)state.qaRecords={};
   if(!state.qaRecords[key])state.qaRecords[key]={};
   // Get student IDs from plan_students for this slot
@@ -8944,8 +8939,7 @@ if(action==='qa-mark-all'){
 }
 if(action==='qa-toggle'){
   const stuId=parseInt(el.dataset.student);
-  const key='qa_'+state.qaDate+'_'+state.qaSlot;
-  window._DEBUG_TOGGLE_KEY=key;
+  const key='qa_'+(state.qaDate||new Date().toISOString().slice(0,10))+'_'+(state.qaSlot||'');
   if(!state.qaRecords)state.qaRecords={};
   if(!state.qaRecords[key])state.qaRecords[key]={};
   const cur=state.qaRecords[key][stuId];
@@ -8953,16 +8947,7 @@ if(action==='qa-toggle'){
   else if(cur==='present')state.qaRecords[key][stuId]='absent';
   else delete state.qaRecords[key][stuId];
   var _dbgStatus=state.qaRecords[key][stuId]||'cleared';
-  try{
-    render();
-    var _tk=window._DEBUG_TOGGLE_KEY||'';
-    var _rk=window._DEBUG_RENDERQA_KEY||'';
-    toast('TLen='+_tk.length+' RLen='+_rk.length+' Match='+(_tk===_rk),'info');
-    toast('TKey='+JSON.stringify(_tk.slice(3,30)),'info');
-    toast('RKey='+JSON.stringify(_rk.slice(3,30)),'info');
-  }
-  catch(err){toast('Render ERR: '+err.message,'error');}
-  return;
+  render();return;
 }
 if(action==='wp-week'){state.wpWeek=el.dataset.week;render();return;}
 if(action==='wp-auto-plan'){
