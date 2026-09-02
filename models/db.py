@@ -680,7 +680,7 @@ def migrate_timetable_to_agreed_slots():
     conn = get_conn(); cur = conn.cursor()
     try:
         cur.execute("""
-            SELECT DISTINCT st.student_id, st.slot, s.branch_id
+            SELECT st.student_id, st.slot, st.subject, s.branch_id
             FROM student_timetable st
             JOIN students s ON s.id = st.student_id
             WHERE st.slot IS NOT NULL
@@ -714,9 +714,10 @@ def migrate_timetable_to_agreed_slots():
             # No cross-branch fallback: only match within student's own branch
             for srow in sched_rows:
                 cur.execute("""
-                    INSERT INTO student_agreed_slots (student_id, branch_schedule_id, effective_from)
-                    VALUES (%s, %s, %s) ON CONFLICT DO NOTHING
-                """, (student_id, srow['id'], today))
+                    INSERT INTO student_agreed_slots (student_id, branch_schedule_id, effective_from, subject)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (student_id, branch_schedule_id) DO UPDATE SET subject=EXCLUDED.subject WHERE student_agreed_slots.subject IS NULL
+                """, (student_id, srow['id'], today, row.get('subject') or None))
                 migrated += 1
         conn.commit()
         print(f"Timetable migration: inserted {migrated} agreed slot entries from {len(rows)} timetable rows.")
