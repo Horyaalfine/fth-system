@@ -8938,7 +8938,6 @@ if(action==='qa-mark-all'){
 }
 if(action==='qa-toggle'){
   const stuId=parseInt(el.dataset.student);
-  toast('Toggle: '+stuId+' slot='+state.qaSlot.slice(0,10),'info');
   const key='qa_'+state.qaDate+'_'+state.qaSlot;
   if(!state.qaRecords)state.qaRecords={};
   if(!state.qaRecords[key])state.qaRecords[key]={};
@@ -8946,7 +8945,10 @@ if(action==='qa-toggle'){
   if(!cur)state.qaRecords[key][stuId]='present';
   else if(cur==='present')state.qaRecords[key][stuId]='absent';
   else delete state.qaRecords[key][stuId];
-  render();return;
+  var _dbgStatus=state.qaRecords[key][stuId]||'cleared';
+  try{render();toast('Set '+stuId+' to '+_dbgStatus,'info');}
+  catch(err){toast('Render ERR: '+err.message,'error');}
+  return;
 }
 if(action==='wp-week'){state.wpWeek=el.dataset.week;render();return;}
 if(action==='wp-auto-plan'){
