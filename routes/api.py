@@ -5492,6 +5492,39 @@ def dashboard_today():
         cur.execute(("SELECT s.id, s.slot, s.subject, s.table_no, b.name as branch_name, st.name as staff_name FROM sessions s JOIN branches b ON b.id=s.branch_id LEFT JOIN staff st ON st.id=s.staff_id WHERE s.date=CURRENT_DATE" + (" AND s.branch_id=%s" if b else "") + " ORDER BY s.slot, s.branch_name"), p)
         today_list = rows(cur)
 
+        # If no sessions in sessions table, fall back to branch_schedule for today
+        if today_sessions == 0:
+            if b:
+                cur.execute("""
+                    SELECT bs.id, CONCAT(TO_CHAR(CURRENT_DATE,'Day'), ' Session ',
+                           ROW_NUMBER() OVER (ORDER BY bs.slot_start),
+                           ' (', TO_CHAR(bs.slot_start,'HH24:MI'), '–', TO_CHAR(bs.slot_end,'HH24:MI'), ')') as slot,
+                           '' as subject, '' as table_no, br.name as branch_name, NULL as staff_name
+                    FROM branch_schedule bs
+                    JOIN branches br ON br.id=bs.branch_id
+                    WHERE bs.branch_id=%s AND bs.status='active'
+                      AND bs.day_of_week=%s
+                      AND (bs.effective_from IS NULL OR bs.effective_from <= CURRENT_DATE)
+                      AND (bs.effective_to IS NULL OR bs.effective_to >= CURRENT_DATE)
+                    ORDER BY bs.slot_start
+                """, (b, today_dow))
+            else:
+                cur.execute("""
+                    SELECT bs.id, CONCAT(TO_CHAR(CURRENT_DATE,'Day'), ' Session ',
+                           ROW_NUMBER() OVER (PARTITION BY bs.branch_id ORDER BY bs.slot_start),
+                           ' (', TO_CHAR(bs.slot_start,'HH24:MI'), '–', TO_CHAR(bs.slot_end,'HH24:MI'), ')') as slot,
+                           '' as subject, '' as table_no, br.name as branch_name, NULL as staff_name
+                    FROM branch_schedule bs
+                    JOIN branches br ON br.id=bs.branch_id
+                    WHERE bs.status='active' AND bs.day_of_week=%s
+                      AND (bs.effective_from IS NULL OR bs.effective_from <= CURRENT_DATE)
+                      AND (bs.effective_to IS NULL OR bs.effective_to >= CURRENT_DATE)
+                    ORDER BY br.name, bs.slot_start
+                """, (today_dow,))
+            sched_slots = rows(cur)
+            today_sessions = len(sched_slots)
+            today_list = sched_slots
+
         # Count expected from student_agreed_slots (QA uses agreed slots, not session_students)
         today_dow = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'][_dt.date.today().weekday()]
         if b:
