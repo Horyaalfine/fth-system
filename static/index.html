@@ -3454,7 +3454,9 @@ function renderSessionPlan(){
   var _oldTT=state.data.all_timetables||[];
   // Merge: planStudents takes precedence; include old timetable entries not already covered
   var _planStudentIds=new Set(_planStudents.map(function(p){return p.student_id+'|'+p.slot+'|'+p.subject;}));
-  var allTT=_planStudents.concat(_oldTT.filter(function(t){return !_planStudentIds.has(t.student_id+'|'+t.slot+'|'+t.subject);}));
+  // Only include students who belong to this branch (prevents cross-branch migration bleed-through)
+  var _branchStudentIds=new Set((state.data.students||[]).map(function(s){return s.id;}));
+  var allTT=_planStudents.filter(function(p){return _branchStudentIds.has(p.student_id);}).concat(_oldTT.filter(function(t){return !_planStudentIds.has(t.student_id+'|'+t.slot+'|'+t.subject)&&_branchStudentIds.has(t.student_id);}));
   var students=(state.data.students||[]).filter(function(s){return s.status==='active';});
   var staff=state.data.staff||[];
   var sessions=state.data.sessions||[];
@@ -8222,7 +8224,8 @@ if(action==='lp-generate'){
   var _genPlanStu=state.data['plan_students_'+lpDate]||[];
   var _genOldTT=state.data.all_timetables||[];
   var _genIds=new Set(_genPlanStu.map(function(p){return p.student_id+'|'+p.slot+'|'+p.subject;}));
-  var allTT=_genPlanStu.concat(_genOldTT.filter(function(t){return !_genIds.has(t.student_id+'|'+t.slot+'|'+t.subject);}));
+  var _genBranchIds=new Set((state.data.students||[]).map(function(s){return s.id;}));
+  var allTT=_genPlanStu.filter(function(p){return _genBranchIds.has(p.student_id);}).concat(_genOldTT.filter(function(t){return !_genIds.has(t.student_id+'|'+t.slot+'|'+t.subject)&&_genBranchIds.has(t.student_id);}));
   var lpMode=state.lpMode||'full';
   var lpSlot=state.lpSlot||'';
   var lpSubject=state.lpSubject||'';

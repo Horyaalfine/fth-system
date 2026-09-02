@@ -709,13 +709,7 @@ def migrate_timetable_to_agreed_slots():
                   AND branch_id = %s AND status = 'active'
             """, (days, start, start+'%', branch_id))
             sched_rows = cur.fetchall()
-            if not sched_rows:
-                cur.execute("""
-                    SELECT id FROM branch_schedule
-                    WHERE day_of_week = ANY(%s) AND (slot_start = %s OR slot_start LIKE %s)
-                      AND status = 'active'
-                """, (days, start, start+'%'))
-                sched_rows = cur.fetchall()
+            # No cross-branch fallback: only match within student's own branch
             for srow in sched_rows:
                 cur.execute("""
                     INSERT INTO student_agreed_slots (student_id, branch_schedule_id, effective_from)
