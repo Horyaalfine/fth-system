@@ -1482,7 +1482,6 @@ function renderSessions(){
 }
 
 function renderQuickAttendance(){
-  const allTT=state.data.all_timetables||[];
   const sessions=state.data.sessions||[];
   const students=state.data.students||[];
 
@@ -1490,31 +1489,22 @@ function renderQuickAttendance(){
   const qSlot=state.qaSlot||'';
   const qStatus=state.qaStatusFilter||'all';
 
-  // Determine day type from selected date
-  function getDayType(dateStr){
-    const d=new Date(dateStr+'T00:00:00');
-    const day=d.getDay();
-    if(day===6)return'saturday';
-    if(day===0)return'sunday';
-    return'weekday';
-  }
-  const dayType=getDayType(qDate);
+  // Use plan_students for this date (loaded when date is selected)
+  const planStudents=state.data['plan_students_'+qDate]||[];
 
-  // Unique slots available for this day type from timetable
-  const availableSlots=[...new Set(allTT.filter(function(e){return e.day_type===dayType;}).map(function(e){return e.slot;}))].sort();
+  // Unique slots from plan_students for selected date
+  const availableSlots=[...new Set(planStudents.map(function(e){return e.slot;}))].sort();
 
-  // Students timetabled for this date+slot
-  const timetabledStudents=qSlot?allTT.filter(function(e){
-    return e.day_type===dayType&&e.slot===qSlot;
-  }):[];
+  // Students for selected slot from plan_students
+  const timetabledStudents=qSlot?planStudents.filter(function(e){return e.slot===qSlot;}):[];
 
   // Build unique student list with their subjects for this slot
   const stuMap={};
   timetabledStudents.forEach(function(e){
     if(!stuMap[e.student_id]){
-      stuMap[e.student_id]={id:e.student_id,name:e.student_name,admission_id:e.admission_id,year_group:e.year_group,subjects:[]};
+      stuMap[e.student_id]={id:e.student_id,name:e.student_name||e.name,admission_id:e.admission_id,year_group:e.year_group,subjects:[]};
     }
-    stuMap[e.student_id].subjects.push(e.subject);
+    if(e.agreed_subject||e.subject) stuMap[e.student_id].subjects.push(e.agreed_subject||e.subject);
   });
   const stuList=Object.values(stuMap).sort(function(a,b){return a.admission_id>b.admission_id?1:-1;});
 
@@ -1611,7 +1601,7 @@ function renderQuickAttendance(){
     html+='</div>';
 
   } else if(qSlot&&stuList.length===0){
-    html+='<div class="empty-state" style="padding:40px;">No students timetabled for this slot. Set up student timetables in the Lesson Plan → Student timetables tab.</div>';
+    html+='<div class="empty-state" style="padding:40px;">No students found for this slot on '+qDate+'. Make sure students have agreed sessions set up.</div>';
   } else if(!qSlot&&qDate){
     html+='<div class="empty-state" style="padding:30px;">Select a slot to see students.</div>';
   }
@@ -4588,15 +4578,124 @@ function renderTestRecords(){
   `:''}`;
 }
 
-function renderReports(){const s=state.data.summary||{};const bs=s.branch_stats||[];const yg=[...(s.year_groups||[])].sort((a,b)=>{
+function renderReports(){
+  const rptTab=state.reportsTab||'analytics';
+
+  // ── ATTENDANCE REPORT TAB ──
+  if(rptTab==='attendance'){
+    const attRpt=state.data.att_report||[];
+    const attRptFilter=state.attRptFilter||{};
+    const dateFrom=attRptFilter.date_from||'';
+    const dateTo=attRptFilter.date_to||'';
+    const filterStu=attRptFilter.student_id||'';
+    const filterStatus=attRptFilter.status||'';
+    const filterDayType=attRptFilter.day_type||'';
+    const filterSubject=attRptFilter.subject||'';
+    const students=state.data.students||[];
+
+    // Summary stats
+    const total=attRpt.length;
+    const present=attRpt.filter(function(r){return r.status==='present';}).length;
+    const absent=attRpt.filter(function(r){return r.status==='absent';}).length;
+    const rate=total?Math.round(present/total*100):0;
+
+    // Student attendance summary table
+    const stuMap={};
+    attRpt.forEach(function(r){
+      if(!stuMap[r.student_id])stuMap[r.student_id]={name:r.student_name,admission_id:r.admission_id,year_group:r.year_group,present:0,absent:0,total:0};
+      stuMap[r.student_id].total++;
+      if(r.status==='present')stuMap[r.student_id].present++;
+      else if(r.status==='absent')stuMap[r.student_id].absent++;
+    });
+    const stuRows=Object.values(stuMap).sort(function(a,b){return a.admission_id>b.admission_id?1:-1;});
+
+    var html='';
+    html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">';
+    html+='<div><div class="section-title">Attendance Report</div><div class="section-sub">Filter and view attendance records</div></div>';
+    html+='<button class="btn" data-action="reports-tab" data-tab="analytics">← Analytics</button>';
+    html+='</div>';
+
+    // Filters
+    html+='<div class="card" style="margin-bottom:16px;">';
+    html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;align-items:end;">';
+    html+='<div class="field" style="margin:0;"><label>From</label><input type="date" id="att-rpt-from" value="'+dateFrom+'"></div>';
+    html+='<div class="field" style="margin:0;"><label>To</label><input type="date" id="att-rpt-to" value="'+dateTo+'"></div>';
+    html+='<div class="field" style="margin:0;"><label>Student</label><select id="att-rpt-student"><option value="">All students</option>';
+    students.filter(function(s){return s.status==="active";}).forEach(function(s){html+='<option value="'+s.id+'" '+(String(s.id)===String(filterStu)?'selected':'')+'>'+s.name+' ('+s.admission_id+')</option>';});
+    html+='</select></div>';
+    html+='<div class="field" style="margin:0;"><label>Day type</label><select id="att-rpt-day"><option value="">All days</option>';
+    [{v:'weekday',l:'Weekday'},{v:'saturday',l:'Saturday'},{v:'sunday',l:'Sunday'}].forEach(function(o){html+='<option value="'+o.v+'" '+(filterDayType===o.v?'selected':'')+'>'+o.l+'</option>';});
+    html+='</select></div>';
+    html+='<div class="field" style="margin:0;"><label>Status</label><select id="att-rpt-status"><option value="">All</option><option value="present" '+(filterStatus==='present'?'selected':'')+'>Present</option><option value="absent" '+(filterStatus==='absent'?'selected':'')+'>Absent</option></select></div>';
+    html+='<div style="margin:0;padding-top:18px;"><button class="btn btn-primary" data-action="load-att-report">🔍 Run Report</button></div>';
+    html+='</div></div>';
+
+    // Summary cards
+    if(attRpt.length>0||state.attRptLoaded){
+      html+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">';
+      html+='<div class="metric-card" style="text-align:center;"><div class="metric-value">'+total+'</div><div class="metric-label">Records</div></div>';
+      html+='<div class="metric-card" style="text-align:center;"><div class="metric-value" style="color:var(--green);">'+present+'</div><div class="metric-label">Present</div></div>';
+      html+='<div class="metric-card" style="text-align:center;"><div class="metric-value" style="color:var(--red);">'+absent+'</div><div class="metric-label">Absent</div></div>';
+      html+='<div class="metric-card" style="text-align:center;"><div class="metric-value" style="color:'+(rate>=75?'var(--green)':rate>=50?'var(--amber)':'var(--red)')+';">'+rate+'%</div><div class="metric-label">Rate</div></div>';
+      html+='</div>';
+
+      // Student summary table
+      if(stuRows.length>0){
+        html+='<div class="card" style="padding:0;overflow:hidden;margin-bottom:16px;"><div class="table-wrap"><table>';
+        html+='<thead><tr><th>Adm No</th><th>Name</th><th>Year</th><th>Present</th><th>Absent</th><th>Total</th><th>Rate</th></tr></thead><tbody>';
+        stuRows.forEach(function(r){
+          var rt=r.total?Math.round(r.present/r.total*100):0;
+          var col=rt>=75?'var(--green)':rt>=50?'var(--amber)':'var(--red)';
+          html+='<tr><td style="font-size:12px;color:var(--text3);">'+r.admission_id+'</td>';
+          html+='<td><strong>'+r.name+'</strong></td>';
+          html+='<td>'+( r.year_group||'—')+'</td>';
+          html+='<td><span class="badge badge-success">'+r.present+'</span></td>';
+          html+='<td><span class="badge badge-danger">'+r.absent+'</span></td>';
+          html+='<td>'+r.total+'</td>';
+          html+='<td><span style="font-weight:700;color:'+col+';">'+rt+'%</span></td></tr>';
+        });
+        html+='</tbody></table></div></div>';
+      }
+
+      // Detailed records
+      if(attRpt.length>0){
+        html+='<div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>';
+        html+='<thead><tr><th>Date</th><th>Slot</th><th>Student</th><th>Year</th><th>Subject</th><th>Status</th><th>Notes</th></tr></thead><tbody>';
+        attRpt.forEach(function(r){
+          var sc=r.status==='present'?'badge-success':'badge-danger';
+          html+='<tr>';
+          html+='<td style="font-size:12px;">'+new Date(r.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})+'</td>';
+          html+='<td style="font-size:12px;color:var(--text3);">'+r.slot+'</td>';
+          html+='<td><strong>'+r.student_name+'</strong> <span style="font-size:11px;color:var(--text3);">('+r.admission_id+')</span></td>';
+          html+='<td>'+(r.year_group||'—')+'</td>';
+          html+='<td>'+(r.subject?'<span class="badge badge-gray">'+r.subject+'</span>':'—')+'</td>';
+          html+='<td><span class="badge '+sc+'">'+r.status+'</span></td>';
+          html+='<td style="font-size:12px;color:var(--text3);">'+(r.notes||'')+'</td>';
+          html+='</tr>';
+        });
+        html+='</tbody></table></div></div>';
+      } else {
+        html+='<div class="empty-state">No attendance records found for these filters.</div>';
+      }
+    } else {
+      html+='<div class="empty-state">Set filters above and click Run Report.</div>';
+    }
+    return html;
+  }
+
+  // ── ANALYTICS TAB ──
+  const s=state.data.summary||{};const bs=s.branch_stats||[];const yg=[...(s.year_groups||[])].sort((a,b)=>{
   const na=parseInt((a.year_group||'').match(/\d+/)?.[0]||999);
   const nb=parseInt((b.year_group||'').match(/\d+/)?.[0]||999);
   if(na!==nb) return na-nb;
   return (a.year_group||'').localeCompare(b.year_group||'');
 });const subj=s.subjects||[];const cols=['var(--accent)','var(--teal)','var(--amber)','var(--pink)'];
 return`
-<div class="section-title" style="margin-bottom:4px;">Analytics</div>
-<div class="section-sub">System-wide performance overview</div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+<div><div class="section-title" style="margin-bottom:4px;">Analytics</div>
+<div class="section-sub">System-wide performance overview</div></div>
+<button class="btn btn-primary" data-action="reports-tab" data-tab="attendance">📊 Attendance Report</button>
+</div>
 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;">
 <div class="metric-card" style="text-align:center;"><div class="metric-value">${s.student_count||0}</div><div class="metric-label" style="margin-top:6px;">Students</div></div>
 <div class="metric-card" style="text-align:center;"><div class="metric-value">${s.session_count||0}</div><div class="metric-label" style="margin-top:6px;">Sessions</div></div>
@@ -7427,7 +7526,16 @@ document.getElementById('f-student-lookup')?.addEventListener('change',function(
   });
   if(summary)summary.textContent=linked.length>1?'Auto-linked '+linked.length+' siblings: '+linked.join(', '):'1 student linked';
 });
-document.getElementById('qa-date')?.addEventListener('change',function(e){state.qaDate=e.target.value;state.qaSlot='';render();});
+document.getElementById('qa-date')?.addEventListener('change',async function(e){
+  state.qaDate=e.target.value;state.qaSlot='';
+  if(state.qaDate){
+    var b=branchParam();
+    var ps_key='plan_students_'+state.qaDate;
+    delete state.data[ps_key];
+    await loadData(ps_key,'/api/session-plan-students',Object.assign({date:state.qaDate},b?{branch_id:b}:{}));
+  }
+  render();
+});
 document.getElementById('qa-slot')?.addEventListener('change',function(e){state.qaSlot=e.target.value;render();});
 document.getElementById('att-slot-filter')?.addEventListener('change',function(e){state.attSlotFilter=e.target.value;state.attTeacherFilter='';state.attSessionId=null;state.attAllSessions='';render();});
 document.getElementById('att-teacher-filter')?.addEventListener('change',function(e){state.attTeacherFilter=e.target.value;state.attSessionId=null;state.attAllSessions='';render();});
@@ -8647,9 +8755,8 @@ if(action==='qa-mark-all'){
   const key='qa_'+state.qaDate+'_'+state.qaSlot;
   if(!state.qaRecords)state.qaRecords={};
   if(!state.qaRecords[key])state.qaRecords[key]={};
-  const allTT=state.data.all_timetables||[];
-  const dayType=state.qaDate?(['saturday','sunday'][new Date(state.qaDate+'T00:00:00').getDay()===6?0:new Date(state.qaDate+'T00:00:00').getDay()===0?1:-1]||'weekday'):'weekday';
-  const stuIds=[...new Set(allTT.filter(function(e){return e.slot===state.qaSlot&&e.day_type===dayType;}).map(function(e){return e.student_id;}))];
+  const allTT=state.data['plan_students_'+state.qaDate]||[];
+  const stuIds=[...new Set(allTT.filter(function(e){return e.slot===state.qaSlot;}).map(function(e){return e.student_id;}))];
   if(status==='clear'){stuIds.forEach(function(id){delete state.qaRecords[key][id];});}
   else{stuIds.forEach(function(id){state.qaRecords[key][id]=status;});}
   render();return;
@@ -9239,7 +9346,45 @@ if(action==='export-sessions'){
     ...s.map(ss=>[ss.date,ss.slot,ss.branch_name,ss.staff_name||'',ss.cover_name||'',ss.subject||'',ss.table_no||'',ss.present||0,ss.absent||0,(ss.present||0)+(ss.absent||0)])
   ];
   exportXLSX(rows, 'fth-sessions.xlsx', 'Sessions');
-  return;}}
+  return;}
+
+// ── ATTENDANCE REPORT ACTIONS ──
+if(action==='reports-tab'){
+  state.reportsTab=el.dataset.tab;
+  if(el.dataset.tab==='attendance'){
+    state.attRptLoaded=false;
+    delete state.data.att_report;
+  }
+  render();return;
+}
+
+if(action==='load-att-report'){
+  const fromVal=document.getElementById('att-rpt-from');
+  const toVal=document.getElementById('att-rpt-to');
+  const stuVal=document.getElementById('att-rpt-student');
+  const dayVal=document.getElementById('att-rpt-day');
+  const statusVal=document.getElementById('att-rpt-status');
+  state.attRptFilter={
+    date_from: fromVal?fromVal.value:'',
+    date_to:   toVal?toVal.value:'',
+    student_id: stuVal?stuVal.value:'',
+    day_type:   dayVal?dayVal.value:'',
+    status:     statusVal?statusVal.value:''
+  };
+  const params=new URLSearchParams();
+  if(state.attRptFilter.date_from) params.set('date_from',state.attRptFilter.date_from);
+  if(state.attRptFilter.date_to)   params.set('date_to',  state.attRptFilter.date_to);
+  if(state.attRptFilter.student_id)params.set('student_id',state.attRptFilter.student_id);
+  if(state.attRptFilter.day_type)  params.set('day_type', state.attRptFilter.day_type);
+  if(state.attRptFilter.status)    params.set('status',   state.attRptFilter.status);
+  if(state.currentBranch) params.set('branch_id',state.currentBranch);
+  delete state.data.att_report;
+  await loadData('att_report','/api/attendance/report?'+params.toString());
+  state.attRptLoaded=true;
+  render();return;
+}
+
+}
 
 
 function exportStatement(stmt){

@@ -5573,3 +5573,77 @@ def get_session_plan_students():
     except Exception as e:
         cur.close(); conn.close()
         return jsonify({'error': str(e)}), 400
+
+# ════════════════════════════════════════════
+#  ATTENDANCE REPORT
+# ════════════════════════════════════════════
+@api_bp.route('/api/attendance/report', methods=['GET'])
+@require_auth
+def attendance_report():
+    """Attendance report with filters.
+    Params: branch_id, date_from, date_to, student_id, day_type, subject, status"""
+    b = branch_scope()
+    branch_id = request.args.get('branch_id', type=int) or b
+    date_from  = request.args.get('date_from')  or '2020-01-01'
+    date_to    = request.args.get('date_to')    or '2099-12-31'
+    student_id = request.args.get('student_id', type=int)
+    day_type   = request.args.get('day_type')   # saturday/sunday/weekday
+    subject    = request.args.get('subject')
+    status     = request.args.get('status')     # present/absent
+
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        conditions = ["sess.date BETWEEN %s AND %s"]
+        params     = [date_from, date_to]
+
+        if branch_id:
+            conditions.append("sess.branch_id = %s"); params.append(branch_id)
+        if student_id:
+            conditions.append("a.student_id = %s"); params.append(student_id)
+        if subject:
+            conditions.append("sess.subject ILIKE %s"); params.append(f'%{subject}%')
+        if status:
+            conditions.append("a.status = %s"); params.append(status)
+        if day_type:
+            if day_type == 'saturday':
+                conditions.append("EXTRACT(DOW FROM sess.date) = 6")
+            elif day_type == 'sunday':
+                conditions.append("EXTRACT(DOW FROM sess.date) = 0")
+            else:
+                conditions.append("EXTRACT(DOW FROM sess.date) BETWEEN 1 AND 5")
+
+        where = ' AND '.join(conditions)
+        cur.execute(f"""
+            SELECT
+                a.student_id,
+                s.name AS student_name,
+                s.admission_id,
+                s.year_group,
+                s.branch_id,
+                br.name AS branch_name,
+                sess.id  AS session_id,
+                sess.date,
+                sess.slot,
+                sess.subject,
+                sess.table_no,
+                a.status,
+                a.notes
+            FROM attendance a
+            JOIN students s   ON s.id   = a.student_id
+            JOIN sessions sess ON sess.id = a.session_id
+            JOIN branches br  ON br.id  = sess.branch_id
+            WHERE {where}
+            ORDER BY sess.date DESC, sess.slot, s.admission_id
+        """, params)
+        result = cur.fetchall()
+        data = []
+        for r in result:
+            row = dict(r)
+            for k, v in row.items():
+                if hasattr(v, 'isoformat'): row[k] = str(v)
+            data.append(row)
+        cur.close(); conn.close()
+        return jsonify(data)
+    except Exception as e:
+        cur.close(); conn.close()
+        return jsonify({'error': str(e)}), 400
