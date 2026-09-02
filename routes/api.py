@@ -5515,28 +5515,26 @@ def get_session_plan_students():
         day_cap = day_of_week.capitalize()
         for r2 in base_rows:
             sid = r2['student_id']
-            start = r2['slot_start']
-            num = r2['session_num']
-            slot_text = f"{day_cap} Session {num} ({start}–{r2['slot_end']})"
+            raw_start = r2['slot_start']
+            raw_end = r2['slot_end']
+            # Convert time objects to HH:MM strings (psycopg2 returns datetime.time)
+            start = raw_start.strftime('%H:%M') if hasattr(raw_start, 'strftime') else str(raw_start)[:5]
+            end_str = raw_end.strftime('%H:%M') if hasattr(raw_end, 'strftime') else str(raw_end)[:5]
+            num = int(r2['session_num'])
+            slot_text = f"{day_cap} Session {num} ({start}\u2013{end_str})"
             subjects = tt_map.get(sid, {}).get(start, [])
+            row_base = {
+                'student_id': sid, 'student_name': r2['student_name'],
+                'admission_id': r2['admission_id'], 'year_group': r2['year_group'],
+                'day_type': r2['day_type'], 'slot': slot_text,
+                'branch_schedule_id': r2['branch_schedule_id'],
+                'slot_start': start, 'slot_end': end_str
+            }
             if subjects:
                 for subj in subjects:
-                    result.append({
-                        'student_id': sid, 'student_name': r2['student_name'],
-                        'admission_id': r2['admission_id'], 'year_group': r2['year_group'],
-                        'day_type': r2['day_type'], 'slot': slot_text,
-                        'subject': subj, 'branch_schedule_id': r2['branch_schedule_id'],
-                        'slot_start': start, 'slot_end': r2['slot_end']
-                    })
+                    result.append({**row_base, 'subject': subj})
             else:
-                # No subject found — include without subject
-                result.append({
-                    'student_id': sid, 'student_name': r2['student_name'],
-                    'admission_id': r2['admission_id'], 'year_group': r2['year_group'],
-                    'day_type': r2['day_type'], 'slot': slot_text,
-                    'subject': '', 'branch_schedule_id': r2['branch_schedule_id'],
-                    'slot_start': start, 'slot_end': r2['slot_end']
-                })
+                result.append({**row_base, 'subject': ''})
         cur.close(); conn.close()
         return jsonify(result)
     except Exception as e:
