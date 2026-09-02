@@ -1492,7 +1492,10 @@ function renderQuickAttendance(){
   const qStatus=state.qaStatusFilter||'all';
 
   // Use plan_students for this date (loaded when date is selected)
-  const planStudents=state.data['plan_students_'+qDate]||[];
+  // undefined = not yet loaded; [] = loaded but empty; [...] = has data
+  const rawPlanStudents=state.data['plan_students_'+qDate];
+  const planStudentsLoaded=rawPlanStudents!==undefined;
+  const planStudents=rawPlanStudents||[];
 
   // Unique slots from plan_students for selected date
   const availableSlots=[...new Set(planStudents.map(function(e){return e.slot;}))].sort();
@@ -1541,8 +1544,10 @@ function renderQuickAttendance(){
   html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
   html+='<div class="field" style="margin:0;"><label>Date</label><input type="date" id="qa-date" value="'+qDate+'"></div>';
   html+='<div class="field" style="margin:0;"><label>Slot</label>';
-  if(qDate&&planStudents.length===0){
-    html+='<div style="display:flex;gap:8px;align-items:center;"><button class="btn btn-sm btn-primary" data-action="qa-load-slots" data-date="'+qDate+'">Load slots</button><span style="font-size:12px;color:var(--text3);">Click to load slots for this date</span></div>';
+  if(qDate&&!planStudentsLoaded){
+    html+='<div style="display:flex;gap:8px;align-items:center;"><span style="font-size:12px;color:var(--text3);">Loading slots…</span></div>';
+  } else if(qDate&&planStudentsLoaded&&availableSlots.length===0){
+    html+='<div style="font-size:12px;color:var(--text3);padding:8px 0;">No agreed sessions found for this date. Set up agreed sessions in the student profile.</div>';
   } else {
     html+='<select id="qa-slot"><option value="">— select slot —</option>';
     availableSlots.forEach(function(sl){html+='<option value="'+sl+'" '+(sl===qSlot?'selected':'')+'>'+sl+'</option>';});
@@ -1609,8 +1614,10 @@ function renderQuickAttendance(){
 
   } else if(qSlot&&stuList.length===0){
     html+='<div class="empty-state" style="padding:40px;">No students found for this slot on '+qDate+'. Make sure students have agreed sessions set up.</div>';
-  } else if(!qSlot&&qDate&&planStudents.length===0){
-    html+='<div class="empty-state" style="padding:30px;">Select a date to load available slots, then pick a slot.</div>';
+  } else if(!qSlot&&qDate&&planStudentsLoaded&&availableSlots.length===0){
+    html+='<div class="empty-state" style="padding:30px;">No agreed sessions found for '+new Date(qDate+"T00:00:00").toLocaleDateString("en-GB",{weekday:"long"})+'s. Ensure students have agreed sessions configured.</div>';
+  } else if(!qSlot&&qDate&&!planStudentsLoaded){
+    html+='<div class="empty-state" style="padding:30px;">Loading available slots…</div>';
   } else if(!qSlot&&qDate){
     html+='<div class="empty-state" style="padding:30px;">Select a slot to see students.</div>';
   }
