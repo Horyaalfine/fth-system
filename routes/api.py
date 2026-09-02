@@ -657,6 +657,57 @@ def add_session():
     log_action('add', 'sessions', r['id'])
     return jsonify(r), 201
 
+@api_bp.route('/api/sessions/auto-create', methods=['POST'])
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches','supervisor')
+def auto_create_sessions():
+    """Create sessions for a date from branch_schedule (skips slots that already exist)."""
+    from datetime import datetime
+    d = request.json or {}
+    branch_id = d.get('branch_id')
+    date_str = d.get('date')
+    if not branch_id or not date_str:
+        return jsonify({'error': 'branch_id and date required'}), 400
+    day_names = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
+    day_of_week = day_names[datetime.strptime(date_str, '%Y-%m-%d').weekday()]
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        cur.execute("""
+            SELECT id, slot_start, slot_end,
+                   ROW_NUMBER() OVER (ORDER BY slot_start) AS session_num
+            FROM branch_schedule
+            WHERE branch_id = %s AND day_of_week = %s AND status = 'active'
+              AND (effective_from IS NULL OR effective_from <= %s)
+              AND (effective_to IS NULL OR effective_to >= %s)
+            ORDER BY slot_start
+        """, (branch_id, day_of_week, date_str, date_str))
+        slots = cur.fetchall()
+        if not slots:
+            return jsonify({'created': 0, 'message': f'No active schedule slots for {day_of_week}'})
+        created = 0; sessions_out = []
+        day_cap = day_of_week.capitalize()
+        for s in slots:
+            bs_id = s['id']; start = s['slot_start']; end = s['slot_end']
+            num = s['session_num']
+            slot_text = f"{day_cap} Session {num} ({start}–{end})"
+            cur.execute("SELECT id FROM sessions WHERE branch_id=%s AND date=%s AND slot=%s",
+                        (branch_id, date_str, slot_text))
+            if cur.fetchone():
+                continue
+            cur.execute("""
+                INSERT INTO sessions (branch_id, date, slot, table_no, branch_schedule_id)
+                VALUES (%s, %s, %s, 1, %s) RETURNING id
+            """, (branch_id, date_str, slot_text, bs_id))
+            sid = cur.fetchone()['id']
+            sessions_out.append({'id': sid, 'slot': slot_text})
+            created += 1
+        conn.commit()
+        log_action('add', 'sessions', 0)
+        return jsonify({'created': created, 'sessions': sessions_out, 'day_of_week': day_of_week})
+    except Exception as e:
+        conn.rollback(); return jsonify({'error': str(e)}), 400
+    finally:
+        cur.close(); conn.close()
+
 @api_bp.route('/api/sessions/<int:sid>', methods=['PUT'])
 @require_auth
 def update_session(sid):

@@ -180,6 +180,7 @@ ALTER TABLE students ADD COLUMN IF NOT EXISTS hours_per_week TEXT;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS monthly_fee NUMERIC(10,2);
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS cover_staff_id INT REFERENCES staff(id) ON DELETE SET NULL;
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS cover_notes TEXT;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS branch_schedule_id INT REFERENCES branch_schedule(id) ON DELETE SET NULL;
 ALTER TABLE staff_attendance ALTER COLUMN session_id DROP NOT NULL;
 ALTER TABLE payments DROP CONSTRAINT IF EXISTS payments_method_check;
 ALTER TABLE payments ADD CONSTRAINT payments_method_check CHECK (method IN ('cash','bank_transfer','cheque','card','direct_debit','standing_order','other'));

@@ -743,6 +743,7 @@ else if(page==='session_plan'){
     loadData('staff','/api/staff',b2),
     loadData('branches','/api/branches'),
     loadData('all_timetables','/api/student-timetable',b2),
+    loadData('branch_schedule','/api/branch-schedule',b2),
   ]);
   if(state.planSessionId){
     await Promise.all([
@@ -812,7 +813,7 @@ if(state.currentUser&&!['super_admin','reports_viewer','head_of_branches'].inclu
       else if(pg==='attendance') Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('all_timetables','/api/student-timetable',b)]).then(function(){state.loading=false;render();});
       else if(pg==='finance') Promise.all([loadData('invoices','/api/invoices',b),loadData('students','/api/students',b)]).then(function(){state.loading=false;render();});
       else if(pg==='staff') loadData('staff','/api/staff',b).then(function(){state.loading=false;render();});
-      else if(pg==='session_plan') Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('staff','/api/staff',b)]).then(function(){state.loading=false;render();});
+      else if(pg==='session_plan') Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('staff','/api/staff',b),loadData('branch_schedule','/api/branch-schedule',b),loadData('all_timetables','/api/student-timetable',b)]).then(function(){state.loading=false;render();});
       else if(pg==='invoices') Promise.all([loadData('invoices','/api/invoices',b),loadData('students','/api/students',b)]).then(function(){state.loading=false;render();});
       else if(pg==='reports') loadData('summary','/api/reports/summary',b).then(function(){state.loading=false;render();});
       else if(pg==='session_reports') Promise.all([loadData('sessions','/api/sessions',b),loadData('staff','/api/staff',b)]).then(function(){state.loading=false;render();});
@@ -3648,6 +3649,15 @@ function renderSessionPlan(){
       });
     }
     html+='</div>';
+    // Auto-create sessions from branch schedule if none exist
+    var _dow=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][new Date(lpDate+'T00:00:00').getDay()];
+    var _schedForDay=(state.data.branch_schedule||[]).filter(function(s){return s.status==='active'&&s.day_of_week===_dow;});
+    if(existingForDate.length===0&&_schedForDay.length>0){
+      html+='<div style="margin-top:10px;padding:12px 14px;background:rgba(37,99,235,0.08);border-radius:var(--radius);border-left:3px solid var(--accent);display:flex;align-items:center;justify-content:space-between;gap:12px;">';
+      html+='<span style="font-size:13px;color:var(--text1);"><strong>'+_schedForDay.length+' session slot'+((_schedForDay.length>1)?'s':'')+' found</strong> for '+_dow.charAt(0).toUpperCase()+_dow.slice(1)+' in branch schedule. No sessions created yet for '+lpDate+'.</span>';
+      html+='<button class="btn btn-primary btn-sm" data-action="lp-auto-create-sessions" data-date="'+lpDate+'">⚡ Create sessions from schedule</button>';
+      html+='</div>';
+    }
     // Duplicate warnings
     if(duplicateSlotSubj.length>0){
       html+='<div style="margin-top:10px;padding:10px 14px;background:var(--amber-bg);border-radius:var(--radius);border-left:3px solid var(--amber);font-size:13px;color:var(--amber-text);">⚠️ A plan already exists for this slot and subject on '+lpDate+'. Check the Report tab before saving.</div>';
@@ -8155,6 +8165,23 @@ if(action==='lp-max-per'){state.lpMaxPer=parseInt(el.value)||5;render();return;}
 if(action==='lp-mode'){state.lpMode=el.dataset.mode;state.planDraft=null;state.lpSlot='';state.lpSubject='';render();return;}
 if(action==='lp-slot-sel'||el.id==='lp-slot-sel'){state.lpSlot=el.value;state.lpSubject='';state.planDraft=null;render();return;}
 if(action==='lp-subj-sel'||el.id==='lp-subj-sel'){state.lpSubject=el.value;state.planDraft=null;render();return;}
+if(action==='lp-auto-create-sessions'){
+  var _acDate=el.dataset.date||state.lpDate;
+  var _acBranch=state.currentBranch;
+  if(!_acBranch){toast('Please select a branch first','warn');return;}
+  toast('Creating sessions from schedule...','info');
+  try{
+    var _acRes=await API.post('/api/sessions/auto-create',{branch_id:_acBranch,date:_acDate});
+    if(_acRes.created>0){
+      toast(_acRes.created+' session'+((_acRes.created>1)?'s':'')+' created for '+_acDate,'success');
+      await loadData('sessions','/api/sessions',branchParam());
+      render();
+    }else{
+      toast(_acRes.message||'Sessions already exist for this date','info');
+    }
+  }catch(err){toast('Error: '+(err?.error||err),'error');}
+  return;
+}
 if(action==='lp-generate'){
   var lpDate=state.lpDate||new Date().toISOString().slice(0,10);
   var maxPer=state.lpMaxPer||5;
