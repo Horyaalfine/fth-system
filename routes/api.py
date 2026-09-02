@@ -5557,9 +5557,9 @@ def get_session_plan_students():
             FROM student_agreed_slots sas
             JOIN students s ON s.id = sas.student_id
             JOIN sched sc ON sc.id = sas.branch_schedule_id
-            WHERE s.status = 'active'
+            WHERE s.status = 'active' AND s.branch_id = %s
             ORDER BY s.admission_id, sc.slot_start
-        """, (branch_id, day_of_week, date_str, date_str, day_type, day_of_week))
+        """, (branch_id, day_of_week, date_str, date_str, day_type, day_of_week, branch_id))
         base_rows = rows(cur)
         if not base_rows:
             cur.close(); conn.close()
