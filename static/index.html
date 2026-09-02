@@ -3472,10 +3472,10 @@ function renderSessionPlan(){
   var _planStudents=state.data['plan_students_'+_lpDate2]||[];
   var _oldTT=state.data.all_timetables||[];
   // Merge: planStudents takes precedence; include old timetable entries not already covered
-  var _planStudentIds=new Set(_planStudents.map(function(p){return p.student_id+'|'+p.slot+'|'+p.subject;}));
-  // Only include students who belong to this branch (prevents cross-branch migration bleed-through)
+  // Students with agreed slots: use ONLY planStudents (authoritative); old timetable is fallback only for students with NO agreed slots
+  var _planStudentIdSet=new Set(_planStudents.map(function(p){return p.student_id;}));
   var _branchStudentIds=new Set((state.data.students||[]).map(function(s){return s.id;}));
-  var allTT=_planStudents.filter(function(p){return _branchStudentIds.has(p.student_id);}).concat(_oldTT.filter(function(t){return !_planStudentIds.has(t.student_id+'|'+t.slot+'|'+t.subject)&&_branchStudentIds.has(t.student_id);}));
+  var allTT=_planStudents.filter(function(p){return _branchStudentIds.has(p.student_id);}).concat(_oldTT.filter(function(t){return !_planStudentIdSet.has(t.student_id)&&_branchStudentIds.has(t.student_id);}));
   var students=(state.data.students||[]).filter(function(s){return s.status==='active';});
   var staff=state.data.staff||[];
   var sessions=state.data.sessions||[];
@@ -3504,9 +3504,14 @@ function renderSessionPlan(){
     var filtered=allTT.filter(function(t){
       return (!regDay||t.day_type===regDay)&&(!regSlot||t.slot===regSlot)&&(!regSubject||t.subject===regSubject);
     });
-    // Summary
+    // Summary — count distinct students per subject, not rows
     var subjCounts={};
-    filtered.forEach(function(t){subjCounts[t.subject]=(subjCounts[t.subject]||0)+1;});
+    var _seenSubjStu={};
+    filtered.forEach(function(t){
+      var _k=t.subject+'|'+t.student_id;
+      if(!_seenSubjStu[_k]){_seenSubjStu[_k]=true;subjCounts[t.subject]=(subjCounts[t.subject]||0)+1;}
+    });
+    var _filteredDistinct=new Set(filtered.map(function(t){return t.student_id;})).size;
     html+='<div class="card" style="margin-bottom:14px;">';
     html+='<div class="form-grid">';
     html+='<div class="field"><label>Day type</label><select id="reg-day-filter"><option value="">All days</option>';
@@ -3520,7 +3525,7 @@ function renderSessionPlan(){
     html+='</select></div>';
     html+='</div>';
     html+='<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">';
-    html+='<span style="font-size:13px;font-weight:600;">'+filtered.length+' students</span>';
+    html+='<span style="font-size:13px;font-weight:600;">'+_filteredDistinct+' students</span>';
     Object.keys(subjCounts).sort().forEach(function(subj){
       html+='<span class="badge badge-accent">'+subj+': '+subjCounts[subj]+'</span>';
     });
