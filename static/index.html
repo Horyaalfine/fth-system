@@ -3737,12 +3737,12 @@ function renderSessionPlan(){
             html+='<td style="padding:2px 6px 2px 0;font-weight:500;">'+(st.student_name||'—')+'</td>';
             html+='<td style="padding:2px 4px 2px 0;">'+(st.year_group||'—')+'</td>';
             html+='<td style="padding:2px 0;">';
-            // Move to dropdown - show all other tables in draft
-            var otherDraftTables=draft.tables.filter(function(t){return t!==tbl;});
+            // Move to dropdown - same slot only
+            var otherDraftTables=draft.tables.filter(function(t){return t!==tbl&&t.slot===tbl.slot;});
             if(otherDraftTables.length>0){
               html+='<select data-action="lp-move-student" data-from="'+tblIdx+'" data-student="'+stIdx+'" style="font-size:10px;padding:1px 2px;max-width:70px;" title="Move to table">';
               html+='<option value="">&#8599; Move</option>';
-              otherDraftTables.forEach(function(t){var ds=t.slot!==tbl.slot?' ('+t.slot.replace(/.*\(|\).*/g,'')+')':'';html+='<option value="'+draft.tables.indexOf(t)+'">&#8594; T'+t.table_no+ds+'</option>';});
+              otherDraftTables.forEach(function(t){html+='<option value="'+draft.tables.indexOf(t)+'">&#8594; T'+t.table_no+'</option>';});
               html+='</select>';
             }
             html+='</td>';
@@ -3906,7 +3906,7 @@ function renderSessionPlan(){
           }else{
             html+='<table style="margin:0;font-size:12px;width:100%;">';
             // Allow moving to any other table on this date (across slots too)
-        var otherTables=daySessions.filter(function(t){return t.id!==s.id;});
+        var otherTables=daySessions.filter(function(t){return t.id!==s.id&&t.slot===s.slot;});
             html+='<thead><tr style="background:var(--surface2);"><th style="padding:4px 8px 4px 0;font-size:11px;">Ad No.</th><th style="padding:4px 8px 4px 0;font-size:11px;">Name</th><th style="padding:4px 8px 4px 0;font-size:11px;">Year</th><th style="padding:4px 0;font-size:11px;">Att.</th>'+(otherTables.length>0?'<th style="padding:4px 0;font-size:11px;">Move</th>':'')+'</tr></thead><tbody>';
             studs.forEach(function(st){
               var attSt=attMap[st.student_id]||attMap[st.id]||{};
@@ -3922,7 +3922,7 @@ function renderSessionPlan(){
                 html+='<td style="padding:2px 0;">';
                 html+='<select data-action="rpt-move-student" data-src="'+s.id+'" data-student="'+stId+'" style="font-size:10px;padding:1px 2px;max-width:75px;" title="Move to table">';
                 html+='<option value="">&#8599; Move</option>';
-                otherTables.forEach(function(t){var diffSlot=t.slot!==s.slot?' ('+t.slot.replace(/.*\(|\).*/g,'')+')':'';html+='<option value="'+t.id+'">&rarr; T'+t.table_no+(t.subject!==s.subject?' '+t.subject:'')+diffSlot+'</option>';});
+                otherTables.forEach(function(t){html+='<option value="'+t.id+'">&rarr; T'+t.table_no+(t.subject!==s.subject?' ('+t.subject+')':'')+'</option>';});
                 html+='</select>';
                 html+='</td>';
               }
