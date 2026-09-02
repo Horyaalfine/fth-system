@@ -3601,7 +3601,7 @@ function renderSessionPlan(){
     function getDayType(d){var wd=new Date(d+'T00:00:00').getDay();return wd===6?'saturday':wd===0?'sunday':'weekday';}
     var dayType=getDayType(lpDate);
     var allExpected=allTT.filter(function(t){return t.day_type===dayType;});
-    function slotIsAM2(slot){var m=(slot||'').match(/\((\d+):/);return m&&parseInt(m[1])<14;}
+    function slotIsAM2(slot){var m=(slot||'').match(/\((\d+):/);if(!m)return false;var h=parseInt(m[1]);return h>=14?/Session 1\b/i.test(slot||''):h<12;}
     var expected=lpMode==='am'?allExpected.filter(function(t){return slotIsAM2(t.slot);}):lpMode==='pm'?allExpected.filter(function(t){return !slotIsAM2(t.slot);}):lpMode==='single'&&lpSlot&&lpSubject?allExpected.filter(function(t){return t.slot===lpSlot&&t.subject===lpSubject;}):allExpected;
     var subjSlotCounts={};
     allExpected.forEach(function(t){var k=t.slot+'||'+t.subject;if(!subjSlotCounts[k])subjSlotCounts[k]=0;subjSlotCounts[k]++;});
@@ -8159,7 +8159,14 @@ if(action==='export-timetable-csv'){
     rows.push([s.id,s.name,s.year||''].concat(SLOTS.map(function(sl){return (s.slots[sl]||[]).join('+')||'';})));
   });
   exportXLSX(rows, 'fth-student-timetables.xlsx', 'Timetables');return;}
-if(action==='plan-tab'){state.planTab=el.dataset.tab;render();return;}
+if(action==='plan-tab'){
+  state.planTab=el.dataset.tab;
+  if(el.dataset.tab==='lesson'&&state.currentBranch){
+    var _ptDate=state.lpDate||new Date().toISOString().slice(0,10);
+    await loadData('plan_students_'+_ptDate,'/api/session-plan-students',{branch_id:state.currentBranch,date:_ptDate});
+  }
+  render();return;
+}
 
 // Student register filters (inline select onchange wired via bindAll data-action)
 if(action==='reg-day-filter'){state.regDay=el.value;state.regSlot='';state.regSubject='';render();return;}
@@ -8216,7 +8223,7 @@ if(action==='lp-generate'){
   var lpSlot=state.lpSlot||'';
   var lpSubject=state.lpSubject||'';
   var allForDay=allTT.filter(function(t){return t.day_type===dayType;});
-  function slotIsAM3(slot){var m=(slot||'').match(/\((\d+):/);return m&&parseInt(m[1])<14;}
+  function slotIsAM3(slot){var m=(slot||'').match(/\((\d+):/);if(!m)return false;var h=parseInt(m[1]);return h>=14?/Session 1\b/i.test(slot||''):h<12;}
   var expected=lpMode==='am'?allForDay.filter(function(t){return slotIsAM3(t.slot);}):lpMode==='pm'?allForDay.filter(function(t){return !slotIsAM3(t.slot);}):lpMode==='single'&&lpSlot&&lpSubject?allForDay.filter(function(t){return t.slot===lpSlot&&t.subject===lpSubject;}):allForDay;
   // Group by slot + subject + Key Stage
   var groups={};
