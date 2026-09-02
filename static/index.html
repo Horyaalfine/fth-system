@@ -8946,7 +8946,13 @@ if(action==='qa-toggle'){
   else if(cur==='present')state.qaRecords[key][stuId]='absent';
   else delete state.qaRecords[key][stuId];
   var _dbgStatus=state.qaRecords[key][stuId]||'cleared';
-  try{render();toast('Set '+stuId+' to '+_dbgStatus,'info');}
+  var _preDate=state.qaDate;var _preSlot=state.qaSlot;
+  try{
+    render();
+    var _postDate=state.qaDate;var _postSlot=state.qaSlot;
+    var _changed=(_preDate!==_postDate)||(_preSlot!==_postSlot);
+    toast('st='+_dbgStatus+' | slot_changed='+_changed+' | pre='+_preSlot.slice(-10)+' post='+_postSlot.slice(-10),'info');
+  }
   catch(err){toast('Render ERR: '+err.message,'error');}
   return;
 }
