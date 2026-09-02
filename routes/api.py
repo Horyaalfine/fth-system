@@ -4810,6 +4810,22 @@ def get_admission_slip(sid):
         WHERE student_id=%s AND active=TRUE ORDER BY day_type, slot
     """, (sid,))
     data['timetable'] = rows(cur)
+    # Also include agreed_slots for auto-filling the timetable grid
+    cur.execute("""
+        SELECT bs.day_of_week, bs.slot_start, bs.slot_end, sas.subject
+        FROM student_agreed_slots sas
+        JOIN branch_schedule bs ON bs.id = sas.branch_schedule_id
+        WHERE sas.student_id = %s AND bs.status = 'active'
+        ORDER BY bs.day_of_week, bs.slot_start
+    """, (sid,))
+    raw_as = cur.fetchall()
+    # Convert time objects to HH:MM strings
+    data['agreed_slots'] = [{
+        'day_of_week': r['day_of_week'],
+        'slot_start': r['slot_start'].strftime('%H:%M') if hasattr(r['slot_start'],'strftime') else str(r['slot_start'])[:5],
+        'slot_end':   r['slot_end'].strftime('%H:%M')   if hasattr(r['slot_end'],  'strftime') else str(r['slot_end'])[:5],
+        'subject':    r['subject'] or ''
+    } for r in raw_as]
     cur.close(); conn.close()
     return jsonify(data)
 
@@ -4819,44 +4835,48 @@ def _norm_slot(s):
 
 def _build_slip_html(st):
     import datetime
-    subjects = sorted({r['subject'] for r in st.get('timetable',[]) if r.get('subject')})
+    agreed_sl = st.get('agreed_slots', [])
+    tm = st.get('timetable', [])
+    # Subjects from agreed slots (prefer) or old timetable
+    subj_set = sorted({r['subject'] for r in agreed_sl if r.get('subject')} or
+                      {r['subject'] for r in tm if r.get('subject')})
     start = (st.get('created_at') or '')[:10]
     today = datetime.date.today()
     end_year = today.year if today.month < 8 else today.year + 1
     end = f"{end_year}-07-31"
-    tm = st.get('timetable', [])
 
-    def get_subj(day_type, slot):
-        ck = _norm_slot(slot)
-        for r in tm:
-            if r['day_type']==day_type and _norm_slot(r['slot'])==ck:
-                return r.get('subject','')
+    def get_agreed(day, start_hhmm):
+        for r in agreed_sl:
+            if r['day_of_week'] == day and r['slot_start'].replace(' ','') == start_hhmm.replace(' ',''):
+                return r.get('subject') or '✓'
         return ''
 
     wd_slots = ['17:00 - 19:00','19:00 - 21:00']
     we_slots = ['09:00 - 11:00','11:15 - 13:15','14:00 - 16:00','16:15 - 18:15']
+    wd_days  = ['monday','tuesday','wednesday','thursday','friday']
 
     subj_rows = ''
     for i in range(4):
-        v = subjects[i] if i < len(subjects) else ''
+        v = subj_set[i] if i < len(subj_set) else ''
         subj_rows += f'<tr><td style="border:1px solid #000;padding:5px 8px;">{i+1}. {v}</td></tr>'
 
     wd_rows = ''
     for sl in wd_slots:
-        subj = get_subj('weekday', sl)
-        if subj:
-            cells = f'<td colspan="5" style="border:1px solid #000;padding:5px;text-align:center;">{subj}</td>'
-        else:
-            cells = '<td style="border:1px solid #000;padding:5px;"></td>' * 5
+        start_t = sl.split(' - ')[0].strip()
+        cells = ''.join(
+            f'<td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px;">{get_agreed(d, start_t)}</td>'
+            for d in wd_days
+        )
         wd_rows += f'<tr><td style="border:1px solid #000;padding:5px 8px;">{sl}</td>{cells}</tr>'
 
     we_rows = ''
     for sl in we_slots:
-        ss = get_subj('saturday', sl)
-        su = get_subj('sunday', sl)
+        start_t = sl.split(' - ')[0].strip()
+        ss = get_agreed('saturday', start_t)
+        su = get_agreed('sunday', start_t)
         we_rows += (f'<tr><td style="border:1px solid #000;padding:5px 8px;">{sl}</td>'
-                    f'<td style="border:1px solid #000;padding:5px;text-align:center;">{ss}</td>'
-                    f'<td style="border:1px solid #000;padding:5px;text-align:center;">{su}</td>'
+                    f'<td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px;">{ss}</td>'
+                    f'<td style="border:1px solid #000;padding:5px;text-align:center;font-size:12px;">{su}</td>'
                     f'<td style="border:1px solid #000;padding:5px;"></td></tr>')
 
     tc = """
