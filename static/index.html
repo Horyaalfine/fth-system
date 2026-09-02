@@ -688,7 +688,9 @@ function invBadge(s){if(s==='paid')return`<span class="badge badge-success">Paid
 function stars(n){return Array.from({length:5},(_,i)=>`<span style="color:${i<n?'var(--amber)':'var(--surface3)'}">★</span>`).join('');}
 async function loadData(key,path,params){try{state.data[key]=await API.get(path,params||{});}catch(e){state.data[key]=state.data[key]||[];}}
 async function refreshPage(){state.loading=true;render();const b=branchParam();const page=state.page;try{if(page==='dashboard'){const loads=[loadData('branches','/api/branches'),loadData('summary','/api/reports/summary',b),loadData('action_items','/api/dashboard/action-items',b),loadData('today','/api/dashboard/today',b)];await Promise.all(loads);}else if(page==='students')await loadData('students','/api/students',{...b,q:state.studentSearch});else if(page==='staff')await loadData('staff','/api/staff',b);else if(page==='branch_operation')await loadData('branch_schedule','/api/branch-schedule',b);
-else if(page==='sessions')await loadData('sessions','/api/sessions',b);else if(page==='attendance'){await Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('all_timetables','/api/student-timetable',b)]);if(state.attSessionId){await Promise.all([loadData('attendance_'+state.attSessionId,'/api/attendance/'+state.attSessionId),loadData('sess_students_'+state.attSessionId,'/api/sessions/'+state.attSessionId+'/students')]);const att=state.data['attendance_'+state.attSessionId]||[];att.forEach(function(a){if(!state.attRecords[state.attSessionId])state.attRecords[state.attSessionId]={};state.attRecords[state.attSessionId][a.student_id]={status:a.status,notes:a.notes||''};});}}else if(page==='invoices')await Promise.all([loadData('invoices','/api/invoices',b),loadData('students','/api/students',b),loadData('branches','/api/branches')]);else if(page==='session_reports'){
+else if(page==='sessions')await loadData('sessions','/api/sessions',b);else if(page==='attendance'){
+  const qaDateForLoad=state.qaDate||new Date().toISOString().slice(0,10);
+  await Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('all_timetables','/api/student-timetable',b),loadData('plan_students_'+qaDateForLoad,'/api/session-plan-students',Object.assign({date:qaDateForLoad},b))]);if(state.attSessionId){await Promise.all([loadData('attendance_'+state.attSessionId,'/api/attendance/'+state.attSessionId),loadData('sess_students_'+state.attSessionId,'/api/sessions/'+state.attSessionId+'/students')]);const att=state.data['attendance_'+state.attSessionId]||[];att.forEach(function(a){if(!state.attRecords[state.attSessionId])state.attRecords[state.attSessionId]={};state.attRecords[state.attSessionId][a.student_id]={status:a.status,notes:a.notes||''};});}}else if(page==='invoices')await Promise.all([loadData('invoices','/api/invoices',b),loadData('students','/api/students',b),loadData('branches','/api/branches')]);else if(page==='session_reports'){
   await loadData('sessions','/api/sessions',b);
   const allSessions=state.data.sessions||[];
   const dates=[...new Set(allSessions.map(s=>s.date))].sort().reverse();
@@ -813,7 +815,7 @@ if(state.currentUser&&!['super_admin','reports_viewer','head_of_branches'].inclu
       var b=branchParam();
       if(pg==='students') loadData('students','/api/students',{...b,q:state.studentSearch||''}).then(function(){state.loading=false;render();});
       else if(pg==='sessions') loadData('sessions','/api/sessions',b).then(function(){state.loading=false;render();});
-      else if(pg==='attendance') Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('all_timetables','/api/student-timetable',b)]).then(function(){state.loading=false;render();});
+      else if(pg==='attendance'){var qaDL=state.qaDate||new Date().toISOString().slice(0,10);Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('all_timetables','/api/student-timetable',b),loadData('plan_students_'+qaDL,'/api/session-plan-students',Object.assign({date:qaDL},b))]).then(function(){state.loading=false;render();});}
       else if(pg==='finance') Promise.all([loadData('invoices','/api/invoices',b),loadData('students','/api/students',b)]).then(function(){state.loading=false;render();});
       else if(pg==='staff') loadData('staff','/api/staff',b).then(function(){state.loading=false;render();});
       else if(pg==='session_plan') Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('staff','/api/staff',b),loadData('branch_schedule','/api/branch-schedule',b),loadData('all_timetables','/api/student-timetable',b)]).then(function(){state.loading=false;render();});
@@ -9379,7 +9381,14 @@ if(action==='load-att-report'){
   if(state.attRptFilter.status)    params.set('status',   state.attRptFilter.status);
   if(state.currentBranch) params.set('branch_id',state.currentBranch);
   delete state.data.att_report;
-  await loadData('att_report','/api/attendance/report?'+params.toString());
+  const attApiParams={};
+  if(state.attRptFilter.date_from) attApiParams.date_from=state.attRptFilter.date_from;
+  if(state.attRptFilter.date_to)   attApiParams.date_to=state.attRptFilter.date_to;
+  if(state.attRptFilter.student_id)attApiParams.student_id=state.attRptFilter.student_id;
+  if(state.attRptFilter.day_type)  attApiParams.day_type=state.attRptFilter.day_type;
+  if(state.attRptFilter.status)    attApiParams.status=state.attRptFilter.status;
+  if(state.currentBranch)          attApiParams.branch_id=state.currentBranch;
+  await loadData('att_report','/api/attendance/report',attApiParams);
   state.attRptLoaded=true;
   render();return;
 }
