@@ -9717,6 +9717,7 @@ window.navTo=function(el){
     document.querySelectorAll('.bottom-nav a').forEach(function(a){
       a.classList.toggle('active',a.dataset.page===page);
     });
+    state.modal=null;state.editTarget=null;
     state.page=page;
     render();
     refreshPage();
@@ -9744,6 +9745,7 @@ function _doNav(el){
   const ov=document.getElementById('sidebar-overlay');
   if(sb)sb.classList.remove('open');
   if(ov)ov.classList.remove('open');
+  state.modal=null;state.editTarget=null;
   state.page=el.dataset.page;
   refreshPage();
 }
@@ -9768,7 +9770,8 @@ document.addEventListener('click',function(e){
     if(!cur)state.qaRecords[key][stuId]='present';
     else if(cur==='present')state.qaRecords[key][stuId]='absent';
     else delete state.qaRecords[key][stuId];
-    render();return;
+    try{render();}catch(err){toast('Render error: '+err.message,'error');console.error('qa-toggle render error',err);}
+    return;
   }
   var mab=e.target.closest('[data-action="qa-mark-all"]');
   if(mab){
