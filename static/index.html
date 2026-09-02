@@ -689,8 +689,7 @@ function stars(n){return Array.from({length:5},(_,i)=>`<span style="color:${i<n?
 async function loadData(key,path,params){try{state.data[key]=await API.get(path,params||{});}catch(e){state.data[key]=state.data[key]||[];}}
 async function refreshPage(){state.loading=true;render();const b=branchParam();const page=state.page;try{if(page==='dashboard'){const loads=[loadData('branches','/api/branches'),loadData('summary','/api/reports/summary',b),loadData('action_items','/api/dashboard/action-items',b),loadData('today','/api/dashboard/today',b)];await Promise.all(loads);}else if(page==='students')await loadData('students','/api/students',{...b,q:state.studentSearch});else if(page==='staff')await loadData('staff','/api/staff',b);else if(page==='branch_operation')await loadData('branch_schedule','/api/branch-schedule',b);
 else if(page==='sessions')await loadData('sessions','/api/sessions',b);else if(page==='attendance'){
-  const qaDateForLoad=state.qaDate||new Date().toISOString().slice(0,10);
-  await Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('all_timetables','/api/student-timetable',b),loadData('plan_students_'+qaDateForLoad,'/api/session-plan-students',Object.assign({date:qaDateForLoad},b))]);if(state.attSessionId){await Promise.all([loadData('attendance_'+state.attSessionId,'/api/attendance/'+state.attSessionId),loadData('sess_students_'+state.attSessionId,'/api/sessions/'+state.attSessionId+'/students')]);const att=state.data['attendance_'+state.attSessionId]||[];att.forEach(function(a){if(!state.attRecords[state.attSessionId])state.attRecords[state.attSessionId]={};state.attRecords[state.attSessionId][a.student_id]={status:a.status,notes:a.notes||''};});}}else if(page==='invoices')await Promise.all([loadData('invoices','/api/invoices',b),loadData('students','/api/students',b),loadData('branches','/api/branches')]);else if(page==='session_reports'){
+  await Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('all_timetables','/api/student-timetable',b)]);if(state.attSessionId){await Promise.all([loadData('attendance_'+state.attSessionId,'/api/attendance/'+state.attSessionId),loadData('sess_students_'+state.attSessionId,'/api/sessions/'+state.attSessionId+'/students')]);const att=state.data['attendance_'+state.attSessionId]||[];att.forEach(function(a){if(!state.attRecords[state.attSessionId])state.attRecords[state.attSessionId]={};state.attRecords[state.attSessionId][a.student_id]={status:a.status,notes:a.notes||''};});}}else if(page==='invoices')await Promise.all([loadData('invoices','/api/invoices',b),loadData('students','/api/students',b),loadData('branches','/api/branches')]);else if(page==='session_reports'){
   await loadData('sessions','/api/sessions',b);
   const allSessions=state.data.sessions||[];
   const dates=[...new Set(allSessions.map(s=>s.date))].sort().reverse();
@@ -815,7 +814,7 @@ if(state.currentUser&&!['super_admin','reports_viewer','head_of_branches'].inclu
       var b=branchParam();
       if(pg==='students') loadData('students','/api/students',{...b,q:state.studentSearch||''}).then(function(){state.loading=false;render();});
       else if(pg==='sessions') loadData('sessions','/api/sessions',b).then(function(){state.loading=false;render();});
-      else if(pg==='attendance'){var qaDL=state.qaDate||new Date().toISOString().slice(0,10);Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('all_timetables','/api/student-timetable',b),loadData('plan_students_'+qaDL,'/api/session-plan-students',Object.assign({date:qaDL},b))]).then(function(){state.loading=false;render();});}
+      else if(pg==='attendance'){Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('all_timetables','/api/student-timetable',b)]).then(function(){state.loading=false;render();});}
       else if(pg==='finance') Promise.all([loadData('invoices','/api/invoices',b),loadData('students','/api/students',b)]).then(function(){state.loading=false;render();});
       else if(pg==='staff') loadData('staff','/api/staff',b).then(function(){state.loading=false;render();});
       else if(pg==='session_plan') Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('staff','/api/staff',b),loadData('branch_schedule','/api/branch-schedule',b),loadData('all_timetables','/api/student-timetable',b)]).then(function(){state.loading=false;render();});
@@ -1540,10 +1539,15 @@ function renderQuickAttendance(){
   html+='<div class="card" style="margin-bottom:16px;">';
   html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
   html+='<div class="field" style="margin:0;"><label>Date</label><input type="date" id="qa-date" value="'+qDate+'"></div>';
-  html+='<div class="field" style="margin:0;"><label>Slot</label><select id="qa-slot">';
-  html+='<option value="">— select slot —</option>';
-  availableSlots.forEach(function(sl){html+='<option value="'+sl+'" '+(sl===qSlot?'selected':'')+'>'+sl+'</option>';});
-  html+='</select></div>';
+  html+='<div class="field" style="margin:0;"><label>Slot</label>';
+  if(qDate&&planStudents.length===0){
+    html+='<div style="display:flex;gap:8px;align-items:center;"><button class="btn btn-sm btn-primary" data-action="qa-load-slots" data-date="'+qDate+'">Load slots</button><span style="font-size:12px;color:var(--text3);">Click to load slots for this date</span></div>';
+  } else {
+    html+='<select id="qa-slot"><option value="">— select slot —</option>';
+    availableSlots.forEach(function(sl){html+='<option value="'+sl+'" '+(sl===qSlot?'selected':'')+'>'+sl+'</option>';});
+    html+='</select>';
+  }
+  html+='</div>';
   html+='</div>';
 
   // Hint about day type
@@ -1604,6 +1608,8 @@ function renderQuickAttendance(){
 
   } else if(qSlot&&stuList.length===0){
     html+='<div class="empty-state" style="padding:40px;">No students found for this slot on '+qDate+'. Make sure students have agreed sessions set up.</div>';
+  } else if(!qSlot&&qDate&&planStudents.length===0){
+    html+='<div class="empty-state" style="padding:30px;">Select a date to load available slots, then pick a slot.</div>';
   } else if(!qSlot&&qDate){
     html+='<div class="empty-state" style="padding:30px;">Select a slot to see students.</div>';
   }
@@ -8751,6 +8757,14 @@ if(action==='att-remove-student'){
   toast('Student removed from session');render();return;
 }
 if(action==='att-tab'){state.attTab=el.dataset.tab;render();return;}
+if(action==='qa-load-slots'){
+  const ld=el.dataset.date;
+  if(ld){
+    var bqs=branchParam();
+    loadData('plan_students_'+ld,'/api/session-plan-students',Object.assign({date:ld},bqs)).then(function(){render();});
+  }
+  return;
+}
 if(action==='qa-status-filter'){state.qaStatusFilter=el.dataset.filter||'all';render();return;}
 if(action==='qa-mark-all'){
   const status=el.dataset.status;
