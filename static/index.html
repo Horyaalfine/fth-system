@@ -8304,12 +8304,28 @@ if(action==='lp-save'){
   if(!branchId){toast('Please select a branch first','warn');return;}
   toast('Saving plan...','info');
   try{
-    // Group by slot to create one session per slot per table
+    // Group by slot: reuse existing sessions if already created, otherwise create new
+    var _existSess=state.data.sessions||[];
+    // Track slot→sessId map so we reuse the same session for multiple tables in same slot
+    var _slotSessMap={};
     for(var i=0;i<draft.tables.length;i++){
       var tbl=draft.tables[i];
-      // Create session
-      var sessRes=await API.post('/api/sessions',{branch_id:branchId,staff_id:tbl.teacher_id||null,date:draft.date,slot:tbl.slot,subject:tbl.subject,table_no:tbl.table_no});
-      var sessId=sessRes.id||sessRes.session_id;
+      var sessId=null;
+      if(_slotSessMap[tbl.slot]){
+        sessId=_slotSessMap[tbl.slot];
+      } else {
+        // Look for existing session for this branch+date+slot
+        var _ex=_existSess.find(function(s){return s.date===draft.date&&s.slot===tbl.slot&&s.branch_id===branchId;});
+        if(_ex){
+          sessId=_ex.id;
+          // Update teacher if set
+          if(tbl.teacher_id)await API.put('/api/sessions/'+sessId,{staff_id:tbl.teacher_id});
+        } else {
+          var sessRes=await API.post('/api/sessions',{branch_id:branchId,staff_id:tbl.teacher_id||null,date:draft.date,slot:tbl.slot,subject:tbl.subject,table_no:tbl.table_no});
+          sessId=sessRes.id||sessRes.session_id;
+        }
+        if(sessId)_slotSessMap[tbl.slot]=sessId;
+      }
       // Create table allocation
       if(sessId){
         var allocRes=await API.post('/api/table-allocations',{session_id:sessId,table_no:tbl.table_no,teacher_id:tbl.teacher_id||null,subject:tbl.subject,max_students:tbl.students.length||5});

@@ -686,8 +686,12 @@ def auto_create_sessions():
         created = 0; sessions_out = []
         day_cap = day_of_week.capitalize()
         for s in slots:
-            bs_id = s['id']; start = s['slot_start']; end = s['slot_end']
-            num = s['session_num']
+            bs_id = s['id']
+            raw_start = s['slot_start']; raw_end = s['slot_end']
+            # Convert time objects to HH:MM (psycopg2 returns datetime.time)
+            start = raw_start.strftime('%H:%M') if hasattr(raw_start, 'strftime') else str(raw_start)[:5]
+            end   = raw_end.strftime('%H:%M')   if hasattr(raw_end,   'strftime') else str(raw_end)[:5]
+            num = int(s['session_num'])
             slot_text = f"{day_cap} Session {num} ({start}–{end})"
             cur.execute("SELECT id FROM sessions WHERE branch_id=%s AND date=%s AND slot=%s",
                         (branch_id, date_str, slot_text))
