@@ -814,7 +814,7 @@ if(state.currentUser&&!['super_admin','reports_viewer','head_of_branches'].inclu
       var b=branchParam();
       if(pg==='students') loadData('students','/api/students',{...b,q:state.studentSearch||''}).then(function(){state.loading=false;render();});
       else if(pg==='sessions') loadData('sessions','/api/sessions',b).then(function(){state.loading=false;render();});
-      else if(pg==='attendance'){Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('all_timetables','/api/student-timetable',b)]).then(function(){state.loading=false;render();});}
+      else if(pg==='attendance'){var _qaD=state.qaDate||new Date().toISOString().slice(0,10);if(!state.qaDate)state.qaDate=_qaD;var _attLoads=[loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('all_timetables','/api/student-timetable',b)];if(state.currentBranch){_attLoads.push(loadData('plan_students_'+_qaD,'/api/session-plan-students',Object.assign({date:_qaD},b)));}Promise.all(_attLoads).then(function(){state.loading=false;render();});}
       else if(pg==='finance') Promise.all([loadData('invoices','/api/invoices',b),loadData('students','/api/students',b)]).then(function(){state.loading=false;render();});
       else if(pg==='staff') loadData('staff','/api/staff',b).then(function(){state.loading=false;render();});
       else if(pg==='session_plan') Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('staff','/api/staff',b),loadData('branch_schedule','/api/branch-schedule',b),loadData('all_timetables','/api/student-timetable',b)]).then(function(){state.loading=false;render();});
@@ -1539,6 +1539,12 @@ function renderQuickAttendance(){
   html+='<div><div class="section-title">Quick Attendance</div>';
   html+='<div class="section-sub">Mark attendance by date and slot — across all tables</div></div>';
   html+='</div>';
+
+  // Require branch selection
+  if(!state.currentBranch){
+    html+='<div class="card" style="text-align:center;padding:30px;color:var(--text3);">Please select a branch from the top-right to use Quick Attendance.</div>';
+    return html;
+  }
 
   // Date + Slot selector
   html+='<div class="card" style="margin-bottom:16px;">';
