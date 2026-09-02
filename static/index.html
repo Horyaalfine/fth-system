@@ -9756,6 +9756,33 @@ document.addEventListener('click',function(e){
   if(navEl){_doNav(navEl);}
 });
 
+// Direct event delegation for quick attendance (bypasses bindAll for reliability)
+document.addEventListener('click',function(e){
+  var cell=e.target.closest('[data-action="qa-toggle"]');
+  if(cell){
+    var stuId=parseInt(cell.dataset.student);
+    var key='qa_'+state.qaDate+'_'+state.qaSlot;
+    if(!state.qaRecords)state.qaRecords={};
+    if(!state.qaRecords[key])state.qaRecords[key]={};
+    var cur=state.qaRecords[key][stuId];
+    if(!cur)state.qaRecords[key][stuId]='present';
+    else if(cur==='present')state.qaRecords[key][stuId]='absent';
+    else delete state.qaRecords[key][stuId];
+    render();return;
+  }
+  var mab=e.target.closest('[data-action="qa-mark-all"]');
+  if(mab){
+    var status=mab.dataset.status;
+    var key='qa_'+state.qaDate+'_'+state.qaSlot;
+    if(!state.qaRecords)state.qaRecords={};
+    if(!state.qaRecords[key])state.qaRecords[key]={};
+    var allPS=state.data['plan_students_'+state.qaDate]||[];
+    var stuIds=[...new Set(allPS.filter(function(e2){return e2.slot===state.qaSlot;}).map(function(e2){return e2.student_id;}))];
+    if(status==='clear'){stuIds.forEach(function(id){delete state.qaRecords[key][id];});}
+    else{stuIds.forEach(function(id){state.qaRecords[key][id]=status;});}
+    render();return;
+  }
+});
 // BOOT
 initMobileNav();
 (async()=>{try{const me=await API.get('/api/me');if(me?.type==='staff'){try{const users=await API.get('/api/users');const u=(users||[]).find(u2=>u2.id===me.user_id);if(u){state.currentUser={...u};state.currentBranch=u.branch_id||null;}else{// fallback: use session data directly
