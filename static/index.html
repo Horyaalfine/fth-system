@@ -1526,6 +1526,11 @@ function renderQuickAttendance(){
   const qaKey='qa_'+qDate+'_'+qSlot;
   if(!state.qaRecords)state.qaRecords={};
   const localAtt=state.qaRecords[qaKey]||{};
+  if(Object.keys(state.qaRecords||{}).length){
+    var _allKeys=Object.keys(state.qaRecords);
+    var _match=_allKeys.find(function(k){return k===qaKey;});
+    toast('renderQA: qaKey='+qaKey.slice(-20)+' hasMatch='+!!_match+' allKeys='+_allKeys.map(function(k){return k.slice(-15);}).join('|'),'info');
+  }
 
   // Counts
   const presentCount=Object.values(localAtt).filter(function(a){return a==='present';}).length;
