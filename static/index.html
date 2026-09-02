@@ -8938,6 +8938,7 @@ if(action==='qa-mark-all'){
 }
 if(action==='qa-toggle'){
   const stuId=parseInt(el.dataset.student);
+  toast('Toggle: '+stuId+' slot='+state.qaSlot.slice(0,10),'info');
   const key='qa_'+state.qaDate+'_'+state.qaSlot;
   if(!state.qaRecords)state.qaRecords={};
   if(!state.qaRecords[key])state.qaRecords[key]={};
