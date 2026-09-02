@@ -1526,6 +1526,9 @@ function renderQuickAttendance(){
   const qaKey='qa_'+qDate+'_'+qSlot;
   if(!state.qaRecords)state.qaRecords={};
   const localAtt=state.qaRecords[qaKey]||{};
+  var _rDashPos=qSlot.indexOf(':00')+3;
+  var _rDashCode=qSlot.charCodeAt(_rDashPos);
+  window._DEBUG_RENDERQA_DASH=_rDashCode;
   if(Object.keys(state.qaRecords||{}).length){
     var _allKeys=Object.keys(state.qaRecords);
     var _match=_allKeys.find(function(k){return k===qaKey;});
@@ -8943,6 +8946,9 @@ if(action==='qa-mark-all'){
 }
 if(action==='qa-toggle'){
   const stuId=parseInt(el.dataset.student);
+  var _dashPos=state.qaSlot.indexOf(':00')+3;
+  var _dashCode=state.qaSlot.charCodeAt(_dashPos);
+  window._DEBUG_TOGGLE_DASH=_dashCode;
   const key='qa_'+state.qaDate+'_'+state.qaSlot;
   if(!state.qaRecords)state.qaRecords={};
   if(!state.qaRecords[key])state.qaRecords[key]={};
@@ -8953,15 +8959,7 @@ if(action==='qa-toggle'){
   var _dbgStatus=state.qaRecords[key][stuId]||'cleared';
   try{
     render();
-    var _cell=document.querySelector('[data-action="qa-toggle"][data-student="'+stuId+'"]');
-    var _cls=_cell?_cell.className:'NOT_FOUND';
-    var _rec=JSON.stringify((state.qaRecords||{})[key]||{});
-    toast('DOM:'+_cls+' | st:'+_rec,'info');
-    var _capKey=key;var _capStuId=stuId;
-    setTimeout(function(){
-      var _c2=document.querySelector('[data-action="qa-toggle"][data-student="'+_capStuId+'"]');
-      toast('500ms DOM:'+(_c2?_c2.className:'GONE')+' st:'+JSON.stringify((state.qaRecords||{})[_capKey]||{}),'info');
-    },500);
+    toast('ToggleDash='+window._DEBUG_TOGGLE_DASH+' RenderQADash='+window._DEBUG_RENDERQA_DASH+' (8211=endash 45=hyphen)','info');
   }
   catch(err){toast('Render ERR: '+err.message,'error');}
   return;
