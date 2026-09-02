@@ -4653,7 +4653,13 @@ function renderReports(){
     [{v:'weekday',l:'Weekday'},{v:'saturday',l:'Saturday'},{v:'sunday',l:'Sunday'}].forEach(function(o){html+='<option value="'+o.v+'" '+(filterDayType===o.v?'selected':'')+'>'+o.l+'</option>';});
     html+='</select></div>';
     html+='<div class="field" style="margin:0;"><label>Status</label><select id="att-rpt-status"><option value="">All</option><option value="present" '+(filterStatus==='present'?'selected':'')+'>Present</option><option value="absent" '+(filterStatus==='absent'?'selected':'')+'>Absent</option></select></div>';
-    html+='<div style="margin:0;padding-top:18px;"><button class="btn btn-primary" data-action="load-att-report">🔍 Run Report</button></div>';
+    html+='<div style="margin:0;padding-top:18px;display:flex;gap:8px;flex-wrap:wrap;">';
+    html+='<button class="btn btn-primary" data-action="load-att-report">🔍 Run Report</button>';
+    if(state.attRptLoaded&&attRpt.length>0){
+      html+='<button class="btn" data-action="export-att-report">📥 Export Excel</button>';
+      html+='<button class="btn" data-action="print-att-report">🖨 Print</button>';
+    }
+    html+='</div>';
     html+='</div></div>';
 
     // Summary cards
@@ -9401,6 +9407,98 @@ if(action==='reports-tab'){
     delete state.data.att_report;
   }
   render();return;
+}
+
+if(action==='export-att-report'){
+  const attRpt=state.data.att_report||[];
+  const f=state.attRptFilter||{};
+  const rows=[
+    ['Date','Day','Slot','Adm No','Student','Year Group','Subject','Status','Notes'],
+    ...attRpt.map(function(r){
+      var d=new Date(r.date+'T00:00:00');
+      return[
+        d.toLocaleDateString('en-GB'),
+        d.toLocaleDateString('en-GB',{weekday:'long'}),
+        r.slot||'',
+        r.admission_id||'',
+        r.student_name||'',
+        r.year_group||'',
+        r.subject||'',
+        r.status||'',
+        r.notes||''
+      ];
+    })
+  ];
+  var label='Attendance'+(f.date_from?'_'+f.date_from:'')+(f.date_to?'_to_'+f.date_to:'');
+  exportXLSX(rows,label+'.xlsx','Attendance');
+  toast('Exported');return;
+}
+
+if(action==='print-att-report'){
+  const attRpt=state.data.att_report||[];
+  const f=state.attRptFilter||{};
+  const total=attRpt.length;
+  const present=attRpt.filter(function(r){return r.status==='present';}).length;
+  const absent=attRpt.filter(function(r){return r.status==='absent';}).length;
+  const rate=total?Math.round(present/total*100):0;
+
+  // Per-student summary
+  const stuMap={};
+  attRpt.forEach(function(r){
+    if(!stuMap[r.student_id])stuMap[r.student_id]={name:r.student_name,admission_id:r.admission_id,year_group:r.year_group,present:0,absent:0,total:0};
+    stuMap[r.student_id].total++;
+    if(r.status==='present')stuMap[r.student_id].present++;
+    else stuMap[r.student_id].absent++;
+  });
+  const stuRows=Object.values(stuMap).sort(function(a,b){return a.admission_id>b.admission_id?1:-1;});
+
+  var period=(f.date_from||'')+(f.date_to?' – '+f.date_to:'');
+  var pw=window.open('','_blank','width=900,height=700');
+  pw.document.write('<!DOCTYPE html><html><head><title>Attendance Report</title><style>');
+  pw.document.write('body{font-family:Arial,sans-serif;font-size:12px;color:#111;margin:20px;}');
+  pw.document.write('h1{font-size:18px;margin-bottom:2px;}h2{font-size:13px;margin:16px 0 6px;color:#333;}');
+  pw.document.write('.summary{display:flex;gap:20px;margin:10px 0 16px;}');
+  pw.document.write('.sum-card{background:#f3f4f6;border-radius:6px;padding:8px 16px;text-align:center;}');
+  pw.document.write('.sum-val{font-size:22px;font-weight:700;}.sum-lbl{font-size:10px;color:#666;}');
+  pw.document.write('table{width:100%;border-collapse:collapse;margin-bottom:20px;}');
+  pw.document.write('th{background:#1e3a5f;color:#fff;padding:6px 8px;text-align:left;font-size:11px;}');
+  pw.document.write('td{padding:5px 8px;border-bottom:1px solid #e5e7eb;font-size:11px;}');
+  pw.document.write('tr:nth-child(even)td{background:#f9fafb;}');
+  pw.document.write('.present{color:#16a34a;font-weight:600;}.absent{color:#dc2626;font-weight:600;}');
+  pw.document.write('@media print{body{margin:10px;}}');
+  pw.document.write('</style></head><body>');
+  pw.document.write('<h1>FTH — Attendance Report</h1>');
+  pw.document.write('<div style="font-size:12px;color:#555;margin-bottom:8px;">Period: '+period+'&nbsp;&nbsp;|&nbsp;&nbsp;Branch: Harlesden&nbsp;&nbsp;|&nbsp;&nbsp;Printed: '+new Date().toLocaleDateString("en-GB")+'</div>');
+  pw.document.write('<div class="summary">');
+  pw.document.write('<div class="sum-card"><div class="sum-val">'+total+'</div><div class="sum-lbl">RECORDS</div></div>');
+  pw.document.write('<div class="sum-card"><div class="sum-val" style="color:#16a34a">'+present+'</div><div class="sum-lbl">PRESENT</div></div>');
+  pw.document.write('<div class="sum-card"><div class="sum-val" style="color:#dc2626">'+absent+'</div><div class="sum-lbl">ABSENT</div></div>');
+  pw.document.write('<div class="sum-card"><div class="sum-val" style="color:'+(rate>=75?'#16a34a':rate>=50?'#d97706':'#dc2626')+'">'+rate+'%</div><div class="sum-lbl">RATE</div></div>');
+  pw.document.write('</div>');
+
+  pw.document.write('<h2>Student Summary</h2>');
+  pw.document.write('<table><thead><tr><th>Adm No</th><th>Name</th><th>Year</th><th>Present</th><th>Absent</th><th>Total</th><th>Rate</th></tr></thead><tbody>');
+  stuRows.forEach(function(r){
+    var rt=r.total?Math.round(r.present/r.total*100):0;
+    pw.document.write('<tr><td>'+r.admission_id+'</td><td>'+r.name+'</td><td>'+(r.year_group||'—')+'</td>');
+    pw.document.write('<td class="present">'+r.present+'</td><td class="absent">'+r.absent+'</td><td>'+r.total+'</td><td>'+rt+'%</td></tr>');
+  });
+  pw.document.write('</tbody></table>');
+
+  pw.document.write('<h2>Detailed Records</h2>');
+  pw.document.write('<table><thead><tr><th>Date</th><th>Slot</th><th>Student</th><th>Year</th><th>Subject</th><th>Status</th><th>Notes</th></tr></thead><tbody>');
+  attRpt.forEach(function(r){
+    var d=new Date(r.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+    pw.document.write('<tr><td>'+d+'</td><td>'+( r.slot||'')+'</td><td>'+r.student_name+' ('+r.admission_id+')</td>');
+    pw.document.write('<td>'+(r.year_group||'—')+'</td><td>'+(r.subject||'—')+'</td>');
+    pw.document.write('<td class="'+(r.status==='present'?'present':'absent')+'">'+r.status+'</td><td>'+(r.notes||'')+'</td></tr>');
+  });
+  pw.document.write('</tbody></table>');
+  pw.document.write('</body></html>');
+  pw.document.close();
+  pw.focus();
+  setTimeout(function(){pw.print();},600);
+  return;
 }
 
 if(action==='load-att-report'){
