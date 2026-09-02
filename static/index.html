@@ -1497,6 +1497,11 @@ function renderQuickAttendance(){
   const rawPlanStudents=state.data['plan_students_'+qDate];
   const planStudentsLoaded=rawPlanStudents!==undefined;
   const planStudents=rawPlanStudents||[];
+  // Auto-trigger load if branch is set but data not yet fetched
+  if(!planStudentsLoaded&&state.currentBranch&&qDate){
+    var _bq=branchParam();
+    loadData('plan_students_'+qDate,'/api/session-plan-students',Object.assign({date:qDate},_bq)).then(function(){render();});
+  }
 
   // Unique slots from plan_students for selected date
   const availableSlots=[...new Set(planStudents.map(function(e){return e.slot;}))].sort();
