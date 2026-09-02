@@ -1550,10 +1550,10 @@ function renderQuickAttendance(){
   html+='</div>';
   html+='</div>';
 
-  // Hint about day type
+  // Hint about date
   if(qDate){
     var dayLabel=new Date(qDate+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-    html+='<div style="margin-top:10px;font-size:12px;color:var(--text3);">'+dayLabel+' · '+dayType.charAt(0).toUpperCase()+dayType.slice(1)+' slots shown</div>';
+    html+='<div style="margin-top:10px;font-size:12px;color:var(--text3);">'+dayLabel+'</div>';
   }
   html+='</div>';
 
