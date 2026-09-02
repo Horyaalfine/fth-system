@@ -5478,6 +5478,7 @@ def dashboard_action_items():
 @api_bp.route('/api/dashboard/today', methods=['GET'])
 @require_auth
 def dashboard_today():
+    import datetime as _dt
     b = branch_scope()
     conn = get_conn(); cur = conn.cursor()
     try:
@@ -5491,7 +5492,30 @@ def dashboard_today():
         cur.execute(("SELECT s.id, s.slot, s.subject, s.table_no, b.name as branch_name, st.name as staff_name FROM sessions s JOIN branches b ON b.id=s.branch_id LEFT JOIN staff st ON st.id=s.staff_id WHERE s.date=CURRENT_DATE" + (" AND s.branch_id=%s" if b else "") + " ORDER BY s.slot, s.branch_name"), p)
         today_list = rows(cur)
 
-        cur.execute(("SELECT COUNT(DISTINCT ss.student_id) as c FROM session_students ss JOIN sessions s ON s.id=ss.session_id WHERE s.date=CURRENT_DATE" + bw), p)
+        # Count expected from student_agreed_slots (QA uses agreed slots, not session_students)
+        today_dow = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'][_dt.date.today().weekday()]
+        if b:
+            cur.execute("""
+                SELECT COUNT(DISTINCT sas.student_id) as c
+                FROM student_agreed_slots sas
+                JOIN branch_schedule bs ON bs.id = sas.branch_schedule_id
+                JOIN students stu ON stu.id = sas.student_id
+                WHERE bs.branch_id=%s AND bs.day_of_week=%s AND bs.status='active'
+                  AND stu.status='active' AND stu.branch_id=%s
+                  AND (bs.effective_from IS NULL OR bs.effective_from <= CURRENT_DATE)
+                  AND (bs.effective_to IS NULL OR bs.effective_to >= CURRENT_DATE)
+            """, (b, today_dow, b))
+        else:
+            cur.execute("""
+                SELECT COUNT(DISTINCT sas.student_id) as c
+                FROM student_agreed_slots sas
+                JOIN branch_schedule bs ON bs.id = sas.branch_schedule_id
+                JOIN students stu ON stu.id = sas.student_id
+                WHERE bs.day_of_week=%s AND bs.status='active'
+                  AND stu.status='active'
+                  AND (bs.effective_from IS NULL OR bs.effective_from <= CURRENT_DATE)
+                  AND (bs.effective_to IS NULL OR bs.effective_to >= CURRENT_DATE)
+            """, (today_dow,))
         today_expected = cur.fetchone()['c']
 
         cur.execute(("SELECT SUM(CASE WHEN a.status='present' THEN 1 ELSE 0 END) as present, COUNT(*) as marked FROM attendance a JOIN sessions s ON s.id=a.session_id WHERE s.date=CURRENT_DATE" + bw), p)
