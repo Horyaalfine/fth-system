@@ -8918,8 +8918,9 @@ if(action==='qa-mark-all'){
   const key='qa_'+state.qaDate+'_'+state.qaSlot;
   if(!state.qaRecords)state.qaRecords={};
   if(!state.qaRecords[key])state.qaRecords[key]={};
-  const allTT=state.data['plan_students_'+state.qaDate]||[];
-  const stuIds=[...new Set(allTT.filter(function(e){return e.slot===state.qaSlot;}).map(function(e){return e.student_id;}))];
+  // Get student IDs from plan_students for this slot
+  const allPS=state.data['plan_students_'+state.qaDate]||[];
+  var stuIds=[...new Set(allPS.filter(function(e){return e.slot===state.qaSlot;}).map(function(e){return e.student_id;}))];
   if(status==='clear'){stuIds.forEach(function(id){delete state.qaRecords[key][id];});}
   else{stuIds.forEach(function(id){state.qaRecords[key][id]=status;});}
   render();return;
@@ -9282,8 +9283,11 @@ if(action==='save-quick-att'){
   const qSlot=el.dataset.slot;
   const key='qa_'+qDate+'_'+qSlot;
   const localAtt=state.qaRecords&&state.qaRecords[key]?state.qaRecords[key]:{};
-  const daySessions=(state.data.sessions||[]).filter(function(s){return s.date===qDate&&s.slot===qSlot;});
-  if(daySessions.length===0){toast('No sessions exist for this date/slot — create sessions first','error');return;}
+  // Normalize slot comparison: en-dash or hyphen, Session or Slot
+  function normSlot(s){return (s||'').replace(/–/g,'-').replace(/Slot/g,'Session');}
+  const normQSlot=normSlot(qSlot);
+  const daySessions=(state.data.sessions||[]).filter(function(s){return s.date===qDate&&normSlot(s.slot)===normQSlot;});
+  if(daySessions.length===0){toast('No sessions exist for this date/slot — create sessions first, then mark attendance','error');return;}
   // Save attendance for each session based on table allocations
   var saved=0;
   for(var si=0;si<daySessions.length;si++){
