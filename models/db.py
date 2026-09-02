@@ -628,6 +628,7 @@ CREATE INDEX IF NOT EXISTS idx_teacher_sessions_date  ON teacher_sessions(date);
 CREATE INDEX IF NOT EXISTS idx_teacher_sessions_branch ON teacher_sessions(branch_id);
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
 ALTER TABLE branches ADD COLUMN IF NOT EXISTS website TEXT;
+ALTER TABLE student_agreed_slots ADD COLUMN IF NOT EXISTS subject TEXT;
 ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('super_admin','branch_manager','head_of_centre','head_of_branches','supervisor','teacher','receptionist','admin','reports_viewer'));
 -- ── BRANCH SCHEDULE (recurring session slots) ──
 CREATE TABLE IF NOT EXISTS branch_schedule (
@@ -657,6 +658,7 @@ CREATE TABLE IF NOT EXISTS student_agreed_slots (
 CREATE INDEX IF NOT EXISTS idx_sas_student  ON student_agreed_slots(student_id);
 CREATE INDEX IF NOT EXISTS idx_sas_schedule ON student_agreed_slots(branch_schedule_id);
 ALTER TABLE branches ADD COLUMN IF NOT EXISTS website TEXT;
+ALTER TABLE student_agreed_slots ADD COLUMN IF NOT EXISTS subject TEXT;
 """
 
 SEED = """

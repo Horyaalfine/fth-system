@@ -187,27 +187,30 @@ def get_agreed_slots(sid):
 @api_bp.route('/api/students/<int:sid>/agreed-slots', methods=['POST'])
 @require_roles('super_admin','branch_manager','head_of_centre','head_of_branches','admin')
 def save_agreed_slots(sid):
-    """Replace all agreed slots for a student with the posted list of branch_schedule_ids."""
-    d = request.json  # {schedule_ids: [1,2,3], effective_from: '2026-09-01'}
-    ids = d.get('schedule_ids', [])
+    """Replace all agreed slots for a student.
+    Accepts {slots: [{schedule_id, subject}], effective_from} OR legacy {schedule_ids: [...]}."""
+    d = request.json or {}
     effective_from = d.get('effective_from') or 'today'
+    # Support new format {slots: [{schedule_id, subject}]} and legacy {schedule_ids: [...]}
+    slots = d.get('slots')  # new format
+    if slots is None:
+        ids = d.get('schedule_ids', [])
+        slots = [{'schedule_id': i, 'subject': ''} for i in ids]
     conn = get_conn(); cur = conn.cursor()
     try:
-        # Remove old
         cur.execute("DELETE FROM student_agreed_slots WHERE student_id=%s", (sid,))
-        # Insert new
-        for schedule_id in ids:
+        for sl in slots:
             cur.execute("""
-                INSERT INTO student_agreed_slots (student_id, branch_schedule_id, effective_from)
-                VALUES (%s, %s, %s) ON CONFLICT DO NOTHING
-            """, (sid, schedule_id, effective_from))
+                INSERT INTO student_agreed_slots (student_id, branch_schedule_id, effective_from, subject)
+                VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING
+            """, (sid, sl['schedule_id'], effective_from, sl.get('subject') or None))
         conn.commit()
         log_action('edit', 'students', sid)
     except Exception as e:
         conn.rollback(); cur.close(); conn.close()
         return jsonify({'error': str(e)}), 400
     cur.close(); conn.close()
-    return jsonify({'ok': True, 'saved': len(ids)})
+    return jsonify({'ok': True, 'saved': len(slots)})
 
 # ════════════════════════════════════════════
 #  BRANCH SCHEDULE
@@ -5481,6 +5484,7 @@ def get_session_plan_students():
                 s.year_group,
                 sc.id AS branch_schedule_id,
                 sc.slot_start, sc.slot_end, sc.session_num,
+                sas.subject AS agreed_subject,
                 %s AS day_type,
                 %s AS day_of_week
             FROM student_agreed_slots sas
@@ -5526,7 +5530,6 @@ def get_session_plan_students():
             end_str = raw_end.strftime('%H:%M') if hasattr(raw_end, 'strftime') else str(raw_end)[:5]
             num = int(r2['session_num'])
             slot_text = f"{day_cap} Session {num} ({start}\u2013{end_str})"
-            subjects = tt_map.get(sid, {}).get(start, [])
             row_base = {
                 'student_id': sid, 'student_name': r2['student_name'],
                 'admission_id': r2['admission_id'], 'year_group': r2['year_group'],
@@ -5534,11 +5537,17 @@ def get_session_plan_students():
                 'branch_schedule_id': r2['branch_schedule_id'],
                 'slot_start': start, 'slot_end': end_str
             }
-            if subjects:
-                for subj in subjects:
-                    result.append({**row_base, 'subject': subj})
+            # Prefer subject stored on agreed_slot; fall back to student_timetable lookup
+            agreed_subj = r2.get('agreed_subject') or ''
+            if agreed_subj:
+                result.append({**row_base, 'subject': agreed_subj})
             else:
-                result.append({**row_base, 'subject': ''})
+                subjects = tt_map.get(sid, {}).get(start, [])
+                if subjects:
+                    for subj in subjects:
+                        result.append({**row_base, 'subject': subj})
+                else:
+                    result.append({**row_base, 'subject': ''})
         cur.close(); conn.close()
         return jsonify(result)
     except Exception as e:

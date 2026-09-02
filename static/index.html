@@ -5656,10 +5656,15 @@ function modalStudent(){
         html+='<div style="margin-bottom:14px;"><div style="font-weight:700;font-size:13px;color:var(--text1);margin-bottom:8px;">'+DAY_LABEL[day]+'</div>';
         slots.forEach(function(sc,i){
           var checked=agreedIds.has(sc.id)?'checked':'';
-          html+='<label style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:6px;cursor:pointer;background:'+(checked?'var(--bg2)':'transparent')+';margin-bottom:4px;">';
-          html+='<input type="checkbox" class="agreed-slot-entry" data-sched-id="'+sc.id+'" '+checked+' style="width:16px;height:16px;accent-color:var(--accent);">';
-          html+='<span style="font-size:13px;font-weight:'+(checked?'600':'400')+';color:var(--text1);">Session '+(i+1)+'  '+sc.slot_start+' – '+sc.slot_end+'</span>';
-          html+='</label>';
+          var agreedRec=agreedSlots.find(function(a){return a.branch_schedule_id===sc.id;});
+          var savedSubj=agreedRec?agreedRec.subject||'':'';
+          var SUBJS=['','English','Maths','Science','English & Maths'];
+          var subjOpts=SUBJS.map(function(s){return '<option value="'+s+'" '+(s===savedSubj?'selected':'')+'>'+( s||'— no subject —')+'</option>';}).join('');
+          html+='<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:6px;background:'+(checked?'var(--bg2)':'transparent')+';margin-bottom:4px;">';
+          html+='<input type="checkbox" class="agreed-slot-entry" data-sched-id="'+sc.id+'" '+checked+' style="width:16px;height:16px;accent-color:var(--accent);flex-shrink:0;">';
+          html+='<span style="font-size:13px;font-weight:'+(checked?'600':'400')+';color:var(--text1);min-width:130px;">Session '+(i+1)+'  '+sc.slot_start+' – '+sc.slot_end+'</span>';
+          html+='<select class="agreed-slot-subject" data-sched-id="'+sc.id+'" style="font-size:12px;padding:3px 6px;border-radius:4px;border:1px solid var(--border);background:var(--bg1);color:var(--text1);flex:1;">'+subjOpts+'</select>';
+          html+='</div>';
         });
         html+='</div>';
       });
@@ -6873,10 +6878,15 @@ if(m==='add-student'||m==='edit-student'){
     else await API.put('/api/students/'+state.editTarget.id,body);
     toast(m==='add-student'?'Student enrolled':'Student updated');
     // Save agreed session slots from checkboxes
-    const agreedChecked=[...document.querySelectorAll('.agreed-slot-entry:checked')].map(function(el){return parseInt(el.dataset.schedId);});
+    // Build agreed slots with subjects
+    const agreedChecked=[...document.querySelectorAll('.agreed-slot-entry:checked')].map(function(cb){
+      var schedId=parseInt(cb.dataset.schedId);
+      var subjEl=document.querySelector('.agreed-slot-subject[data-sched-id="'+schedId+'"]');
+      return {schedule_id:schedId,subject:subjEl?subjEl.value:''};
+    });
     const stuIdForAS=m==='add-student'?((await API.get('/api/students'))?.find?.(function(s){return s.admission_id===body.admission_id;})?.id):state.editTarget?.id;
     if(stuIdForAS&&document.querySelectorAll('.agreed-slot-entry').length>0){
-      await API.post('/api/students/'+stuIdForAS+'/agreed-slots',{schedule_ids:agreedChecked,effective_from:new Date().toISOString().slice(0,10)});
+      await API.post('/api/students/'+stuIdForAS+'/agreed-slots',{slots:agreedChecked,effective_from:new Date().toISOString().slice(0,10)});
       await loadData('agreed_slots_'+stuIdForAS,'/api/students/'+stuIdForAS+'/agreed-slots');
     }
   }catch(err){
