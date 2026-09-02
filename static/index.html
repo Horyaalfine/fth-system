@@ -3474,7 +3474,7 @@ function renderSessionPlan(){
   // Merge: planStudents takes precedence; include old timetable entries not already covered
   // Students with agreed slots: use ONLY planStudents (authoritative); old timetable is fallback only for students with NO agreed slots
   var _planStudentIdSet=new Set(_planStudents.map(function(p){return p.student_id;}));
-  var _branchStudentIds=new Set((state.data.students||[]).map(function(s){return s.id;}));
+  var _branchStudentIds=new Set((state.data.students||[]).filter(function(s){return s.status==='active';}).map(function(s){return s.id;}));
   var allTT=_planStudents.filter(function(p){return _branchStudentIds.has(p.student_id);}).concat(_oldTT.filter(function(t){return !_planStudentIdSet.has(t.student_id)&&_branchStudentIds.has(t.student_id);}));
   var students=(state.data.students||[]).filter(function(s){return s.status==='active';});
   var staff=state.data.staff||[];
@@ -3630,7 +3630,14 @@ function renderSessionPlan(){
     function slotIsAM2(slot){var m=(slot||'').match(/\((\d+):/);if(!m)return false;var h=parseInt(m[1]);return h>=14?/Session 1\b/i.test(slot||''):h<12;}
     var expected=lpMode==='am'?allExpected.filter(function(t){return slotIsAM2(t.slot);}):lpMode==='pm'?allExpected.filter(function(t){return !slotIsAM2(t.slot);}):lpMode==='single'&&lpSlot&&lpSubject?allExpected.filter(function(t){return t.slot===lpSlot&&t.subject===lpSubject;}):allExpected;
     var subjSlotCounts={};
-    allExpected.forEach(function(t){var k=t.slot+'||'+t.subject;if(!subjSlotCounts[k])subjSlotCounts[k]=0;subjSlotCounts[k]++;});
+    var _seenSlotSubjStu={};
+    function _slotTimeKey(slot){var m=(slot||'').match(/\((\d{2}:\d{2})[–\-](\d{2}:\d{2})\)/);return m?m[1]+'-'+m[2]:slot;}
+    allExpected.forEach(function(t){
+      var k=_slotTimeKey(t.slot)+'||'+t.subject;
+      if(!subjSlotCounts[k])subjSlotCounts[k]=0;
+      var _sk=k+'|'+t.student_id;
+      if(!_seenSlotSubjStu[_sk]){_seenSlotSubjStu[_sk]=true;subjSlotCounts[k]++;}
+    });
     // Duplicate check
     var existingForDate=(state.data.sessions||[]).filter(function(s){return s.date===lpDate&&(!state.currentBranch||s.branch_id===state.currentBranch);});
     var duplicateSlotSubj=lpMode==='single'&&lpSlot&&lpSubject?existingForDate.filter(function(s){return s.slot===lpSlot&&s.subject===lpSubject;}):[];
@@ -3680,7 +3687,7 @@ function renderSessionPlan(){
         return true;
       }).forEach(function(k){
         var parts=k.split('||');
-        html+='<span class="badge badge-gray">'+parts[1]+' ('+parts[0].replace(/.*\(|\).*/g,'')+') ×'+subjSlotCounts[k]+'</span>';
+        var _timeLabel=parts[0].replace(/-/g,'–');html+='<span class="badge badge-gray">'+parts[1]+' ('+_timeLabel+') ×'+subjSlotCounts[k]+'</span>';
       });
     }
     html+='</div>';
@@ -8524,7 +8531,7 @@ if(action==='lp-generate'){
   var _genPlanStu=state.data['plan_students_'+lpDate]||[];
   var _genOldTT=state.data.all_timetables||[];
   var _genIds=new Set(_genPlanStu.map(function(p){return p.student_id;}));
-  var _genBranchIds=new Set((state.data.students||[]).map(function(s){return s.id;}));
+  var _genBranchIds=new Set((state.data.students||[]).filter(function(s){return s.status==='active';}).map(function(s){return s.id;}));
   var allTT=_genPlanStu.filter(function(p){return _genBranchIds.has(p.student_id);}).concat(_genOldTT.filter(function(t){return !_genIds.has(t.student_id)&&_genBranchIds.has(t.student_id);}));
   var lpMode=state.lpMode||'full';
   var lpSlot=state.lpSlot||'';
