@@ -696,8 +696,13 @@ def auto_create_sessions():
             end   = raw_end.strftime('%H:%M')   if hasattr(raw_end,   'strftime') else str(raw_end)[:5]
             num = int(s['session_num'])
             slot_text = f"{day_cap} Session {num} ({start}–{end})"
-            cur.execute("SELECT id FROM sessions WHERE branch_id=%s AND date=%s AND slot=%s",
-                        (branch_id, date_str, slot_text))
+            # Also check old-format variants (hyphen, 'Slot' keyword) to avoid duplicates
+            slot_hyphen = f"{day_cap} Session {num} ({start}-{end})"
+            slot_old1   = f"{day_cap} Slot {num} ({start}–{end})"
+            slot_old2   = f"{day_cap} Slot {num} ({start}-{end})"
+            cur.execute("""SELECT id FROM sessions WHERE branch_id=%s AND date=%s
+                            AND slot IN (%s,%s,%s,%s)""",
+                        (branch_id, date_str, slot_text, slot_hyphen, slot_old1, slot_old2))
             if cur.fetchone():
                 continue
             cur.execute("""
@@ -710,6 +715,48 @@ def auto_create_sessions():
         conn.commit()
         log_action('add', 'sessions', 0)
         return jsonify({'created': created, 'sessions': sessions_out, 'day_of_week': day_of_week})
+    except Exception as e:
+        conn.rollback(); return jsonify({'error': str(e)}), 400
+    finally:
+        cur.close(); conn.close()
+
+@api_bp.route('/api/sessions/deduplicate', methods=['POST'])
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches')
+def deduplicate_sessions():
+    """Remove duplicate sessions (same branch+date, same slot time range).
+    Keeps the session with the lowest id; deletes the rest (and their allocations)."""
+    d = request.json or {}
+    branch_id = d.get('branch_id')
+    date_str = d.get('date')
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        where = []; params = []
+        if branch_id: where.append("branch_id=%s"); params.append(branch_id)
+        if date_str:  where.append("date=%s");      params.append(date_str)
+        wc = ("WHERE " + " AND ".join(where)) if where else ""
+        # Normalise slot by replacing en-dash and hyphen variants so we group correctly
+        cur.execute(f"""
+            SELECT id, branch_id, date,
+                   REGEXP_REPLACE(REGEXP_REPLACE(slot, '–', '-'), 'Slot', 'Session') AS norm_slot
+            FROM sessions {wc}
+            ORDER BY branch_id, date, norm_slot, id
+        """, params)
+        all_sess = cur.fetchall()
+        seen = {}; to_delete = []
+        for s in all_sess:
+            key = (s['branch_id'], str(s['date']), s['norm_slot'])
+            if key in seen:
+                to_delete.append(s['id'])
+            else:
+                seen[key] = s['id']
+        deleted = 0
+        for did in to_delete:
+            cur.execute("DELETE FROM table_allocations WHERE session_id=%s", (did,))
+            cur.execute("DELETE FROM attendance WHERE session_id=%s", (did,))
+            cur.execute("DELETE FROM sessions WHERE id=%s", (did,))
+            deleted += 1
+        conn.commit()
+        return jsonify({'deleted': deleted, 'kept': len(seen)})
     except Exception as e:
         conn.rollback(); return jsonify({'error': str(e)}), 400
     finally:

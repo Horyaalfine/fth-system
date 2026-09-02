@@ -3673,7 +3673,7 @@ function renderSessionPlan(){
     if(existingForDate.length===0&&_schedForDay.length>0){
       html+='<div style="margin-top:10px;padding:12px 14px;background:rgba(37,99,235,0.08);border-radius:var(--radius);border-left:3px solid var(--accent);display:flex;align-items:center;justify-content:space-between;gap:12px;">';
       html+='<span style="font-size:13px;color:var(--text1);"><strong>'+_schedForDay.length+' session slot'+((_schedForDay.length>1)?'s':'')+' found</strong> for '+_dow.charAt(0).toUpperCase()+_dow.slice(1)+' in branch schedule. No sessions created yet for '+lpDate+'.</span>';
-      html+='<button class="btn btn-primary btn-sm" data-action="lp-auto-create-sessions" data-date="'+lpDate+'">⚡ Create sessions from schedule</button>';
+      html+='<button class="btn btn-primary btn-sm" data-action="lp-auto-create-sessions" data-date="'+lpDate+'">⚡ Create sessions from schedule</button>';html+=' <button class="btn btn-sm" style="background:var(--danger);color:#fff;border-color:var(--danger);" data-action="lp-dedup-sessions" data-date="'+lpDate+'">🔧 Fix duplicates</button>';
       html+='</div>';
     }
     // Duplicate warnings
@@ -8458,6 +8458,20 @@ if(action==='lp-max-per'){state.lpMaxPer=parseInt(el.value)||5;render();return;}
 if(action==='lp-mode'){state.lpMode=el.dataset.mode;state.planDraft=null;state.lpSlot='';state.lpSubject='';render();return;}
 if(action==='lp-slot-sel'||el.id==='lp-slot-sel'){state.lpSlot=el.value;state.lpSubject='';state.planDraft=null;render();return;}
 if(action==='lp-subj-sel'||el.id==='lp-subj-sel'){state.lpSubject=el.value;state.planDraft=null;render();return;}
+if(action==='lp-dedup-sessions'){
+  var _ddDate=el.dataset.date||state.lpDate;
+  var _ddBranch=state.currentBranch;
+  if(!_ddBranch){toast('Please select a branch first','warn');return;}
+  if(!confirm('This will delete duplicate sessions for '+_ddDate+'. Continue?'))return;
+  toast('Removing duplicates...','info');
+  try{
+    var _ddRes=await API.post('/api/sessions/deduplicate',{branch_id:_ddBranch,date:_ddDate});
+    toast('Done — '+(_ddRes.deleted||0)+' duplicate(s) removed','success');
+    await loadData('sessions','/api/sessions',branchParam());
+    render();
+  }catch(err){toast('Error: '+(err?.error||err),'error');}
+  return;
+}
 if(action==='lp-auto-create-sessions'){
   var _acDate=el.dataset.date||state.lpDate;
   var _acBranch=state.currentBranch;
@@ -8492,9 +8506,9 @@ if(action==='lp-generate'){
   // Merge plan_students (agreed-slots) with old timetable, same as renderSessionPlan
   var _genPlanStu=state.data['plan_students_'+lpDate]||[];
   var _genOldTT=state.data.all_timetables||[];
-  var _genIds=new Set(_genPlanStu.map(function(p){return p.student_id+'|'+p.slot+'|'+p.subject;}));
+  var _genIds=new Set(_genPlanStu.map(function(p){return p.student_id;}));
   var _genBranchIds=new Set((state.data.students||[]).map(function(s){return s.id;}));
-  var allTT=_genPlanStu.filter(function(p){return _genBranchIds.has(p.student_id);}).concat(_genOldTT.filter(function(t){return !_genIds.has(t.student_id+'|'+t.slot+'|'+t.subject)&&_genBranchIds.has(t.student_id);}));
+  var allTT=_genPlanStu.filter(function(p){return _genBranchIds.has(p.student_id);}).concat(_genOldTT.filter(function(t){return !_genIds.has(t.student_id)&&_genBranchIds.has(t.student_id);}));
   var lpMode=state.lpMode||'full';
   var lpSlot=state.lpSlot||'';
   var lpSubject=state.lpSubject||'';
