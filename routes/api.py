@@ -5443,3 +5443,102 @@ def dashboard_today():
         return jsonify({'today_sessions':0,'today_list':[],'today_expected':0,'today_present':0,'today_marked':0,'month_revenue':0,'new_enrolments':0,'error':str(e)})
     finally:
         cur.close(); conn.close()
+
+@api_bp.route('/api/session-plan-students', methods=['GET'])
+@require_auth
+def get_session_plan_students():
+    """Return students for lesson plan based on student_agreed_slots + branch_schedule.
+    Query params: branch_id, date (YYYY-MM-DD)"""
+    from datetime import datetime
+    branch_id = request.args.get('branch_id', type=int) or branch_scope()
+    date_str = request.args.get('date')
+    if not branch_id or not date_str:
+        return jsonify([])
+    day_names = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
+    day_of_week = day_names[datetime.strptime(date_str, '%Y-%m-%d').weekday()]
+    # weekday/saturday/sunday for backward compat with lesson plan filter
+    day_type = 'saturday' if day_of_week == 'saturday' else 'sunday' if day_of_week == 'sunday' else 'weekday'
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        # Get students with agreed slots for this branch + day_of_week
+        cur.execute("""
+            WITH sched AS (
+                SELECT id, slot_start, slot_end,
+                       ROW_NUMBER() OVER (ORDER BY slot_start) AS session_num
+                FROM branch_schedule
+                WHERE branch_id = %s AND day_of_week = %s AND status = 'active'
+                  AND (effective_from IS NULL OR effective_from <= %s)
+                  AND (effective_to IS NULL OR effective_to >= %s)
+            )
+            SELECT
+                s.id AS student_id,
+                s.name AS student_name,
+                s.admission_id,
+                s.year_group,
+                sc.id AS branch_schedule_id,
+                sc.slot_start, sc.slot_end, sc.session_num,
+                %s AS day_type,
+                %s AS day_of_week
+            FROM student_agreed_slots sas
+            JOIN students s ON s.id = sas.student_id
+            JOIN sched sc ON sc.id = sas.branch_schedule_id
+            WHERE s.status = 'active'
+            ORDER BY s.admission_id, sc.slot_start
+        """, (branch_id, day_of_week, date_str, date_str, day_type, day_of_week))
+        base_rows = rows(cur)
+        if not base_rows:
+            cur.close(); conn.close()
+            return jsonify([])
+        # Try to get subjects from student_timetable by matching slot start time
+        cur.execute("""
+            SELECT student_id, slot, subject
+            FROM student_timetable
+            WHERE branch_id = %s AND day_type = %s
+        """, (branch_id, day_type))
+        tt_rows = cur.fetchall()
+        import re as _re
+        # Build lookup: student_id -> {slot_start -> [subjects]}
+        tt_map = {}
+        for tr in tt_rows:
+            sid = tr['student_id']
+            slot_str = tr['slot'] or ''
+            subj = tr['subject'] or ''
+            m = _re.search(r'\((\d{1,2}:\d{2})', slot_str)
+            if m:
+                start = m.group(1).zfill(5)
+                if sid not in tt_map: tt_map[sid] = {}
+                if start not in tt_map[sid]: tt_map[sid][start] = []
+                if subj and subj not in tt_map[sid][start]:
+                    tt_map[sid][start].append(subj)
+        # Build result: one row per student per slot per subject
+        result = []
+        day_cap = day_of_week.capitalize()
+        for r2 in base_rows:
+            sid = r2['student_id']
+            start = r2['slot_start']
+            num = r2['session_num']
+            slot_text = f"{day_cap} Session {num} ({start}–{r2['slot_end']})"
+            subjects = tt_map.get(sid, {}).get(start, [])
+            if subjects:
+                for subj in subjects:
+                    result.append({
+                        'student_id': sid, 'student_name': r2['student_name'],
+                        'admission_id': r2['admission_id'], 'year_group': r2['year_group'],
+                        'day_type': r2['day_type'], 'slot': slot_text,
+                        'subject': subj, 'branch_schedule_id': r2['branch_schedule_id'],
+                        'slot_start': start, 'slot_end': r2['slot_end']
+                    })
+            else:
+                # No subject found — include without subject
+                result.append({
+                    'student_id': sid, 'student_name': r2['student_name'],
+                    'admission_id': r2['admission_id'], 'year_group': r2['year_group'],
+                    'day_type': r2['day_type'], 'slot': slot_text,
+                    'subject': '', 'branch_schedule_id': r2['branch_schedule_id'],
+                    'slot_start': start, 'slot_end': r2['slot_end']
+                })
+        cur.close(); conn.close()
+        return jsonify(result)
+    except Exception as e:
+        cur.close(); conn.close()
+        return jsonify({'error': str(e)}), 400

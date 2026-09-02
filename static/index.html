@@ -745,6 +745,9 @@ else if(page==='session_plan'){
     loadData('all_timetables','/api/student-timetable',b2),
     loadData('branch_schedule','/api/branch-schedule',b2),
   ]);
+  // Load agreed-slots based student list for today's date
+  const _lpInitDate=state.lpDate||new Date().toISOString().slice(0,10);
+  await loadData('plan_students_'+_lpInitDate,'/api/session-plan-students',{branch_id:state.currentBranch,date:_lpInitDate});
   if(state.planSessionId){
     await Promise.all([
       loadData('table_allocs_'+state.planSessionId,'/api/table-allocations/'+state.planSessionId),
@@ -3445,7 +3448,13 @@ function renderMgmtReports(){
 }
 
 function renderSessionPlan(){
-  var allTT=state.data.all_timetables||[];
+  // Use new agreed-slots based data; fall back to old timetable for any unmatched students
+  var _lpDate2=state.lpDate||new Date().toISOString().slice(0,10);
+  var _planStudents=state.data['plan_students_'+_lpDate2]||[];
+  var _oldTT=state.data.all_timetables||[];
+  // Merge: planStudents takes precedence; include old timetable entries not already covered
+  var _planStudentIds=new Set(_planStudents.map(function(p){return p.student_id+'|'+p.slot+'|'+p.subject;}));
+  var allTT=_planStudents.concat(_oldTT.filter(function(t){return !_planStudentIds.has(t.student_id+'|'+t.slot+'|'+t.subject);}));
   var students=(state.data.students||[]).filter(function(s){return s.status==='active';});
   var staff=state.data.staff||[];
   var sessions=state.data.sessions||[];
@@ -8158,7 +8167,13 @@ if(action==='reg-slot-filter'){state.regSlot=el.value;state.regSubject='';render
 if(action==='reg-subject-filter'){state.regSubject=el.value;render();return;}
 
 // Lesson plan date/max change
-if(action==='lp-date'){state.lpDate=el.value;state.planDraft=null;render();return;}
+if(action==='lp-date'){
+  state.lpDate=el.value;state.planDraft=null;
+  if(state.currentBranch&&el.value){
+    await loadData('plan_students_'+el.value,'/api/session-plan-students',{branch_id:state.currentBranch,date:el.value});
+  }
+  render();return;
+}
 if(action==='lp-max-per'){state.lpMaxPer=parseInt(el.value)||5;render();return;}
 
 // Auto-generate plan
