@@ -1619,6 +1619,99 @@ def report_summary():
     })
 
 
+@api_bp.route('/api/reports/enrolment', methods=['GET'])
+@require_auth
+def report_enrolment():
+    b = branch_scope()
+    conn = get_conn(); cur = conn.cursor()
+
+    # Get agreed slots (primary source)
+    b_filter = "AND stu.branch_id=%s" if b else ""
+    b_params = [b] if b else []
+    cur.execute(f"""
+        SELECT stu.id as student_id, stu.name, stu.admission_id, stu.year_group,
+               bs.day_of_week as day, bs.slot, sas.subject
+        FROM student_agreed_slots sas
+        JOIN branch_schedule bs ON bs.id = sas.branch_schedule_id
+        JOIN students stu ON stu.id = sas.student_id
+        WHERE stu.status='active' AND bs.status='active'
+          AND (bs.effective_from IS NULL OR bs.effective_from <= CURRENT_DATE)
+          AND (bs.effective_to IS NULL OR bs.effective_to >= CURRENT_DATE)
+          {b_filter}
+        ORDER BY stu.admission_id, bs.day_of_week, bs.slot
+    """, b_params)
+    agreed_rows = rows(cur)
+
+    agreed_student_ids = set(r['student_id'] for r in agreed_rows)
+
+    # Fallback: old timetable for students without agreed slots
+    b_filter2 = "AND t.branch_id=%s" if b else ""
+    b_params2 = [b] if b else []
+    cur.execute(f"""
+        SELECT stu.id as student_id, stu.name, stu.admission_id, stu.year_group,
+               t.day_of_week as day, t.slot, t.subject
+        FROM all_timetables t
+        JOIN students stu ON stu.id = t.student_id
+        WHERE stu.status='active' {b_filter2}
+        ORDER BY stu.admission_id, t.day_of_week, t.slot
+    """, b_params2)
+    old_rows = [r for r in rows(cur) if r['student_id'] not in agreed_student_ids]
+
+    all_rows = agreed_rows + old_rows
+
+    # Build per-student structure
+    from collections import defaultdict
+    student_map = {}
+    for r in all_rows:
+        sid = r['student_id']
+        if sid not in student_map:
+            student_map[sid] = {
+                'id': sid, 'name': r['name'],
+                'admission_id': r['admission_id'],
+                'year_group': r['year_group'] or '',
+                'sessions': []
+            }
+        student_map[sid]['sessions'].append({
+            'day': r['day'], 'slot': r['slot'], 'subject': r['subject'] or ''
+        })
+
+    students_out = sorted(student_map.values(), key=lambda x: x['admission_id'] or '')
+
+    # Students with NO sessions at all
+    cur.execute(f"""
+        SELECT id, name, admission_id, year_group FROM students
+        WHERE status='active' {"AND branch_id=%s" if b else ""}
+        ORDER BY admission_id
+    """, b_params)
+    all_active = rows(cur)
+    no_session_ids = set(s['id'] for s in all_active) - set(student_map.keys())
+    for s in all_active:
+        if s['id'] in no_session_ids:
+            students_out.append({'id': s['id'], 'name': s['name'],
+                'admission_id': s['admission_id'], 'year_group': s['year_group'] or '',
+                'sessions': []})
+
+    # Summary stats
+    subject_counts = defaultdict(set)
+    day_counts = defaultdict(set)
+    slot_counts = defaultdict(set)
+    for r in all_rows:
+        subject_counts[r['subject'] or 'Unknown'].add(r['student_id'])
+        day_counts[r['day']].add(r['student_id'])
+        slot_counts[r['slot']].add(r['student_id'])
+
+    cur.close(); conn.close()
+    return jsonify({
+        'students': students_out,
+        'total_active': len(all_active),
+        'total_with_sessions': len(student_map),
+        'total_no_sessions': len(no_session_ids),
+        'by_subject': sorted([{'subject': k, 'count': len(v)} for k,v in subject_counts.items()], key=lambda x: -x['count']),
+        'by_day': [{'day': d, 'count': len(day_counts[d])} for d in ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'] if d in day_counts],
+        'by_slot': sorted([{'slot': k, 'count': len(v)} for k,v in slot_counts.items()], key=lambda x: x['slot']),
+    })
+
+
 @api_bp.route('/api/staff-attendance', methods=['GET'])
 @require_auth
 def get_staff_attendance():

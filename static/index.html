@@ -4861,6 +4861,85 @@ function renderReports(){
     return html;
   }
 
+  // ── ENROLMENT TAB ──
+  if(rptTab==='enrolment'){
+    var enr=state.data.enrolment||null;
+    var DAY_ORDER=['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+    var DAY_LABELS={monday:'Mon',tuesday:'Tue',wednesday:'Wed',thursday:'Thu',friday:'Fri',saturday:'Sat',sunday:'Sun'};
+    var enrView=state.enrView||'summary';
+    var enrSearch=state.enrSearch||'';
+    var html2='';
+    html2+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px;">';
+    html2+='<div><div class="section-title" style="margin-bottom:4px;">Enrolment Report</div>';
+    html2+='<div class="section-sub">Current active students, agreed sessions &amp; subjects</div></div>';
+    html2+='<button class="btn" data-action="reports-tab" data-tab="analytics">← Analytics</button>';
+    html2+='</div>';
+    if(!enr){
+      html2+='<div class="empty-state">Loading enrolment data…</div>';
+      return html2;
+    }
+    // Summary cards
+    html2+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;">';
+    html2+='<div class="metric-card" style="text-align:center;"><div class="metric-value">'+enr.total_active+'</div><div class="metric-label">Active Students</div></div>';
+    html2+='<div class="metric-card" style="text-align:center;"><div class="metric-value" style="color:var(--green);">'+enr.total_with_sessions+'</div><div class="metric-label">Have Sessions</div></div>';
+    html2+='<div class="metric-card" style="text-align:center;"><div class="metric-value" style="color:var(--amber);">'+enr.total_no_sessions+'</div><div class="metric-label">No Sessions Yet</div></div>';
+    html2+='</div>';
+    // Subject & day summary
+    html2+='<div class="two-col" style="margin-bottom:16px;">';
+    html2+='<div class="card"><div class="card-title" style="margin-bottom:12px;">By Subject</div>';
+    var cols2=['var(--accent)','var(--teal)','var(--amber)','var(--pink)'];
+    (enr.by_subject||[]).forEach(function(s,i){html2+='<div class="bar-row"><span style="min-width:80px;color:var(--text2);font-weight:500;">'+(s.subject||'?')+'</span><div class="bar-bg"><div class="bar-fill" style="width:'+(enr.total_active?Math.round(s.count/enr.total_active*100):0)+'%;background:'+cols2[i%cols2.length]+';"></div></div><span style="min-width:30px;text-align:right;font-weight:700;">'+s.count+'</span></div>';});
+    html2+='</div>';
+    html2+='<div class="card"><div class="card-title" style="margin-bottom:12px;">By Day</div>';
+    (enr.by_day||[]).forEach(function(d,i){html2+='<div class="bar-row"><span style="min-width:80px;color:var(--text2);font-weight:500;">'+(DAY_LABELS[d.day]||d.day)+'</span><div class="bar-bg"><div class="bar-fill" style="width:'+(enr.total_active?Math.round(d.count/enr.total_active*100):0)+'%;background:'+cols2[(i+2)%cols2.length]+';"></div></div><span style="min-width:30px;text-align:right;font-weight:700;">'+d.count+'</span></div>';});
+    html2+='</div></div>';
+    // View toggle + search
+    html2+='<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">';
+    html2+='<button class="btn '+(enrView==='summary'?'btn-primary':'')+'" data-action="enr-view" data-view="summary">Summary</button>';
+    html2+='<button class="btn '+(enrView==='detail'?'btn-primary':'')+'" data-action="enr-view" data-view="detail">Detailed</button>';
+    html2+='<input type="text" id="enr-search" placeholder="Search student…" value="'+enrSearch+'" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;flex:1;min-width:140px;">';
+    html2+='<button class="btn" data-action="export-enrolment">📥 Export Excel</button>';
+    html2+='</div>';
+    var enrStudents=(enr.students||[]).filter(function(s){return !enrSearch||s.name.toLowerCase().includes(enrSearch.toLowerCase())||( s.admission_id||'').toLowerCase().includes(enrSearch.toLowerCase());});
+    if(enrView==='summary'){
+      html2+='<div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>';
+      html2+='<thead><tr><th>Adm No</th><th>Name</th><th>Year</th><th>Sessions</th><th>Subjects</th><th>Days</th></tr></thead><tbody>';
+      enrStudents.forEach(function(s){
+        var subjs=[...new Set((s.sessions||[]).map(function(x){return x.subject;}))].filter(Boolean).join(', ');
+        var days=[...new Set((s.sessions||[]).map(function(x){return x.day;}))].sort(function(a,b){return DAY_ORDER.indexOf(a)-DAY_ORDER.indexOf(b);}).map(function(d){return DAY_LABELS[d]||d;}).join(', ');
+        var sessionCount=(s.sessions||[]).length;
+        html2+='<tr>';
+        html2+='<td style="font-size:12px;color:var(--text3);">'+(s.admission_id||'—')+'</td>';
+        html2+='<td><strong>'+s.name+'</strong></td>';
+        html2+='<td>'+(s.year_group||'—')+'</td>';
+        html2+='<td>'+(sessionCount?'<span class="badge badge-accent">'+sessionCount+'</span>':'<span class="badge badge-danger">None</span>')+'</td>';
+        html2+='<td style="font-size:12px;">'+(subjs||'—')+'</td>';
+        html2+='<td style="font-size:12px;">'+(days||'—')+'</td>';
+        html2+='</tr>';
+      });
+      html2+='</tbody></table></div></div>';
+    } else {
+      html2+='<div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>';
+      html2+='<thead><tr><th>Adm No</th><th>Name</th><th>Year</th><th>Day</th><th>Session</th><th>Subject</th></tr></thead><tbody>';
+      enrStudents.forEach(function(s){
+        if((s.sessions||[]).length===0){
+          html2+='<tr><td style="font-size:12px;color:var(--text3);">'+(s.admission_id||'—')+'</td><td><strong>'+s.name+'</strong></td><td>'+(s.year_group||'—')+'</td><td colspan="3" style="color:var(--text3);font-size:12px;">No sessions assigned</td></tr>';
+        } else {
+          s.sessions.forEach(function(sess,i){
+            html2+='<tr>';
+            if(i===0){html2+='<td style="font-size:12px;color:var(--text3);" rowspan="'+s.sessions.length+'">'+(s.admission_id||'—')+'</td><td rowspan="'+s.sessions.length+'"><strong>'+s.name+'</strong></td><td rowspan="'+s.sessions.length+'">'+(s.year_group||'—')+'</td>';}
+            html2+='<td style="font-size:12px;">'+(DAY_LABELS[sess.day]||sess.day)+'</td>';
+            html2+='<td style="font-size:12px;color:var(--text3);">'+sess.slot+'</td>';
+            html2+='<td>'+(sess.subject?'<span class="badge badge-gray">'+sess.subject+'</span>':'—')+'</td>';
+            html2+='</tr>';
+          });
+        }
+      });
+      html2+='</tbody></table></div></div>';
+    }
+    return html2;
+  }
+
   // ── ANALYTICS TAB ──
   const s=state.data.summary||{};const bs=s.branch_stats||[];const yg=[...(s.year_groups||[])].sort((a,b)=>{
   const na=parseInt((a.year_group||'').match(/\d+/)?.[0]||999);
@@ -4882,6 +4961,7 @@ return`
 <button class="btn${_range==='lastyear'?' btn-primary':''}" data-action="analytics-range" data-range="lastyear" style="font-size:12px;padding:5px 10px;">Last Acad. Year</button>
 <button class="btn${_range==='all'?' btn-primary':''}" data-action="analytics-range" data-range="all" style="font-size:12px;padding:5px 10px;">All Time</button>
 </div>
+<button class="btn${_range==='enrolment'||state.reportsTab==='enrolment'?' btn-secondary':''}" data-action="reports-tab" data-tab="enrolment" style="font-size:12px;padding:5px 10px;">📋 Enrolment</button>
 <button class="btn btn-primary" data-action="reports-tab" data-tab="attendance" style="font-size:12px;padding:5px 10px;">📊 Attendance Report</button>
 </div>
 </div>
@@ -7824,6 +7904,7 @@ document.getElementById('rpt-date-select')?.addEventListener('change',async func
   state.rptLoading=false;
   render();
 });
+document.getElementById('enr-search')?.addEventListener('input',function(e){state.enrSearch=e.target.value;render();});
 document.getElementById('setup-slot-sel')?.addEventListener('change',function(e){
   state.setupSlot=e.target.value;
   var opt=e.target.selectedOptions[0];
@@ -9581,6 +9662,21 @@ if(action==='export-sessions'){
 
 // ── ATTENDANCE REPORT ACTIONS ──
 if(action==='guide-tab'){state.guideTab=el.dataset.tab;render();return;}
+if(action==='enr-view'){state.enrView=el.dataset.view;render();return;}
+if(action==='export-enrolment'){
+  var enr=state.data.enrolment;
+  if(!enr)return;
+  var DAY_LABELS2={monday:'Monday',tuesday:'Tuesday',wednesday:'Wednesday',thursday:'Thursday',friday:'Friday',saturday:'Saturday',sunday:'Sunday'};
+  var xlsRows=[['Adm No','Name','Year Group','Day','Session Slot','Subject']];
+  (enr.students||[]).forEach(function(s){
+    if((s.sessions||[]).length===0){xlsRows.push([s.admission_id,s.name,s.year_group||'','No sessions','','']);}
+    else{s.sessions.forEach(function(sess){xlsRows.push([s.admission_id,s.name,s.year_group||'',DAY_LABELS2[sess.day]||sess.day,sess.slot,sess.subject||'']);});}
+  });
+  var csv=xlsRows.map(function(r){return r.map(function(c){return '"'+String(c||'').replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+  var blob=new Blob([csv],{type:'text/csv'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='enrolment_report.csv';a.click();
+  return;
+}
 if(action==='analytics-range'){
   state.analyticsRange=el.dataset.range;
   delete state.data.summary;
@@ -9594,6 +9690,12 @@ if(action==='reports-tab'){
   if(el.dataset.tab==='attendance'){
     state.attRptLoaded=false;
     delete state.data.att_report;
+  }
+  if(el.dataset.tab==='enrolment'){
+    delete state.data.enrolment;
+    state.loading=true;render();
+    loadData('enrolment','/api/reports/enrolment',branchParam()).then(function(){state.loading=false;render();});
+    return;
   }
   render();return;
 }
