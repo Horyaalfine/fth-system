@@ -1578,11 +1578,11 @@ def report_summary():
     """, branch_params * 3 if b else ())
     branch_stats = rows(cur)
 
-    # Year group breakdown
+    # Year group breakdown — active students only
     if b:
-        cur.execute("SELECT year_group, COUNT(*) as c FROM students s WHERE s.branch_id=%s GROUP BY year_group ORDER BY year_group", (b,))
+        cur.execute("SELECT year_group, COUNT(*) as c FROM students s WHERE s.branch_id=%s AND s.status='active' GROUP BY year_group ORDER BY year_group", (b,))
     else:
-        cur.execute("SELECT year_group, COUNT(*) as c FROM students s GROUP BY year_group ORDER BY year_group")
+        cur.execute("SELECT year_group, COUNT(*) as c FROM students s WHERE s.status='active' GROUP BY year_group ORDER BY year_group")
     year_groups = rows(cur)
 
     # Subject breakdown — date-filtered
