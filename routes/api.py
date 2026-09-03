@@ -1622,13 +1622,6 @@ def report_summary():
 @api_bp.route('/api/reports/enrolment', methods=['GET'])
 @require_auth
 def report_enrolment():
-    import traceback
-    try:
-     return _report_enrolment_inner()
-    except Exception as e:
-     return jsonify({'_error': str(e), '_trace': traceback.format_exc()[-500:]}), 200
-
-def _report_enrolment_inner():
     b = branch_scope()
     conn = get_conn(); cur = conn.cursor()
 
