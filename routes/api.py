@@ -1503,7 +1503,15 @@ def parent_progress(student_id):
 @api_bp.route('/api/reports/summary', methods=['GET'])
 @require_auth
 def report_summary():
+    import datetime as _dt
     b = branch_scope()
+    date_from = request.args.get('date_from')
+    date_to   = request.args.get('date_to')
+    if not date_from and not date_to:
+        today = _dt.date.today()
+        yr = today.year if today.month >= 9 else today.year - 1
+        date_from = f'{yr}-09-01'
+        date_to   = f'{yr+1}-08-31'
     conn = get_conn(); cur = conn.cursor()
     params = (b,) if b else ()
     bw  = "WHERE s.branch_id=%s" if b else ""
@@ -1521,17 +1529,29 @@ def report_summary():
     cur.execute(f"SELECT COUNT(*) as c FROM staff s {bw2}", params)
     staff_count = cur.fetchone()['c']
 
-    # Session count
-    cur.execute(f"SELECT COUNT(*) as c FROM sessions s {bw3}", params)
+    # Session count — date-filtered
+    sess_date = []
+    sess_p = list(params)
+    if date_from: sess_date.append("s.date>=%s"); sess_p.append(date_from)
+    if date_to:   sess_date.append("s.date<=%s"); sess_p.append(date_to)
+    sess_extra = (' AND ' + ' AND '.join(sess_date)) if sess_date else ''
+    cur.execute(f"SELECT COUNT(*) as c FROM sessions s {bw3}" + sess_extra, tuple(sess_p))
     session_count = cur.fetchone()['c']
 
-    # Attendance rate
-    cur.execute("""
+    # Attendance rate — date-filtered
+    att_where_parts = []
+    att_params = list(params)
+    if b: att_where_parts.append("s.branch_id=%s")
+    if date_from: att_where_parts.append("s.date>=%s"); att_params.append(date_from)
+    if date_to:   att_where_parts.append("s.date<=%s"); att_params.append(date_to)
+    att_where = ('WHERE ' + ' AND '.join(att_where_parts)) if att_where_parts else ''
+    cur.execute(f"""
         SELECT COUNT(*) FILTER (WHERE a.status='present') as present,
                COUNT(*) as total
         FROM attendance a
         JOIN sessions s ON s.id=a.session_id
-    """ + (f" WHERE s.branch_id=%s" if b else ""), params)
+        {att_where}
+    """, tuple(att_params))
     att = cur.fetchone()
     att_rate = round(att['present'] / att['total'] * 100) if att['total'] else 0
 
@@ -1565,11 +1585,14 @@ def report_summary():
         cur.execute("SELECT year_group, COUNT(*) as c FROM students s GROUP BY year_group ORDER BY year_group")
     year_groups = rows(cur)
 
-    # Subject breakdown
-    if b:
-        cur.execute("SELECT subject, COUNT(*) as c FROM sessions s WHERE s.branch_id=%s GROUP BY subject ORDER BY c DESC", (b,))
-    else:
-        cur.execute("SELECT subject, COUNT(*) as c FROM sessions s GROUP BY subject ORDER BY c DESC")
+    # Subject breakdown — date-filtered
+    subj_where_parts = []
+    subj_params = []
+    if b: subj_where_parts.append("s.branch_id=%s"); subj_params.append(b)
+    if date_from: subj_where_parts.append("s.date>=%s"); subj_params.append(date_from)
+    if date_to:   subj_where_parts.append("s.date<=%s"); subj_params.append(date_to)
+    subj_where = ('WHERE ' + ' AND '.join(subj_where_parts)) if subj_where_parts else ''
+    cur.execute(f"SELECT subject, COUNT(*) as c FROM sessions s {subj_where} GROUP BY subject ORDER BY c DESC", tuple(subj_params))
     subjects = rows(cur)
 
     # Outstanding invoices
@@ -1591,6 +1614,8 @@ def report_summary():
         'year_groups': year_groups,
         'subjects': subjects,
         'outstanding_fees': int(outstanding),
+        'date_from': date_from,
+        'date_to': date_to,
     })
 
 

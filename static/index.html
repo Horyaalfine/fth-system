@@ -417,7 +417,7 @@ function exportXLSX(rows, filename, sheetName){
   }
 }
 
-let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',invTab:'list',invFeeFilter:'all',invMonthFilter:'',tsFilterStaff:'',tsFilterRole:'',tsFilterStatus:'',tsFilterDate:'',tsWorkedOnly:false,lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',sessionMonth:'',sessionDate:'',sessionSlot:'',sessionTeacher:'',sessionSubject:'',attTab:'quick',attDateFilter:'',attSlotFilter:'',qaDate:'',qaSlot:'',qaStatusFilter:'all',qaRecords:{},wpWeek:'',attAllSessions:'',attTeacherFilter:'',attStatusFilter:'all',planSessionId:null,planMonth:'',planTab:'allocate',timetableStudentId:null,mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:''};
+let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',invTab:'list',invFeeFilter:'all',invMonthFilter:'',tsFilterStaff:'',tsFilterRole:'',tsFilterStatus:'',tsFilterDate:'',tsWorkedOnly:false,lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',sessionMonth:'',sessionDate:'',sessionSlot:'',sessionTeacher:'',sessionSubject:'',attTab:'quick',attDateFilter:'',attSlotFilter:'',qaDate:'',qaSlot:'',qaStatusFilter:'all',qaRecords:{},wpWeek:'',attAllSessions:'',attTeacherFilter:'',attStatusFilter:'all',planSessionId:null,planMonth:'',planTab:'allocate',timetableStudentId:null,mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:'',reportsTab:'analytics',analyticsRange:'year'};
 
 function printLessonPlanReport(){
   var rptDate=state.rptDate;
@@ -786,7 +786,10 @@ else if(page==='student_progress'){
 }
 else if(page==='staff_timesheets'){await Promise.all([loadData('sessions','/api/sessions',b),loadData('staff','/api/staff',b),loadData('staff_att_summary','/api/staff-attendance/summary',{...b,month:state.staffAttMonth||new Date().toISOString().slice(0,7)}),loadData('staff_att','/api/staff-attendance',{...b,month:state.staffAttMonth||new Date().toISOString().slice(0,7)})]);}else if(page==='finance'){const mp=state.finMonth?{month:state.finMonth}:{};await Promise.all([loadData('students','/api/students',b),loadData('invoices','/api/invoices',b),loadData('adjustments','/api/adjustments',b),loadData('payments','/api/payments',{...b,...mp}),loadData('instalment_plans','/api/instalment-plans',b),loadData('payment_summary','/api/payments/summary',{...b,...mp}),
     loadData('hq_transfers','/api/hq-transfers',b),
-    loadData('hq_summary','/api/hq-transfers/summary')]);if(state.finStudentId)state.data['statement_'+state.finStudentId]=await API.get('/api/statement/'+state.finStudentId).catch(()=>null);}else if(page==='reports'||page==='att_report_page')await loadData('summary','/api/reports/summary',b);else if(page==='system_guide'){/* static content, no data needed */}else if(page==='users')await loadData('users','/api/users');else if(page==='branches')await Promise.all([loadData('branches','/api/branches'),loadData('summary','/api/reports/summary')]);else if(page==='parent_portal'){await Promise.all([loadData('parent_users','/api/parent-users'),loadData('students','/api/students')]);}else if(page==='audit')await loadData('audit','/api/audit');}catch(e){console.error('refreshPage error:',e);}finally{state.loading=false;render();}}
+    loadData('hq_summary','/api/hq-transfers/summary')]);if(state.finStudentId)state.data['statement_'+state.finStudentId]=await API.get('/api/statement/'+state.finStudentId).catch(()=>null);}else if(page==='reports'||page==='att_report_page'){
+    var _rngParams=Object.assign({},b,_analyticsDateParams());
+    await loadData('summary','/api/reports/summary',_rngParams);
+  }else if(page==='system_guide'){/* static content, no data needed */}else if(page==='users')await loadData('users','/api/users');else if(page==='branches')await Promise.all([loadData('branches','/api/branches'),loadData('summary','/api/reports/summary')]);else if(page==='parent_portal'){await Promise.all([loadData('parent_users','/api/parent-users'),loadData('students','/api/students')]);}else if(page==='audit')await loadData('audit','/api/audit');}catch(e){console.error('refreshPage error:',e);}finally{state.loading=false;render();}}
 
 function render(){
   var _mbnav=document.getElementById('mobile-bottom-nav');
@@ -819,7 +822,7 @@ if(state.currentUser&&!['super_admin','reports_viewer','head_of_branches'].inclu
       else if(pg==='staff') loadData('staff','/api/staff',b).then(function(){state.loading=false;render();});
       else if(pg==='session_plan') Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('staff','/api/staff',b),loadData('branch_schedule','/api/branch-schedule',b),loadData('all_timetables','/api/student-timetable',b)]).then(function(){state.loading=false;render();});
       else if(pg==='invoices') Promise.all([loadData('invoices','/api/invoices',b),loadData('students','/api/students',b)]).then(function(){state.loading=false;render();});
-      else if(pg==='reports') loadData('summary','/api/reports/summary',b).then(function(){state.loading=false;render();});
+      else if(pg==='reports') loadData('summary','/api/reports/summary',Object.assign({},b,_analyticsDateParams())).then(function(){state.loading=false;render();});
       else if(pg==='session_reports') Promise.all([loadData('sessions','/api/sessions',b),loadData('staff','/api/staff',b)]).then(function(){state.loading=false;render();});
       else if(pg==='lesson_reports') loadData('sessions','/api/sessions',b).then(function(){state.loading=false;render();});
       else if(pg==='staff_timesheets') Promise.all([loadData('staff','/api/staff',b),loadData('staff_att','/api/staff-attendance',b)]).then(function(){state.loading=false;render();});
@@ -829,7 +832,7 @@ if(state.currentUser&&!['super_admin','reports_viewer','head_of_branches'].inclu
       ]).then(function(){state.loading=false;render();});}
       else if(pg==='notes')Promise.all([loadData('meeting_notes','/api/meeting-notes',b),loadData('students','/api/students',b),loadData('branches','/api/branches')]).then(function(){state.loading=false;render();});else if(pg==='test_records') Promise.all([loadData('students','/api/students',b),loadData('test_records','/api/test-records',b),loadData('branches','/api/branches')]).then(function(){state.loading=false;render();});
       else if(pg==='catchup') Promise.all([loadData('students','/api/students',b),loadData('catchup','/api/catchup',b)]).then(function(){state.loading=false;render();});
-      else Promise.all([loadData('branches','/api/branches'),loadData('summary','/api/reports/summary',b)]).then(function(){state.loading=false;render();});
+      else Promise.all([loadData('branches','/api/branches'),loadData('summary','/api/reports/summary',Object.assign({},b,_analyticsDateParams()))]).then(function(){state.loading=false;render();});
       return false;
     };
   });
@@ -4728,6 +4731,22 @@ function renderAttendanceReportPage(){
   return renderReports();
 }
 
+function _analyticsDateParams(){
+  var range=state.analyticsRange||'year';
+  var today=new Date();
+  var yr=today.getMonth()>=8?today.getFullYear():today.getFullYear()-1;
+  if(range==='month'){
+    var y=today.getFullYear(),m=today.getMonth();
+    var pad=function(n){return String(n).padStart(2,'0');};
+    var last=new Date(y,m+1,0).getDate();
+    return{date_from:y+'-'+pad(m+1)+'-01',date_to:y+'-'+pad(m+1)+'-'+pad(last)};
+  } else if(range==='year'){
+    return{date_from:yr+'-09-01',date_to:(yr+1)+'-08-31'};
+  } else if(range==='lastyear'){
+    return{date_from:(yr-1)+'-09-01',date_to:yr+'-08-31'};
+  }
+  return{};
+}
 function renderReports(){
   const rptTab=state.reportsTab||'analytics';
 
@@ -4846,11 +4865,21 @@ function renderReports(){
   if(na!==nb) return na-nb;
   return (a.year_group||'').localeCompare(b.year_group||'');
 });const subj=s.subjects||[];const cols=['var(--accent)','var(--teal)','var(--amber)','var(--pink)'];
+  const _range=state.analyticsRange||'year';
+  const _periodLabel=s.date_from&&s.date_to?new Date(s.date_from+'T00:00:00').toLocaleDateString('en-GB',{month:'short',year:'numeric'})+' – '+new Date(s.date_to+'T00:00:00').toLocaleDateString('en-GB',{month:'short',year:'numeric'}):'All time';
 return`
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
 <div><div class="section-title" style="margin-bottom:4px;">Analytics</div>
-<div class="section-sub">System-wide performance overview</div></div>
-<button class="btn btn-primary" data-action="reports-tab" data-tab="attendance">📊 Attendance Report</button>
+<div class="section-sub">Period: ${_periodLabel}</div></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+<div class="btn-group" style="display:flex;gap:4px;">
+<button class="btn${_range==='month'?' btn-primary':''}" data-action="analytics-range" data-range="month" style="font-size:12px;padding:5px 10px;">This Month</button>
+<button class="btn${_range==='year'?' btn-primary':''}" data-action="analytics-range" data-range="year" style="font-size:12px;padding:5px 10px;">This Acad. Year</button>
+<button class="btn${_range==='lastyear'?' btn-primary':''}" data-action="analytics-range" data-range="lastyear" style="font-size:12px;padding:5px 10px;">Last Acad. Year</button>
+<button class="btn${_range==='all'?' btn-primary':''}" data-action="analytics-range" data-range="all" style="font-size:12px;padding:5px 10px;">All Time</button>
+</div>
+<button class="btn btn-primary" data-action="reports-tab" data-tab="attendance" style="font-size:12px;padding:5px 10px;">📊 Attendance Report</button>
+</div>
 </div>
 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;">
 <div class="metric-card" style="text-align:center;"><div class="metric-value">${s.student_count||0}</div><div class="metric-label" style="margin-top:6px;">Students</div></div>
@@ -9548,6 +9577,14 @@ if(action==='export-sessions'){
 
 // ── ATTENDANCE REPORT ACTIONS ──
 if(action==='guide-tab'){state.guideTab=el.dataset.tab;render();return;}
+if(action==='analytics-range'){
+  state.analyticsRange=el.dataset.range;
+  delete state.data.summary;
+  state.loading=true;render();
+  var _rp=Object.assign({},branchParam(),_analyticsDateParams());
+  loadData('summary','/api/reports/summary',_rp).then(function(){state.loading=false;render();});
+  return;
+}
 if(action==='reports-tab'){
   state.reportsTab=el.dataset.tab;
   if(el.dataset.tab==='attendance'){
