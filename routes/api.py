@@ -3320,7 +3320,7 @@ def mgmt_summary():
     staff_hrs = cur.fetchone()
 
     # Fees
-    cur.execute(f"SELECT COALESCE(SUM(amount),0) as t FROM invoices WHERE status!='paid' {bw2.replace('branch_id','branch_id')}", bp)
+    cur.execute(f"SELECT COALESCE(SUM(amount),0) as t FROM invoices WHERE status!='paid' {'AND branch_id=%s' if b else ''}", bp)
     outstanding = float(cur.fetchone()['t'])
     cur.execute(f"SELECT COALESCE(SUM(amount),0) as t FROM payments WHERE payment_date BETWEEN %s AND %s {bw.replace('s.branch_id','branch_id')}", (yr_from, yr_to)+bp)
     collected = float(cur.fetchone()['t'])
