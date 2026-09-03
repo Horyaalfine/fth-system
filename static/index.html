@@ -1470,7 +1470,7 @@ function renderSessions(){
               html+='<td style="padding:3px 12px 3px 0;color:var(--text3);">'+(st.admission_id||'—')+'</td>';
               html+='<td style="padding:3px 12px 3px 0;font-weight:500;">'+(st.name||'—')+'</td>';
               html+='<td style="padding:3px 12px 3px 0;">'+(st.year_group||'—')+'</td>';
-              html+='<td style="padding:3px 0;"><button class="btn btn-sm btn-danger" style="padding:2px 7px;font-size:11px;" data-action="remove-session-student" data-session-id="'+s.id+'" data-student-id="'+st.student_id+'">✕</button></td>';
+              html+='<td style="padding:3px 0;"><button class="btn btn-sm btn-danger" style="padding:2px 7px;font-size:11px;" data-action="remove-rpt-student" data-session-id="'+s.id+'" data-student-id="'+st.student_id+'">✕</button></td>';
               html+='</tr>';
             });
             html+='</tbody></table>';
@@ -3994,7 +3994,7 @@ function renderSessionPlan(){
                 html+='</select>';
                 html+='</td>';
               }
-              html+='<td style="padding:2px 0;"><button class="btn btn-sm btn-danger" style="padding:2px 6px;font-size:11px;line-height:1;" data-action="remove-session-student" data-session-id="'+s.id+'" data-student-id="'+stId+'" title="Remove from table">✕</button></td>';
+              html+='<td style="padding:2px 0;"><button class="btn btn-sm btn-danger" style="padding:2px 6px;font-size:11px;line-height:1;" data-action="remove-rpt-student" data-session-id="'+s.id+'" data-student-id="'+stId+'" title="Remove from table">✕</button></td>';
               html+='</tr>';
             });
             html+='</tbody></table>';
@@ -9738,6 +9738,17 @@ if(action==='manual-add-student'){
   return;
 }
 if(action==='remove-session-student'){
+  var sessId2=parseInt(el.dataset.sessionId);
+  var stuId2=parseInt(el.dataset.studentId);
+  if(!confirm('Remove this student from the table?'))return;
+  API.delete('/api/sessions/'+sessId2+'/students/'+stuId2).then(function(){
+    delete state.data['sess_students_'+sessId2];
+    loadData('sess_students_'+sessId2,'/api/sessions/'+sessId2+'/students').then(function(){render();});
+    toast('Student removed','success');
+  }).catch(function(){toast('Failed to remove','danger');});
+  return;
+}
+if(action==='remove-rpt-student'){
   var sessId2=parseInt(el.dataset.sessionId);
   var stuId2=parseInt(el.dataset.studentId);
   if(!confirm('Remove this student from the table?'))return;
