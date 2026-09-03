@@ -3954,9 +3954,9 @@ function renderSessionPlan(){
             html+='<div style="font-size:12px;color:var(--text3);font-style:italic;margin-bottom:6px;">No students allocated</div>';
             // Show add dropdown even when table is empty
             var _allTTe=state.data.all_timetables||[];
-            var _planSte=state.data['plan_students_'+(state.lpDate||new Date().toISOString().slice(0,10))]||[];
-            var _ttAllE=_planSte.concat(_allTTe);
-            var _ttSlotE=_ttAllE.filter(function(t){return t.slot===s.slot&&t.subject===s.subject;});
+            var _normSlot=function(sl){return (sl||'').replace(/–/g,'-').replace(/—/g,'-');};
+            var _sSlot=_normSlot(s.slot);
+            var _ttSlotE=_allTTe.filter(function(t){return _normSlot(t.slot)===_sSlot&&t.subject===s.subject;});
             var _ttIdsE=new Set(_ttSlotE.map(function(t){return t.student_id||null;}));
             var _ttAdmE=new Set(_ttSlotE.map(function(t){return t.admission_id;}));
             var _addableE=(state.data.students||[]).filter(function(st){
@@ -3998,7 +3998,8 @@ function renderSessionPlan(){
             var inTable=studs.map(function(st){return st.student_id||st.id;});
             // Only show students on the timetable for this slot + subject
             var allTTr=state.data.all_timetables||[];
-            var ttForSlot=allTTr.filter(function(t){return t.slot===s.slot&&t.subject===s.subject;});
+            var _normSlot2=function(sl){return (sl||'').replace(/–/g,'-').replace(/—/g,'-');};
+            var ttForSlot=allTTr.filter(function(t){return _normSlot2(t.slot)===_normSlot2(s.slot)&&t.subject===s.subject;});
             var ttIds=ttForSlot.map(function(t){return t.student_id||null;});
             // Also match by name if student_id not available in allTT
             var ttAdmIds=ttForSlot.map(function(t){return t.admission_id;});
