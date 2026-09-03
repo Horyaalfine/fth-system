@@ -3965,7 +3965,10 @@ function renderSessionPlan(){
             if(_addableE.length>0){
               html+='<select data-action="rpt-add-student" data-id="'+s.id+'" style="width:100%;font-size:11px;padding:3px 6px;">';
               html+='<option value="">＋ Add student to this table...</option>';
-              _addableE.forEach(function(st){html+='<option value="'+st.id+'">'+st.name+' ('+st.admission_id+(st.year_group?' · '+st.year_group:'')+')' +'</option>';});
+              _addableE.forEach(function(st){
+                var _stuSubjs=[...new Set(_allTTe.filter(function(t){return (t.student_id===st.id||t.admission_id===st.admission_id);}).map(function(t){return t.subject;}).filter(Boolean))].join(', ');
+                html+='<option value="'+st.id+'">'+st.name+' ('+st.admission_id+(st.year_group?' · '+st.year_group:'')+')'+(_stuSubjs?' · '+_stuSubjs:'')+' </option>';
+              });
               html+='</select>';
             }
           }else{
@@ -4010,7 +4013,10 @@ function renderSessionPlan(){
               html+='<div style="margin-top:6px;">';
               html+='<select data-action="rpt-add-student" data-id="'+s.id+'" style="width:100%;font-size:11px;padding:3px 6px;">';
               html+='<option value="">＋ Add student to this table...</option>';
-              addable.forEach(function(st){html+='<option value="'+st.id+'">'+st.name+' ('+st.admission_id+(st.year_group?' · '+st.year_group:'')+')' +'</option>';});
+              addable.forEach(function(st){
+                var _stSubjs=[...new Set(allTTr.filter(function(t){return (t.student_id===st.id||t.admission_id===st.admission_id);}).map(function(t){return t.subject;}).filter(Boolean))].join(', ');
+                html+='<option value="'+st.id+'">'+st.name+' ('+st.admission_id+(st.year_group?' · '+st.year_group:'')+')'+(_stSubjs?' · '+_stSubjs:'')+' </option>';
+              });
               html+='</select>';
               html+='</div>';
             }
