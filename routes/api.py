@@ -1630,7 +1630,9 @@ def report_enrolment():
     b_params = [b] if b else []
     cur.execute(f"""
         SELECT stu.id as student_id, stu.name, stu.admission_id, stu.year_group,
-               bs.day_of_week as day, bs.slot, sas.subject
+               bs.day_of_week as day,
+               CONCAT(TO_CHAR(bs.slot_start,'HH24:MI'), '–', TO_CHAR(bs.slot_end,'HH24:MI')) as slot,
+               sas.subject
         FROM student_agreed_slots sas
         JOIN branch_schedule bs ON bs.id = sas.branch_schedule_id
         JOIN students stu ON stu.id = sas.student_id
@@ -1638,7 +1640,7 @@ def report_enrolment():
           AND (bs.effective_from IS NULL OR bs.effective_from <= CURRENT_DATE)
           AND (bs.effective_to IS NULL OR bs.effective_to >= CURRENT_DATE)
           {b_filter}
-        ORDER BY stu.admission_id, bs.day_of_week, bs.slot
+        ORDER BY stu.admission_id, bs.day_of_week, bs.slot_start
     """, b_params)
     agreed_rows = rows(cur)
 
