@@ -4901,7 +4901,7 @@ ${yg.map((y,i)=>`<div class="bar-row"><span style="min-width:90px;color:var(--te
 </div>
 <div class="card">
 <div class="card-title" style="margin-bottom:14px;">Sessions by subject</div>
-${subj.map((sub,i)=>`<div class="bar-row"><span style="min-width:90px;color:var(--text2);font-weight:500;">${sub.subject||'?'}</span><div class="bar-bg"><div class="bar-fill" style="width:${s.session_count?Math.round(sub.c/s.session_count*100):0}%;background:${cols[(i+2)%cols.length]};"></div></div><span style="min-width:30px;text-align:right;font-weight:700;color:var(--text);">${sub.c}</span></div>`).join('')}
+${subj.length?subj.map((sub,i)=>`<div class="bar-row"><span style="min-width:90px;color:var(--text2);font-weight:500;">${sub.subject||'?'}</span><div class="bar-bg"><div class="bar-fill" style="width:${s.session_count?Math.round(sub.c/s.session_count*100):0}%;background:${cols[(i+2)%cols.length]};"></div></div><span style="min-width:30px;text-align:right;font-weight:700;color:var(--text);">${sub.c}</span></div>`).join(''):'<div style="color:var(--text3);font-size:13px;padding:8px 0;">No sessions in this period.</div>'}
 <hr class="divider">
 <div class="card-title" style="margin-bottom:12px;">Export data</div>
 <div style="display:flex;flex-direction:column;gap:10px;">
