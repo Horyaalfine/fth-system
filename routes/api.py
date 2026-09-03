@@ -1638,7 +1638,7 @@ def _report_enrolment_inner():
     cur.execute(f"""
         SELECT stu.id as student_id, stu.name, stu.admission_id, stu.year_group,
                bs.day_of_week as day,
-               CONCAT(TO_CHAR(bs.slot_start,'HH24:MI'), '–', TO_CHAR(bs.slot_end,'HH24:MI')) as slot,
+               (LEFT(bs.slot_start::text,5) || '–' || LEFT(bs.slot_end::text,5)) as slot,
                sas.subject
         FROM student_agreed_slots sas
         JOIN branch_schedule bs ON bs.id = sas.branch_schedule_id
