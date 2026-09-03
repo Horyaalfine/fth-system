@@ -4735,7 +4735,10 @@ function _analyticsDateParams(){
   var range=state.analyticsRange||'year';
   var today=new Date();
   var yr=today.getMonth()>=8?today.getFullYear():today.getFullYear()-1;
-  if(range==='month'){
+  if(range==='today'){
+    var td=today.toISOString().slice(0,10);
+    return{date_from:td,date_to:td};
+  } else if(range==='month'){
     var y=today.getFullYear(),m=today.getMonth();
     var pad=function(n){return String(n).padStart(2,'0');};
     var last=new Date(y,m+1,0).getDate();
@@ -4872,7 +4875,8 @@ return`
 <div><div class="section-title" style="margin-bottom:4px;">Analytics</div>
 <div class="section-sub">Period: ${_periodLabel}</div></div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-<div class="btn-group" style="display:flex;gap:4px;">
+<div class="btn-group" style="display:flex;gap:4px;flex-wrap:wrap;">
+<button class="btn${_range==='today'?' btn-primary':''}" data-action="analytics-range" data-range="today" style="font-size:12px;padding:5px 10px;">Today</button>
 <button class="btn${_range==='month'?' btn-primary':''}" data-action="analytics-range" data-range="month" style="font-size:12px;padding:5px 10px;">This Month</button>
 <button class="btn${_range==='year'?' btn-primary':''}" data-action="analytics-range" data-range="year" style="font-size:12px;padding:5px 10px;">This Acad. Year</button>
 <button class="btn${_range==='lastyear'?' btn-primary':''}" data-action="analytics-range" data-range="lastyear" style="font-size:12px;padding:5px 10px;">Last Acad. Year</button>
