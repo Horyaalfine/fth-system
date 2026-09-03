@@ -1646,17 +1646,16 @@ def report_enrolment():
 
     agreed_student_ids = set(r['student_id'] for r in agreed_rows)
 
-    # Fallback: old timetable for students without agreed slots
-    # Filter via stu.branch_id — all_timetables has no branch_id column
-    b_filter2 = "AND stu.branch_id=%s" if b else ""
+    # Fallback: old timetable (student_timetable) for students without agreed slots
+    b_filter2 = "AND t.branch_id=%s" if b else ""
     b_params2 = [b] if b else []
     cur.execute(f"""
         SELECT stu.id as student_id, stu.name, stu.admission_id, stu.year_group,
-               t.day_of_week as day, t.slot, t.subject
-        FROM all_timetables t
+               t.day_type as day, t.slot, t.subject
+        FROM student_timetable t
         JOIN students stu ON stu.id = t.student_id
         WHERE stu.status='active' {b_filter2}
-        ORDER BY stu.admission_id, t.day_of_week, t.slot
+        ORDER BY stu.admission_id, t.day_type, t.slot
     """, b_params2)
     old_rows = [r for r in rows(cur) if r['student_id'] not in agreed_student_ids]
 
