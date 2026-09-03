@@ -1475,8 +1475,14 @@ function renderSessions(){
             });
             html+='</tbody></table>';
           }
-          // Add student picker
-          var activeStudents=(state.data.students||[]).filter(function(st){return st.status==='active';});
+          // Add student picker — filtered to expected students for this slot+subject
+          var _sessionTT=state.data.all_timetables||[];
+          var _planStu=state.data['plan_students_'+(state.lpDate||new Date().toISOString().slice(0,10))]||[];
+          var _allTThere=_planStu.concat(_sessionTT);
+          var _expectedIds=new Set(_allTThere.filter(function(t){
+            return t.slot===s.slot&&t.subject===s.subject;
+          }).map(function(t){return t.student_id;}));
+          var activeStudents=(state.data.students||[]).filter(function(st){return st.status==='active'&&(_expectedIds.size===0||_expectedIds.has(st.id));});
           var allocatedIds=new Set(studs.map(function(st){return st.student_id;}));
           var available=activeStudents.filter(function(st){return !allocatedIds.has(st.id);});
           html+='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">';
