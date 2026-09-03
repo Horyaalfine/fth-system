@@ -3291,7 +3291,7 @@ def mgmt_summary():
     # Students
     cur.execute(f"SELECT COUNT(*) as c FROM students WHERE status='active' {bw2.replace('WHERE','AND') if bw2 else ''}", bp)
     active_students = cur.fetchone()['c']
-    cur.execute(f"SELECT COUNT(*) as c FROM students WHERE created_at::date BETWEEN %s AND %s {bw}", (yr_from, yr_to)+bp)
+    cur.execute(f"SELECT COUNT(*) as c FROM students WHERE created_at::date BETWEEN %s AND %s {bw.replace('s.branch_id','branch_id')}", (yr_from, yr_to)+bp)
     new_enrolments = cur.fetchone()['c']
 
     # Sessions this year
