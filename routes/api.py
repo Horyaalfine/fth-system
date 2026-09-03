@@ -1645,7 +1645,8 @@ def report_enrolment():
     agreed_student_ids = set(r['student_id'] for r in agreed_rows)
 
     # Fallback: old timetable for students without agreed slots
-    b_filter2 = "AND t.branch_id=%s" if b else ""
+    # Filter via stu.branch_id — all_timetables has no branch_id column
+    b_filter2 = "AND stu.branch_id=%s" if b else ""
     b_params2 = [b] if b else []
     cur.execute(f"""
         SELECT stu.id as student_id, stu.name, stu.admission_id, stu.year_group,
