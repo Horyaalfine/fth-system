@@ -1461,19 +1461,33 @@ function renderSessions(){
           html+='<tr style="background:var(--surface2);border-top:1px solid var(--border);">';
           html+='<td colspan="5" style="padding:8px 16px 12px 32px;">';
           if(studs.length===0){
-            html+='<span style="font-size:12px;color:var(--text3);">No students allocated to this table</span>';
+            html+='<div style="font-size:12px;color:var(--text3);margin-bottom:8px;">No students allocated to this table</div>';
           }else{
-            html+='<table style="margin:0;font-size:12px;width:auto;">';
-            html+='<thead><tr><th style="padding:3px 12px 3px 0;color:var(--text3);font-weight:600;">Ad No.</th><th style="padding:3px 12px 3px 0;color:var(--text3);font-weight:600;">Name</th><th style="padding:3px 12px 3px 0;color:var(--text3);font-weight:600;">Year</th></tr></thead><tbody>';
+            html+='<table style="margin:0 0 10px 0;font-size:12px;width:auto;">';
+            html+='<thead><tr><th style="padding:3px 12px 3px 0;color:var(--text3);font-weight:600;">Ad No.</th><th style="padding:3px 12px 3px 0;color:var(--text3);font-weight:600;">Name</th><th style="padding:3px 12px 3px 0;color:var(--text3);font-weight:600;">Year</th><th></th></tr></thead><tbody>';
             studs.forEach(function(st){
               html+='<tr>';
               html+='<td style="padding:3px 12px 3px 0;color:var(--text3);">'+(st.admission_id||'—')+'</td>';
               html+='<td style="padding:3px 12px 3px 0;font-weight:500;">'+(st.name||'—')+'</td>';
               html+='<td style="padding:3px 12px 3px 0;">'+(st.year_group||'—')+'</td>';
+              html+='<td style="padding:3px 0;"><button class="btn btn-sm btn-danger" style="padding:2px 7px;font-size:11px;" data-action="remove-session-student" data-session-id="'+s.id+'" data-student-id="'+st.student_id+'">✕</button></td>';
               html+='</tr>';
             });
             html+='</tbody></table>';
           }
+          // Add student picker
+          var activeStudents=(state.data.students||[]).filter(function(st){return st.status==='active';});
+          var allocatedIds=new Set(studs.map(function(st){return st.student_id;}));
+          var available=activeStudents.filter(function(st){return !allocatedIds.has(st.id);});
+          html+='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">';
+          html+='<select id="add-stu-sel-'+s.id+'" style="border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;flex:1;min-width:160px;">';
+          html+='<option value="">— add student —</option>';
+          available.sort(function(a,b){return (a.admission_id||'').localeCompare(b.admission_id||'');}).forEach(function(st){
+            html+='<option value="'+st.id+'">'+st.admission_id+' · '+st.name+'</option>';
+          });
+          html+='</select>';
+          html+='<button class="btn btn-sm btn-primary" data-action="manual-add-student" data-session-id="'+s.id+'" style="white-space:nowrap;">+ Add</button>';
+          html+='</div>';
           html+='</td></tr>';
         }
       });
@@ -9679,6 +9693,29 @@ if(action==='export-enrolment'){
   var csv=xlsRows.map(function(r){return r.map(function(c){return '"'+String(c||'').replace(/"/g,'""')+'"';}).join(',');}).join('\n');
   var blob=new Blob([csv],{type:'text/csv'});
   var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='enrolment_report.csv';a.click();
+  return;
+}
+if(action==='manual-add-student'){
+  var sessId=parseInt(el.dataset.sessionId);
+  var sel=document.getElementById('add-stu-sel-'+sessId);
+  var stuId=sel?parseInt(sel.value):0;
+  if(!stuId){toast('Select a student first','warning');return;}
+  API.post('/api/sessions/'+sessId+'/add-student',{student_id:stuId}).then(function(){
+    delete state.data['sess_students_'+sessId];
+    loadData('sess_students_'+sessId,'/api/sessions/'+sessId+'/students').then(function(){render();});
+    toast('Student added','success');
+  }).catch(function(){toast('Failed to add student','danger');});
+  return;
+}
+if(action==='remove-session-student'){
+  var sessId2=parseInt(el.dataset.sessionId);
+  var stuId2=parseInt(el.dataset.studentId);
+  if(!confirm('Remove this student from the table?'))return;
+  API.delete('/api/sessions/'+sessId2+'/students/'+stuId2).then(function(){
+    delete state.data['sess_students_'+sessId2];
+    loadData('sess_students_'+sessId2,'/api/sessions/'+sessId2+'/students').then(function(){render();});
+    toast('Student removed','success');
+  }).catch(function(){toast('Failed to remove','danger');});
   return;
 }
 if(action==='analytics-range'){
