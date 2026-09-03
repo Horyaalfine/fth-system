@@ -9751,7 +9751,6 @@ if(action==='remove-session-student'){
 if(action==='remove-rpt-student'){
   var sessId2=parseInt(el.dataset.sessionId);
   var stuId2=parseInt(el.dataset.studentId);
-  if(!confirm('Remove this student from the table?'))return;
   API.delete('/api/sessions/'+sessId2+'/students/'+stuId2).then(function(){
     delete state.data['sess_students_'+sessId2];
     loadData('sess_students_'+sessId2,'/api/sessions/'+sessId2+'/students').then(function(){render();});
