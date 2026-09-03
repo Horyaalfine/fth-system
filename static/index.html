@@ -4874,8 +4874,12 @@ function renderReports(){
     html2+='<div class="section-sub">Current active students, agreed sessions &amp; subjects</div></div>';
     html2+='<button class="btn" data-action="reports-tab" data-tab="analytics">← Analytics</button>';
     html2+='</div>';
-    if(!enr){
-      html2+='<div class="empty-state">Loading enrolment data…</div>';
+    if(!enr || Array.isArray(enr)){
+      html2+='<div class="empty-state">Loading enrolment data… (click ← Analytics then Enrolment again if stuck)</div>';
+      return html2;
+    }
+    if(enr._error){
+      html2+='<div class="empty-state" style="color:var(--red);">API error: '+enr._error+'</div>';
       return html2;
     }
     // Summary cards
