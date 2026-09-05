@@ -1546,19 +1546,6 @@ function renderQuickAttendance(){
   var _normQSlot=function(s){return (s||'').replace(/–/g,'-').replace(/—/g,'-');};
   const daySessions=sessions.filter(function(s){var _ns=_normQSlot(s.slot);return s.date===qDate&&(_normQSlot(qSlot)===_ns||_normQSlot(qSlot).indexOf(_ns)>=0);});
 
-  // Auto-load existing attendance into qaRecords if not yet loaded for this key
-  var _qaLoadKey='qa_loaded_'+qaKey;
-  if(qDate&&qSlot&&daySessions.length>0&&!state[_qaLoadKey]){
-    state[_qaLoadKey]=true;
-    Promise.all(daySessions.map(function(sess){return loadData('attendance_'+sess.id,'/api/attendance/'+sess.id);})).then(function(){
-      if(!state.qaRecords)state.qaRecords={};
-      if(!state.qaRecords[qaKey])state.qaRecords[qaKey]={};
-      daySessions.forEach(function(sess){
-        (state.data['attendance_'+sess.id]||[]).forEach(function(a){if(a.status)state.qaRecords[qaKey][a.student_id]=a.status;});
-      });
-      render();
-    });
-  }
 
   // Local attendance state key
   const qaKey='qa_'+qDate+'_'+qSlot;
@@ -7889,24 +7876,21 @@ document.getElementById('qa-date')?.addEventListener('change',function(e){
   }
 });
 document.getElementById('qa-slot')?.addEventListener('change',function(e){
-  state.qaSlot=e.target.value;render();
-  // Pre-populate qaRecords from existing attendance in DB
+  state.qaSlot=e.target.value;
   if(state.qaDate&&state.qaSlot){
     var _qaKey='qa_'+state.qaDate+'_'+state.qaSlot;
     var _normS=function(s){return (s||'').replace(/–/g,'-').replace(/—/g,'-');};
     var _normQ=_normS(state.qaSlot);
     var _matchSess=(state.data.sessions||[]).filter(function(s){var _ns=_normS(s.slot);return s.date===state.qaDate&&(_normQ===_ns||_normQ.indexOf(_ns)>=0);});
     if(_matchSess.length>0){
-      Promise.all(_matchSess.map(function(sess){return loadData('attendance_'+sess.id,'/api/attendance/'+sess.id);})).then(function(){
+      Promise.all(_matchSess.map(function(sess){return API.get('/api/attendance/'+sess.id);})).then(function(results){
         if(!state.qaRecords)state.qaRecords={};
         if(!state.qaRecords[_qaKey])state.qaRecords[_qaKey]={};
-        _matchSess.forEach(function(sess){
-          (state.data['attendance_'+sess.id]||[]).forEach(function(a){if(a.status)state.qaRecords[_qaKey][a.student_id]=a.status;});
-        });
+        results.forEach(function(attList){(attList||[]).forEach(function(a){if(a.status)state.qaRecords[_qaKey][a.student_id]=a.status;});});
         render();
       });
-    }
-  }
+    } else { render(); }
+  } else { render(); }
 });
 document.getElementById('att-slot-filter')?.addEventListener('change',function(e){state.attSlotFilter=e.target.value;state.attTeacherFilter='';state.attSessionId=null;state.attAllSessions='';render();});
 document.getElementById('att-teacher-filter')?.addEventListener('change',function(e){state.attTeacherFilter=e.target.value;state.attSessionId=null;state.attAllSessions='';render();});
