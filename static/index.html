@@ -7880,7 +7880,7 @@ document.getElementById('qa-slot')?.addEventListener('change',function(e){
     var _qaKey='qa_'+state.qaDate+'_'+state.qaSlot;
     var _normS=function(s){return (s||'').replace(/–/g,'-').replace(/—/g,'-');};
     var _normQ=_normS(state.qaSlot);
-    var _matchSess=(state.data.sessions||[]).filter(function(s){return s.date===state.qaDate&&_normS(s.slot)===_normQ;});
+    var _matchSess=(state.data.sessions||[]).filter(function(s){var _ns=_normS(s.slot);return s.date===state.qaDate&&(_normQ===_ns||_normQ.indexOf(_ns)>=0);});
     if(_matchSess.length>0){
       Promise.all(_matchSess.map(function(sess){return loadData('attendance_'+sess.id,'/api/attendance/'+sess.id);})).then(function(){
         if(!state.qaRecords)state.qaRecords={};
