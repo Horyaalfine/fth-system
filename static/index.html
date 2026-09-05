@@ -1546,6 +1546,20 @@ function renderQuickAttendance(){
   var _normQSlot=function(s){return (s||'').replace(/–/g,'-').replace(/—/g,'-');};
   const daySessions=sessions.filter(function(s){var _ns=_normQSlot(s.slot);return s.date===qDate&&(_normQSlot(qSlot)===_ns||_normQSlot(qSlot).indexOf(_ns)>=0);});
 
+  // Auto-load existing attendance into qaRecords if not yet loaded for this key
+  var _qaLoadKey='qa_loaded_'+qaKey;
+  if(qDate&&qSlot&&daySessions.length>0&&!state[_qaLoadKey]){
+    state[_qaLoadKey]=true;
+    Promise.all(daySessions.map(function(sess){return loadData('attendance_'+sess.id,'/api/attendance/'+sess.id);})).then(function(){
+      if(!state.qaRecords)state.qaRecords={};
+      if(!state.qaRecords[qaKey])state.qaRecords[qaKey]={};
+      daySessions.forEach(function(sess){
+        (state.data['attendance_'+sess.id]||[]).forEach(function(a){if(a.status)state.qaRecords[qaKey][a.student_id]=a.status;});
+      });
+      render();
+    });
+  }
+
   // Local attendance state key
   const qaKey='qa_'+qDate+'_'+qSlot;
   if(!state.qaRecords)state.qaRecords={};
