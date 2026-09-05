@@ -1609,7 +1609,11 @@ function renderQuickAttendance(){
     html+='<span class="badge badge-gray">'+unmarkedCount+' unmarked</span>';
     html+='<span class="badge badge-accent">'+stuList.length+' total</span>';
     html+='</div>';
+    html+='<div style="display:flex;gap:6px;flex-wrap:wrap;">';
     html+='<button class="btn btn-primary" data-action="save-quick-att" data-date="'+qDate+'" data-slot="'+qSlot+'">Save attendance</button>';
+    html+='<button class="btn btn-secondary" data-action="export-qa-excel" data-date="'+qDate+'" data-slot="'+qSlot+'">&#128196; Export Excel</button>';
+    html+='<button class="btn btn-secondary" data-action="print-qa" data-date="'+qDate+'" data-slot="'+qSlot+'">&#128438; Print</button>';
+    html+='</div>';
     html+='</div>';
 
     // Status filter
@@ -9502,6 +9506,44 @@ if(action==='export-staff-timesheet'){
   const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`${staff?.name||'staff'}_timesheet.csv`;a.click();toast('Timesheet exported');return;
 }
 if(action==='toggle-att'){const sessId=parseInt(el.dataset.session);const stId=parseInt(el.dataset.student);if(!state.attRecords[sessId])state.attRecords[sessId]={};const cur=state.attRecords[sessId][stId]?.status;const nxt=cur==='present'?'absent':cur==='absent'?null:'present';if(nxt===null){delete state.attRecords[sessId][stId];}else{state.attRecords[sessId][stId]={status:nxt,notes:''}}render();return;}
+if(action==='export-qa-excel'){
+  var _qaD2=el.dataset.date;var _qaS2=el.dataset.slot;
+  var _qaK2='qa_'+_qaD2+'_'+_qaS2;
+  var _qaAtt2=state.qaRecords&&state.qaRecords[_qaK2]?state.qaRecords[_qaK2]:{};
+  var _qaPS2=state.data['plan_students_'+_qaD2]||[];
+  var _stuMap2={};
+  _qaPS2.filter(function(e){return e.slot===_qaS2;}).forEach(function(e){
+    if(!_stuMap2[e.student_id])_stuMap2[e.student_id]={id:e.student_id,name:e.student_name||e.name,admission_id:e.admission_id,year_group:e.year_group,subjects:[]};
+    if(e.agreed_subject||e.subject)_stuMap2[e.student_id].subjects.push(e.agreed_subject||e.subject);
+  });
+  var _stuList2=Object.values(_stuMap2).sort(function(a,b){return a.admission_id>b.admission_id?1:-1;});
+  var _dayLabel2=new Date(_qaD2+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  var rows=[['Admission ID','Name','Year','Subjects','Status']];
+  _stuList2.forEach(function(st){rows.push([st.admission_id,st.name,st.year_group||'',st.subjects.join(', '),_qaAtt2[st.id]||'unmarked']);});
+  exportXLSX(rows,'attendance_'+_qaD2+'_'+_qaS2.replace(/[^a-z0-9]/gi,'_')+'.xlsx','Attendance');
+  return;
+}
+if(action==='print-qa'){
+  var _qaD3=el.dataset.date;var _qaS3=el.dataset.slot;
+  var _qaK3='qa_'+_qaD3+'_'+_qaS3;
+  var _qaAtt3=state.qaRecords&&state.qaRecords[_qaK3]?state.qaRecords[_qaK3]:{};
+  var _qaPS3=state.data['plan_students_'+_qaD3]||[];
+  var _stuMap3={};
+  _qaPS3.filter(function(e){return e.slot===_qaS3;}).forEach(function(e){
+    if(!_stuMap3[e.student_id])_stuMap3[e.student_id]={id:e.student_id,name:e.student_name||e.name,admission_id:e.admission_id,year_group:e.year_group,subjects:[]};
+    if(e.agreed_subject||e.subject)_stuMap3[e.student_id].subjects.push(e.agreed_subject||e.subject);
+  });
+  var _stuList3=Object.values(_stuMap3).sort(function(a,b){return a.admission_id>b.admission_id?1:-1;});
+  var _dayLabel3=new Date(_qaD3+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  var _pw=window.open('','_blank');
+  var _rows3=_stuList3.map(function(st,i){var s=_qaAtt3[st.id]||'unmarked';var c=s==='present'?'#16a34a':s==='absent'?'#dc2626':'#6b7280';return '<tr><td>'+(i+1)+'</td><td>'+st.admission_id+'</td><td>'+st.name+'</td><td>'+(st.year_group||'')+'</td><td>'+st.subjects.join(', ')+'</td><td style="color:'+c+';font-weight:600;">'+s.toUpperCase()+'</td></tr>';}).join('');
+  _pw.document.write('<html><head><title>Attendance — '+_dayLabel3+' '+_qaS3+'</title><style>body{font-family:Arial,sans-serif;font-size:13px;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ddd;padding:6px 10px;text-align:left;}th{background:#f3f4f6;}h2{margin-bottom:4px;}p{margin:0 0 12px;color:#6b7280;}@media print{.no-print{display:none;}}</style></head><body>');
+  _pw.document.write('<h2>Attendance Register</h2><p>'+_dayLabel3+' &nbsp;·&nbsp; '+_qaS3+'</p>');
+  _pw.document.write('<table><thead><tr><th>#</th><th>Adm No.</th><th>Name</th><th>Year</th><th>Subjects</th><th>Status</th></tr></thead><tbody>'+_rows3+'</tbody></table>');
+  _pw.document.write('</body></html>');
+  _pw.document.close();_pw.print();
+  return;
+}
 if(action==='save-quick-att'){
   const qDate=el.dataset.date;
   const qSlot=el.dataset.slot;
