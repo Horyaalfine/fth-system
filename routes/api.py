@@ -5944,7 +5944,7 @@ def report_financial_statement():
         })
     except Exception as e:
         cur.close(); conn.close()
-        return jsonify({'error': str(e)}), 400
+        return jsonify({'error': str(e)})
 
 
 @api_bp.route('/api/reports/daily-activity', methods=['GET'])
@@ -6036,4 +6036,4 @@ def report_daily_activity():
         })
     except Exception as e:
         cur.close(); conn.close()
-        return jsonify({'error': str(e)}), 400
+        return jsonify({'error': str(e)})

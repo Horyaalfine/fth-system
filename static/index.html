@@ -10041,7 +10041,7 @@ if(action==='load-fin-statement'){
   if(state.finStmtFrom) p.date_from=state.finStmtFrom;
   if(state.finStmtTo) p.date_to=state.finStmtTo;
   if(state.currentBranch) p.branch_id=state.currentBranch;
-  API.get('/api/reports/financial-statement',p).then(function(d){state.data.fin_statement=d;render();}).catch(function(e){state.data.fin_statement={error:e.message||'Error'};render();});
+  API.get('/api/reports/financial-statement',p).then(function(d){state.data.fin_statement=d;render();}).catch(function(e){state.data.fin_statement={error:e.error||e.message||'Error'};render();});
   return;
 }
 if(action==='print-fin-statement'){window.print();return;}
@@ -10051,7 +10051,7 @@ if(action==='load-daily-activity'){
   delete state.data.daily_activity;
   const p2={date:state.dailyActDate};
   if(state.currentBranch) p2.branch_id=state.currentBranch;
-  API.get('/api/reports/daily-activity',p2).then(function(d){state.data.daily_activity=d;render();}).catch(function(e){state.data.daily_activity={error:e.message||'Error'};render();});
+  API.get('/api/reports/daily-activity',p2).then(function(d){state.data.daily_activity=d;render();}).catch(function(e){state.data.daily_activity={error:e.error||e.message||'Error'};render();});
   return;
 }
 if(action==='print-daily-activity'){window.print();return;}
