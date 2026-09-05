@@ -4010,6 +4010,12 @@ function renderSessionPlan(){
             var addable=(state.data.students||[]).filter(function(st){
               return st.status==='active'&&inTable.indexOf(st.id)<0&&(ttIds.indexOf(st.id)>=0||ttAdmIds.indexOf(st.admission_id)>=0);
             });
+            // Fallback for manually-added tables: show all active branch students
+            if(addable.length===0){
+              addable=(state.data.students||[]).filter(function(st){
+                return st.status==='active'&&inTable.indexOf(st.id)<0&&(!s.branch_id||st.branch_id===s.branch_id);
+              });
+            }
             if(addable.length>0){
               html+='<div style="margin-top:6px;">';
               html+='<select data-action="rpt-add-student" data-id="'+s.id+'" style="width:100%;font-size:11px;padding:3px 6px;">';
