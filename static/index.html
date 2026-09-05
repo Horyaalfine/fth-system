@@ -1543,7 +1543,8 @@ function renderQuickAttendance(){
   const stuList=Object.values(stuMap).sort(function(a,b){return a.admission_id>b.admission_id?1:-1;});
 
   // Find sessions for this date+slot (to save attendance against)
-  const daySessions=sessions.filter(function(s){return s.date===qDate&&s.slot===qSlot;});
+  var _normQSlot=function(s){return (s||'').replace(/–/g,'-').replace(/—/g,'-');};
+  const daySessions=sessions.filter(function(s){var _ns=_normQSlot(s.slot);return s.date===qDate&&(_normQSlot(qSlot)===_ns||_normQSlot(qSlot).indexOf(_ns)>=0);});
 
   // Local attendance state key
   const qaKey='qa_'+qDate+'_'+qSlot;
