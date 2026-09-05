@@ -5869,3 +5869,171 @@ def attendance_report():
     except Exception as e:
         cur.close(); conn.close()
         return jsonify({'error': str(e)}), 400
+
+
+@api_bp.route('/api/reports/financial-statement', methods=['GET'])
+@require_roles(*RPT_ROLES)
+def report_financial_statement():
+    import datetime as dt
+    date_from = request.args.get('date_from', '')
+    date_to   = request.args.get('date_to', '')
+    b = branch_scope()
+    if not date_from:
+        today = dt.date.today()
+        date_from = str(today.replace(day=1))
+    if not date_to:
+        date_to = str(dt.date.today())
+    bw  = " AND branch_id=%s" if b else ""
+    bp  = (b,) if b else ()
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        # Opening balance = invoiced before period - paid before period
+        cur.execute(f"SELECT COALESCE(SUM(amount),0) as t FROM invoices WHERE invoice_date<%s{bw}", (date_from,)+bp)
+        inv_before = float(cur.fetchone()['t'])
+        cur.execute(f"SELECT COALESCE(SUM(amount),0) as t FROM payments WHERE payment_date<%s{bw}", (date_from,)+bp)
+        paid_before = float(cur.fetchone()['t'])
+        opening = inv_before - paid_before
+
+        # Invoiced in period
+        cur.execute(f"SELECT COALESCE(SUM(amount),0) as t FROM invoices WHERE invoice_date BETWEEN %s AND %s{bw}", (date_from, date_to)+bp)
+        invoiced = float(cur.fetchone()['t'])
+
+        # Paid in period
+        cur.execute(f"SELECT COALESCE(SUM(amount),0) as t FROM payments WHERE payment_date BETWEEN %s AND %s{bw}", (date_from, date_to)+bp)
+        paid = float(cur.fetchone()['t'])
+
+        closing = opening + invoiced - paid
+
+        # Invoice lines in period
+        bj = " AND i.branch_id=%s" if b else ""
+        cur.execute(f"""
+            SELECT i.invoice_date, s.name as student_name, s.admission_id,
+                   i.amount, i.status, i.month, i.notes
+            FROM invoices i JOIN students s ON s.id=i.student_id
+            WHERE i.invoice_date BETWEEN %s AND %s{bj}
+            ORDER BY i.invoice_date, s.name
+        """, (date_from, date_to)+(b,) if b else (date_from, date_to))
+        invoices = [dict(r) for r in cur.fetchall()]
+        for r in invoices:
+            for k,v in r.items():
+                if hasattr(v,'isoformat'): r[k]=str(v)
+
+        # Payment lines in period
+        bj2 = " AND p.branch_id=%s" if b else ""
+        cur.execute(f"""
+            SELECT p.payment_date, s.name as student_name, s.admission_id,
+                   p.amount, p.method, p.reference, p.notes
+            FROM payments p JOIN students s ON s.id=p.student_id
+            WHERE p.payment_date BETWEEN %s AND %s{bj2}
+            ORDER BY p.payment_date, s.name
+        """, (date_from, date_to)+(b,) if b else (date_from, date_to))
+        payments = [dict(r) for r in cur.fetchall()]
+        for r in payments:
+            for k,v in r.items():
+                if hasattr(v,'isoformat'): r[k]=str(v)
+
+        cur.close(); conn.close()
+        return jsonify({
+            'date_from': date_from, 'date_to': date_to,
+            'opening_balance': round(opening, 2),
+            'invoiced': round(invoiced, 2),
+            'paid': round(paid, 2),
+            'closing_balance': round(closing, 2),
+            'invoices': invoices,
+            'payments': payments,
+        })
+    except Exception as e:
+        cur.close(); conn.close()
+        return jsonify({'error': str(e)}), 400
+
+
+@api_bp.route('/api/reports/daily-activity', methods=['GET'])
+@require_roles(*RPT_ROLES)
+def report_daily_activity():
+    import datetime as dt
+    report_date = request.args.get('date', str(dt.date.today()))
+    b = branch_scope()
+    bw  = " AND s.branch_id=%s" if b else ""
+    bw2 = " AND branch_id=%s" if b else ""
+    bp  = (b,) if b else ()
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        # Sessions
+        cur.execute(f"""
+            SELECT s.id, s.slot, s.subject, s.table_no,
+                   br.name as branch_name, st.name as staff_name
+            FROM sessions s
+            JOIN branches br ON br.id=s.branch_id
+            LEFT JOIN staff st ON st.id=s.staff_id
+            WHERE s.date=%s{bw}
+            ORDER BY s.slot, br.name
+        """, (report_date,)+bp)
+        sessions = [dict(r) for r in cur.fetchall()]
+
+        # Attendance per session
+        sess_ids = [s['id'] for s in sessions]
+        att_map = {}
+        if sess_ids:
+            placeholders = ','.join(['%s']*len(sess_ids))
+            cur.execute(f"""
+                SELECT session_id, status, COUNT(*) as c
+                FROM attendance WHERE session_id IN ({placeholders})
+                GROUP BY session_id, status
+            """, sess_ids)
+            for r in cur.fetchall():
+                sid = r['session_id']
+                if sid not in att_map: att_map[sid] = {'present':0,'absent':0,'late':0}
+                att_map[sid][r['status']] = r['c']
+        for s in sessions:
+            a = att_map.get(s['id'], {})
+            s['present'] = a.get('present', 0)
+            s['absent']  = a.get('absent', 0)
+            s['late']    = a.get('late', 0)
+
+        # New enrolments
+        cur.execute(f"""
+            SELECT id, name, admission_id, year_group, branch_id
+            FROM students WHERE DATE(created_at)=%s{bw2.replace('s.branch_id','branch_id')}
+            ORDER BY name
+        """, (report_date,)+bp)
+        enrolments = [dict(r) for r in cur.fetchall()]
+
+        # Invoices issued
+        cur.execute(f"""
+            SELECT i.invoice_date, s.name as student_name, s.admission_id,
+                   i.amount, i.status, i.month
+            FROM invoices i JOIN students s ON s.id=i.student_id
+            WHERE i.invoice_date=%s{' AND i.branch_id=%s' if b else ''}
+            ORDER BY s.name
+        """, (report_date,)+(b,) if b else (report_date,))
+        invoices = [dict(r) for r in cur.fetchall()]
+        for r in invoices:
+            for k,v in r.items():
+                if hasattr(v,'isoformat'): r[k]=str(v)
+
+        # Payments received
+        cur.execute(f"""
+            SELECT p.payment_date, s.name as student_name, s.admission_id,
+                   p.amount, p.method, p.reference
+            FROM payments p JOIN students s ON s.id=p.student_id
+            WHERE p.payment_date=%s{' AND p.branch_id=%s' if b else ''}
+            ORDER BY s.name
+        """, (report_date,)+(b,) if b else (report_date,))
+        payments = [dict(r) for r in cur.fetchall()]
+        for r in payments:
+            for k,v in r.items():
+                if hasattr(v,'isoformat'): r[k]=str(v)
+
+        cur.close(); conn.close()
+        return jsonify({
+            'date': report_date,
+            'sessions': sessions,
+            'enrolments': enrolments,
+            'invoices': invoices,
+            'payments': payments,
+            'total_invoiced': round(sum(float(i['amount']) for i in invoices), 2),
+            'total_paid': round(sum(float(p['amount']) for p in payments), 2),
+        })
+    except Exception as e:
+        cur.close(); conn.close()
+        return jsonify({'error': str(e)}), 400

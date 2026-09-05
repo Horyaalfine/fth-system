@@ -4815,6 +4815,73 @@ function _analyticsDateParams(){
 function renderReports(){
   const rptTab=state.reportsTab||'analytics';
 
+  if(rptTab==='financial-statement'){
+    const fs=state.data.fin_statement||null;
+    const fsFrom=state.finStmtFrom||new Date().toISOString().slice(0,8)+'01';
+    const fsTo=state.finStmtTo||new Date().toISOString().slice(0,10);
+    var html='';
+    html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;"><div><div class="section-title">Financial Statement</div><div class="section-sub">Opening balance, invoiced, payments received, closing balance</div></div><button class="btn" data-action="reports-tab" data-tab="analytics">&larr; Analytics</button></div>';
+    html+='<div class="card" style="margin-bottom:16px;"><div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;"><div class="field" style="margin:0;"><label>From</label><input type="date" id="fs-from" value="'+fsFrom+'"></div><div class="field" style="margin:0;"><label>To</label><input type="date" id="fs-to" value="'+fsTo+'"></div><div style="padding-top:18px;display:flex;gap:8px;"><button class="btn btn-primary" data-action="load-fin-statement">Run Report</button>'+(fs&&!fs.error?'<button class="btn" data-action="print-fin-statement">Print</button>':'')+'</div></div></div>';
+    if(fs&&fs.error){html+='<div class="card" style="color:var(--danger-text);">Error: '+fs.error+'</div>';}
+    else if(fs){
+      var fmtGBP2=function(v){return '\xa3'+(v||0).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2});};
+      html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:20px;">';
+      html+='<div class="metric-card"><div class="metric-label">Opening Balance</div><div class="metric-value">'+fmtGBP2(fs.opening_balance)+'</div><div class="metric-sub">At start of period</div></div>';
+      html+='<div class="metric-card"><div class="metric-label">+ Invoiced</div><div class="metric-value" style="color:var(--danger-text);">'+fmtGBP2(fs.invoiced)+'</div><div class="metric-sub">New charges in period</div></div>';
+      html+='<div class="metric-card"><div class="metric-label">- Payments Received</div><div class="metric-value" style="color:var(--success-text);">'+fmtGBP2(fs.paid)+'</div><div class="metric-sub">Paid in period</div></div>';
+      html+='<div class="metric-card" style="border-top:3px solid var(--primary);"><div class="metric-label">Closing Balance</div><div class="metric-value" style="color:'+(fs.closing_balance>0?'var(--danger-text)':'var(--success-text)')+';">'+fmtGBP2(fs.closing_balance)+'</div><div class="metric-sub">Carried forward</div></div>';
+      html+='</div>';
+      html+='<div class="two-col">';
+      html+='<div class="card"><div class="card-title" style="margin-bottom:10px;">Invoices Issued ('+fs.invoices.length+')</div>';
+      if(fs.invoices.length){html+='<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="border-bottom:2px solid var(--border);"><th style="padding:5px;text-align:left;">Date</th><th style="padding:5px;text-align:left;">Student</th><th style="padding:5px;text-align:right;">Amount</th><th style="padding:5px;text-align:center;">Status</th></tr></thead><tbody>';fs.invoices.forEach(function(r){html+='<tr style="border-bottom:1px solid var(--border);"><td style="padding:5px;">'+r.invoice_date+'</td><td style="padding:5px;">'+r.student_name+'</td><td style="padding:5px;text-align:right;">\xa3'+parseFloat(r.amount).toFixed(2)+'</td><td style="padding:5px;text-align:center;"><span class="badge badge-'+(r.status==='paid'?'green':r.status==='overdue'?'red':'gray')+'">'+r.status+'</span></td></tr>';});html+='</tbody></table>';}
+      else{html+='<div style="color:var(--text3);font-size:13px;padding:8px 0;">No invoices in period</div>';}
+      html+='</div>';
+      html+='<div class="card"><div class="card-title" style="margin-bottom:10px;">Payments Received ('+fs.payments.length+')</div>';
+      if(fs.payments.length){html+='<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="border-bottom:2px solid var(--border);"><th style="padding:5px;text-align:left;">Date</th><th style="padding:5px;text-align:left;">Student</th><th style="padding:5px;text-align:right;">Amount</th><th style="padding:5px;text-align:left;">Method</th></tr></thead><tbody>';fs.payments.forEach(function(r){html+='<tr style="border-bottom:1px solid var(--border);"><td style="padding:5px;">'+r.payment_date+'</td><td style="padding:5px;">'+r.student_name+'</td><td style="padding:5px;text-align:right;">\xa3'+parseFloat(r.amount).toFixed(2)+'</td><td style="padding:5px;">'+(r.method||'&mdash;')+'</td></tr>';});html+='</tbody></table>';}
+      else{html+='<div style="color:var(--text3);font-size:13px;padding:8px 0;">No payments in period</div>';}
+      html+='</div>';
+      html+='</div>';
+    }else{html+='<div class="card" style="color:var(--text3);font-size:13px;">Select a date range and click Run Report.</div>';}
+    return '<div class="main-content">'+html+'</div>';
+  }
+
+  if(rptTab==='daily-activity'){
+    const da=state.data.daily_activity||null;
+    const daDate=state.dailyActDate||new Date().toISOString().slice(0,10);
+    var html='';
+    html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;"><div><div class="section-title">Daily Activity Report</div><div class="section-sub">Full summary of activity for a selected day</div></div><button class="btn" data-action="reports-tab" data-tab="analytics">&larr; Analytics</button></div>';
+    html+='<div class="card" style="margin-bottom:16px;"><div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;"><div class="field" style="margin:0;"><label>Date</label><input type="date" id="da-date" value="'+daDate+'"></div><div style="padding-top:18px;display:flex;gap:8px;"><button class="btn btn-primary" data-action="load-daily-activity">Run Report</button>'+(da&&!da.error?'<button class="btn" data-action="print-daily-activity">Print</button>':'')+'</div></div></div>';
+    if(da&&da.error){html+='<div class="card" style="color:var(--danger-text);">Error: '+da.error+'</div>';}
+    else if(da){
+      var totP=da.sessions.reduce(function(t,s){return t+s.present;},0);
+      var totE=da.sessions.reduce(function(t,s){return t+s.present+s.absent+s.late;},0);
+      html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;">';
+      html+='<div class="metric-card"><div class="metric-label">Sessions</div><div class="metric-value">'+da.sessions.length+'</div></div>';
+      html+='<div class="metric-card"><div class="metric-label">Present</div><div class="metric-value">'+totP+'</div><div class="metric-sub">of '+totE+' expected</div></div>';
+      html+='<div class="metric-card"><div class="metric-label">New Enrolments</div><div class="metric-value">'+da.enrolments.length+'</div></div>';
+      html+='<div class="metric-card"><div class="metric-label">Invoiced</div><div class="metric-value">\xa3'+da.total_invoiced.toFixed(2)+'</div></div>';
+      html+='<div class="metric-card"><div class="metric-label">Payments Received</div><div class="metric-value">\xa3'+da.total_paid.toFixed(2)+'</div></div>';
+      html+='</div>';
+      html+='<div class="card" style="margin-bottom:14px;"><div class="card-title" style="margin-bottom:10px;">Sessions</div>';
+      if(da.sessions.length){html+='<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="border-bottom:2px solid var(--border);"><th style="padding:5px;text-align:left;">Slot</th><th style="padding:5px;text-align:left;">Subject</th><th style="padding:5px;text-align:left;">Branch</th><th style="padding:5px;text-align:left;">Teacher</th><th style="padding:5px;text-align:center;">Present</th><th style="padding:5px;text-align:center;">Absent</th></tr></thead><tbody>';da.sessions.forEach(function(s){html+='<tr style="border-bottom:1px solid var(--border);"><td style="padding:5px;">'+s.slot+'</td><td style="padding:5px;">'+(s.subject||'&mdash;')+'</td><td style="padding:5px;">'+(s.branch_name||'&mdash;')+'</td><td style="padding:5px;">'+(s.staff_name||'&mdash;')+'</td><td style="padding:5px;text-align:center;font-weight:700;color:var(--success-text);">'+s.present+'</td><td style="padding:5px;text-align:center;font-weight:700;color:var(--danger-text);">'+s.absent+'</td></tr>';});html+='</tbody></table>';}
+      else{html+='<div style="color:var(--text3);font-size:13px;">No sessions on this date</div>';}
+      html+='</div>';
+      html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;">';
+      html+='<div class="card"><div class="card-title" style="margin-bottom:8px;">New Enrolments ('+da.enrolments.length+')</div>';
+      if(da.enrolments.length){da.enrolments.forEach(function(e){html+='<div style="font-size:13px;padding:4px 0;border-bottom:1px solid var(--border);">'+e.name+' <span style="color:var(--text3);font-size:11px;">('+e.admission_id+')</span></div>';});}else{html+='<div style="color:var(--text3);font-size:13px;">None</div>';}
+      html+='</div>';
+      html+='<div class="card"><div class="card-title" style="margin-bottom:8px;">Invoices Issued ('+da.invoices.length+')</div>';
+      if(da.invoices.length){da.invoices.forEach(function(r){html+='<div style="font-size:13px;padding:4px 0;border-bottom:1px solid var(--border);">'+r.student_name+' &mdash; <strong>\xa3'+parseFloat(r.amount).toFixed(2)+'</strong></div>';});}else{html+='<div style="color:var(--text3);font-size:13px;">None</div>';}
+      html+='</div>';
+      html+='<div class="card"><div class="card-title" style="margin-bottom:8px;">Payments Received ('+da.payments.length+')</div>';
+      if(da.payments.length){da.payments.forEach(function(r){html+='<div style="font-size:13px;padding:4px 0;border-bottom:1px solid var(--border);">'+r.student_name+' &mdash; <strong>\xa3'+parseFloat(r.amount).toFixed(2)+'</strong> <span style="color:var(--text3);font-size:11px;">'+(r.method||'')+'</span></div>';});}else{html+='<div style="color:var(--text3);font-size:13px;">None</div>';}
+      html+='</div>';
+      html+='</div>';
+    }else{html+='<div class="card" style="color:var(--text3);font-size:13px;">Select a date and click Run Report.</div>';}
+    return '<div class="main-content">'+html+'</div>';
+  }
+
+
   // ── ATTENDANCE REPORT TAB ──
   if(rptTab==='attendance'){
     const attRpt=state.data.att_report||[];
@@ -5029,6 +5096,8 @@ return`
 </div>
 <button class="btn${_range==='enrolment'||state.reportsTab==='enrolment'?' btn-secondary':''}" data-action="reports-tab" data-tab="enrolment" style="font-size:12px;padding:5px 10px;">📋 Enrolment</button>
 <button class="btn btn-primary" data-action="reports-tab" data-tab="attendance" style="font-size:12px;padding:5px 10px;">📊 Attendance Report</button>
+<button class="btn" data-action="reports-tab" data-tab="financial-statement" style="font-size:12px;padding:5px 10px;">💰 Financial Statement</button>
+<button class="btn" data-action="reports-tab" data-tab="daily-activity" style="font-size:12px;padding:5px 10px;">📅 Daily Activity</button>
 </div>
 </div>
 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;">
@@ -9962,6 +10031,30 @@ if(action==='print-att-report'){
   return;
 }
 
+if(action==='load-fin-statement'){
+  const fsFrom=document.getElementById('fs-from');
+  const fsTo=document.getElementById('fs-to');
+  state.finStmtFrom=fsFrom?fsFrom.value:'';
+  state.finStmtTo=fsTo?fsTo.value:'';
+  delete state.data.fin_statement;
+  const p={};
+  if(state.finStmtFrom) p.date_from=state.finStmtFrom;
+  if(state.finStmtTo) p.date_to=state.finStmtTo;
+  if(state.currentBranch) p.branch_id=state.currentBranch;
+  API.get('/api/reports/financial-statement',p).then(function(d){state.data.fin_statement=d;render();}).catch(function(e){state.data.fin_statement={error:e.message||'Error'};render();});
+  return;
+}
+if(action==='print-fin-statement'){window.print();return;}
+if(action==='load-daily-activity'){
+  const daD=document.getElementById('da-date');
+  state.dailyActDate=daD?daD.value:new Date().toISOString().slice(0,10);
+  delete state.data.daily_activity;
+  const p2={date:state.dailyActDate};
+  if(state.currentBranch) p2.branch_id=state.currentBranch;
+  API.get('/api/reports/daily-activity',p2).then(function(d){state.data.daily_activity=d;render();}).catch(function(e){state.data.daily_activity={error:e.message||'Error'};render();});
+  return;
+}
+if(action==='print-daily-activity'){window.print();return;}
 if(action==='load-att-report'){
   const fromVal=document.getElementById('att-rpt-from');
   const toVal=document.getElementById('att-rpt-to');
