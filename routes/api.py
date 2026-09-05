@@ -5907,11 +5907,11 @@ def report_financial_statement():
         # Invoice lines in period
         bj = " AND i.branch_id=%s" if b else ""
         cur.execute(f"""
-            SELECT i.issued as invoice_date, s.name as student_name, s.admission_id,
+            SELECT i.issued::text as invoice_date, s.name as student_name, s.admission_id,
                    i.amount, i.status, i.month, i.notes
             FROM invoices i JOIN students s ON s.id=i.student_id
             WHERE i.issued BETWEEN %s AND %s{bj}
-            ORDER BY i.invoice_date, s.name
+            ORDER BY i.issued, s.name
         """, (date_from, date_to)+(b,) if b else (date_from, date_to))
         invoices = [dict(r) for r in cur.fetchall()]
         for r in invoices:
