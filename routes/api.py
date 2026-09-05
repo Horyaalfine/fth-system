@@ -5605,6 +5605,7 @@ def dashboard_today():
         p = (b,) if b else ()
         bw  = "AND s.branch_id=%s" if b else ""
         bw2 = "AND branch_id=%s" if b else ""
+        today_dow = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'][_dt.date.today().weekday()]
 
         cur.execute("SELECT COUNT(*) as c FROM sessions s WHERE s.date=CURRENT_DATE" + (" AND s.branch_id=%s" if b else ""), p)
         today_sessions = cur.fetchone()['c']
@@ -5646,7 +5647,6 @@ def dashboard_today():
             today_list = sched_slots
 
         # Count expected from student_agreed_slots (QA uses agreed slots, not session_students)
-        today_dow = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'][_dt.date.today().weekday()]
         if b:
             cur.execute("""
                 SELECT COUNT(DISTINCT sas.student_id) as c
