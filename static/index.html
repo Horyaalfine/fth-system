@@ -7950,17 +7950,33 @@ document.addEventListener('change',function(e){
     state.qaSlot=e.target.value;
     if(state.qaDate&&state.qaSlot){
       var _qaKey='qa_'+state.qaDate+'_'+state.qaSlot;
-      var _normS=function(s){return (s||'').replace(/–/g,'-').replace(/—/g,'-');};
-      var _normQ=_normS(state.qaSlot);
-      var _matchSess=(state.data.sessions||[]).filter(function(s){var _ns=_normS(s.slot);return s.date===state.qaDate&&(_normQ===_ns||_normQ.indexOf(_ns)>=0);});
-      if(_matchSess.length>0){
-        Promise.all(_matchSess.map(function(sess){return API.get('/api/attendance/'+sess.id);})).then(function(results){
-          if(!state.qaRecords)state.qaRecords={};
-          if(!state.qaRecords[_qaKey])state.qaRecords[_qaKey]={};
-          results.forEach(function(attList){(attList||[]).forEach(function(a){if(a.status)state.qaRecords[_qaKey][a.student_id]=a.status;});});
-          render();
-        });
-      } else { render(); }
+      var _normS2=function(s){return (s||'').replace(/–/g,'-').replace(/—/g,'-');};
+      var _normQ2=_normS2(state.qaSlot);
+      // Always reload sessions fresh then match
+      API.get('/api/sessions',branchParam()).then(function(freshSessions){
+        if(freshSessions&&freshSessions.length)state.data.sessions=freshSessions.map(function(s){if(s.date&&s.date.isoformat)s.date=s.date.isoformat();return s;});
+        var _matchSess2=(state.data.sessions||[]).filter(function(s){var _ns=_normS2(s.slot||'');return String(s.date)===state.qaDate&&(_normQ2===_normS2(s.slot)||_normS2(s.slot).indexOf(_normQ2)>=0||_normQ2.indexOf(_normS2(s.slot))>=0);});
+        if(_matchSess2.length>0){
+          Promise.all(_matchSess2.map(function(sess){return API.get('/api/attendance/'+sess.id);})).then(function(results){
+            if(!state.qaRecords)state.qaRecords={};
+            state.qaRecords[_qaKey]={};
+            results.forEach(function(attList){(attList||[]).forEach(function(a){if(a.status)state.qaRecords[_qaKey][a.student_id]=a.status;});});
+            render();
+          });
+        } else {
+          // Fallback: load by plan_students session_id if available
+          var _ps=(state.data['plan_students_'+state.qaDate]||[]).filter(function(p){return _normS2(p.slot||'')===_normQ2;});
+          var _psIds=[...new Set(_ps.map(function(p){return p.session_id;}).filter(Boolean))];
+          if(_psIds.length>0){
+            Promise.all(_psIds.map(function(sid){return API.get('/api/attendance/'+sid);})).then(function(results){
+              if(!state.qaRecords)state.qaRecords={};
+              state.qaRecords[_qaKey]={};
+              results.forEach(function(attList){(attList||[]).forEach(function(a){if(a.status)state.qaRecords[_qaKey][a.student_id]=a.status;});});
+              render();
+            });
+          } else { render(); }
+        }
+      }).catch(function(){render();});
     } else { render(); }
     return;
   }
