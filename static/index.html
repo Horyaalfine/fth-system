@@ -1550,6 +1550,19 @@ function renderQuickAttendance(){
   // Local attendance state key
   const qaKey='qa_'+qDate+'_'+qSlot;
   if(!state.qaRecords)state.qaRecords={};
+  // Auto-load attendance from DB if date+slot set but records not yet fetched
+  if(qDate&&qSlot&&state.qaRecords[qaKey]===undefined){
+    state.qaRecords[qaKey]={};// Mark as loading so we don't loop
+    var _bqpR=branchParam();
+    var _qpR={date:qDate,slot:qSlot};
+    if(_bqpR.branch_id)_qpR.branch_id=_bqpR.branch_id;
+    API.get('/api/attendance/by-date-slot',_qpR).then(function(attList){
+      if(!state.qaRecords)state.qaRecords={};
+      state.qaRecords[qaKey]={};
+      (attList||[]).forEach(function(a){if(a.status)state.qaRecords[qaKey][a.student_id]=a.status;});
+      render();
+    });
+  }
   const localAtt=state.qaRecords[qaKey]||{};
 
 
