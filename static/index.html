@@ -9553,22 +9553,39 @@ if(action==='save-quick-att'){
   const normQSlot=normSlot(qSlot);
   const daySessions=(state.data.sessions||[]).filter(function(s){return s.date===qDate&&normSlot(s.slot)===normQSlot;});
   if(daySessions.length===0){toast('No sessions exist for this date/slot — create sessions first, then mark attendance','error');return;}
-  // Save attendance for each session based on table allocations
-  var saved=0;
-  for(var si=0;si<daySessions.length;si++){
-    var sess=daySessions[si];
-    var sessData=state.data['sess_students_'+sess.id]||[];
-    if(!sessData.length){await loadData('sess_students_'+sess.id,'/api/sessions/'+sess.id+'/students');}
-    sessData=state.data['sess_students_'+sess.id]||[];
-    var records=[];var delIds=[];
-    Object.keys(localAtt).forEach(function(stuId){
-      var inSess=sessData.some(function(s){return s.student_id===parseInt(stuId);});
-      if(inSess&&localAtt[stuId])records.push({student_id:parseInt(stuId),status:localAtt[stuId],notes:''});
+  // Load all session students so we can route each student to the right session
+  await Promise.all(daySessions.map(function(sess){
+    return loadData('sess_students_'+sess.id,'/api/sessions/'+sess.id+'/students');
+  }));
+  // Build map: student_id -> session_id (first match)
+  var stuSessionMap={};
+  daySessions.forEach(function(sess){
+    (state.data['sess_students_'+sess.id]||[]).forEach(function(st){
+      if(!stuSessionMap[st.student_id])stuSessionMap[st.student_id]=sess.id;
     });
-    if(records.length>0){await API.post('/api/attendance',{session_id:sess.id,records:records,delete_student_ids:[]});saved++;}
+  });
+  var fallbackSessionId=daySessions[0].id;
+  // Group records by session
+  var sessionRecords={};
+  Object.keys(localAtt).forEach(function(stuId){
+    if(!localAtt[stuId])return;
+    var sid=stuSessionMap[parseInt(stuId)]||fallbackSessionId;
+    if(!sessionRecords[sid])sessionRecords[sid]=[];
+    sessionRecords[sid].push({student_id:parseInt(stuId),status:localAtt[stuId],notes:''});
+  });
+  var saved=0;
+  for(var sid in sessionRecords){
+    await API.post('/api/attendance',{session_id:parseInt(sid),records:sessionRecords[sid],delete_student_ids:[]});
+    saved++;
+    // Invalidate lesson plan + session report caches so they reload
+    delete state.data['rpt_att_'+sid];
+    delete state.data['attendance_'+sid];
   }
+  // Reload sessions to update present counts
+  var _b=branchParam();
+  await loadData('sessions','/api/sessions',_b);
   toast('Attendance saved for '+saved+' session'+(saved!==1?'s':''));
-  return;
+  render();return;
 }
 if(action==='save-att'){
   const localRecs=state.attRecords[id]||{};
