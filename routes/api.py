@@ -5603,8 +5603,8 @@ def dashboard_today():
     conn = get_conn(); cur = conn.cursor()
     try:
         p = (b,) if b else ()
-        bw  = "AND s.branch_id=%s" if b else ""
-        bw2 = "AND branch_id=%s" if b else ""
+        bw  = " AND s.branch_id=%s" if b else ""
+        bw2 = " AND branch_id=%s" if b else ""
         today_dow = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'][_dt.date.today().weekday()]
 
         cur.execute("SELECT COUNT(*) as c FROM sessions s WHERE s.date=CURRENT_DATE" + (" AND s.branch_id=%s" if b else ""), p)
