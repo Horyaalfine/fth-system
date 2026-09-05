@@ -6037,3 +6037,38 @@ def report_daily_activity():
     except Exception as e:
         cur.close(); conn.close()
         return jsonify({'error': str(e)})
+
+
+@api_bp.route('/api/attendance/by-date-slot', methods=['GET'])
+@require_auth
+def get_attendance_by_date_slot():
+    """Return attendance for all sessions matching date+slot (for quick attendance pre-load)."""
+    date_str = request.args.get('date', '')
+    slot_str = request.args.get('slot', '')
+    b = branch_scope()
+    if not date_str or not slot_str:
+        return jsonify([])
+    bw = " AND s.branch_id=%s" if b else ""
+    bp = (b,) if b else ()
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        # Normalize slot for comparison (replace en/em dash with hyphen)
+        cur.execute(f"""
+            SELECT a.student_id, a.status, a.notes, a.session_id
+            FROM attendance a
+            JOIN sessions s ON s.id = a.session_id
+            WHERE s.date = %s
+              AND (
+                replace(replace(s.slot, '–', '-'), '—', '-') =
+                replace(replace(%s, '–', '-'), '—', '-')
+                OR s.slot = %s
+              )
+              {bw}
+            ORDER BY a.student_id
+        """, (date_str, slot_str, slot_str) + bp)
+        data = [dict(r) for r in cur.fetchall()]
+        cur.close(); conn.close()
+        return jsonify(data)
+    except Exception as e:
+        cur.close(); conn.close()
+        return jsonify({'error': str(e)}), 400
