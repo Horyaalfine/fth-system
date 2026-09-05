@@ -5610,7 +5610,7 @@ def dashboard_today():
         cur.execute("SELECT COUNT(*) as c FROM sessions s WHERE s.date=CURRENT_DATE" + (" AND s.branch_id=%s" if b else ""), p)
         today_sessions = cur.fetchone()['c']
 
-        cur.execute(("SELECT s.id, s.slot, s.subject, s.table_no, b.name as branch_name, st.name as staff_name FROM sessions s JOIN branches b ON b.id=s.branch_id LEFT JOIN staff st ON st.id=s.staff_id WHERE s.date=CURRENT_DATE" + (" AND s.branch_id=%s" if b else "") + " ORDER BY s.slot, s.branch_name"), p)
+        cur.execute(("SELECT s.id, s.slot, s.subject, s.table_no, b.name as branch_name, st.name as staff_name FROM sessions s JOIN branches b ON b.id=s.branch_id LEFT JOIN staff st ON st.id=s.staff_id WHERE s.date=CURRENT_DATE" + (" AND s.branch_id=%s" if b else "") + " ORDER BY s.slot, b.name"), p)
         today_list = rows(cur)
 
         # If no sessions in sessions table, fall back to branch_schedule for today
