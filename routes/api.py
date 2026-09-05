@@ -5888,14 +5888,14 @@ def report_financial_statement():
     conn = get_conn(); cur = conn.cursor()
     try:
         # Opening balance = invoiced before period - paid before period
-        cur.execute(f"SELECT COALESCE(SUM(amount),0) as t FROM invoices WHERE invoice_date<%s{bw}", (date_from,)+bp)
+        cur.execute(f"SELECT COALESCE(SUM(amount),0) as t FROM invoices WHERE issued<%s{bw}", (date_from,)+bp)
         inv_before = float(cur.fetchone()['t'])
         cur.execute(f"SELECT COALESCE(SUM(amount),0) as t FROM payments WHERE payment_date<%s{bw}", (date_from,)+bp)
         paid_before = float(cur.fetchone()['t'])
         opening = inv_before - paid_before
 
         # Invoiced in period
-        cur.execute(f"SELECT COALESCE(SUM(amount),0) as t FROM invoices WHERE invoice_date BETWEEN %s AND %s{bw}", (date_from, date_to)+bp)
+        cur.execute(f"SELECT COALESCE(SUM(amount),0) as t FROM invoices WHERE issued BETWEEN %s AND %s{bw}", (date_from, date_to)+bp)
         invoiced = float(cur.fetchone()['t'])
 
         # Paid in period
@@ -5907,10 +5907,10 @@ def report_financial_statement():
         # Invoice lines in period
         bj = " AND i.branch_id=%s" if b else ""
         cur.execute(f"""
-            SELECT i.invoice_date, s.name as student_name, s.admission_id,
+            SELECT i.issued as invoice_date, s.name as student_name, s.admission_id,
                    i.amount, i.status, i.month, i.notes
             FROM invoices i JOIN students s ON s.id=i.student_id
-            WHERE i.invoice_date BETWEEN %s AND %s{bj}
+            WHERE i.issued BETWEEN %s AND %s{bj}
             ORDER BY i.invoice_date, s.name
         """, (date_from, date_to)+(b,) if b else (date_from, date_to))
         invoices = [dict(r) for r in cur.fetchall()]
