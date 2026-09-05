@@ -3962,6 +3962,12 @@ function renderSessionPlan(){
             var _addableE=(state.data.students||[]).filter(function(st){
               return st.status==='active'&&(_ttIdsE.has(st.id)||_ttAdmE.has(st.admission_id));
             });
+            // Fallback for manually-added tables: show all active branch students
+            if(_addableE.length===0){
+              _addableE=(state.data.students||[]).filter(function(st){
+                return st.status==='active'&&(!s.branch_id||st.branch_id===s.branch_id);
+              });
+            }
             if(_addableE.length>0){
               html+='<select data-action="rpt-add-student" data-id="'+s.id+'" style="width:100%;font-size:11px;padding:3px 6px;">';
               html+='<option value="">＋ Add student to this table...</option>';
