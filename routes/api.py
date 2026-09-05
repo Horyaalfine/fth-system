@@ -5617,9 +5617,7 @@ def dashboard_today():
         if today_sessions == 0:
             if b:
                 cur.execute("""
-                    SELECT bs.id, CONCAT(TO_CHAR(CURRENT_DATE,'Day'), ' Session ',
-                           ROW_NUMBER() OVER (ORDER BY bs.slot_start),
-                           ' (', TO_CHAR(bs.slot_start,'HH24:MI'), '–', TO_CHAR(bs.slot_end,'HH24:MI'), ')') as slot,
+                    SELECT bs.id, CONCAT(INITCAP(%s), ' Session ', ROW_NUMBER() OVER (ORDER BY bs.slot_start), ' (', LEFT(bs.slot_start::text,5), '–', LEFT(bs.slot_end::text,5), ')') as slot,
                            '' as subject, '' as table_no, br.name as branch_name, NULL as staff_name
                     FROM branch_schedule bs
                     JOIN branches br ON br.id=bs.branch_id
@@ -5628,12 +5626,12 @@ def dashboard_today():
                       AND (bs.effective_from IS NULL OR bs.effective_from <= CURRENT_DATE)
                       AND (bs.effective_to IS NULL OR bs.effective_to >= CURRENT_DATE)
                     ORDER BY bs.slot_start
-                """, (b, today_dow))
+                """, (today_dow.capitalize(), b, today_dow))
             else:
                 cur.execute("""
-                    SELECT bs.id, CONCAT(TO_CHAR(CURRENT_DATE,'Day'), ' Session ',
+                    SELECT bs.id, CONCAT(INITCAP(%s), ' Session ',
                            ROW_NUMBER() OVER (PARTITION BY bs.branch_id ORDER BY bs.slot_start),
-                           ' (', TO_CHAR(bs.slot_start,'HH24:MI'), '–', TO_CHAR(bs.slot_end,'HH24:MI'), ')') as slot,
+                           ' (', LEFT(bs.slot_start::text,5), '–', LEFT(bs.slot_end::text,5), ')') as slot,
                            '' as subject, '' as table_no, br.name as branch_name, NULL as staff_name
                     FROM branch_schedule bs
                     JOIN branches br ON br.id=bs.branch_id
@@ -5641,7 +5639,7 @@ def dashboard_today():
                       AND (bs.effective_from IS NULL OR bs.effective_from <= CURRENT_DATE)
                       AND (bs.effective_to IS NULL OR bs.effective_to >= CURRENT_DATE)
                     ORDER BY br.name, bs.slot_start
-                """, (today_dow,))
+                """, (today_dow.capitalize(), today_dow))
             sched_slots = rows(cur)
             today_sessions = len(sched_slots)
             today_list = sched_slots
