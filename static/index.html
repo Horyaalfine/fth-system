@@ -3702,7 +3702,7 @@ function renderSessionPlan(){
     }
     html+='</div>';
     html+='<div class="form-grid">';
-    html+='<div class="field"><label>Plan date</label><input type="date" id="lp-date" value="'+lpDate+'"></div>';
+    html+='<div class="field"><label>Plan date</label><input type="date" id="lp-date" data-action="lp-date" value="'+lpDate+'"></div>';
     html+='<div class="field"><label>Max students per table</label><input type="number" id="lp-max-per" value="'+lpMaxPer+'" min="5" max="20" style="width:80px;"></div>';
     if(lpMode==='single'){
       var daySlots=[...new Set(allExpected.map(function(t){return t.slot;}))].sort();
