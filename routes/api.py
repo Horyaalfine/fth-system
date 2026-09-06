@@ -5853,7 +5853,7 @@ def get_session_plan_students():
             start = raw_start.strftime('%H:%M') if hasattr(raw_start, 'strftime') else str(raw_start)[:5]
             end_str = raw_end.strftime('%H:%M') if hasattr(raw_end, 'strftime') else str(raw_end)[:5]
             num = int(r2['session_num'])
-            slot_text = f"{day_cap} Session {num} ({start}\u2013{end_str})"
+            slot_text = f"{day_cap} Session {num} ({start}-{end_str})"
             row_base = {
                 'student_id': sid, 'student_name': r2['student_name'],
                 'admission_id': r2['admission_id'], 'year_group': r2['year_group'],
