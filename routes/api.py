@@ -5759,6 +5759,8 @@ def get_session_plan_students():
                     'branch_schedule_id': None, 'slot_start': None, 'slot_end': None
                 } for r in tt_fb])
             # Fallback 2: distinct students who historically attended on this day_of_week
+            _dow_map = {'sunday':0,'monday':1,'tuesday':2,'wednesday':3,'thursday':4,'friday':5,'saturday':6}
+            _dow_num = _dow_map.get(day_of_week, -1)
             cur.execute("""
                 SELECT DISTINCT
                     s.id AS student_id, s.name AS student_name,
@@ -5768,10 +5770,10 @@ def get_session_plan_students():
                 JOIN sessions sess ON sess.id = a.session_id
                 JOIN students s ON s.id = a.student_id
                 WHERE sess.branch_id = %s
-                  AND LOWER(TO_CHAR(sess.date, 'day')) LIKE %s
+                  AND EXTRACT(DOW FROM sess.date) = %s
                   AND s.status = 'active'
                 ORDER BY s.admission_id
-            """, (day_type, branch_id, day_of_week + '%'))
+            """, (day_type, branch_id, _dow_num))
             hist_fb = cur.fetchall()
             cur.close(); conn.close()
             return jsonify([{
