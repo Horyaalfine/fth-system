@@ -3517,7 +3517,7 @@ function renderSessionPlan(){
   // Students with agreed slots: use ONLY planStudents (authoritative); old timetable is fallback only for students with NO agreed slots
   var _planStudentIdSet=new Set(_planStudents.map(function(p){return p.student_id;}));
   var _branchStudentIds=new Set((state.data.students||[]).filter(function(s){return s.status==='active';}).map(function(s){return s.id;}));
-  var allTT=_planStudents.filter(function(p){return _branchStudentIds.has(p.student_id);}).concat(_oldTT.filter(function(t){return !_planStudentIdSet.has(t.student_id)&&_branchStudentIds.has(t.student_id);}));
+  var allTT=_planStudents.concat(_oldTT.filter(function(t){return !_planStudentIdSet.has(t.student_id)&&_branchStudentIds.has(t.student_id);}));
   var students=(state.data.students||[]).filter(function(s){return s.status==='active';});
   var staff=state.data.staff||[];
   var sessions=state.data.sessions||[];
