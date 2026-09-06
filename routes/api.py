@@ -5740,10 +5740,10 @@ def get_session_plan_students():
         print(f"[session-plan-students] schedule_count={sched_cnt} agreed_count={agreed_cnt}")
         cur.execute("""
             WITH sched AS (
-                SELECT id, slot_start, slot_end,
-                       ROW_NUMBER() OVER (ORDER BY slot_start) AS session_num
+                SELECT id, branch_id AS sched_branch_id, slot_start, slot_end,
+                       ROW_NUMBER() OVER (PARTITION BY branch_id ORDER BY slot_start) AS session_num
                 FROM branch_schedule
-                WHERE branch_id = %s AND day_of_week = %s AND status = 'active'
+                WHERE day_of_week = %s AND status = 'active'
                   AND (effective_from IS NULL OR effective_from <= CURRENT_DATE)
                   AND (effective_to IS NULL OR effective_to >= CURRENT_DATE)
             )
@@ -5762,7 +5762,7 @@ def get_session_plan_students():
             JOIN sched sc ON sc.id = sas.branch_schedule_id
             WHERE s.status = 'active' AND s.branch_id = %s
             ORDER BY s.admission_id, sc.slot_start
-        """, (branch_id, day_of_week, day_type, day_of_week, branch_id))
+        """, (day_of_week, day_type, day_of_week, branch_id))
         base_rows = rows(cur)
         print(f"[session-plan-students] base_rows_count={len(base_rows)}")
         if not base_rows:
