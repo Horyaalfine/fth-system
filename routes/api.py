@@ -5743,7 +5743,7 @@ def get_session_plan_students():
                 SELECT id, slot_start, slot_end,
                        ROW_NUMBER() OVER (ORDER BY slot_start) AS session_num
                 FROM branch_schedule
-                WHERE day_of_week = %s AND status = 'active'
+                WHERE branch_id = %s AND day_of_week = %s AND status = 'active'
                   AND (effective_from IS NULL OR effective_from <= CURRENT_DATE)
                   AND (effective_to IS NULL OR effective_to >= CURRENT_DATE)
             )
@@ -5755,18 +5755,14 @@ def get_session_plan_students():
                 sc.id AS branch_schedule_id,
                 sc.slot_start, sc.slot_end, sc.session_num,
                 sas.subject AS agreed_subject,
-                sas.subject AS subject,
                 %s AS day_type,
-                %s AS day_of_week,
-                INITCAP(%s) || ' Session ' || sc.session_num::text || ' ('
-                    || TO_CHAR(sc.slot_start::time, 'HH24:MI') || '–'
-                    || TO_CHAR(sc.slot_end::time, 'HH24:MI') || ')' AS slot
+                %s AS day_of_week
             FROM student_agreed_slots sas
             JOIN students s ON s.id = sas.student_id
             JOIN sched sc ON sc.id = sas.branch_schedule_id
             WHERE s.status = 'active' AND s.branch_id = %s
             ORDER BY s.admission_id, sc.slot_start
-        """, (day_of_week, day_type, day_of_week, day_of_week, branch_id))
+        """, (branch_id, day_of_week, day_type, day_of_week, branch_id))
         base_rows = rows(cur)
         print(f"[session-plan-students] base_rows_count={len(base_rows)}")
         if not base_rows:
