@@ -5840,6 +5840,30 @@ def get_session_plan_students():
         return jsonify({'error': str(e)}), 400
 
 # ════════════════════════════════════════════
+
+@api_bp.route('/api/debug/wednesday-students', methods=['GET'])
+@require_auth
+def debug_wednesday_students():
+    branch_id = request.args.get('branch_id', type=int) or branch_scope()
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        cur.execute("SELECT id, slot_start, slot_end, status FROM branch_schedule WHERE branch_id=%s AND day_of_week='wednesday'", (branch_id,))
+        sched = rows(cur)
+        sched_ids = [r['id'] for r in sched]
+        agreed = []
+        if sched_ids:
+            cur.execute("SELECT sas.student_id, s.name, s.admission_id, sas.branch_schedule_id FROM student_agreed_slots sas JOIN students s ON s.id=sas.student_id WHERE sas.branch_schedule_id=ANY(%s)", (sched_ids,))
+            agreed = rows(cur)
+        cur.execute("SELECT st.student_id, s.name, s.admission_id, st.slot, st.subject, st.active FROM student_timetable st JOIN students s ON s.id=st.student_id WHERE st.branch_id=%s AND st.day_type='weekday'", (branch_id,))
+        timetable = rows(cur)
+        cur.execute("SELECT DISTINCT s.id AS student_id, s.name, s.admission_id, sess.slot, sess.subject FROM attendance a JOIN sessions sess ON sess.id=a.session_id JOIN students s ON s.id=a.student_id WHERE sess.branch_id=%s AND EXTRACT(DOW FROM sess.date)=3 AND s.status='active' ORDER BY s.admission_id", (branch_id,))
+        history = rows(cur)
+        cur.close(); conn.close()
+        return jsonify({'branch_id': branch_id, 'schedule': sched, 'agreed_slots': agreed, 'timetable_weekday': timetable, 'attendance_history_wednesday': history})
+    except Exception as e:
+        cur.close(); conn.close()
+        return jsonify({'error': str(e)}), 400
+
 #  ATTENDANCE REPORT
 # ════════════════════════════════════════════
 @api_bp.route('/api/attendance/report', methods=['GET'])
