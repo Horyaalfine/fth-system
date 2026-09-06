@@ -7886,7 +7886,7 @@ document.getElementById('mobile-branch-switch')?.addEventListener('change',funct
 document.getElementById('mobile-logout-btn')?.addEventListener('click',async function(){await API.post('/api/logout');state.currentUser=null;state.page='dashboard';state.data={};render();});
 }
 
-function bindAll(){bindNav();document.querySelectorAll('[data-action]').forEach(el=>{el.addEventListener('click',e=>handleAction(el.dataset.action,el.dataset.id?parseInt(el.dataset.id):null,el,e));});document.querySelectorAll('[data-nav]').forEach(el=>{el.addEventListener('click',function(){const sb=document.querySelector('.sidebar');const ov=document.getElementById('sidebar-overlay');if(sb)sb.classList.remove('open');if(ov)ov.classList.remove('open');state.page=el.dataset.nav;if(el.dataset.action){state.modal=el.dataset.action;state.editTarget=null;}refreshPage();});});document.getElementById('modal-close')?.addEventListener('click',closeModal);document.getElementById('modal-cancel')?.addEventListener('click',closeModal);
+function bindAll(){bindNav();document.querySelectorAll('[data-action]').forEach(el=>{el.addEventListener('click',e=>handleAction(el.dataset.action,el.dataset.id?parseInt(el.dataset.id):null,el,e));if(el.tagName==='INPUT'||el.tagName==='SELECT'||el.tagName==='TEXTAREA'){el.addEventListener('change',e=>handleAction(el.dataset.action,el.dataset.id?parseInt(el.dataset.id):null,el,e));}});document.querySelectorAll('[data-nav]').forEach(el=>{el.addEventListener('click',function(){const sb=document.querySelector('.sidebar');const ov=document.getElementById('sidebar-overlay');if(sb)sb.classList.remove('open');if(ov)ov.classList.remove('open');state.page=el.dataset.nav;if(el.dataset.action){state.modal=el.dataset.action;state.editTarget=null;}refreshPage();});});document.getElementById('modal-close')?.addEventListener('click',closeModal);document.getElementById('modal-cancel')?.addEventListener('click',closeModal);
 // Clear any validation highlights when modal first opens
 document.querySelectorAll('.modal-body input, .modal-body select, .modal-body textarea').forEach(el=>{
   el.addEventListener('focus',()=>{el.style.border='';el.style.boxShadow='';});
@@ -8068,7 +8068,7 @@ document.getElementById('plan-month-filter')?.addEventListener('change',e=>{
 document.getElementById('reg-day-filter')?.addEventListener('change',function(e){state.regDay=e.target.value;state.regSlot='';state.regSubject='';render();});
 document.getElementById('reg-slot-filter')?.addEventListener('change',function(e){state.regSlot=e.target.value;state.regSubject='';render();});
 document.getElementById('reg-subject-filter')?.addEventListener('change',function(e){state.regSubject=e.target.value;render();});
-document.getElementById('lp-date')?.addEventListener('change',function(e){state.lpDate=e.target.value;state.planDraft=null;state.lpSlot='';state.lpSubject='';render();});
+// lp-date change is now handled by bindAll() change listener -> handleAction -> loadData -> render()
 document.getElementById('lp-max-per')?.addEventListener('change',function(e){state.lpMaxPer=parseInt(e.target.value)||5;render();});
 document.getElementById('lp-slot-sel')?.addEventListener('change',function(e){state.lpSlot=e.target.value;state.lpSubject='';state.planDraft=null;render();});
 document.getElementById('lp-subj-sel')?.addEventListener('change',function(e){state.lpSubject=e.target.value;state.planDraft=null;render();});
@@ -8774,7 +8774,7 @@ if(action==='reg-subject-filter'){state.regSubject=el.value;render();return;}
 
 // Lesson plan date/max change
 if(action==='lp-date'){
-  state.lpDate=el.value;state.planDraft=null;
+  state.lpDate=el.value;state.planDraft=null;state.lpSlot='';state.lpSubject='';
   if(state.currentBranch&&el.value){
     await loadData('plan_students_'+el.value,'/api/session-plan-students',{branch_id:state.currentBranch,date:el.value});
   }
