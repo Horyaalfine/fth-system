@@ -5738,8 +5738,48 @@ def get_session_plan_students():
         """, (branch_id, day_of_week, date_str, date_str, day_type, day_of_week, branch_id))
         base_rows = rows(cur)
         if not base_rows:
+            # Fallback 1: student_timetable for this branch/day_type
+            cur.execute("""
+                SELECT DISTINCT
+                    s.id AS student_id, s.name AS student_name,
+                    s.admission_id, s.year_group,
+                    st.day_type, st.slot, st.subject
+                FROM student_timetable st
+                JOIN students s ON s.id = st.student_id
+                WHERE st.branch_id = %s AND st.day_type = %s AND s.status = 'active' AND st.active = TRUE
+                ORDER BY s.admission_id
+            """, (branch_id, day_type))
+            tt_fb = cur.fetchall()
+            if tt_fb:
+                cur.close(); conn.close()
+                return jsonify([{
+                    'student_id': r['student_id'], 'student_name': r['student_name'],
+                    'admission_id': r['admission_id'], 'year_group': r['year_group'],
+                    'day_type': r['day_type'], 'slot': r['slot'], 'subject': r['subject'],
+                    'branch_schedule_id': None, 'slot_start': None, 'slot_end': None
+                } for r in tt_fb])
+            # Fallback 2: distinct students who historically attended on this day_of_week
+            cur.execute("""
+                SELECT DISTINCT
+                    s.id AS student_id, s.name AS student_name,
+                    s.admission_id, s.year_group,
+                    %s AS day_type, sess.slot, sess.subject
+                FROM attendance a
+                JOIN sessions sess ON sess.id = a.session_id
+                JOIN students s ON s.id = a.student_id
+                WHERE sess.branch_id = %s
+                  AND LOWER(TO_CHAR(sess.date, 'day')) LIKE %s
+                  AND s.status = 'active'
+                ORDER BY s.admission_id
+            """, (day_type, branch_id, day_of_week + '%'))
+            hist_fb = cur.fetchall()
             cur.close(); conn.close()
-            return jsonify([])
+            return jsonify([{
+                'student_id': r['student_id'], 'student_name': r['student_name'],
+                'admission_id': r['admission_id'], 'year_group': r['year_group'],
+                'day_type': r['day_type'], 'slot': r['slot'], 'subject': r['subject'],
+                'branch_schedule_id': None, 'slot_start': None, 'slot_end': None
+            } for r in hist_fb])
         # Try to get subjects from student_timetable by matching slot start time
         cur.execute("""
             SELECT student_id, slot, subject
