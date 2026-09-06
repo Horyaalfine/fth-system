@@ -3518,6 +3518,21 @@ function renderSessionPlan(){
   var _planStudentIdSet=new Set(_planStudents.map(function(p){return p.student_id;}));
   var _branchStudentIds=new Set((state.data.students||[]).filter(function(s){return s.status==='active';}).map(function(s){return s.id;}));
   var allTT=_planStudents.concat(_oldTT.filter(function(t){return !_planStudentIdSet.has(t.student_id)&&_branchStudentIds.has(t.student_id);}));
+  // Apply one-day subject swaps
+  var _swaps=state.subjectSwaps||{};
+  if(Object.keys(_swaps).length>0){
+    var _origAllTT=allTT.slice();
+    allTT=allTT.map(function(t){
+      if(!_swaps[t.student_id])return t;
+      var stuE=_origAllTT.filter(function(x){return x.student_id===t.student_id;}).sort(function(a,b){return (a.slot_start||'').localeCompare(b.slot_start||'');});
+      if(stuE.length<2)return t;
+      var myPos=stuE.findIndex(function(x){return x.slot===t.slot&&x.subject===t.subject;});
+      if(myPos<0)return t;
+      var otherPos=stuE.length-1-myPos;
+      if(otherPos===myPos)return t;
+      return Object.assign({},t,{subject:stuE[otherPos].subject});
+    });
+  }
   var students=(state.data.students||[]).filter(function(s){return s.status==='active';});
   var staff=state.data.staff||[];
   var sessions=state.data.sessions||[];
@@ -3639,9 +3654,9 @@ function renderSessionPlan(){
 
     // VIEW MODE
     html+='<div class="table-wrap"><table>';
-    html+='<thead><tr><th>Ad No.</th><th>Name</th><th>Year</th><th>Day</th><th>Session</th><th>Subject</th></tr></thead><tbody>';
+    html+='<thead><tr><th>Ad No.</th><th>Name</th><th>Year</th><th>Day</th><th>Session</th><th>Subject</th><th style="width:60px;">Swap</th></tr></thead><tbody>';
     if(filtered.length===0){
-      html+='<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px;">No students match these filters</td></tr>';
+      html+='<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px;">No students match these filters</td></tr>';
     }else{
       filtered.sort(function(a,b){return (a.admission_id||'').localeCompare(b.admission_id||'');}).forEach(function(t){
         html+='<tr>';
@@ -3651,6 +3666,9 @@ function renderSessionPlan(){
         html+='<td>'+t.day_type.charAt(0).toUpperCase()+t.day_type.slice(1)+'</td>';
         html+='<td style="font-size:12px;">'+t.slot+'</td>';
         html+='<td><span class="badge badge-gray">'+t.subject+'</span></td>';
+        var _stuE=allTT.filter(function(x){return x.student_id===t.student_id;});
+        var _canSwap=_stuE.length>=2&&new Set(_stuE.map(function(x){return x.subject;})).size>1;
+        if(_canSwap){var _isSw=_swaps[t.student_id];html+='<td><button class="btn btn-sm" data-action="lp-swap-student" data-id="'+t.student_id+'" style="font-size:10px;padding:2px 5px;'+(_isSw?'background:var(--warning);color:#fff;':'')+'">⇄ Swap</button></td>';}else{html+='<td></td>';}
         html+='</tr>';
       });
     }
@@ -3818,12 +3836,12 @@ function renderSessionPlan(){
           });
           // Add student to draft table
           var alreadyIn=tbl.students.map(function(s){return s.admission_id;});
-          var addable=allTT.filter(function(t){return t.slot===tbl.slot&&t.subject===tbl.subject&&alreadyIn.indexOf(t.admission_id)<0;});
+          var addable=allTT.filter(function(t){return t.slot===tbl.slot&&alreadyIn.indexOf(t.admission_id)<0;});
           if(addable.length>0){
             html+='<tr><td colspan="4" style="padding-top:4px;">';
             html+='<select data-action="lp-add-student" data-idx="'+tblIdx+'" style="width:100%;font-size:11px;padding:2px 4px;">';
             html+='<option value="">＋ Add student...</option>';
-            addable.forEach(function(st){html+='<option value="'+st.admission_id+'">'+st.student_name+' ('+st.admission_id+(st.year_group?' · '+st.year_group:'')+')' +'</option>';});
+            addable.forEach(function(st){var _sw=st.subject!==tbl.subject?' ⚠ '+st.subject:'';html+='<option value="'+st.admission_id+'">'+st.student_name+' ('+st.admission_id+(st.year_group?' · '+st.year_group:'')+_sw+')' +'</option>';});
             html+='</select>';
             html+='</td></tr>';
           }
@@ -8775,7 +8793,7 @@ if(action==='reg-subject-filter'){state.regSubject=el.value;render();return;}
 // Lesson plan date/max change
 if(action==='lp-date'){
   if(!el.value||el.value===state.lpDate)return;
-  state.lpDate=el.value;state.planDraft=null;state.lpSlot='';state.lpSubject='';
+  state.lpDate=el.value;state.planDraft=null;state.lpSlot='';state.lpSubject='';state.subjectSwaps={};
   if(state.currentBranch&&el.value){
     await loadData('plan_students_'+el.value,'/api/session-plan-students',{branch_id:state.currentBranch,date:el.value});
   }
@@ -9026,6 +9044,13 @@ if(action==='lp-add-table-confirm'){
 }
 
 // Draft: add student from select to draft table
+if(action==='lp-swap-student'){
+  if(!state.subjectSwaps)state.subjectSwaps={};
+  if(state.subjectSwaps[id])delete state.subjectSwaps[id];
+  else state.subjectSwaps[id]=true;
+  state.planDraft=null;
+  render();return;
+}
 if(action==='lp-add-student'){
   var admId=el.value;if(!admId){return;}
   var idx=parseInt(el.dataset.idx);
