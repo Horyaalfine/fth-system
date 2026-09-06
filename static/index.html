@@ -4000,7 +4000,7 @@ function renderSessionPlan(){
             html+='<table style="margin:0;font-size:12px;width:100%;">';
             // Allow moving to any other table on this date (across slots too)
         var otherTables=daySessions.filter(function(t){return t.id!==s.id&&t.slot===s.slot;});
-            html+='<thead><tr style="background:var(--surface2);"><th style="padding:4px 8px 4px 0;font-size:11px;">Ad No.</th><th style="padding:4px 8px 4px 0;font-size:11px;">Name</th><th style="padding:4px 8px 4px 0;font-size:11px;">Year</th><th style="padding:4px 0;font-size:11px;">Att.</th>'+(otherTables.length>0?'<th style="padding:4px 0;font-size:11px;">Move</th>':'')+'<th style="padding:4px 0;font-size:11px;"></th></tr></thead><tbody>';
+            html+='<thead><tr style="background:var(--surface2);"><th style="padding:4px 8px 4px 0;font-size:11px;">Ad No.</th><th style="padding:4px 8px 4px 0;font-size:11px;">Name</th><th style="padding:4px 8px 4px 0;font-size:11px;">Year</th><th style="padding:4px 0;font-size:11px;">Att.</th><th style="padding:4px 0;font-size:11px;white-space:nowrap;"></th></tr></thead><tbody>';
             studs.forEach(function(st){
               var attSt=attMap[st.student_id]||attMap[st.id]||{};
               var stBadge=attSt.status==='present'?'badge-success':attSt.status==='absent'?'badge-danger':'badge-gray';
@@ -4012,14 +4012,16 @@ function renderSessionPlan(){
               html+='<td style="padding:4px 8px 4px 0;">'+(st.year_group||'—')+'</td>';
               html+='<td><span class="badge '+stBadge+'" style="font-size:10px;">'+stLabel+'</span></td>';
               if(otherTables.length>0){
-                html+='<td style="padding:2px 0;">';
-                html+='<select data-action="rpt-move-student" data-src="'+s.id+'" data-student="'+stId+'" style="font-size:10px;padding:1px 2px;max-width:75px;" title="Move to table">';
-                html+='<option value="">&#8599; Move</option>';
-                otherTables.forEach(function(t){html+='<option value="'+t.id+'">&rarr; T'+t.table_no+(t.subject!==s.subject?' ('+t.subject+')':'')+'</option>';});
-                html+='</select>';
+                html+='<td style="padding:2px 0;white-space:nowrap;">';
+                html+='<select data-action="rpt-move-student" data-src="'+s.id+'" data-student="'+stId+'" style="font-size:10px;padding:1px 2px;max-width:65px;" title="Move to table">';
+                html+='<option value="">&#8599;</option>';
+                otherTables.forEach(function(t){html+='<option value="'+t.id+'">&rarr;T'+t.table_no+'</option>';});
+                html+='</select> ';
+                html+='<button class="btn btn-sm btn-danger" style="padding:2px 5px;font-size:11px;line-height:1;" data-action="remove-rpt-student" data-session-id="'+s.id+'" data-student-id="'+stId+'" title="Remove from table">&#10005;</button>';
                 html+='</td>';
+              }else{
+                html+='<td style="padding:2px 0;"><button class="btn btn-sm btn-danger" style="padding:2px 5px;font-size:11px;line-height:1;" data-action="remove-rpt-student" data-session-id="'+s.id+'" data-student-id="'+stId+'" title="Remove from table">&#10005;</button></td>';
               }
-              html+='<td style="padding:2px 0;"><button class="btn btn-sm btn-danger" style="padding:2px 6px;font-size:11px;line-height:1;" data-action="remove-rpt-student" data-session-id="'+s.id+'" data-student-id="'+stId+'" title="Remove from table">✕</button></td>';
               html+='</tr>';
             });
             html+='</tbody></table>';
