@@ -7417,34 +7417,38 @@ if(m==='add-student'||m==='edit-student'){
     gcse_science_predicted_grade:v('f-gcse-science-predicted'),
     parent_contact:v('f-c1-mobile'),status:v('f-status'),notes:v('f-comments')||v('f-notes')||''
   };
+  // Step 1: Save core student profile
   try{
     if(m==='add-student')await API.post('/api/students',body);
     else await API.put('/api/students/'+state.editTarget.id,body);
     toast(m==='add-student'?'Student enrolled':'Student updated');
-    // Save agreed session slots from checkboxes
-    // Build agreed slots with subjects
-    const agreedChecked=[...document.querySelectorAll('.agreed-slot-entry:checked')].map(function(cb){
-      var schedId=parseInt(cb.dataset.schedId);
-      var subjEl=document.querySelector('.agreed-slot-subject[data-sched-id="'+schedId+'"]');
-      return {schedule_id:schedId,subject:subjEl?subjEl.value:''};
-    });
-    const stuIdForAS=m==='add-student'?((await API.get('/api/students'))?.find?.(function(s){return s.admission_id===body.admission_id;})?.id):state.editTarget?.id;
-    if(stuIdForAS&&document.querySelectorAll('.agreed-slot-entry').length>0){
-      await API.post('/api/students/'+stuIdForAS+'/agreed-slots',{slots:agreedChecked,effective_from:new Date().toISOString().slice(0,10)});
-      await loadData('agreed_slots_'+stuIdForAS,'/api/students/'+stuIdForAS+'/agreed-slots');
-    }
-    // Invalidate students cache and all plan_students caches so other pages reflect the change
-    delete state.data.students;
-    Object.keys(state.data).forEach(function(k){if(k.startsWith('plan_students_'))delete state.data[k];});
-    await loadData('students','/api/students',branchParam());
-    // Refresh profileStudent if editing from profile page
-    if(state.profileStudent&&state.profileStudent.id===(state.editTarget?.id||stuIdForAS)){
-      state.profileStudent=(state.data.students||[]).find(function(s){return s.id===state.profileStudent.id;})||state.profileStudent;
-    }
   }catch(err){
     toast(err?.error||'Save failed — please try again','error');
     console.error('Student save error:',err);
     return;
+  }
+  // Step 2: Save agreed session slots (separate try so profile save is not blocked)
+  const agreedChecked=[...document.querySelectorAll('.agreed-slot-entry:checked')].map(function(cb){
+    var schedId=parseInt(cb.dataset.schedId);
+    var subjEl=document.querySelector('.agreed-slot-subject[data-sched-id="'+schedId+'"]');
+    return {schedule_id:schedId,subject:subjEl?subjEl.value:''};
+  });
+  const stuIdForAS=m==='add-student'?((await API.get('/api/students'))?.find?.(function(s){return s.admission_id===body.admission_id;})?.id):state.editTarget?.id;
+  if(stuIdForAS&&document.querySelectorAll('.agreed-slot-entry').length>0){
+    try{
+      await API.post('/api/students/'+stuIdForAS+'/agreed-slots',{slots:agreedChecked,effective_from:new Date().toISOString().slice(0,10)});
+      await loadData('agreed_slots_'+stuIdForAS,'/api/students/'+stuIdForAS+'/agreed-slots');
+    }catch(err2){
+      console.warn('Agreed slots save failed (permissions?):', err2);
+      toast((err2?.error||'Agreed sessions could not be saved')+' — profile was saved','warning');
+    }
+  }
+  // Step 3: Refresh students cache regardless of agreed-slots result
+  delete state.data.students;
+  Object.keys(state.data).forEach(function(k){if(k.startsWith('plan_students_'))delete state.data[k];});
+  await loadData('students','/api/students',branchParam());
+  if(state.profileStudent&&state.profileStudent.id===(state.editTarget?.id||stuIdForAS)){
+    state.profileStudent=(state.data.students||[]).find(function(s){return s.id===state.profileStudent.id;})||state.profileStudent;
   }
 }
 else if(m==='add-staff'||m==='edit-staff'){
