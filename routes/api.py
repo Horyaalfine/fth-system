@@ -5765,7 +5765,14 @@ def get_session_plan_students():
         """, (day_of_week, day_type, day_of_week, branch_id))
         base_rows = rows(cur)
         print(f"[session-plan-students] base_rows_count={len(base_rows)}")
+        for _dbg in base_rows[:20]:
+            print(f"[session-plan-students] row: sid={_dbg.get('student_id')} admid={_dbg.get('admission_id')} sched_id={_dbg.get('branch_schedule_id')} slot_start={_dbg.get('slot_start')} session_num={_dbg.get('session_num')} agreed_subject={_dbg.get('agreed_subject')}")
         if not base_rows:
+            # Also log why no rows - check schedule and agreed slots directly
+            cur.execute("SELECT COUNT(*) as cnt FROM branch_schedule WHERE day_of_week=%s AND status='active'", (day_of_week,))
+            print(f"[session-plan-students] active_schedules_for_day={cur.fetchone()['cnt']}")
+            cur.execute("SELECT COUNT(*) as cnt FROM student_agreed_slots sas JOIN branch_schedule bs ON bs.id=sas.branch_schedule_id JOIN students s ON s.id=sas.student_id WHERE bs.day_of_week=%s AND s.status='active' AND s.branch_id=%s", (day_of_week, branch_id))
+            print(f"[session-plan-students] agreed_slots_for_branch={cur.fetchone()['cnt']}")
             def _safe_row(r, dt):
                 return {
                     'student_id': int(r['student_id']) if r.get('student_id') else None,
