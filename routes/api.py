@@ -5702,6 +5702,7 @@ def get_session_plan_students():
     from datetime import datetime
     branch_id = request.args.get('branch_id', type=int) or branch_scope()
     date_str = request.args.get('date')
+    debug_mode = request.args.get('debug') == '1'
     if not branch_id or not date_str:
         return jsonify([])
     day_names = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
@@ -5710,6 +5711,21 @@ def get_session_plan_students():
     day_type = 'saturday' if day_of_week == 'saturday' else 'sunday' if day_of_week == 'sunday' else 'weekday'
     conn = get_conn(); cur = conn.cursor()
     try:
+        if debug_mode:
+            _dow_map = {'sunday':0,'monday':1,'tuesday':2,'wednesday':3,'thursday':4,'friday':5,'saturday':6}
+            _dow_num = _dow_map.get(day_of_week, -1)
+            cur.execute("SELECT id, slot_start, slot_end, status FROM branch_schedule WHERE branch_id=%s AND day_of_week=%s", (branch_id, day_of_week))
+            d_sched = cur.fetchall()
+            cur.execute("SELECT COUNT(*) AS cnt FROM student_agreed_slots sas JOIN branch_schedule bs ON bs.id=sas.branch_schedule_id WHERE bs.branch_id=%s AND bs.day_of_week=%s", (branch_id, day_of_week))
+            d_agreed_cnt = cur.fetchone()
+            cur.execute("SELECT COUNT(*) AS cnt FROM student_timetable WHERE branch_id=%s AND day_type=%s AND active=TRUE", (branch_id, day_type))
+            d_tt_cnt = cur.fetchone()
+            cur.execute("SELECT COUNT(DISTINCT a.student_id) AS cnt FROM attendance a JOIN sessions sess ON sess.id=a.session_id WHERE (sess.branch_id=%s OR EXISTS(SELECT 1 FROM students ss WHERE ss.id=a.student_id AND ss.branch_id=%s)) AND EXTRACT(DOW FROM sess.date)=%s", (branch_id, branch_id, _dow_num))
+            d_att_cnt = cur.fetchone()
+            cur.execute("SELECT DISTINCT s.id, s.admission_id, s.name, s.branch_id FROM attendance a JOIN sessions sess ON sess.id=a.session_id JOIN students s ON s.id=a.student_id WHERE (sess.branch_id=%s OR s.branch_id=%s) AND EXTRACT(DOW FROM sess.date)=%s AND s.status='active' LIMIT 10", (branch_id, branch_id, _dow_num))
+            d_att_students = cur.fetchall()
+            cur.close(); conn.close()
+            return jsonify({'branch_id': branch_id, 'date': date_str, 'day_of_week': day_of_week, 'day_type': day_type, 'schedule_slots': [dict(r) for r in d_sched], 'agreed_slots_count': d_agreed_cnt['cnt'], 'timetable_weekday_count': d_tt_cnt['cnt'], 'attendance_history_count': d_att_cnt['cnt'], 'attendance_students_sample': [dict(r) for r in d_att_students]})
         # Get students with agreed slots for this branch + day_of_week
         cur.execute("""
             WITH sched AS (
