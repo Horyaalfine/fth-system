@@ -3725,10 +3725,10 @@ function renderSessionPlan(){
     if(lpMode==='single'){
       var daySlots=[...new Set(allExpected.map(function(t){return t.slot;}))].sort();
       var slotSubjects=lpSlot?[...new Set(allExpected.filter(function(t){return t.slot===lpSlot;}).map(function(t){return t.subject;}))].sort():[];
-      html+='<div class="field"><label>Session slot</label><select id="lp-slot-sel"><option value="">— select slot —</option>';
+      html+='<div class="field"><label>Session slot</label><select id="lp-slot-sel" data-action="lp-slot-sel"><option value="">— select slot —</option>';
       daySlots.forEach(function(sl){html+='<option value="'+sl+'" '+(sl===lpSlot?'selected':'')+'>'+sl+'</option>';});
       html+='</select></div>';
-      html+='<div class="field"><label>Subject</label><select id="lp-subj-sel" '+(lpSlot?'':'disabled')+'><option value="">— select subject —</option>';
+      html+='<div class="field"><label>Subject</label><select id="lp-subj-sel" data-action="lp-subj-sel" '+(lpSlot?'':'disabled')+'><option value="">— select subject —</option>';
       slotSubjects.forEach(function(sb){html+='<option value="'+sb+'" '+(sb===lpSubject?'selected':'')+'>'+sb+'</option>';});
       html+='</select></div>';
     }
@@ -8101,8 +8101,8 @@ document.getElementById('reg-slot-filter')?.addEventListener('change',function(e
 document.getElementById('reg-subject-filter')?.addEventListener('change',function(e){state.regSubject=e.target.value;render();});
 // lp-date change is now handled by bindAll() change listener -> handleAction -> loadData -> render()
 document.getElementById('lp-max-per')?.addEventListener('change',function(e){state.lpMaxPer=parseInt(e.target.value)||5;render();});
-document.getElementById('lp-slot-sel')?.addEventListener('change',function(e){state.lpSlot=e.target.value;state.lpSubject='';state.planDraft=null;render();});
-document.getElementById('lp-subj-sel')?.addEventListener('change',function(e){state.lpSubject=e.target.value;state.planDraft=null;render();});
+// lp-slot-sel handled by bindAll() -> handleAction
+// lp-subj-sel handled by bindAll() -> handleAction
 document.getElementById('rpt-date-select')?.addEventListener('change',async function(e){
   state.rptDate=e.target.value;
   state.rptLoading=true;
