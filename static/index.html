@@ -7975,6 +7975,24 @@ document.addEventListener('change',function(e){
     } else { render(); }
     return;
   }
+  if(e.target.id==='rpt-date-select'){
+    state.rptDate=e.target.value;
+    state.rptLoading=true;
+    render();
+    if(state.rptDate){
+      var _rptSess=(state.data.sessions||[]).filter(function(s){return s.date===state.rptDate;});
+      var _rptLoads=[];
+      _rptSess.forEach(function(s){
+        _rptLoads.push(loadData('sess_students_'+s.id,'/api/sessions/'+s.id+'/students'));
+        _rptLoads.push(loadData('rpt_att_'+s.id,'/api/attendance/'+s.id));
+      });
+      Promise.all(_rptLoads).then(function(){state.rptLoading=false;render();});
+    } else {
+      state.rptLoading=false;
+      render();
+    }
+    return;
+  }
 });
 document.getElementById('att-slot-filter')?.addEventListener('change',function(e){state.attSlotFilter=e.target.value;state.attTeacherFilter='';state.attSessionId=null;state.attAllSessions='';render();});
 document.getElementById('att-teacher-filter')?.addEventListener('change',function(e){state.attTeacherFilter=e.target.value;state.attSessionId=null;state.attAllSessions='';render();});
@@ -9921,16 +9939,7 @@ if(action==='remove-session-student'){
   }).catch(function(){toast('Failed to remove','danger');});
   return;
 }
-if(action==='remove-rpt-student'){
-  var sessId2=parseInt(el.dataset.sessionId);
-  var stuId2=parseInt(el.dataset.studentId);
-  API.delete('/api/sessions/'+sessId2+'/students/'+stuId2).then(function(){
-    delete state.data['sess_students_'+sessId2];
-    loadData('sess_students_'+sessId2,'/api/sessions/'+sessId2+'/students').then(function(){render();});
-    toast('Student removed','success');
-  }).catch(function(){toast('Failed to remove','danger');});
-  return;
-}
+if(action==='remove-rpt-student'){return;} // handled by document-level click listener
 if(action==='analytics-range'){
   state.analyticsRange=el.dataset.range;
   delete state.data.summary;
@@ -10222,6 +10231,18 @@ document.addEventListener('touchstart',function(e){
 document.addEventListener('click',function(e){
   const navEl=e.target.closest('[data-page]');
   if(navEl){_doNav(navEl);}
+  var _rptRemoveBtn=e.target.closest('[data-action="remove-rpt-student"]');
+  if(_rptRemoveBtn){
+    var _rptSessId=parseInt(_rptRemoveBtn.dataset.sessionId);
+    var _rptStuId=parseInt(_rptRemoveBtn.dataset.studentId);
+    if(!confirm('Remove this student from the table?'))return;
+    API.delete('/api/sessions/'+_rptSessId+'/students/'+_rptStuId).then(function(){
+      delete state.data['sess_students_'+_rptSessId];
+      loadData('sess_students_'+_rptSessId,'/api/sessions/'+_rptSessId+'/students').then(function(){render();});
+      toast('Student removed','success');
+    }).catch(function(){toast('Failed to remove','danger');});
+    return;
+  }
 });
 
 
