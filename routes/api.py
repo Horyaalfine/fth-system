@@ -1534,7 +1534,10 @@ def report_summary():
     sess_p = list(params)
     if date_from: sess_date.append("s.date>=%s"); sess_p.append(date_from)
     if date_to:   sess_date.append("s.date<=%s"); sess_p.append(date_to)
-    sess_extra = (' AND ' + ' AND '.join(sess_date)) if sess_date else ''
+    if sess_date:
+        sess_extra = ((' AND ' if bw3 else ' WHERE ') + ' AND '.join(sess_date))
+    else:
+        sess_extra = ''
     cur.execute(f"SELECT COUNT(*) as c FROM sessions s {bw3}" + sess_extra, tuple(sess_p))
     session_count = cur.fetchone()['c']
 
@@ -5728,6 +5731,13 @@ def get_session_plan_students():
             return jsonify({'branch_id': branch_id, 'date': date_str, 'day_of_week': day_of_week, 'day_type': day_type, 'schedule_slots': [dict(r) for r in d_sched], 'agreed_slots_count': d_agreed_cnt['cnt'], 'timetable_weekday_count': d_tt_cnt['cnt'], 'attendance_history_count': d_att_cnt['cnt'], 'attendance_students_sample': [dict(r) for r in d_att_students]})
         # Get students with agreed slots for this branch + day_of_week
         # Match enrolment report: filter by student branch, not schedule branch
+        print(f"[session-plan-students] branch={branch_id} day_of_week={day_of_week} day_type={day_type} date={date_str}")
+        # First check how many schedule slots exist
+        cur.execute("SELECT COUNT(*) as cnt FROM branch_schedule WHERE day_of_week=%s AND status='active'", (day_of_week,))
+        sched_cnt = cur.fetchone()['cnt']
+        cur.execute("SELECT COUNT(*) as cnt FROM student_agreed_slots sas JOIN branch_schedule bs ON bs.id=sas.branch_schedule_id JOIN students s ON s.id=sas.student_id WHERE bs.day_of_week=%s AND s.status='active' AND s.branch_id=%s", (day_of_week, branch_id))
+        agreed_cnt = cur.fetchone()['cnt']
+        print(f"[session-plan-students] schedule_count={sched_cnt} agreed_count={agreed_cnt}")
         cur.execute("""
             WITH sched AS (
                 SELECT id, slot_start, slot_end,
@@ -5754,6 +5764,7 @@ def get_session_plan_students():
             ORDER BY s.admission_id, sc.slot_start
         """, (day_of_week, day_type, day_of_week, branch_id))
         base_rows = rows(cur)
+        print(f"[session-plan-students] base_rows_count={len(base_rows)}")
         if not base_rows:
             def _safe_row(r, dt):
                 return {
