@@ -3997,34 +3997,32 @@ function renderSessionPlan(){
               html+='</select>';
             }
           }else{
-            html+='<table style="margin:0;font-size:12px;width:100%;">';
+            html+='<div style="overflow-x:auto;margin-bottom:4px;">';
+            html+='<table style="margin:0;font-size:12px;width:100%;min-width:320px;">';
             // Allow moving to any other table on this date (across slots too)
         var otherTables=daySessions.filter(function(t){return t.id!==s.id&&t.slot===s.slot;});
-            html+='<thead><tr style="background:var(--surface2);"><th style="padding:4px 8px 4px 0;font-size:11px;">Ad No.</th><th style="padding:4px 8px 4px 0;font-size:11px;">Name</th><th style="padding:4px 8px 4px 0;font-size:11px;">Year</th><th style="padding:4px 0;font-size:11px;">Att.</th><th style="padding:4px 0;font-size:11px;white-space:nowrap;"></th></tr></thead><tbody>';
+            html+='<thead><tr style="background:var(--surface2);"><th style="padding:4px 4px 4px 0;font-size:11px;width:22px;"></th><th style="padding:4px 8px 4px 0;font-size:11px;">Ad No.</th><th style="padding:4px 8px 4px 0;font-size:11px;">Name</th><th style="padding:4px 4px 4px 0;font-size:11px;">Att.</th>'+(otherTables.length>0?'<th style="padding:4px 0;font-size:11px;">Move</th>':'')+' </tr></thead><tbody>';
             studs.forEach(function(st){
               var attSt=attMap[st.student_id]||attMap[st.id]||{};
               var stBadge=attSt.status==='present'?'badge-success':attSt.status==='absent'?'badge-danger':'badge-gray';
               var stLabel=attSt.status||'—';
               var stId=st.student_id||st.id;
               html+='<tr style="border-top:1px solid var(--border);">';
+              html+='<td style="padding:2px 4px 2px 0;"><button class="btn btn-sm btn-danger" style="padding:1px 5px;font-size:11px;line-height:1.2;" data-action="remove-rpt-student" data-session-id="'+s.id+'" data-student-id="'+stId+'" title="Remove">&#10005;</button></td>';
               html+='<td style="padding:4px 8px 4px 0;color:var(--text3);">'+(st.admission_id||'—')+'</td>';
-              html+='<td style="padding:4px 8px 4px 0;font-weight:500;">'+(st.name||st.student_name||'—')+'</td>';
-              html+='<td style="padding:4px 8px 4px 0;">'+(st.year_group||'—')+'</td>';
+              html+='<td style="padding:4px 8px 4px 0;font-weight:500;">'+(st.name||st.student_name||'—')+(st.year_group?' <span style="color:var(--text3);font-size:10px;font-weight:400;">'+st.year_group+'</span>':'')+' </td>';
               html+='<td><span class="badge '+stBadge+'" style="font-size:10px;">'+stLabel+'</span></td>';
               if(otherTables.length>0){
-                html+='<td style="padding:2px 0;white-space:nowrap;">';
-                html+='<select data-action="rpt-move-student" data-src="'+s.id+'" data-student="'+stId+'" style="font-size:10px;padding:1px 2px;max-width:65px;" title="Move to table">';
-                html+='<option value="">&#8599;</option>';
-                otherTables.forEach(function(t){html+='<option value="'+t.id+'">&rarr;T'+t.table_no+'</option>';});
-                html+='</select> ';
-                html+='<button class="btn btn-sm btn-danger" style="padding:2px 5px;font-size:11px;line-height:1;" data-action="remove-rpt-student" data-session-id="'+s.id+'" data-student-id="'+stId+'" title="Remove from table">&#10005;</button>';
+                html+='<td style="padding:2px 0;">';
+                html+='<select data-action="rpt-move-student" data-src="'+s.id+'" data-student="'+stId+'" style="font-size:10px;padding:1px 2px;max-width:70px;" title="Move to table">';
+                html+='<option value="">&#8599; Move</option>';
+                otherTables.forEach(function(t){html+='<option value="'+t.id+'">&rarr; T'+t.table_no+(t.subject!==s.subject?' ('+t.subject+')':'')+' </option>';});
+                html+='</select>';
                 html+='</td>';
-              }else{
-                html+='<td style="padding:2px 0;"><button class="btn btn-sm btn-danger" style="padding:2px 5px;font-size:11px;line-height:1;" data-action="remove-rpt-student" data-session-id="'+s.id+'" data-student-id="'+stId+'" title="Remove from table">&#10005;</button></td>';
               }
               html+='</tr>';
             });
-            html+='</tbody></table>';
+            html+='</tbody></table></div>';
             // Add student to saved table
             var inTable=studs.map(function(st){return st.student_id||st.id;});
             // Only show students on the timetable for this slot + subject
