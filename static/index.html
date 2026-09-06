@@ -7450,6 +7450,11 @@ if(m==='add-student'||m==='edit-student'){
   if(state.profileStudent&&state.profileStudent.id===(state.editTarget?.id||stuIdForAS)){
     state.profileStudent=(state.data.students||[]).find(function(s){return s.id===state.profileStudent.id;})||state.profileStudent;
   }
+  // Step 4: If on session_plan page, reload plan_students for current date so lesson plan reflects agreed slot changes
+  if(state.page==='session_plan'&&state.lpDate&&state.currentBranch){
+    await loadData('plan_students_'+state.lpDate,'/api/session-plan-students',{branch_id:state.currentBranch,date:state.lpDate});
+    state.planDraft=null; // Clear draft so auto-generate picks up new roster
+  }
 }
 else if(m==='add-staff'||m==='edit-staff'){
   const branchVal=isSuperAdmin()?v('f-branch'):String(state.currentBranch||'');
