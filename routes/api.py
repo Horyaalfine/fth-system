@@ -2413,6 +2413,7 @@ def remove_student_from_session(session_id, student_id):
         WHERE tas.allocation_id=ta.id AND ta.session_id=%s AND tas.student_id=%s
     ''', (session_id, student_id))
     cur.execute("DELETE FROM session_students WHERE session_id=%s AND student_id=%s", (session_id, student_id))
+    cur.execute("DELETE FROM attendance WHERE session_id=%s AND student_id=%s", (session_id, student_id))
     conn.commit(); cur.close(); conn.close()
     log_action('edit', 'sessions', session_id)
     return jsonify({'ok': True})
