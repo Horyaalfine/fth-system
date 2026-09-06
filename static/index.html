@@ -8774,6 +8774,7 @@ if(action==='reg-subject-filter'){state.regSubject=el.value;render();return;}
 
 // Lesson plan date/max change
 if(action==='lp-date'){
+  if(!el.value||el.value===state.lpDate)return;
   state.lpDate=el.value;state.planDraft=null;state.lpSlot='';state.lpSubject='';
   if(state.currentBranch&&el.value){
     await loadData('plan_students_'+el.value,'/api/session-plan-students',{branch_id:state.currentBranch,date:el.value});
