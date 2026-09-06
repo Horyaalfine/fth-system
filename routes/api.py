@@ -5738,50 +5738,54 @@ def get_session_plan_students():
         """, (branch_id, day_of_week, date_str, date_str, day_type, day_of_week, branch_id))
         base_rows = rows(cur)
         if not base_rows:
+            def _safe_row(r, dt):
+                return {
+                    'student_id': int(r['student_id']) if r.get('student_id') else None,
+                    'student_name': str(r['student_name'] or ''),
+                    'admission_id': str(r['admission_id'] or ''),
+                    'year_group': str(r['year_group'] or '') if r.get('year_group') else None,
+                    'day_type': dt,
+                    'slot': str(r['slot'] or '') if r.get('slot') else '',
+                    'subject': str(r['subject'] or '') if r.get('subject') else '',
+                    'branch_schedule_id': None, 'slot_start': None, 'slot_end': None
+                }
             # Fallback 1: student_timetable for this branch/day_type
-            cur.execute("""
-                SELECT DISTINCT
-                    s.id AS student_id, s.name AS student_name,
-                    s.admission_id, s.year_group,
-                    st.day_type, st.slot, st.subject
-                FROM student_timetable st
-                JOIN students s ON s.id = st.student_id
-                WHERE st.branch_id = %s AND st.day_type = %s AND s.status = 'active' AND st.active = TRUE
-                ORDER BY s.admission_id
-            """, (branch_id, day_type))
-            tt_fb = cur.fetchall()
+            try:
+                cur.execute("""
+                    SELECT DISTINCT s.id AS student_id, s.name AS student_name,
+                        s.admission_id, s.year_group, st.day_type, st.slot, st.subject
+                    FROM student_timetable st
+                    JOIN students s ON s.id = st.student_id
+                    WHERE st.branch_id = %s AND st.day_type = %s AND s.status = 'active' AND st.active = TRUE
+                    ORDER BY s.admission_id
+                """, (branch_id, day_type))
+                tt_fb = cur.fetchall()
+            except Exception:
+                tt_fb = []
             if tt_fb:
                 cur.close(); conn.close()
-                return jsonify([{
-                    'student_id': r['student_id'], 'student_name': r['student_name'],
-                    'admission_id': r['admission_id'], 'year_group': r['year_group'],
-                    'day_type': r['day_type'], 'slot': r['slot'], 'subject': r['subject'],
-                    'branch_schedule_id': None, 'slot_start': None, 'slot_end': None
-                } for r in tt_fb])
-            # Fallback 2: distinct students who historically attended on this day_of_week
+                return jsonify([_safe_row(r, r.get('day_type', day_type)) for r in tt_fb])
+            # Fallback 2: students who historically attended on this day_of_week
+            # Filter by student's branch OR session's branch to catch all cases
             _dow_map = {'sunday':0,'monday':1,'tuesday':2,'wednesday':3,'thursday':4,'friday':5,'saturday':6}
             _dow_num = _dow_map.get(day_of_week, -1)
-            cur.execute("""
-                SELECT DISTINCT
-                    s.id AS student_id, s.name AS student_name,
-                    s.admission_id, s.year_group,
-                    %s AS day_type, sess.slot, sess.subject
-                FROM attendance a
-                JOIN sessions sess ON sess.id = a.session_id
-                JOIN students s ON s.id = a.student_id
-                WHERE sess.branch_id = %s
-                  AND EXTRACT(DOW FROM sess.date) = %s
-                  AND s.status = 'active'
-                ORDER BY s.admission_id
-            """, (day_type, branch_id, _dow_num))
-            hist_fb = cur.fetchall()
+            try:
+                cur.execute("""
+                    SELECT DISTINCT s.id AS student_id, s.name AS student_name,
+                        s.admission_id, s.year_group, sess.slot, sess.subject
+                    FROM attendance a
+                    JOIN sessions sess ON sess.id = a.session_id
+                    JOIN students s ON s.id = a.student_id
+                    WHERE (sess.branch_id = %s OR s.branch_id = %s)
+                      AND EXTRACT(DOW FROM sess.date) = %s
+                      AND s.status = 'active'
+                    ORDER BY s.admission_id
+                """, (branch_id, branch_id, _dow_num))
+                hist_fb = cur.fetchall()
+            except Exception:
+                hist_fb = []
             cur.close(); conn.close()
-            return jsonify([{
-                'student_id': r['student_id'], 'student_name': r['student_name'],
-                'admission_id': r['admission_id'], 'year_group': r['year_group'],
-                'day_type': r['day_type'], 'slot': r['slot'], 'subject': r['subject'],
-                'branch_schedule_id': None, 'slot_start': None, 'slot_end': None
-            } for r in hist_fb])
+            return jsonify([_safe_row(r, day_type) for r in hist_fb])
         # Try to get subjects from student_timetable by matching slot start time
         cur.execute("""
             SELECT student_id, slot, subject
