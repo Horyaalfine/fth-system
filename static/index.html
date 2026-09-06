@@ -9939,7 +9939,17 @@ if(action==='remove-session-student'){
   }).catch(function(){toast('Failed to remove','danger');});
   return;
 }
-if(action==='remove-rpt-student'){return;} // handled by document-level click listener
+if(action==='remove-rpt-student'){
+  var sessId2=parseInt(el.dataset.sessionId);
+  var stuId2=parseInt(el.dataset.studentId);
+  if(!confirm('Remove this student from the table?'))return;
+  API.delete('/api/sessions/'+sessId2+'/students/'+stuId2).then(function(){
+    delete state.data['sess_students_'+sessId2];
+    loadData('sess_students_'+sessId2,'/api/sessions/'+sessId2+'/students').then(function(){render();});
+    toast('Student removed','success');
+  }).catch(function(){toast('Failed to remove','danger');});
+  return;
+}
 if(action==='analytics-range'){
   state.analyticsRange=el.dataset.range;
   delete state.data.summary;
@@ -10070,10 +10080,10 @@ if(action==='load-fin-statement'){
 }
 if(action==='print-fin-statement'){
   var fs=state.data.fin_statement||{};
-  var fmtG=function(v){return '£'+(v||0).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2});};
+  var fmtG=function(v){return 'ï¿½'+(v||0).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2});};
   var w=window.open('','_blank');
-  var rows1=(fs.invoices||[]).map(function(r){return '<tr><td>'+r.invoice_date+'</td><td>'+r.student_name+'</td><td style="text-align:right">£'+parseFloat(r.amount).toFixed(2)+'</td><td>'+r.status+'</td></tr>';}).join('');
-  var rows2=(fs.payments||[]).map(function(r){return '<tr><td>'+r.payment_date+'</td><td>'+r.student_name+'</td><td style="text-align:right">£'+parseFloat(r.amount).toFixed(2)+'</td><td>'+(r.method||'')+'</td></tr>';}).join('');
+  var rows1=(fs.invoices||[]).map(function(r){return '<tr><td>'+r.invoice_date+'</td><td>'+r.student_name+'</td><td style="text-align:right">ï¿½'+parseFloat(r.amount).toFixed(2)+'</td><td>'+r.status+'</td></tr>';}).join('');
+  var rows2=(fs.payments||[]).map(function(r){return '<tr><td>'+r.payment_date+'</td><td>'+r.student_name+'</td><td style="text-align:right">ï¿½'+parseFloat(r.amount).toFixed(2)+'</td><td>'+(r.method||'')+'</td></tr>';}).join('');
   w.document.write('<html><head><title>Financial Statement</title><style>body{font-family:Arial,sans-serif;font-size:12px;margin:20px;}h1{font-size:16px;}h2{font-size:13px;margin-top:20px;}table{width:100%;border-collapse:collapse;margin-top:8px;}th,td{padding:6px 8px;border:1px solid #ccc;text-align:left;}th{background:#f0f0f0;}.summary{display:flex;gap:20px;margin:16px 0;flex-wrap:wrap;}.card{border:1px solid #ccc;border-radius:6px;padding:12px 16px;min-width:160px;}.card .label{font-size:11px;color:#666;text-transform:uppercase;}.card .val{font-size:20px;font-weight:700;}</style></head><body>');
   w.document.write('<h1>Financial Statement</h1><p>Period: '+fs.date_from+' to '+fs.date_to+'</p>');
   w.document.write('<div class="summary"><div class="card"><div class="label">Opening Balance</div><div class="val">'+fmtG(fs.opening_balance)+'</div><div>At start of period</div></div><div class="card"><div class="label">+ Invoiced</div><div class="val" style="color:#dc2626">'+fmtG(fs.invoiced)+'</div><div>New charges in period</div></div><div class="card"><div class="label">- Payments Received</div><div class="val" style="color:#16a34a">'+fmtG(fs.paid)+'</div><div>Paid in period</div></div><div class="card" style="border-top:3px solid #2563eb"><div class="label">Closing Balance</div><div class="val" style="color:'+(fs.closing_balance>0?'#dc2626':'#16a34a')+'">'+fmtG(fs.closing_balance)+'</div><div>Carried forward</div></div></div>');
@@ -10228,22 +10238,7 @@ document.addEventListener('touchstart',function(e){
   const navEl=e.target.closest('[data-page]');
   if(navEl){_doNav(navEl);}
 },{passive:true});
-document.addEventListener('click',function(e){
-  const navEl=e.target.closest('[data-page]');
-  if(navEl){_doNav(navEl);}
-  var _rptRemoveBtn=e.target.closest('[data-action="remove-rpt-student"]');
-  if(_rptRemoveBtn){
-    var _rptSessId=parseInt(_rptRemoveBtn.dataset.sessionId);
-    var _rptStuId=parseInt(_rptRemoveBtn.dataset.studentId);
-    if(!confirm('Remove this student from the table?'))return;
-    API.delete('/api/sessions/'+_rptSessId+'/students/'+_rptStuId).then(function(){
-      delete state.data['sess_students_'+_rptSessId];
-      loadData('sess_students_'+_rptSessId,'/api/sessions/'+_rptSessId+'/students').then(function(){render();});
-      toast('Student removed','success');
-    }).catch(function(){toast('Failed to remove','danger');});
-    return;
-  }
-});
+
 
 
 // BOOT
