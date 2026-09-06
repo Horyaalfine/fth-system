@@ -679,8 +679,8 @@ def auto_create_sessions():
                    ROW_NUMBER() OVER (ORDER BY slot_start) AS session_num
             FROM branch_schedule
             WHERE branch_id = %s AND day_of_week = %s AND status = 'active'
-              AND (effective_from IS NULL OR effective_from <= %s)
-              AND (effective_to IS NULL OR effective_to >= %s)
+              AND (effective_from IS NULL OR effective_from <= CURRENT_DATE)
+              AND (effective_to IS NULL OR effective_to >= CURRENT_DATE)
             ORDER BY slot_start
         """, (branch_id, day_of_week, date_str, date_str))
         slots = cur.fetchall()
@@ -5733,8 +5733,8 @@ def get_session_plan_students():
                        ROW_NUMBER() OVER (ORDER BY slot_start) AS session_num
                 FROM branch_schedule
                 WHERE branch_id = %s AND day_of_week = %s AND status = 'active'
-                  AND (effective_from IS NULL OR effective_from <= %s)
-                  AND (effective_to IS NULL OR effective_to >= %s)
+                  AND (effective_from IS NULL OR effective_from <= CURRENT_DATE)
+                  AND (effective_to IS NULL OR effective_to >= CURRENT_DATE)
             )
             SELECT
                 s.id AS student_id,
@@ -5751,7 +5751,7 @@ def get_session_plan_students():
             JOIN sched sc ON sc.id = sas.branch_schedule_id
             WHERE s.status = 'active' AND s.branch_id = %s
             ORDER BY s.admission_id, sc.slot_start
-        """, (branch_id, day_of_week, date_str, date_str, day_type, day_of_week, branch_id))
+        """, ((branch_id, day_of_week, day_type, day_of_week, branch_id)))
         base_rows = rows(cur)
         if not base_rows:
             def _safe_row(r, dt):
