@@ -687,7 +687,7 @@ function canAccess(page){
 function invBadge(s){if(s==='paid')return`<span class="badge badge-success">Paid</span>`;if(s==='overdue')return`<span class="badge badge-danger">Overdue</span>`;return`<span class="badge badge-amber">Due</span>`;}
 function stars(n){return Array.from({length:5},(_,i)=>`<span style="color:${i<n?'var(--amber)':'var(--surface3)'}">★</span>`).join('');}
 async function loadData(key,path,params){try{state.data[key]=await API.get(path,params||{});}catch(e){state.data[key]=state.data[key]||[];}}
-async function refreshPage(){state.loading=true;render();const b=branchParam();const page=state.page;try{if(page==='dashboard'){const loads=[loadData('branches','/api/branches'),loadData('summary','/api/reports/summary',b),loadData('action_items','/api/dashboard/action-items',b),loadData('today','/api/dashboard/today',b)];await Promise.all(loads);}else if(page==='students')await loadData('students','/api/students',{...b,q:state.studentSearch});else if(page==='staff')await loadData('staff','/api/staff',b);else if(page==='branch_operation')await loadData('branch_schedule','/api/branch-schedule',b);
+async function refreshPage(){state.loading=true;render();const b=branchParam();const page=state.page;try{if(page==='dashboard'){const loads=[loadData('branches','/api/branches'),loadData('summary','/api/reports/summary',b),loadData('action_items','/api/dashboard/action-items',b),loadData('today','/api/dashboard/today',b)];await Promise.all(loads);}else if(page==='students'||page==='student_profile'){await loadData('students','/api/students',{...b,q:state.studentSearch});if(page==='student_profile'&&state.profileStudent){state.profileStudent=(state.data.students||[]).find(function(s){return s.id===state.profileStudent.id;})||state.profileStudent;}}else if(page==='staff')await loadData('staff','/api/staff',b);else if(page==='branch_operation')await loadData('branch_schedule','/api/branch-schedule',b);
 else if(page==='sessions')await loadData('sessions','/api/sessions',b);else if(page==='attendance'){
   await Promise.all([loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('all_timetables','/api/student-timetable',b)]);if(state.attSessionId){await Promise.all([loadData('attendance_'+state.attSessionId,'/api/attendance/'+state.attSessionId),loadData('sess_students_'+state.attSessionId,'/api/sessions/'+state.attSessionId+'/students')]);const att=state.data['attendance_'+state.attSessionId]||[];att.forEach(function(a){if(!state.attRecords[state.attSessionId])state.attRecords[state.attSessionId]={};state.attRecords[state.attSessionId][a.student_id]={status:a.status,notes:a.notes||''};});}}else if(page==='invoices')await Promise.all([loadData('invoices','/api/invoices',b),loadData('students','/api/students',b),loadData('branches','/api/branches')]);else if(page==='session_reports'){
   await loadData('sessions','/api/sessions',b);
@@ -7437,6 +7437,10 @@ if(m==='add-student'||m==='edit-student'){
     delete state.data.students;
     Object.keys(state.data).forEach(function(k){if(k.startsWith('plan_students_'))delete state.data[k];});
     await loadData('students','/api/students',branchParam());
+    // Refresh profileStudent if editing from profile page
+    if(state.profileStudent&&state.profileStudent.id===(state.editTarget?.id||stuIdForAS)){
+      state.profileStudent=(state.data.students||[]).find(function(s){return s.id===state.profileStudent.id;})||state.profileStudent;
+    }
   }catch(err){
     toast(err?.error||'Save failed — please try again','error');
     console.error('Student save error:',err);
