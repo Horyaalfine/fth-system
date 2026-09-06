@@ -5727,12 +5727,13 @@ def get_session_plan_students():
             cur.close(); conn.close()
             return jsonify({'branch_id': branch_id, 'date': date_str, 'day_of_week': day_of_week, 'day_type': day_type, 'schedule_slots': [dict(r) for r in d_sched], 'agreed_slots_count': d_agreed_cnt['cnt'], 'timetable_weekday_count': d_tt_cnt['cnt'], 'attendance_history_count': d_att_cnt['cnt'], 'attendance_students_sample': [dict(r) for r in d_att_students]})
         # Get students with agreed slots for this branch + day_of_week
+        # Match enrolment report: filter by student branch, not schedule branch
         cur.execute("""
             WITH sched AS (
                 SELECT id, slot_start, slot_end,
                        ROW_NUMBER() OVER (ORDER BY slot_start) AS session_num
                 FROM branch_schedule
-                WHERE branch_id = %s AND day_of_week = %s AND status = 'active'
+                WHERE day_of_week = %s AND status = 'active'
                   AND (effective_from IS NULL OR effective_from <= CURRENT_DATE)
                   AND (effective_to IS NULL OR effective_to >= CURRENT_DATE)
             )
@@ -5751,7 +5752,7 @@ def get_session_plan_students():
             JOIN sched sc ON sc.id = sas.branch_schedule_id
             WHERE s.status = 'active' AND s.branch_id = %s
             ORDER BY s.admission_id, sc.slot_start
-        """, ((branch_id, day_of_week, day_type, day_of_week, branch_id)))
+        """, (day_of_week, day_type, day_of_week, branch_id))
         base_rows = rows(cur)
         if not base_rows:
             def _safe_row(r, dt):
