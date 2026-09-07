@@ -746,9 +746,15 @@ else if(page==='session_plan'){
     loadData('all_timetables','/api/student-timetable',b2),
     loadData('branch_schedule','/api/branch-schedule',b2),
   ]);
-  // Load agreed-slots based student list for today's date
+  // Load agreed-slots based student list for lesson plan date
   const _lpInitDate=state.lpDate||new Date().toISOString().slice(0,10);
   await loadData('plan_students_'+_lpInitDate,'/api/session-plan-students',{branch_id:state.currentBranch,date:_lpInitDate});
+  // Also reload rptDate session students if report tab has a date selected
+  if(state.rptDate&&state.currentBranch){
+    await loadData('plan_students_'+state.rptDate,'/api/session-plan-students',{branch_id:state.currentBranch,date:state.rptDate});
+    var _rptSessNow=(state.data.sessions||[]).filter(function(s){return s.date===state.rptDate;});
+    await Promise.all(_rptSessNow.map(function(s){return Promise.all([loadData('sess_students_'+s.id,'/api/sessions/'+s.id+'/students'),loadData('rpt_att_'+s.id,'/api/attendance/'+s.id)]);}));
+  }
   if(state.planSessionId){
     await Promise.all([
       loadData('table_allocs_'+state.planSessionId,'/api/table-allocations/'+state.planSessionId),
@@ -8148,7 +8154,7 @@ document.querySelectorAll('[data-action="rpt-set-teacher"]').forEach(function(se
         state.data.sessions[sessIdx].staff_id=teacherId;
         state.data.sessions[sessIdx].staff_name=teacher?teacher.name:null;
       }
-      toast('Teacher assigned','success');
+      toast('Teacher assigned','success');render();
     }catch(err){toast('Error','danger');}
   });
 });
@@ -8990,6 +8996,11 @@ if(action==='lp-save'){
     state.planDraft=null;
     toast('Plan saved — '+draft.tables.length+' tables created','success');
     await loadData('sessions','/api/sessions',b);
+    // Auto-set report date to the saved plan date so report view updates
+    state.rptDate=draft.date;
+    // Load sess_students for all new sessions on that date
+    var _newSess=(state.data.sessions||[]).filter(function(s){return s.date===draft.date;});
+    await Promise.all(_newSess.map(function(s){return loadData('sess_students_'+s.id,'/api/sessions/'+s.id+'/students');}));
     render();
   }catch(err){toast('Error saving plan: '+(err.message||err),'danger');}
   return;
@@ -9014,7 +9025,7 @@ if(action==='rpt-set-teacher'){
       state.data.sessions[sessIdx].staff_id=teacherId;
       state.data.sessions[sessIdx].staff_name=teacher?teacher.name:null;
     }
-    toast('Teacher assigned','success');
+    toast('Teacher assigned','success');render();
   }catch(err){toast('Error: '+(err.message||err),'danger');}
   return;
 }
