@@ -6191,7 +6191,10 @@ def report_daily_activity():
 @api_bp.route('/api/attendance/by-date-slot', methods=['GET'])
 @require_auth
 def get_attendance_by_date_slot():
-    """Return attendance for all sessions matching date+slot (for quick attendance pre-load)."""
+    """Return attendance for all sessions matching date+slot (for quick attendance pre-load).
+    Matches by: exact slot, normalised dash/Slot→Session, OR day+session-number prefix
+    (ignoring exact times) so branch_schedule and sessions table time mismatches are handled."""
+    import re as _re
     date_str = request.args.get('date', '')
     slot_str = request.args.get('slot', '')
     b = branch_scope()
@@ -6199,22 +6202,41 @@ def get_attendance_by_date_slot():
         return jsonify([])
     bw = " AND s.branch_id=%s" if b else ""
     bp = (b,) if b else ()
+    # Build day+session-number prefix e.g. "Saturday Session 3" from "Saturday Session 3 (14:15-16:15)"
+    _norm = lambda s: _re.sub(r'–|—', '-', (s or '')).replace('Slot', 'Session')
+    _m = _re.match(r'^(\w+\s+Session\s+\d+)', _norm(slot_str))
+    slot_prefix = (_m.group(1) + ' (') if _m else None
     conn = get_conn(); cur = conn.cursor()
     try:
-        # Normalize slot for comparison (replace en/em dash with hyphen)
-        cur.execute(f"""
-            SELECT a.student_id, a.status, a.notes, a.session_id
-            FROM attendance a
-            JOIN sessions s ON s.id = a.session_id
-            WHERE s.date = %s
-              AND (
-                replace(replace(replace(s.slot, '–', '-'), '—', '-'), 'Slot', 'Session') =
-                replace(replace(replace(%s,    '–', '-'), '—', '-'), 'Slot', 'Session')
-                OR s.slot = %s
-              )
-              {bw}
-            ORDER BY a.student_id
-        """, (date_str, slot_str, slot_str) + bp)
+        if slot_prefix:
+            cur.execute(f"""
+                SELECT a.student_id, a.status, a.notes, a.session_id
+                FROM attendance a
+                JOIN sessions s ON s.id = a.session_id
+                WHERE s.date = %s
+                  AND (
+                    replace(replace(replace(s.slot, '–', '-'), '—', '-'), 'Slot', 'Session') =
+                    replace(replace(replace(%s,    '–', '-'), '—', '-'), 'Slot', 'Session')
+                    OR s.slot = %s
+                    OR replace(replace(s.slot, '–', '-'), 'Slot', 'Session') ILIKE %s
+                  )
+                  {bw}
+                ORDER BY a.student_id
+            """, (date_str, slot_str, slot_str, slot_prefix + '%') + bp)
+        else:
+            cur.execute(f"""
+                SELECT a.student_id, a.status, a.notes, a.session_id
+                FROM attendance a
+                JOIN sessions s ON s.id = a.session_id
+                WHERE s.date = %s
+                  AND (
+                    replace(replace(replace(s.slot, '–', '-'), '—', '-'), 'Slot', 'Session') =
+                    replace(replace(replace(%s,    '–', '-'), '—', '-'), 'Slot', 'Session')
+                    OR s.slot = %s
+                  )
+                  {bw}
+                ORDER BY a.student_id
+            """, (date_str, slot_str, slot_str) + bp)
         data = [dict(r) for r in cur.fetchall()]
         cur.close(); conn.close()
         return jsonify(data)
