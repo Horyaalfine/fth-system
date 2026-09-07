@@ -9737,9 +9737,9 @@ if(action==='save-quick-att'){
       if(!stuSessionMap[st.student_id])stuSessionMap[st.student_id]=sess.id;
     });
   });
-  // Only use fallback when there is exactly 1 table for this slot;
-  // with multiple tables, route only assigned students (prevents dumping all to first table)
-  var fallbackSessionId=daySessions.length===1?daySessions[0].id:null;
+  // Route unassigned students to first session for this slot (attendance still needs a session_id)
+  // Source 3 in backend is fixed to not inflate multi-table lists
+  var fallbackSessionId=daySessions[0].id;
   // Group records by session
   var sessionRecords={};
   var _skippedCount=0;

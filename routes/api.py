@@ -2393,7 +2393,19 @@ def get_session_attendance_students(session_id):
     if sess_students:
         cur.close(); conn.close()
         return jsonify(sess_students)
-    # Source 3: already-marked attendance records only
+    # Source 3: attendance-based fallback — only when 1 session exists for this slot
+    # (prevents multi-table slots from dumping all fallback-routed students onto table 1)
+    norm_slot = sess.get('slot','').replace('–','-').replace('—','-')
+    cur.execute("""
+        SELECT COUNT(*) AS cnt FROM sessions
+        WHERE date=(SELECT date FROM sessions WHERE id=%s)
+          AND replace(replace(slot,'–','-'),'—','-')=%s
+          AND branch_id=(SELECT branch_id FROM sessions WHERE id=%s)
+    """, (session_id, norm_slot, session_id))
+    slot_count = cur.fetchone()['cnt']
+    if slot_count > 1:
+        cur.close(); conn.close()
+        return jsonify([])
     cur.execute("""
         SELECT s.id as student_id, s.name as student_name, s.admission_id, s.year_group,
                %s as table_no, 'attendance' as source
