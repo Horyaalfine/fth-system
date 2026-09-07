@@ -820,6 +820,8 @@ function render(){
 if(state.currentUser&&!['super_admin','reports_viewer','head_of_branches'].includes(state.currentUser.role)&&!state.currentUser.branch_id){
   app.innerHTML=`<div class="app">${renderSidebar()}<div class="main">${renderTopbar()}<div class="content"><div class="empty-state" style="padding:60px;"><div style="font-size:48px;margin-bottom:16px;">⚠️</div><div style="font-size:18px;font-weight:600;color:var(--text);margin-bottom:8px;">No branch assigned</div><div style="color:var(--text3);">Your account has not been assigned to a branch. Please contact your system administrator to assign you to a branch before you can use the system.</div></div></div></div></div>`;bindNav();return;
 }app.innerHTML=`<div class="app">${renderSidebar()}<div class="main">${renderTopbar()}<div class="content">${renderPage()}</div></div></div>${state.modal?renderModal():''}`;bindAll();
+// scheduleRender: debounced render for async completions — prevents multiple rapid rebuilds from closing dropdowns
+var _sRTimer=null;function scheduleRender(){if(_sRTimer)clearTimeout(_sRTimer);_sRTimer=setTimeout(function(){_sRTimer=null;render();},80);}
 // Re-wire static mobile nav after every render
 (function(){
   var pages=['dashboard','students','staff','sessions','session_plan','attendance','invoices','finance','reports','session_reports','lesson_reports','staff_timesheets','mgmt_reports','test_records','catchup'];
@@ -1589,7 +1591,7 @@ function renderQuickAttendance(){
       if(!state.qaDbRecords)state.qaDbRecords={};
       state.qaDbRecords[qaKey]={};
       (attList||[]).forEach(function(a){if(a.status){state.qaRecords[qaKey][a.student_id]=a.status;state.qaDbRecords[qaKey][a.student_id]=a.student_id;}});
-      render();
+      scheduleRender();
     });
   }
   const localAtt=state.qaRecords[qaKey]||{};
@@ -8068,8 +8070,8 @@ document.addEventListener('change',function(e){
         if(!state.qaDbRecords)state.qaDbRecords={};
         state.qaDbRecords[_qaKey]={};
         (attList||[]).forEach(function(a){if(a.status){state.qaRecords[_qaKey][a.student_id]=a.status;state.qaDbRecords[_qaKey][a.student_id]=a.student_id;}});
-        render();
-      }).catch(function(){render();});
+        scheduleRender();
+      }).catch(function(){scheduleRender();});
     } else { render(); }
     return;
   }
@@ -9069,7 +9071,7 @@ if(action==='rpt-date-select'){
     var b2rpt=branchParam();
     loadData('plan_students_'+state.rptDate,'/api/session-plan-students',Object.assign({date:state.rptDate},b2rpt)).then(function(){
       var _rds=(state.data.sessions||[]).filter(function(s){return s.date===state.rptDate;});
-      Promise.all(_rds.map(function(s){return loadData('rpt_att_'+s.id,'/api/attendance/'+s.id);})).then(function(){render();});
+      Promise.all(_rds.map(function(s){return loadData('rpt_att_'+s.id,'/api/attendance/'+s.id);})).then(function(){scheduleRender();});
     });
   }
   return;
@@ -9086,7 +9088,7 @@ if(action==='rpt-view-mode'){
       if(vm==='pm')return !_modeSlotIsAM(s.slot);
       return true;
     });
-    Promise.all(_rvm.map(function(s){return loadData('rpt_att_'+s.id,'/api/attendance/'+s.id);})).then(function(){render();});
+    Promise.all(_rvm.map(function(s){return loadData('rpt_att_'+s.id,'/api/attendance/'+s.id);})).then(function(){scheduleRender();});
   }
   return;
 }
