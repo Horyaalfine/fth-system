@@ -1574,7 +1574,9 @@ function renderQuickAttendance(){
     API.get('/api/attendance/by-date-slot',_qpR).then(function(attList){
       if(!state.qaRecords)state.qaRecords={};
       state.qaRecords[qaKey]={};
-      (attList||[]).forEach(function(a){if(a.status)state.qaRecords[qaKey][a.student_id]=a.status;});
+      if(!state.qaDbRecords)state.qaDbRecords={};
+      state.qaDbRecords[qaKey]={};
+      (attList||[]).forEach(function(a){if(a.status){state.qaRecords[qaKey][a.student_id]=a.status;state.qaDbRecords[qaKey][a.student_id]=a.student_id;}});
       render();
     });
   }
@@ -8028,7 +8030,9 @@ document.addEventListener('change',function(e){
       API.get('/api/attendance/by-date-slot',_qParams).then(function(attList){
         if(!state.qaRecords)state.qaRecords={};
         state.qaRecords[_qaKey]={};
-        (attList||[]).forEach(function(a){if(a.status)state.qaRecords[_qaKey][a.student_id]=a.status;});
+        if(!state.qaDbRecords)state.qaDbRecords={};
+        state.qaDbRecords[_qaKey]={};
+        (attList||[]).forEach(function(a){if(a.status){state.qaRecords[_qaKey][a.student_id]=a.status;state.qaDbRecords[_qaKey][a.student_id]=a.student_id;}});
         render();
       }).catch(function(){render();});
     } else { render(); }
@@ -9750,9 +9754,23 @@ if(action==='save-quick-att'){
     if(!sessionRecords[sid])sessionRecords[sid]=[];
     sessionRecords[sid].push({student_id:parseInt(stuId),status:localAtt[stuId],notes:''});
   });
+  // Compute which students were previously saved but are now unmarked → delete them
+  var _dbRecs=state.qaDbRecords&&state.qaDbRecords[key]?state.qaDbRecords[key]:{};
+  var _nowMarked=new Set(Object.keys(localAtt).filter(function(k){return !!localAtt[k];}).map(Number));
+  // Map previously-marked students back to their session
+  var deleteBySession={};
+  Object.keys(_dbRecs).forEach(function(stuId){
+    var sid2=stuSessionMap[parseInt(stuId)]||(fallbackSessionId||null);
+    if(sid2&&!_nowMarked.has(parseInt(stuId))){
+      if(!deleteBySession[sid2])deleteBySession[sid2]=[];
+      deleteBySession[sid2].push(parseInt(stuId));
+    }
+  });
+  // Merge all session IDs (save + delete)
+  var _allSids=new Set([...Object.keys(sessionRecords),...Object.keys(deleteBySession)].map(Number));
   var saved=0;
-  for(var sid in sessionRecords){
-    await API.post('/api/attendance',{session_id:parseInt(sid),records:sessionRecords[sid],delete_student_ids:[]});
+  for(var sid of _allSids){
+    await API.post('/api/attendance',{session_id:parseInt(sid),records:sessionRecords[sid]||[],delete_student_ids:deleteBySession[sid]||[]});
     saved++;
     // Invalidate lesson plan + session report caches so they reload
     delete state.data['rpt_att_'+sid];
@@ -9761,6 +9779,10 @@ if(action==='save-quick-att'){
   // Reload sessions to update present counts
   var _b=branchParam();
   await loadData('sessions','/api/sessions',_b);
+  // Update qaDbRecords to reflect what was just saved
+  if(!state.qaDbRecords)state.qaDbRecords={};
+  state.qaDbRecords[key]={};
+  Object.keys(localAtt).forEach(function(k){if(localAtt[k])state.qaDbRecords[key][k]=parseInt(k);});
   var _skipMsg=_skippedCount>0?' ('+_skippedCount+' student'+(+_skippedCount!==1?'s':'')+' skipped — assign to a table first)':'';
   toast('Attendance saved for '+saved+' session'+(saved!==1?'s':'')+_skipMsg,_skippedCount>0?'warning':'success');
   render();return;
