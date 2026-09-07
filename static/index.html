@@ -8058,25 +8058,10 @@ document.addEventListener('change',function(e){
   }
   if(e.target.id==='qa-slot'){
     state.qaSlot=e.target.value;
-    if(state.qaDate&&state.qaSlot){
-      var _qaKey='qa_'+state.qaDate+'_'+state.qaSlot;
-      // Set sentinel BEFORE render so auto-trigger in renderQuickAttendance
-      // does not fire a duplicate by-date-slot fetch
-      if(!state.qaRecords)state.qaRecords={};
-      if(state.qaRecords[_qaKey]===undefined||state.qaRecords[_qaKey]===null)state.qaRecords[_qaKey]=null;
-      render(); // immediate render to show slot + cached students instantly
-      var _bqp=branchParam();
-      var _qParams={date:state.qaDate,slot:state.qaSlot};
-      if(_bqp.branch_id)_qParams.branch_id=_bqp.branch_id;
-      API.get('/api/attendance/by-date-slot',_qParams).then(function(attList){
-        if(!state.qaRecords)state.qaRecords={};
-        state.qaRecords[_qaKey]={};
-        if(!state.qaDbRecords)state.qaDbRecords={};
-        state.qaDbRecords[_qaKey]={};
-        (attList||[]).forEach(function(a){if(a.status){state.qaRecords[_qaKey][a.student_id]=a.status;state.qaDbRecords[_qaKey][a.student_id]=a.student_id;}});
-        scheduleRender();
-      }).catch(function(){scheduleRender();});
-    } else { scheduleRender(); }
+    // Just update state and render — the auto-trigger in renderQuickAttendance
+    // handles the by-date-slot fetch when needed (undefined or null sentinel).
+    // Having a second fetch here caused a race condition that stomped results.
+    render();
     return;
   }
   if(e.target.id==='rpt-date-select'){
