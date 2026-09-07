@@ -436,10 +436,11 @@ function printLessonPlanReport(){
     html+='<div style="margin-bottom:20px;page-break-inside:avoid;">';
     html+='<div style="background:#1e3a8a;color:#fff;padding:8px 14px;font-size:14px;font-weight:700;border-radius:4px 4px 0 0;">Session '+(si+1)+': '+slot+'</div>';
     html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0;border:2px solid #1e3a8a;border-top:none;border-radius:0 0 4px 4px;overflow:hidden;">';
+    var _slotAttMapP={};
+    slotTables.forEach(function(st){(state.data['rpt_att_'+st.id]||[]).forEach(function(a){if(a.status&&!_slotAttMapP[a.student_id])_slotAttMapP[a.student_id]={status:a.status};});});
     slotTables.forEach(function(s,ti){
       var studs=state.data['sess_students_'+s.id]||[];
-      var attRecs=state.data['rpt_att_'+s.id]||[];
-      var attMap={};attRecs.forEach(function(a){attMap[a.student_id]={status:a.status};});
+      var attMap=_slotAttMapP;
       var teacher=staff.find(function(t){return t.id===s.staff_id;});
       var borderL=ti>0?'border-left:1px solid #cbd5e1;':'';
       html+='<div style="padding:10px 12px;'+borderL+'border-top:1px solid #cbd5e1;">';
@@ -601,10 +602,11 @@ function exportLessonPlanExcel(){
     // Session header
     rows.push(['SESSION '+(si+1)+': '+slot,'','','','']);
     rows.push(['','','','','']);
+    var _slotAttMapX={};
+    slotTables.forEach(function(st){(state.data['rpt_att_'+st.id]||[]).forEach(function(a){if(a.status&&!_slotAttMapX[a.student_id])_slotAttMapX[a.student_id]={status:a.status};});});
     slotTables.forEach(function(s){
       var studs=state.data['sess_students_'+s.id]||[];
-      var attRecs=state.data['rpt_att_'+s.id]||[];
-      var attMap={};attRecs.forEach(function(a){attMap[a.student_id]={status:a.status};});
+      var attMap=_slotAttMapX;
       var teacher=staff.find(function(t){return t.id===s.staff_id;});
       var teacherName=teacher?teacher.name:'Unassigned';
       var ks=s.ks?(' · '+s.ks):'';
@@ -3939,12 +3941,19 @@ function renderSessionPlan(){
       var bySlot={};
       daySessions.forEach(function(s){if(!bySlot[s.slot])bySlot[s.slot]=[];bySlot[s.slot].push(s);});
       var rptSlots=Object.keys(bySlot).sort();
-      var totalStudents=0;var totalPresent=0;var allTeachers=new Set();
+      // Build overall att map across all sessions (fallback routing may spread records)
+      var _dayAttMap={};
       daySessions.forEach(function(s){
-        totalStudents+=(state.data['sess_students_'+s.id]||[]).length||s.total_count||0;
-        totalPresent+=s.present_count||0;
+        (state.data['rpt_att_'+s.id]||[]).forEach(function(a){if(a.status&&!_dayAttMap[a.student_id])_dayAttMap[a.student_id]={status:a.status};});
+      });
+      var _dayStudentIds=new Set();
+      var allTeachers=new Set();
+      daySessions.forEach(function(s){
+        (state.data['sess_students_'+s.id]||[]).forEach(function(st){_dayStudentIds.add(st.student_id||st.id);});
         if(s.staff_name)allTeachers.add(s.staff_name);
       });
+      var totalStudents=_dayStudentIds.size||daySessions.reduce(function(s,x){return s+(x.total_count||0);},0);
+      var totalPresent=0;_dayStudentIds.forEach(function(sid){if((_dayAttMap[sid]||{}).status==='present')totalPresent++;});
       var dateLabel=new Date(rptDate+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 
       // Print header
@@ -3964,10 +3973,15 @@ function renderSessionPlan(){
       // Per session
       rptSlots.forEach(function(slot,si){
         var slotTables=bySlot[slot];
-        var slotPresent=slotTables.reduce(function(s,t){return s+(t.present_count||0);},0);
-        var slotTotal=slotTables.reduce(function(sum,t){
-          return sum+((state.data['sess_students_'+t.id]||[]).length||t.total_count||0);
-        },0);
+        // Build merged att map for this slot (Quick Att may save all to fallback session)
+        var _slotAM={};
+        slotTables.forEach(function(t){(state.data['rpt_att_'+t.id]||[]).forEach(function(a){if(a.status&&!_slotAM[a.student_id])_slotAM[a.student_id]={status:a.status};});});
+        // Count assigned students with presence in any slot session
+        var _allSlotStuIds=new Set();
+        slotTables.forEach(function(t){(state.data['sess_students_'+t.id]||[]).forEach(function(st){_allSlotStuIds.add(st.student_id||st.id);});});
+        var slotPresent=0;
+        _allSlotStuIds.forEach(function(sid){if((_slotAM[sid]||{}).status==='present')slotPresent++;});
+        var slotTotal=_allSlotStuIds.size||slotTables.reduce(function(sum,t){return sum+(t.total_count||0);},0);
         html+='<div style="margin-bottom:24px;page-break-inside:avoid;">';
         // Session header bar
         html+='<div style="background:var(--accent);color:#fff;padding:10px 16px;border-radius:var(--radius) var(--radius) 0 0;display:flex;justify-content:space-between;align-items:center;">';
@@ -3976,11 +3990,17 @@ function renderSessionPlan(){
         html+='</div>';
         // Tables inside session
         html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0;border:1px solid var(--accent);border-top:none;border-radius:0 0 var(--radius) var(--radius);overflow:hidden;">';
+        // Build merged attendance map for all tables in this slot
+        // (Quick Attendance may save to fallback session, so we merge across all slot sessions)
+        var slotAttMap={};
+        slotTables.forEach(function(st){
+          (state.data['rpt_att_'+st.id]||[]).forEach(function(a){
+            if(a.status&&!slotAttMap[a.student_id])slotAttMap[a.student_id]={status:a.status};
+          });
+        });
         slotTables.forEach(function(s,ti){
           var studs=state.data['sess_students_'+s.id]||[];
-          var attMap={};
-          var attRecs=state.data['rpt_att_'+s.id]||[];
-          attRecs.forEach(function(a){attMap[a.student_id]={status:a.status};});
+          var attMap=slotAttMap; // use merged map
           var borderLeft=ti>0?'border-left:1px solid var(--border);':'';
           html+='<div style="padding:12px 14px;'+borderLeft+'border-top:'+(ti>=0?'1px solid var(--border)':'none')+'">';
           html+='<div style="margin-bottom:8px;">';
