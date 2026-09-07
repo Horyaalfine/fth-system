@@ -1597,19 +1597,25 @@ function renderQuickAttendance(){
     if(!state.qaDbRecords)state.qaDbRecords={};
     if(_matchSess.length===0){
       // No sessions yet for this slot — show empty, don't block
+      console.log('[QA] No sessions found for date='+qDate+' slot='+qSlot+' (checked '+( state.data.sessions||[]).length+' sessions)');
+      toast('[Debug] No sessions found for this date/slot — have you clicked Create sessions?','warning');
       state.qaRecords[qaKey]={};state.qaDbRecords[qaKey]={};scheduleRender();
     } else {
       Promise.all(_matchSess.map(function(sess){return API.get('/api/attendance/'+sess.id);}))
         .then(function(results){
           if(!state.qaRecords)state.qaRecords={};
           state.qaRecords[qaKey]={};state.qaDbRecords[qaKey]={};
+          var _totalRecs=0;
           results.forEach(function(attList){
             (attList||[]).forEach(function(a){
+              _totalRecs++;
               if(a.status){state.qaRecords[qaKey][a.student_id]=a.status;state.qaDbRecords[qaKey][a.student_id]=a.student_id;}
             });
           });
+          console.log('[QA] sessions found:',_matchSess.length,'IDs:',_matchSess.map(function(s){return s.id+' slot='+s.slot;}), 'total att records:',_totalRecs,'present:',Object.values(state.qaRecords[qaKey]).filter(function(v){return v==='present';}).length);
+          toast('[Debug] Sessions: '+_matchSess.length+' | DB records: '+_totalRecs+' | Present: '+Object.values(state.qaRecords[qaKey]).filter(function(v){return v==='present';}).length,'info');
           scheduleRender();
-        }).catch(function(){state.qaRecords[qaKey]={};scheduleRender();});
+        }).catch(function(err){console.error('[QA] attendance load error',err);state.qaRecords[qaKey]={};scheduleRender();});
     }
   }
   const localAtt=state.qaRecords[qaKey]||{};
