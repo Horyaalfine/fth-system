@@ -1,15 +1,48 @@
 import os
 import psycopg2
 import psycopg2.extras
+import psycopg2.pool
 from dotenv import load_dotenv
 
 load_dotenv()
 
+# ThreadedConnectionPool: safe across gunicorn gthread workers.
+# min=2 keeps warm connections ready; max=20 stays under Railway's PG limit.
+_pool = None
+
+def _get_pool():
+    global _pool
+    if _pool is None:
+        _pool = psycopg2.pool.ThreadedConnectionPool(
+            minconn=2,
+            maxconn=20,
+            dsn=os.environ['DATABASE_URL'],
+            cursor_factory=psycopg2.extras.RealDictCursor
+        )
+    return _pool
+
 def get_conn():
-    return psycopg2.connect(
-        os.environ['DATABASE_URL'],
-        cursor_factory=psycopg2.extras.RealDictCursor
-    )
+    """Get a connection from the pool.
+    conn.close() is monkey-patched to return to pool — no changes needed in callers."""""
+    pool = _get_pool()
+    conn = pool.getconn()
+    def _return_to_pool():
+        try:
+            if not conn.closed:
+                conn.rollback()
+            pool.putconn(conn)
+        except Exception:
+            pass
+    conn.close = _return_to_pool
+    return conn
+
+def put_conn(conn):
+    """Return a connection to the pool."""
+    try:
+        _get_pool().putconn(conn)
+    except Exception:
+        pass
+
 
 SCHEMA = """
 -- ── BRANCHES ──

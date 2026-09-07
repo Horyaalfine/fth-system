@@ -23,11 +23,13 @@ app = Flask(__name__, static_folder='static')
 app.json = DecimalJSONProvider(app)
 app.secret_key = os.environ.get('SECRET_KEY', 'fth-secret-2026')
 app.permanent_session_lifetime = timedelta(hours=8)
-app.config['SESSION_COOKIE_SECURE'] = False
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('RAILWAY_ENVIRONMENT') == 'production'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
-CORS(app, supports_credentials=True, origins='*')
+# Restrict CORS to your actual deployment domain (set ALLOWED_ORIGINS in Railway env vars)
+_cors_origins = os.environ.get('ALLOWED_ORIGINS', '*').split(',')
+CORS(app, supports_credentials=True, origins=_cors_origins)
 
 from flask import session, jsonify
 
