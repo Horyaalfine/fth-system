@@ -3994,8 +3994,10 @@ function renderSessionPlan(){
             var _normSlot=function(sl){return (sl||'').replace(/–/g,'-').replace(/—/g,'-');};
             var _sSlot=_normSlot(s.slot);
             var _ttSlotE=_allTTe.filter(function(t){return _normSlot(t.slot)===_sSlot&&t.subject===s.subject;});
-            var _ttIdsE=new Set(_ttSlotE.map(function(t){return t.student_id||null;}));
-            var _ttAdmE=new Set(_ttSlotE.map(function(t){return t.admission_id;}));
+            var _ttIdsE=new Set(_ttSlotE.map(function(t){return t.student_id||null;}).filter(Boolean));
+            var _ttAdmE=new Set(_ttSlotE.map(function(t){return t.admission_id;}).filter(Boolean));
+            // Also include plan_students (agreed-slot students not in old timetable)
+            (state.data['plan_students_'+s.date]||[]).filter(function(p){return _normSlot(p.slot||'')===_sSlot&&p.subject===s.subject;}).forEach(function(p){if(p.student_id)_ttIdsE.add(p.student_id);if(p.admission_id)_ttAdmE.add(p.admission_id);});
             var _addableE=(state.data.students||[]).filter(function(st){
               return st.status==='active'&&(_ttIdsE.has(st.id)||_ttAdmE.has(st.admission_id));
             });
@@ -4047,11 +4049,12 @@ function renderSessionPlan(){
             var allTTr=state.data.all_timetables||[];
             var _normSlot2=function(sl){return (sl||'').replace(/–/g,'-').replace(/—/g,'-');};
             var ttForSlot=allTTr.filter(function(t){return _normSlot2(t.slot)===_normSlot2(s.slot)&&t.subject===s.subject;});
-            var ttIds=ttForSlot.map(function(t){return t.student_id||null;});
-            // Also match by name if student_id not available in allTT
-            var ttAdmIds=ttForSlot.map(function(t){return t.admission_id;});
+            var ttIds=new Set(ttForSlot.map(function(t){return t.student_id||null;}).filter(Boolean));
+            var ttAdmIds=new Set(ttForSlot.map(function(t){return t.admission_id;}).filter(Boolean));
+            // Also include plan_students (agreed-slot students not in old timetable)
+            (state.data['plan_students_'+s.date]||[]).filter(function(p){return _normSlot2(p.slot||'')===_normSlot2(s.slot||'')&&p.subject===s.subject;}).forEach(function(p){if(p.student_id)ttIds.add(p.student_id);if(p.admission_id)ttAdmIds.add(p.admission_id);});
             var addable=(state.data.students||[]).filter(function(st){
-              return st.status==='active'&&inTable.indexOf(st.id)<0&&(ttIds.indexOf(st.id)>=0||ttAdmIds.indexOf(st.admission_id)>=0);
+              return st.status==='active'&&inTable.indexOf(st.id)<0&&(ttIds.has(st.id)||ttAdmIds.has(st.admission_id));
             });
             // Fallback for manually-added tables: show all active branch students
             if(addable.length===0){
@@ -8017,6 +8020,7 @@ document.addEventListener('change',function(e){
         _rptLoads.push(loadData('sess_students_'+s.id,'/api/sessions/'+s.id+'/students'));
         _rptLoads.push(loadData('rpt_att_'+s.id,'/api/attendance/'+s.id));
       });
+      if(state.currentBranch){_rptLoads.push(loadData('plan_students_'+state.rptDate,'/api/session-plan-students',{branch_id:state.currentBranch,date:state.rptDate}));}
       Promise.all(_rptLoads).then(function(){state.rptLoading=false;render();});
     } else {
       state.rptLoading=false;
@@ -8114,6 +8118,7 @@ document.getElementById('rpt-date-select')?.addEventListener('change',async func
       loads.push(loadData('sess_students_'+s.id,'/api/sessions/'+s.id+'/students'));
       loads.push(loadData('rpt_att_'+s.id,'/api/attendance/'+s.id));
     });
+    if(state.currentBranch){loads.push(loadData('plan_students_'+state.rptDate,'/api/session-plan-students',{branch_id:state.currentBranch,date:state.rptDate}));}
     await Promise.all(loads);
   }
   state.rptLoading=false;
