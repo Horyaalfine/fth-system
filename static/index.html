@@ -424,12 +424,17 @@ function printLessonPlanReport(){
   if(!rptDate){alert('No report loaded.');return;}
   var sessions=state.data.sessions||[];
   var staff=state.data.staff||[];
-  var daySessions=sessions.filter(function(s){return s.date===rptDate;});
+  // Filter by current AM/PM/Full view selection
+  var _vm=state.rptViewMode||'full';
+  function _isAM(slot){var m=(slot||'').match(/\((\d+):/);return m&&parseInt(m[1])<14;}
+  var _allDay=sessions.filter(function(s){return s.date===rptDate;});
+  var daySessions=_vm==='am'?_allDay.filter(function(s){return _isAM(s.slot);}):_vm==='pm'?_allDay.filter(function(s){return !_isAM(s.slot);}):_allDay;
   var bySlot={};
   daySessions.forEach(function(s){if(!bySlot[s.slot])bySlot[s.slot]=[];bySlot[s.slot].push(s);});
   var rptSlots=Object.keys(bySlot).sort();
+  var viewLabel=_vm==='am'?' — AM Block':_vm==='pm'?' — PM Block':'';
   var dateLabel=new Date(rptDate+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  var html='<h2 style="margin:0 0 4px 0;font-size:20px;">Lesson Plan Report</h2>';
+  var html='<h2 style="margin:0 0 4px 0;font-size:20px;">Lesson Plan Report'+viewLabel+'</h2>';
   html+='<div style="font-size:13px;color:#555;margin-bottom:20px;">'+dateLabel+'</div>';
   rptSlots.forEach(function(slot,si){
     var slotTables=bySlot[slot];
@@ -591,7 +596,10 @@ function exportLessonPlanExcel(){
   if(!rptDate){alert('No report loaded.');return;}
   var sessions=state.data.sessions||[];
   var staff=state.data.staff||[];
-  var daySessions=sessions.filter(function(s){return s.date===rptDate;});
+  var _vm2=state.rptViewMode||'full';
+  function _isAM2(slot){var m=(slot||'').match(/\((\d+):/);return m&&parseInt(m[1])<14;}
+  var _allDay2=sessions.filter(function(s){return s.date===rptDate;});
+  var daySessions=_vm2==='am'?_allDay2.filter(function(s){return _isAM2(s.slot);}):_vm2==='pm'?_allDay2.filter(function(s){return !_isAM2(s.slot);}):_allDay2;
   var bySlot={};
   daySessions.forEach(function(s){if(!bySlot[s.slot])bySlot[s.slot]=[];bySlot[s.slot].push(s);});
   var rptSlots=Object.keys(bySlot).sort();
