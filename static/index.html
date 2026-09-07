@@ -9064,20 +9064,28 @@ if(action==='lp-save'){
 // Session report date change
 if(action==='rpt-date-select'){
   state.rptDate=el.value;render();
+  // Reload plan_students and rpt_att for new date (sess_students already loaded by refreshPage)
   if(state.rptDate&&state.currentBranch){
     var b2rpt=branchParam();
     loadData('plan_students_'+state.rptDate,'/api/session-plan-students',Object.assign({date:state.rptDate},b2rpt)).then(function(){
       var _rds=(state.data.sessions||[]).filter(function(s){return s.date===state.rptDate;});
-      Promise.all(_rds.map(function(s){return Promise.all([loadData('sess_students_'+s.id,'/api/sessions/'+s.id+'/students'),loadData('rpt_att_'+s.id,'/api/attendance/'+s.id)]);})).then(function(){render();});
+      Promise.all(_rds.map(function(s){return loadData('rpt_att_'+s.id,'/api/attendance/'+s.id);})).then(function(){render();});
     });
   }
   return;
 }
 if(action==='rpt-view-mode'){
   state.rptViewMode=el.dataset.mode||'full';render();
-  // Reload attendance for all sessions on this date so counts reflect latest marks
+  // Reload rpt_att only for sessions in the selected block (avoids loading all sessions)
   if(state.rptDate){
-    var _rvm=(state.data.sessions||[]).filter(function(s){return s.date===state.rptDate;});
+    function _modeSlotIsAM(sl){var m=(sl||'').match(/\((\d+):/);return m&&parseInt(m[1])<14;}
+    var _rvm=(state.data.sessions||[]).filter(function(s){
+      if(s.date!==state.rptDate)return false;
+      var vm=state.rptViewMode||'full';
+      if(vm==='am')return _modeSlotIsAM(s.slot);
+      if(vm==='pm')return !_modeSlotIsAM(s.slot);
+      return true;
+    });
     Promise.all(_rvm.map(function(s){return loadData('rpt_att_'+s.id,'/api/attendance/'+s.id);})).then(function(){render();});
   }
   return;
