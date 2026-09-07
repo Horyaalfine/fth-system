@@ -5865,10 +5865,39 @@ def get_session_plan_students():
                         result.append({**row_base, 'subject': subj})
                 else:
                     result.append({**row_base, 'subject': ''})
+        # ALSO include timetable students not already covered by agreed slots
+        agreed_ids = set(r['student_id'] for r in result)
+        if agreed_ids:
+            cur.execute("""
+                SELECT DISTINCT s.id AS student_id, s.name AS student_name,
+                    s.admission_id, s.year_group, st.day_type, st.slot, st.subject
+                FROM student_timetable st
+                JOIN students s ON s.id = st.student_id
+                WHERE st.branch_id = %s AND st.day_type = %s AND s.status = 'active'
+                  AND s.id NOT IN %s
+            """, (branch_id, day_type, tuple(agreed_ids)))
+        else:
+            cur.execute("""
+                SELECT DISTINCT s.id AS student_id, s.name AS student_name,
+                    s.admission_id, s.year_group, st.day_type, st.slot, st.subject
+                FROM student_timetable st
+                JOIN students s ON s.id = st.student_id
+                WHERE st.branch_id = %s AND st.day_type = %s AND s.status = 'active'
+            """, (branch_id, day_type))
+        for tr in cur.fetchall():
+            result.append({
+                'student_id': tr['student_id'], 'student_name': tr['student_name'],
+                'admission_id': tr['admission_id'], 'year_group': tr['year_group'],
+                'day_type': tr.get('day_type') or day_type,
+                'slot': tr.get('slot') or '', 'subject': tr.get('subject') or '',
+                'branch_schedule_id': None, 'slot_start': None, 'slot_end': None
+            })
+        print(f"[session-plan-students] final_count={len(result)} (agreed={len(agreed_ids)}, timetable_extra={len(result)-len(agreed_ids)})")
         cur.close(); conn.close()
         return jsonify(result)
     except Exception as e:
         cur.close(); conn.close()
+        print(f"[session-plan-students] ERROR: {e}")
         return jsonify({'error': str(e)}), 400
 
 # ════════════════════════════════════════════
