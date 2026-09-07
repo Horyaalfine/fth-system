@@ -4004,12 +4004,17 @@ function renderSessionPlan(){
             var _ttAdmE=new Set(_ttSlotE.map(function(t){return t.admission_id;}).filter(Boolean));
             // Also include plan_students (agreed-slot students not in old timetable)
             (state.data['plan_students_'+s.date]||[]).filter(function(p){return _normSlot(p.slot||'')===_sSlot&&p.subject===s.subject;}).forEach(function(p){if(p.student_id)_ttIdsE.add(p.student_id);if(p.admission_id)_ttAdmE.add(p.admission_id);});
-            var _addableE=(state.data.students||[]).filter(function(st){
-              return st.status==='active'&&(_ttIdsE.has(st.id)||_ttAdmE.has(st.admission_id));
+            // Students already in other tables of the same slot (prevent duplicates)
+            var _inOtherTablesE=new Set();
+            daySessions.filter(function(os){return os.id!==s.id&&os.slot===s.slot;}).forEach(function(os){
+              (state.data['sess_students_'+os.id]||[]).forEach(function(st){_inOtherTablesE.add(st.student_id||st.id);});
             });
-            // Also include ALL active branch students (covers re-activated students not in timetable/plan)
+            var _addableE=(state.data.students||[]).filter(function(st){
+              return st.status==='active'&&!_inOtherTablesE.has(st.id)&&(_ttIdsE.has(st.id)||_ttAdmE.has(st.admission_id));
+            });
+            // Also include ALL active branch students not in other same-slot tables (covers re-activated students)
             (state.data.students||[]).filter(function(st){
-              return st.status==='active'&&(!s.branch_id||st.branch_id===s.branch_id);
+              return st.status==='active'&&!_inOtherTablesE.has(st.id)&&(!s.branch_id||st.branch_id===s.branch_id);
             }).forEach(function(st){
               if(!_addableE.find(function(a){return a.id===st.id;}))_addableE.push(st);
             });
@@ -4059,12 +4064,17 @@ function renderSessionPlan(){
             var ttAdmIds=new Set(ttForSlot.map(function(t){return t.admission_id;}).filter(Boolean));
             // Also include plan_students (agreed-slot students not in old timetable)
             (state.data['plan_students_'+s.date]||[]).filter(function(p){return _normSlot2(p.slot||'')===_normSlot2(s.slot||'')&&p.subject===s.subject;}).forEach(function(p){if(p.student_id)ttIds.add(p.student_id);if(p.admission_id)ttAdmIds.add(p.admission_id);});
-            var addable=(state.data.students||[]).filter(function(st){
-              return st.status==='active'&&inTable.indexOf(st.id)<0&&(ttIds.has(st.id)||ttAdmIds.has(st.admission_id));
+            // Students already in other tables of the same slot (prevent duplicates)
+            var _inOtherTables=new Set();
+            daySessions.filter(function(os){return os.id!==s.id&&os.slot===s.slot;}).forEach(function(os){
+              (state.data['sess_students_'+os.id]||[]).forEach(function(st){_inOtherTables.add(st.student_id||st.id);});
             });
-            // Also include ALL active branch students not already in table (covers re-activated students)
+            var addable=(state.data.students||[]).filter(function(st){
+              return st.status==='active'&&inTable.indexOf(st.id)<0&&!_inOtherTables.has(st.id)&&(ttIds.has(st.id)||ttAdmIds.has(st.admission_id));
+            });
+            // Also include ALL active branch students not in this or other same-slot tables (covers re-activated students)
             (state.data.students||[]).filter(function(st){
-              return st.status==='active'&&inTable.indexOf(st.id)<0&&(!s.branch_id||st.branch_id===s.branch_id);
+              return st.status==='active'&&inTable.indexOf(st.id)<0&&!_inOtherTables.has(st.id)&&(!s.branch_id||st.branch_id===s.branch_id);
             }).forEach(function(st){
               if(!addable.find(function(a){return a.id===st.id;}))addable.push(st);
             });
