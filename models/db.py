@@ -749,7 +749,18 @@ def init_db():
     cur.close()
     conn.close()
     print(f"Database initialised successfully ({ok}/{len(statements)} statements OK).")
-    migrate_timetable_to_agreed_slots()
+    # Only migrate if student_agreed_slots is empty (skip on every-restart runs)
+    try:
+        _conn = get_conn(); _cur = _conn.cursor()
+        _cur.execute('SELECT COUNT(*) as c FROM student_agreed_slots')
+        _cnt = _cur.fetchone()['c']
+        _cur.close(); _conn.close()
+        if _cnt == 0:
+            migrate_timetable_to_agreed_slots()
+        else:
+            print(f'Timetable migration: skipped ({_cnt} agreed slots already exist).')
+    except Exception as _e:
+        print(f'Migration check error: {_e}')
 
 if __name__ == '__main__':
     init_db()
