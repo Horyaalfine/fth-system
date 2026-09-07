@@ -7956,8 +7956,7 @@ document.getElementById('modal-delete')?.addEventListener('click',async function
     _searchTimer=setTimeout(doStudentSearch,600);
   });
   document.getElementById('student-search-btn')?.addEventListener('click',function(){clearTimeout(_searchTimer);doStudentSearch();});
-})();document.getElementById('att-date-filter')?.addEventListener('change',function(e){state.attDateFilter=e.target.value;state.attSlotFilter='';state.attTeacherFilter='';state.attSessionId=null;state.attAllSessions='';render();});
-document.getElementById('att-tab-quick')?.addEventListener('click',function(){state.attTab='quick';render();});
+})();
 // Parent account student lookup - auto-fill parent details + auto-check siblings
 document.getElementById('f-student-lookup')?.addEventListener('change',function(){
   const opt=this.options[this.selectedIndex];
@@ -7988,6 +7987,15 @@ document.getElementById('f-student-lookup')?.addEventListener('change',function(
   if(summary)summary.textContent=linked.length>1?'Auto-linked '+linked.length+' siblings: '+linked.join(', '):'1 student linked';
 });
 document.addEventListener('change',function(e){
+  if(e.target.id==='att-date-filter'){
+    state.attDateFilter=e.target.value;state.attSlotFilter='';state.attTeacherFilter='';state.attSessionId=null;state.attAllSessions='';render();return;
+  }
+  if(e.target.id==='att-slot-filter'){
+    state.attSlotFilter=e.target.value;state.attTeacherFilter='';state.attSessionId=null;state.attAllSessions='';render();return;
+  }
+  if(e.target.id==='att-teacher-filter'){
+    state.attTeacherFilter=e.target.value;state.attSessionId=null;state.attAllSessions='';render();return;
+  }
   if(e.target.id==='qa-date'){
     state.qaDate=e.target.value;state.qaSlot='';
     render();
@@ -8001,6 +8009,7 @@ document.addEventListener('change',function(e){
   }
   if(e.target.id==='qa-slot'){
     state.qaSlot=e.target.value;
+    render(); // persist selection immediately before async load
     if(state.qaDate&&state.qaSlot){
       var _qaKey='qa_'+state.qaDate+'_'+state.qaSlot;
       var _bqp=branchParam();
@@ -8035,10 +8044,7 @@ document.addEventListener('change',function(e){
     return;
   }
 });
-document.getElementById('att-slot-filter')?.addEventListener('change',function(e){state.attSlotFilter=e.target.value;state.attTeacherFilter='';state.attSessionId=null;state.attAllSessions='';render();});
-document.getElementById('att-teacher-filter')?.addEventListener('change',function(e){state.attTeacherFilter=e.target.value;state.attSessionId=null;state.attAllSessions='';render();});
-document.getElementById('att-slot-filter')?.addEventListener('change',function(e){state.attSlotFilter=e.target.value;state.attSessionId=null;render();});
-document.getElementById('att-teacher-filter')?.addEventListener('change',function(e){state.attTeacherFilter=e.target.value;state.attSessionId=null;render();});
+
 document.getElementById('att-session-select')?.addEventListener('change',async e=>{
   const val=e.target.value;
   if(val&&val.startsWith('all:')){
