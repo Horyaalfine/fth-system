@@ -21,20 +21,34 @@ def _get_pool():
         )
     return _pool
 
-def get_conn():
-    """Get a connection from the pool.
-    conn.close() is monkey-patched to return to pool — no changes needed in callers."""""
-    pool = _get_pool()
-    conn = pool.getconn()
-    def _return_to_pool():
+class _PooledConn:
+    """Wraps a psycopg2 connection; close() returns it to the pool."""
+    __slots__ = ('_pool', '_conn')
+    def __init__(self, pool, conn):
+        object.__setattr__(self, '_pool', pool)
+        object.__setattr__(self, '_conn', conn)
+    def close(self):
+        pool = object.__getattribute__(self, '_pool')
+        conn = object.__getattribute__(self, '_conn')
         try:
             if not conn.closed:
                 conn.rollback()
             pool.putconn(conn)
         except Exception:
             pass
-    conn.close = _return_to_pool
-    return conn
+    def __getattr__(self, name):
+        return getattr(object.__getattribute__(self, '_conn'), name)
+    def __setattr__(self, name, value):
+        setattr(object.__getattribute__(self, '_conn'), name, value)
+    def __enter__(self):
+        return self
+    def __exit__(self, *args):
+        self.close()
+
+def get_conn():
+    """Get a pooled connection. close() returns it to the pool automatically."""
+    pool = _get_pool()
+    return _PooledConn(pool, pool.getconn())
 
 def put_conn(conn):
     """Return a connection to the pool."""
