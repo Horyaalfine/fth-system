@@ -1580,8 +1580,8 @@ function renderQuickAttendance(){
   const qaKey='qa_'+qDate+'_'+qSlot;
   if(!state.qaRecords)state.qaRecords={};
   // Auto-load attendance from DB if date+slot set but records not yet fetched
-  if(qDate&&qSlot&&state.qaRecords[qaKey]===undefined){
-    state.qaRecords[qaKey]={};// Mark as loading so we don't loop
+  if(qDate&&qSlot&&(state.qaRecords[qaKey]===undefined||state.qaRecords[qaKey]===null)){
+    state.qaRecords[qaKey]=null;// null = loading sentinel (distinct from {}=loaded-empty)
     var _bqpR=branchParam();
     var _qpR={date:qDate,slot:qSlot};
     if(_bqpR.branch_id)_qpR.branch_id=_bqpR.branch_id;
@@ -8063,7 +8063,7 @@ document.addEventListener('change',function(e){
       // Set sentinel BEFORE render so auto-trigger in renderQuickAttendance
       // does not fire a duplicate by-date-slot fetch
       if(!state.qaRecords)state.qaRecords={};
-      if(state.qaRecords[_qaKey]===undefined)state.qaRecords[_qaKey]={};
+      if(state.qaRecords[_qaKey]===undefined||state.qaRecords[_qaKey]===null)state.qaRecords[_qaKey]=null;
       render(); // immediate render to show slot + cached students instantly
       var _bqp=branchParam();
       var _qParams={date:state.qaDate,slot:state.qaSlot};
