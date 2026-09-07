@@ -6208,8 +6208,8 @@ def get_attendance_by_date_slot():
             JOIN sessions s ON s.id = a.session_id
             WHERE s.date = %s
               AND (
-                replace(replace(s.slot, '–', '-'), '—', '-') =
-                replace(replace(%s, '–', '-'), '—', '-')
+                replace(replace(replace(s.slot, '–', '-'), '—', '-'), 'Slot', 'Session') =
+                replace(replace(replace(%s,    '–', '-'), '—', '-'), 'Slot', 'Session')
                 OR s.slot = %s
               )
               {bw}
