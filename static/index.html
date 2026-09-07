@@ -4012,12 +4012,7 @@ function renderSessionPlan(){
             var _addableE=(state.data.students||[]).filter(function(st){
               return st.status==='active'&&!_inOtherTablesE.has(st.id)&&(_ttIdsE.has(st.id)||_ttAdmE.has(st.admission_id));
             });
-            // Also include ALL active branch students not in other same-slot tables (covers re-activated students)
-            (state.data.students||[]).filter(function(st){
-              return st.status==='active'&&!_inOtherTablesE.has(st.id)&&(!s.branch_id||st.branch_id===s.branch_id);
-            }).forEach(function(st){
-              if(!_addableE.find(function(a){return a.id===st.id;}))_addableE.push(st);
-            });
+
             if(_addableE.length>0){
               html+='<select data-action="rpt-add-student" data-id="'+s.id+'" style="width:100%;font-size:11px;padding:3px 6px;">';
               html+='<option value="">＋ Add student to this table...</option>';
@@ -4072,12 +4067,7 @@ function renderSessionPlan(){
             var addable=(state.data.students||[]).filter(function(st){
               return st.status==='active'&&inTable.indexOf(st.id)<0&&!_inOtherTables.has(st.id)&&(ttIds.has(st.id)||ttAdmIds.has(st.admission_id));
             });
-            // Also include ALL active branch students not in this or other same-slot tables (covers re-activated students)
-            (state.data.students||[]).filter(function(st){
-              return st.status==='active'&&inTable.indexOf(st.id)<0&&!_inOtherTables.has(st.id)&&(!s.branch_id||st.branch_id===s.branch_id);
-            }).forEach(function(st){
-              if(!addable.find(function(a){return a.id===st.id;}))addable.push(st);
-            });
+
             if(addable.length>0){
               html+='<div style="margin-top:6px;">';
               html+='<select data-action="rpt-add-student" data-id="'+s.id+'" style="width:100%;font-size:11px;padding:3px 6px;">';
