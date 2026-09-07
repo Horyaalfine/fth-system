@@ -1686,8 +1686,9 @@ function renderQuickAttendance(){
       var status=localAtt[st.id]||'';
       var color=status==='present'?'var(--success-text)':status==='absent'?'var(--danger-text)':'var(--text3)';
       var _multiSlot=_otherSlotStudents.has(st.id);
+      var _isSaved=state.qaSaved&&state.qaSaved[qaKey]&&state.qaSaved[qaKey].has(st.id);
       html+='<div class="att-cell '+status+'" data-action="qa-toggle" data-student="'+st.id+'">';
-      html+='<div class="att-name">'+st.name+(_multiSlot?'<span title="Also in another slot today" style="margin-left:4px;font-size:10px;color:var(--warning-text,#b45309);font-weight:600;">2-slot</span>':'')+'</div>';
+      html+='<div class="att-name">'+st.name+(_multiSlot?'<span title="Also in another slot today" style="margin-left:4px;font-size:10px;color:var(--warning-text,#b45309);font-weight:600;">2-slot</span>':'')+(_isSaved&&status==='present'?'<span title="Saved to database" style="margin-left:4px;color:var(--success-text);font-size:11px;font-weight:700;">✓</span>':'')+'</div>';
       html+='<div class="att-id">'+st.admission_id+(st.subjects.length?' · '+st.subjects.join(', '):'')+'</div>';
       html+='<div class="att-status" style="color:'+color+';">'+(status?status.toUpperCase():'—')+'</div>';
       html+='</div>';
@@ -9831,12 +9832,20 @@ if(action==='save-quick-att'){
   // Reload sessions to update present counts
   var _b=branchParam();
   await loadData('sessions','/api/sessions',_b);
+  // Verify by re-fetching from DB — reload rpt_att for each saved session
+  await Promise.all(Array.from(_allSids).map(function(vsid){return loadData('rpt_att_'+vsid,'/api/attendance/'+vsid);}));
+  // Count verified present records from DB
+  var _verifiedPresent=0,_verifiedSet=new Set();
+  Array.from(_allSids).forEach(function(vsid){(state.data['rpt_att_'+vsid]||[]).forEach(function(a){if(a.status==='present'&&!_verifiedSet.has(a.student_id)){_verifiedSet.add(a.student_id);_verifiedPresent++;}});});
   // Update qaDbRecords to reflect what was just saved
   if(!state.qaDbRecords)state.qaDbRecords={};
   state.qaDbRecords[key]={};
   Object.keys(localAtt).forEach(function(k){if(localAtt[k])state.qaDbRecords[key][k]=parseInt(k);});
-  var _skipMsg=_skippedCount>0?' ('+_skippedCount+' student'+(+_skippedCount!==1?'s':'')+' skipped — assign to a table first)':'';
-  toast('Attendance saved for '+saved+' session'+(saved!==1?'s':'')+_skipMsg,_skippedCount>0?'warning':'success');
+  // Track which students are confirmed-saved (for tick marks in UI)
+  if(!state.qaSaved)state.qaSaved={};
+  state.qaSaved[key]=new Set(Object.keys(localAtt).filter(function(k){return !!localAtt[k];}).map(Number));
+  var _skipMsg=_skippedCount>0?' · '+_skippedCount+' student'+(+_skippedCount!==1?'s':'')+' skipped (assign to a table first)':'';
+  toast('✓ Verified: '+_verifiedPresent+' present saved to database'+_skipMsg,_skippedCount>0?'warning':'success');
   render();return;
 }
 if(action==='save-att'){
