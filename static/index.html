@@ -8064,7 +8064,7 @@ document.addEventListener('change',function(e){
       // does not fire a duplicate by-date-slot fetch
       if(!state.qaRecords)state.qaRecords={};
       if(state.qaRecords[_qaKey]===undefined)state.qaRecords[_qaKey]={};
-      scheduleRender(); // defer DOM rebuild — avoids freezing while API loads
+      render(); // immediate render to show slot + cached students instantly
       var _bqp=branchParam();
       var _qParams={date:state.qaDate,slot:state.qaSlot};
       if(_bqp.branch_id)_qParams.branch_id=_bqp.branch_id;
