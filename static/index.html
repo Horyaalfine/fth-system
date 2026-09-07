@@ -9731,12 +9731,16 @@ if(action==='save-quick-att'){
       if(!stuSessionMap[st.student_id])stuSessionMap[st.student_id]=sess.id;
     });
   });
-  var fallbackSessionId=daySessions[0].id;
+  // Only use fallback when there is exactly 1 table for this slot;
+  // with multiple tables, route only assigned students (prevents dumping all to first table)
+  var fallbackSessionId=daySessions.length===1?daySessions[0].id:null;
   // Group records by session
   var sessionRecords={};
+  var _skippedCount=0;
   Object.keys(localAtt).forEach(function(stuId){
     if(!localAtt[stuId])return;
-    var sid=stuSessionMap[parseInt(stuId)]||fallbackSessionId;
+    var sid=stuSessionMap[parseInt(stuId)]||(fallbackSessionId||null);
+    if(!sid){_skippedCount++;return;}
     if(!sessionRecords[sid])sessionRecords[sid]=[];
     sessionRecords[sid].push({student_id:parseInt(stuId),status:localAtt[stuId],notes:''});
   });
@@ -9751,7 +9755,8 @@ if(action==='save-quick-att'){
   // Reload sessions to update present counts
   var _b=branchParam();
   await loadData('sessions','/api/sessions',_b);
-  toast('Attendance saved for '+saved+' session'+(saved!==1?'s':''));
+  var _skipMsg=_skippedCount>0?' ('+_skippedCount+' student'+(+_skippedCount!==1?'s':'')+' skipped — assign to a table first)':'';
+  toast('Attendance saved for '+saved+' session'+(saved!==1?'s':'')+_skipMsg,_skippedCount>0?'warning':'success');
   render();return;
 }
 if(action==='save-att'){
