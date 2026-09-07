@@ -1582,40 +1582,38 @@ function renderQuickAttendance(){
   // Auto-load attendance from DB if date+slot set but records not yet fetched.
   // Uses session IDs from state.data.sessions (already loaded) to avoid unreliable
   // slot-string matching. Prefix-matches "Day Session N" to handle time mismatches.
-  if(qDate&&qSlot&&(state.qaRecords[qaKey]===undefined||state.qaRecords[qaKey]===null)){
-    state.qaRecords[qaKey]=null;// null = loading sentinel
+  if(qDate&&qSlot&&state.qaRecords[qaKey]===undefined){
+    // {} = sentinel: prevents re-trigger on re-renders while fetch is in-flight
+    // undefined = never fetched (triggers auto-load)
+    // Navigation back deletes the key (line ~840) so fresh fetch happens on return
+    state.qaRecords[qaKey]={};
+    if(!state.qaDbRecords)state.qaDbRecords={};
     var _normS=function(s){return (s||'').replace(/\u2013/g,'-').replace(/\u2014/g,'-').replace(/–/g,'-').replace(/—/g,'-');};
     var _normQ=_normS(qSlot);
     var _pfxM=_normQ.match(/^(\w+\s+Session\s+\d+)/i);
     var _pfx=_pfxM?(_pfxM[1]+' ('):null;
-    // Find sessions for this date whose normalised slot matches exactly OR by prefix (ignores time differences)
     var _matchSess=(state.data.sessions||[]).filter(function(s){
       if(s.date!==qDate)return false;
       var ns=_normS(s.slot);
       return ns===_normQ||(_pfx&&ns.indexOf(_pfx)===0);
     });
-    if(!state.qaDbRecords)state.qaDbRecords={};
     if(_matchSess.length===0){
-      // No sessions yet for this slot — show empty, don't block
-      console.log('[QA] No sessions found for date='+qDate+' slot='+qSlot+' (checked '+( state.data.sessions||[]).length+' sessions)');
-      toast('[Debug] No sessions found for this date/slot — have you clicked Create sessions?','warning');
-      state.qaRecords[qaKey]={};state.qaDbRecords[qaKey]={};scheduleRender();
+      // No sessions for this slot yet — stays as {} (empty, not loading)
+      state.qaDbRecords[qaKey]={};
     } else {
       Promise.all(_matchSess.map(function(sess){return API.get('/api/attendance/'+sess.id);}))
         .then(function(results){
           if(!state.qaRecords)state.qaRecords={};
-          state.qaRecords[qaKey]={};state.qaDbRecords[qaKey]={};
-          var _totalRecs=0;
+          state.qaRecords[qaKey]={};
+          if(!state.qaDbRecords)state.qaDbRecords={};
+          state.qaDbRecords[qaKey]={};
           results.forEach(function(attList){
             (attList||[]).forEach(function(a){
-              _totalRecs++;
               if(a.status){state.qaRecords[qaKey][a.student_id]=a.status;state.qaDbRecords[qaKey][a.student_id]=a.student_id;}
             });
           });
-          console.log('[QA] sessions found:',_matchSess.length,'IDs:',_matchSess.map(function(s){return s.id+' slot='+s.slot;}), 'total att records:',_totalRecs,'present:',Object.values(state.qaRecords[qaKey]).filter(function(v){return v==='present';}).length);
-          toast('[Debug] Sessions: '+_matchSess.length+' | DB records: '+_totalRecs+' | Present: '+Object.values(state.qaRecords[qaKey]).filter(function(v){return v==='present';}).length,'info');
-          scheduleRender();
-        }).catch(function(err){console.error('[QA] attendance load error',err);state.qaRecords[qaKey]={};scheduleRender();});
+          render();// Direct render (not deferred) so populated data shows immediately
+        }).catch(function(){state.qaRecords[qaKey]={};render();});
     }
   }
   const localAtt=state.qaRecords[qaKey]||{};
