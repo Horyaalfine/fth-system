@@ -3999,11 +3999,11 @@ function renderSessionPlan(){
             var _allTTe=state.data.all_timetables||[];
             var _normSlot=function(sl){return (sl||'').replace(/–/g,'-').replace(/—/g,'-');};
             var _sSlot=_normSlot(s.slot);
-            var _ttSlotE=_allTTe.filter(function(t){return _normSlot(t.slot)===_sSlot&&t.subject===s.subject;});
+            var _ttSlotE=_allTTe.filter(function(t){return _normSlot(t.slot)===_sSlot;});
             var _ttIdsE=new Set(_ttSlotE.map(function(t){return t.student_id||null;}).filter(Boolean));
             var _ttAdmE=new Set(_ttSlotE.map(function(t){return t.admission_id;}).filter(Boolean));
             // Also include plan_students (agreed-slot students not in old timetable)
-            (state.data['plan_students_'+s.date]||[]).filter(function(p){return _normSlot(p.slot||'')===_sSlot&&p.subject===s.subject;}).forEach(function(p){if(p.student_id)_ttIdsE.add(p.student_id);if(p.admission_id)_ttAdmE.add(p.admission_id);});
+            (state.data['plan_students_'+s.date]||[]).filter(function(p){return _normSlot(p.slot||'')===_sSlot;}).forEach(function(p){if(p.student_id)_ttIdsE.add(p.student_id);if(p.admission_id)_ttAdmE.add(p.admission_id);});
             // Students already in other tables of the same slot (prevent duplicates)
             var _inOtherTablesE=new Set();
             daySessions.filter(function(os){return os.id!==s.id&&os.slot===s.slot;}).forEach(function(os){
@@ -4054,11 +4054,11 @@ function renderSessionPlan(){
             // Only show students on the timetable for this slot + subject
             var allTTr=state.data.all_timetables||[];
             var _normSlot2=function(sl){return (sl||'').replace(/–/g,'-').replace(/—/g,'-');};
-            var ttForSlot=allTTr.filter(function(t){return _normSlot2(t.slot)===_normSlot2(s.slot)&&t.subject===s.subject;});
+            var ttForSlot=allTTr.filter(function(t){return _normSlot2(t.slot)===_normSlot2(s.slot);});
             var ttIds=new Set(ttForSlot.map(function(t){return t.student_id||null;}).filter(Boolean));
             var ttAdmIds=new Set(ttForSlot.map(function(t){return t.admission_id;}).filter(Boolean));
             // Also include plan_students (agreed-slot students not in old timetable)
-            (state.data['plan_students_'+s.date]||[]).filter(function(p){return _normSlot2(p.slot||'')===_normSlot2(s.slot||'')&&p.subject===s.subject;}).forEach(function(p){if(p.student_id)ttIds.add(p.student_id);if(p.admission_id)ttAdmIds.add(p.admission_id);});
+            (state.data['plan_students_'+s.date]||[]).filter(function(p){return _normSlot2(p.slot||'')===_normSlot2(s.slot||'');}).forEach(function(p){if(p.student_id)ttIds.add(p.student_id);if(p.admission_id)ttAdmIds.add(p.admission_id);});
             // Students already in other tables of the same slot (prevent duplicates)
             var _inOtherTables=new Set();
             daySessions.filter(function(os){return os.id!==s.id&&os.slot===s.slot;}).forEach(function(os){
