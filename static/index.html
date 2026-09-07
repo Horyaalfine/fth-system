@@ -1579,20 +1579,38 @@ function renderQuickAttendance(){
   // Local attendance state key
   const qaKey='qa_'+qDate+'_'+qSlot;
   if(!state.qaRecords)state.qaRecords={};
-  // Auto-load attendance from DB if date+slot set but records not yet fetched
+  // Auto-load attendance from DB if date+slot set but records not yet fetched.
+  // Uses session IDs from state.data.sessions (already loaded) to avoid unreliable
+  // slot-string matching. Prefix-matches "Day Session N" to handle time mismatches.
   if(qDate&&qSlot&&(state.qaRecords[qaKey]===undefined||state.qaRecords[qaKey]===null)){
-    state.qaRecords[qaKey]=null;// null = loading sentinel (distinct from {}=loaded-empty)
-    var _bqpR=branchParam();
-    var _qpR={date:qDate,slot:qSlot};
-    if(_bqpR.branch_id)_qpR.branch_id=_bqpR.branch_id;
-    API.get('/api/attendance/by-date-slot',_qpR).then(function(attList){
-      if(!state.qaRecords)state.qaRecords={};
-      state.qaRecords[qaKey]={};
-      if(!state.qaDbRecords)state.qaDbRecords={};
-      state.qaDbRecords[qaKey]={};
-      (attList||[]).forEach(function(a){if(a.status){state.qaRecords[qaKey][a.student_id]=a.status;state.qaDbRecords[qaKey][a.student_id]=a.student_id;}});
-      scheduleRender();
+    state.qaRecords[qaKey]=null;// null = loading sentinel
+    var _normS=function(s){return (s||'').replace(/\u2013/g,'-').replace(/\u2014/g,'-').replace(/–/g,'-').replace(/—/g,'-');};
+    var _normQ=_normS(qSlot);
+    var _pfxM=_normQ.match(/^(\w+\s+Session\s+\d+)/i);
+    var _pfx=_pfxM?(_pfxM[1]+' ('):null;
+    // Find sessions for this date whose normalised slot matches exactly OR by prefix (ignores time differences)
+    var _matchSess=(state.data.sessions||[]).filter(function(s){
+      if(s.date!==qDate)return false;
+      var ns=_normS(s.slot);
+      return ns===_normQ||(_pfx&&ns.indexOf(_pfx)===0);
     });
+    if(!state.qaDbRecords)state.qaDbRecords={};
+    if(_matchSess.length===0){
+      // No sessions yet for this slot — show empty, don't block
+      state.qaRecords[qaKey]={};state.qaDbRecords[qaKey]={};scheduleRender();
+    } else {
+      Promise.all(_matchSess.map(function(sess){return API.get('/api/attendance/'+sess.id);}))
+        .then(function(results){
+          if(!state.qaRecords)state.qaRecords={};
+          state.qaRecords[qaKey]={};state.qaDbRecords[qaKey]={};
+          results.forEach(function(attList){
+            (attList||[]).forEach(function(a){
+              if(a.status){state.qaRecords[qaKey][a.student_id]=a.status;state.qaDbRecords[qaKey][a.student_id]=a.student_id;}
+            });
+          });
+          scheduleRender();
+        }).catch(function(){state.qaRecords[qaKey]={};scheduleRender();});
+    }
   }
   const localAtt=state.qaRecords[qaKey]||{};
 
