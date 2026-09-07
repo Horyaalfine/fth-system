@@ -8058,9 +8058,13 @@ document.addEventListener('change',function(e){
   }
   if(e.target.id==='qa-slot'){
     state.qaSlot=e.target.value;
-    render(); // persist selection immediately before async load
     if(state.qaDate&&state.qaSlot){
       var _qaKey='qa_'+state.qaDate+'_'+state.qaSlot;
+      // Set sentinel BEFORE render so auto-trigger in renderQuickAttendance
+      // does not fire a duplicate by-date-slot fetch
+      if(!state.qaRecords)state.qaRecords={};
+      if(state.qaRecords[_qaKey]===undefined)state.qaRecords[_qaKey]={};
+      scheduleRender(); // defer DOM rebuild — avoids freezing while API loads
       var _bqp=branchParam();
       var _qParams={date:state.qaDate,slot:state.qaSlot};
       if(_bqp.branch_id)_qParams.branch_id=_bqp.branch_id;
@@ -8072,7 +8076,7 @@ document.addEventListener('change',function(e){
         (attList||[]).forEach(function(a){if(a.status){state.qaRecords[_qaKey][a.student_id]=a.status;state.qaDbRecords[_qaKey][a.student_id]=a.student_id;}});
         scheduleRender();
       }).catch(function(){scheduleRender();});
-    } else { render(); }
+    } else { scheduleRender(); }
     return;
   }
   if(e.target.id==='rpt-date-select'){
