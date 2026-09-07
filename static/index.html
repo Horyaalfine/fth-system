@@ -1548,6 +1548,15 @@ function renderQuickAttendance(){
   });
   const stuList=Object.values(stuMap).sort(function(a,b){return a.admission_id>b.admission_id?1:-1;});
 
+  // Find students who appear in OTHER slots that day (multi-slot flag)
+  const _allSlotIds=new Set(stuList.map(function(st){return st.id;}));
+  const _otherSlotStudents=new Set();
+  if(qSlot){
+    (planStudents||[]).forEach(function(e){
+      if(e.slot&&e.slot!==qSlot&&_allSlotIds.has(e.student_id))_otherSlotStudents.add(e.student_id);
+    });
+  }
+
   // Find sessions for this date+slot (to save attendance against)
   var _normQSlot=function(s){return (s||'').replace(/–/g,'-').replace(/—/g,'-');};
   const daySessions=sessions.filter(function(s){var _ns=_normQSlot(s.slot);return s.date===qDate&&(_normQSlot(qSlot)===_ns||_normQSlot(qSlot).indexOf(_ns)>=0);});
@@ -1662,8 +1671,9 @@ function renderQuickAttendance(){
     visibleStudents.forEach(function(st){
       var status=localAtt[st.id]||'';
       var color=status==='present'?'var(--success-text)':status==='absent'?'var(--danger-text)':'var(--text3)';
+      var _multiSlot=_otherSlotStudents.has(st.id);
       html+='<div class="att-cell '+status+'" data-action="qa-toggle" data-student="'+st.id+'">';
-      html+='<div class="att-name">'+st.name+'</div>';
+      html+='<div class="att-name">'+st.name+(_multiSlot?'<span title="Also in another slot today" style="margin-left:4px;font-size:10px;color:var(--warning-text,#b45309);font-weight:600;">2-slot</span>':'')+'</div>';
       html+='<div class="att-id">'+st.admission_id+(st.subjects.length?' · '+st.subjects.join(', '):'')+'</div>';
       html+='<div class="att-status" style="color:'+color+';">'+(status?status.toUpperCase():'—')+'</div>';
       html+='</div>';

@@ -5892,9 +5892,17 @@ def get_session_plan_students():
                 'slot': tr.get('slot') or '', 'subject': tr.get('subject') or '',
                 'branch_schedule_id': None, 'slot_start': None, 'slot_end': None
             })
-        print(f"[session-plan-students] final_count={len(result)} (agreed={len(agreed_ids)}, timetable_extra={len(result)-len(agreed_ids)})")
+        # Deduplicate: keep unique (student_id, slot, subject) rows only
+        seen_keys = set()
+        deduped = []
+        for row in result:
+            key = (row.get('student_id'), row.get('slot',''), row.get('subject',''))
+            if key not in seen_keys:
+                seen_keys.add(key)
+                deduped.append(row)
+        print(f"[session-plan-students] final_count={len(deduped)} (agreed={len(agreed_ids)}, timetable_extra={len(deduped)-len(agreed_ids)}, dupes_removed={len(result)-len(deduped)})")
         cur.close(); conn.close()
-        return jsonify(result)
+        return jsonify(deduped)
     except Exception as e:
         cur.close(); conn.close()
         print(f"[session-plan-students] ERROR: {e}")
