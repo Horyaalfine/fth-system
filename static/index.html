@@ -3962,6 +3962,8 @@ function renderSessionPlan(){
         (state.data['sess_students_'+s.id]||[]).forEach(function(st){_dayStudentIds.add(st.student_id||st.id);});
         if(s.staff_name)allTeachers.add(s.staff_name);
       });
+      // Also include students who have att records but aren't assigned to a table (quick att fallback)
+      daySessions.forEach(function(s){(state.data['rpt_att_'+s.id]||[]).forEach(function(a){if(a.status)_dayStudentIds.add(a.student_id);});});
       var totalStudents=_dayStudentIds.size||daySessions.reduce(function(s,x){return s+(x.total_count||0);},0);
       var totalPresent=0;_dayStudentIds.forEach(function(sid){if((_dayAttMap[sid]||{}).status==='present')totalPresent++;});
       var dateLabel=new Date(rptDate+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
@@ -3986,9 +3988,11 @@ function renderSessionPlan(){
         // Build merged att map for this slot (Quick Att may save all to fallback session)
         var _slotAM={};
         slotTables.forEach(function(t){(state.data['rpt_att_'+t.id]||[]).forEach(function(a){if(a.status&&!_slotAM[a.student_id])_slotAM[a.student_id]={status:a.status};});});
-        // Count assigned students with presence in any slot session
+        // Count assigned students + att-record students with presence in any slot session
         var _allSlotStuIds=new Set();
         slotTables.forEach(function(t){(state.data['sess_students_'+t.id]||[]).forEach(function(st){_allSlotStuIds.add(st.student_id||st.id);});});
+        // Also include students who have att records but aren't assigned to a table
+        slotTables.forEach(function(t){(state.data['rpt_att_'+t.id]||[]).forEach(function(a){if(a.status)_allSlotStuIds.add(a.student_id);});});
         var slotPresent=0;
         _allSlotStuIds.forEach(function(sid){if((_slotAM[sid]||{}).status==='present')slotPresent++;});
         var slotTotal=_allSlotStuIds.size||slotTables.reduce(function(sum,t){return sum+(t.total_count||0);},0);
