@@ -6077,13 +6077,12 @@ def attendance_report():
             JOIN sessions sess ON sess.id = a.session_id
             JOIN branches br   ON br.id   = sess.branch_id
             LEFT JOIN LATERAL (
-                SELECT ta.table_no, ta.subject, tst.name AS staff_name
+                SELECT sp.table_no, ta.subject, tst.name AS staff_name
                 FROM table_allocation_students tas
                 JOIN table_allocations ta ON ta.id = tas.allocation_id
                 JOIN sessions sp          ON sp.id  = ta.session_id
                 LEFT JOIN staff tst       ON tst.id = ta.teacher_id
                 WHERE tas.student_id  = a.student_id
-                  AND sp.slot         = sess.slot
                   AND sp.branch_id    = sess.branch_id
                 ORDER BY sp.date DESC NULLS LAST
                 LIMIT 1
