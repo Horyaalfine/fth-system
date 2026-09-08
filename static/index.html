@@ -3813,11 +3813,16 @@ function renderSessionPlan(){
     var hasPMDuplicate=lpMode==='pm'&&existingForDate.some(function(s){return !slotIsAM2(s.slot);});
     var hasFullDayDuplicate=lpMode==='full'&&existingForDate.length>0;
     html+='<div class="card" style="margin-bottom:14px;">';
+    // Always show date picker so user can navigate to another day
+    html+='<div class="form-grid" style="margin-bottom:14px;">';
+    html+='<div class="field"><label>Plan date</label><input type="date" id="lp-date" data-action="lp-date" value="'+lpDate+'"></div>';
+    html+='<div class="field"><label>Max students per table</label><input type="number" id="lp-max-per" value="'+lpMaxPer+'" min="5" max="20" style="width:80px;"></div>';
+    html+='</div>';
     if(_noScheduleForDay){
       var _dayLabel=_dow.charAt(0).toUpperCase()+_dow.slice(1);
       html+='<div style="padding:12px 14px;background:rgba(234,179,8,0.1);border-left:4px solid #ca8a04;border-radius:var(--radius);color:var(--text1);font-size:13px;">';
       html+='<strong style="color:#92400e;">No sessions scheduled for '+_dayLabel+'s at this branch.</strong> ';
-      html+='Check <em>Branch Operation</em> → Schedule to add sessions for this day.';
+      html+='Check <em>Branch Operation</em> → Schedule to add sessions for this day, or pick another date above.';
       html+='</div></div>';
       return html;
     }
@@ -3834,8 +3839,6 @@ function renderSessionPlan(){
     }
     html+='</div>';
     html+='<div class="form-grid">';
-    html+='<div class="field"><label>Plan date</label><input type="date" id="lp-date" data-action="lp-date" value="'+lpDate+'"></div>';
-    html+='<div class="field"><label>Max students per table</label><input type="number" id="lp-max-per" value="'+lpMaxPer+'" min="5" max="20" style="width:80px;"></div>';
     if(lpMode==='single'){
       var daySlots=[...new Set(allExpected.map(function(t){return t.slot;}))].sort();
       var slotSubjects=lpSlot?[...new Set(allExpected.filter(function(t){return t.slot===lpSlot;}).map(function(t){return t.subject;}))].sort():[];
