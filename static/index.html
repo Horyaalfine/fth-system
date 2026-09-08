@@ -3765,7 +3765,7 @@ function renderSessionPlan(){
     var draft=state.planDraft||null;
     function getDayType(d){var wd=new Date(d+'T00:00:00').getDay();return wd===6?'saturday':wd===0?'sunday':'weekday';}
     var dayType=getDayType(lpDate);
-    var allExpected=_regTT.filter(function(t){return t.day_type===dayType;});
+    var allExpected=allTT.filter(function(t){return t.day_type===dayType;});
     function slotIsAM2(slot){var m=(slot||'').match(/\((\d+):/);if(!m)return false;var h=parseInt(m[1]);return h>=14?/Session 1\b/i.test(slot||''):h<12;}
     var expected=lpMode==='am'?allExpected.filter(function(t){return slotIsAM2(t.slot);}):lpMode==='pm'?allExpected.filter(function(t){return !slotIsAM2(t.slot);}):lpMode==='single'&&lpSlot&&lpSubject?allExpected.filter(function(t){return t.slot===lpSlot&&t.subject===lpSubject;}):allExpected;
     var subjSlotCounts={};
