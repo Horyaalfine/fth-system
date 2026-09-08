@@ -9968,26 +9968,36 @@ if(action==='save-quick-att'){
       if(!stuSessionMap[st.student_id])stuSessionMap[st.student_id]=sess.id;
     });
   });
-  // Route unassigned students to first session for this slot (attendance still needs a session_id)
-  // Source 3 in backend is fixed to not inflate multi-table lists
-  var fallbackSessionId=daySessions[0].id;
+  // Do NOT fall back to a default session — unassigned students must be skipped
+  // to prevent them from polluting the first table session's records
   // Group records by session
   var sessionRecords={};
   var _skippedCount=0;
+  var _unassignedNames=[];
   Object.keys(localAtt).forEach(function(stuId){
     if(!localAtt[stuId])return;
-    var sid=stuSessionMap[parseInt(stuId)]||(fallbackSessionId||null);
-    if(!sid){_skippedCount++;return;}
+    var sid=stuSessionMap[parseInt(stuId)]||null;
+    if(!sid){
+      _skippedCount++;
+      // Find name for warning
+      var _pl=state.data['plan_students_'+qDate]||[];
+      var _found=_pl.find(function(p){return String(p.student_id)===String(stuId);});
+      if(_found)_unassignedNames.push(_found.admission_id||_found.student_name||stuId);
+      return;
+    }
     if(!sessionRecords[sid])sessionRecords[sid]=[];
     sessionRecords[sid].push({student_id:parseInt(stuId),status:localAtt[stuId],notes:''});
   });
+  if(_skippedCount>0){
+    toast(_skippedCount+' student(s) not assigned to a table session — skipped: '+_unassignedNames.join(', '),'warning');
+  }
   // Compute which students were previously saved but are now unmarked → delete them
   var _dbRecs=state.qaDbRecords&&state.qaDbRecords[key]?state.qaDbRecords[key]:{};
   var _nowMarked=new Set(Object.keys(localAtt).filter(function(k){return !!localAtt[k];}).map(Number));
   // Map previously-marked students back to their session
   var deleteBySession={};
   Object.keys(_dbRecs).forEach(function(stuId){
-    var sid2=stuSessionMap[parseInt(stuId)]||(fallbackSessionId||null);
+    var sid2=stuSessionMap[parseInt(stuId)]||null;
     if(sid2&&!_nowMarked.has(parseInt(stuId))){
       if(!deleteBySession[sid2])deleteBySession[sid2]=[];
       deleteBySession[sid2].push(parseInt(stuId));
