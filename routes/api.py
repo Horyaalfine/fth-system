@@ -682,7 +682,7 @@ def auto_create_sessions():
               AND (effective_from IS NULL OR effective_from <= CURRENT_DATE)
               AND (effective_to IS NULL OR effective_to >= CURRENT_DATE)
             ORDER BY slot_start
-        """, (branch_id, day_of_week, date_str, date_str))
+        """, (branch_id, day_of_week))
         slots = cur.fetchall()
         if not slots:
             return jsonify({'created': 0, 'message': f'No active schedule slots for {day_of_week}'})
