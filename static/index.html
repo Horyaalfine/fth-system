@@ -5215,6 +5215,107 @@ function renderReports(){
   if(na!==nb) return na-nb;
   return (a.year_group||'').localeCompare(b.year_group||'');
 });const subj=s.subjects||[];const cols=['var(--accent)','var(--teal)','var(--amber)','var(--pink)'];
+  if(rptTab==='income'){
+    var incRpt=state.data.income_report||[];
+    var incF=state.incRptFilter||{};
+    var incStatus=state.incRptStatus||'paid';
+    var incFrom=incF.date_from||'';
+    var incTo=incF.date_to||'';
+
+    // Labels
+    var feeLabels={'monthly_fee':'Monthly Fee','admission_fee':'Admission Fee','book_fee':'Book Fee','past_papers_fee':'Past Papers Fee','opening_balance':'Opening Balance','miscellaneous':'Miscellaneous'};
+    function _feeLabel(k){return feeLabels[k]||k;}
+
+    // Totals by category
+    var catMap={};
+    incRpt.forEach(function(r){
+      var k=r.fee_type;
+      if(!catMap[k])catMap[k]={label:_feeLabel(k),count:0,total:0,paid:0};
+      catMap[k].count++;
+      catMap[k].total+=parseFloat(r.amount)||0;
+      catMap[k].paid+=parseFloat(r.amount_paid)||0;
+    });
+    var grandTotal=incRpt.reduce(function(s,r){return s+(parseFloat(r.amount)||0);},0);
+    var grandPaid=incRpt.reduce(function(s,r){return s+(parseFloat(r.amount_paid)||0);},0);
+    var catOrder=['monthly_fee','admission_fee','book_fee','past_papers_fee','opening_balance','miscellaneous'];
+
+    var html='';
+    html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:8px;">';
+    html+='<div><div class="section-title">💷 Income Statement</div><div class="section-sub">Breakdown by charge type</div></div>';
+    html+='<button class="btn" data-action="reports-tab" data-tab="analytics">&larr; Analytics</button></div>';
+
+    // Filters
+    html+='<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:18px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;">';
+    html+='<div><label style="font-size:11px;font-weight:600;color:#555;display:block;margin-bottom:3px;">From</label><input type="date" class="form-control" style="font-size:12px;padding:5px 8px;" data-bind="incRptFrom" value="'+incFrom+'"></div>';
+    html+='<div><label style="font-size:11px;font-weight:600;color:#555;display:block;margin-bottom:3px;">To</label><input type="date" class="form-control" style="font-size:12px;padding:5px 8px;" data-bind="incRptTo" value="'+incTo+'"></div>';
+    html+='<div><label style="font-size:11px;font-weight:600;color:#555;display:block;margin-bottom:3px;">Include</label><select class="form-control" style="font-size:12px;padding:5px 8px;" data-bind="incRptStatus"><option value="paid"'+(incStatus==='paid'?' selected':'')+'>Paid only</option><option value="all"'+(incStatus==='all'?' selected':'')+'>All (incl. unpaid)</option></select></div>';
+    html+='<button class="btn btn-primary" data-action="load-income-report" style="font-size:12px;padding:6px 14px;">Load</button>';
+    if(incRpt.length){
+      html+='<button class="btn" data-action="print-income-report" style="font-size:12px;padding:6px 14px;">🖨 Print</button>';
+      html+='<button class="btn" data-action="export-income-report" style="font-size:12px;padding:6px 14px;">📥 Export Excel</button>';
+    }
+    html+='</div>';
+
+    if(!state.incRptLoaded){
+      html+='<div class="empty-state">Select a date range and click Load.</div>';
+    } else if(!incRpt.length){
+      html+='<div class="empty-state">No records found for this period.</div>';
+    } else {
+      // Summary cards
+      html+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">';
+      html+='<div class="metric-card" style="text-align:center;"><div class="metric-value">£'+grandTotal.toFixed(2)+'</div><div class="metric-label">Total Invoiced</div></div>';
+      html+='<div class="metric-card" style="text-align:center;"><div class="metric-value" style="color:#16a34a;">£'+grandPaid.toFixed(2)+'</div><div class="metric-label">Total Received</div></div>';
+      html+='<div class="metric-card" style="text-align:center;"><div class="metric-value" style="color:#dc2626;">£'+(grandTotal-grandPaid).toFixed(2)+'</div><div class="metric-label">Outstanding</div></div>';
+      html+='</div>';
+
+      // Category breakdown table
+      html+='<div style="margin-bottom:24px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">';
+      html+='<table style="width:100%;border-collapse:collapse;">';
+      html+='<thead><tr style="background:#1e3a5f;color:#fff;"><th style="padding:9px 12px;text-align:left;font-size:12px;">Category</th><th style="padding:9px 12px;text-align:right;font-size:12px;">Records</th><th style="padding:9px 12px;text-align:right;font-size:12px;">Invoiced</th><th style="padding:9px 12px;text-align:right;font-size:12px;">Received</th><th style="padding:9px 12px;text-align:right;font-size:12px;">Outstanding</th></tr></thead><tbody>';
+      var catKeys=catOrder.filter(function(k){return catMap[k];}).concat(Object.keys(catMap).filter(function(k){return!catOrder.includes(k);}));
+      catKeys.forEach(function(k,i){
+        var cat=catMap[k];
+        var outstanding=cat.total-cat.paid;
+        html+='<tr style="'+(i%2?'background:#f9fafb;':'')+'">';
+        html+='<td style="padding:8px 12px;font-size:12px;font-weight:600;">'+cat.label+'</td>';
+        html+='<td style="padding:8px 12px;font-size:12px;text-align:right;">'+cat.count+'</td>';
+        html+='<td style="padding:8px 12px;font-size:12px;text-align:right;">£'+cat.total.toFixed(2)+'</td>';
+        html+='<td style="padding:8px 12px;font-size:12px;text-align:right;color:#16a34a;font-weight:600;">£'+cat.paid.toFixed(2)+'</td>';
+        html+='<td style="padding:8px 12px;font-size:12px;text-align:right;color:'+(outstanding>0?'#dc2626':'#16a34a')+';font-weight:600;">£'+outstanding.toFixed(2)+'</td>';
+        html+='</tr>';
+      });
+      html+='<tr style="background:#1e3a5f;color:#fff;font-weight:700;"><td style="padding:9px 12px;font-size:12px;">TOTAL</td><td style="padding:9px 12px;font-size:12px;text-align:right;">'+incRpt.length+'</td><td style="padding:9px 12px;font-size:12px;text-align:right;">£'+grandTotal.toFixed(2)+'</td><td style="padding:9px 12px;font-size:12px;text-align:right;">£'+grandPaid.toFixed(2)+'</td><td style="padding:9px 12px;font-size:12px;text-align:right;">£'+(grandTotal-grandPaid).toFixed(2)+'</td></tr>';
+      html+='</tbody></table></div>';
+
+      // Detailed records per category
+      catKeys.forEach(function(k){
+        var rows=incRpt.filter(function(r){return r.fee_type===k;}).sort(function(a,b){return (a.paid_date||a.issued||'')>(b.paid_date||b.issued||'')?1:-1;});
+        if(!rows.length)return;
+        html+='<div style="margin-bottom:20px;">';
+        html+='<div style="background:#1e3a5f;color:#fff;padding:8px 14px;border-radius:6px 6px 0 0;font-size:13px;font-weight:700;">'+_feeLabel(k)+' <span style="font-weight:400;font-size:11px;opacity:.85;">('+rows.length+' records)</span></div>';
+        html+='<table style="width:100%;border-collapse:collapse;border:1px solid #1e3a5f;border-top:none;border-radius:0 0 6px 6px;overflow:hidden;">';
+        html+='<thead><tr style="background:#f1f5f9;"><th style="padding:6px 10px;font-size:11px;text-align:left;color:#555;">Date</th><th style="padding:6px 10px;font-size:11px;text-align:left;color:#555;">Adm No</th><th style="padding:6px 10px;font-size:11px;text-align:left;color:#555;">Student</th><th style="padding:6px 10px;font-size:11px;text-align:left;color:#555;">Year</th><th style="padding:6px 10px;font-size:11px;text-align:left;color:#555;">Description</th><th style="padding:6px 10px;font-size:11px;text-align:right;color:#555;">Amount</th><th style="padding:6px 10px;font-size:11px;text-align:right;color:#555;">Received</th><th style="padding:6px 10px;font-size:11px;text-align:center;color:#555;">Status</th></tr></thead><tbody>';
+        rows.forEach(function(r,i){
+          var dt=r.paid_date||r.issued||'';
+          var dtFmt=dt?new Date(dt+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'—';
+          var sc=r.status==='paid'?'#16a34a':r.status==='partial'?'#d97706':'#dc2626';
+          html+='<tr style="'+(i%2?'background:#f9fafb;':'')+'">';
+          html+='<td style="padding:6px 10px;font-size:11px;">'+dtFmt+'</td>';
+          html+='<td style="padding:6px 10px;font-size:11px;">'+r.admission_id+'</td>';
+          html+='<td style="padding:6px 10px;font-size:11px;">'+r.student_name+'</td>';
+          html+='<td style="padding:6px 10px;font-size:11px;">'+(r.year_group||'—')+'</td>';
+          html+='<td style="padding:6px 10px;font-size:11px;">'+(r.description||r.month||'—')+'</td>';
+          html+='<td style="padding:6px 10px;font-size:11px;text-align:right;">£'+(parseFloat(r.amount)||0).toFixed(2)+'</td>';
+          html+='<td style="padding:6px 10px;font-size:11px;text-align:right;color:#16a34a;font-weight:600;">£'+(parseFloat(r.amount_paid)||0).toFixed(2)+'</td>';
+          html+='<td style="padding:6px 10px;font-size:11px;text-align:center;font-weight:700;color:'+sc+';">'+r.status+'</td>';
+          html+='</tr>';
+        });
+        html+='</tbody></table></div>';
+      });
+    }
+    return html;
+  }
+
   const _range=state.analyticsRange||'year';
   const _periodLabel=s.date_from&&s.date_to?new Date(s.date_from+'T00:00:00').toLocaleDateString('en-GB',{month:'short',year:'numeric'})+' – '+new Date(s.date_to+'T00:00:00').toLocaleDateString('en-GB',{month:'short',year:'numeric'}):'All time';
 return`
@@ -5233,6 +5334,7 @@ return`
 <button class="btn btn-primary" data-action="reports-tab" data-tab="attendance" style="font-size:12px;padding:5px 10px;">📊 Attendance Report</button>
 <button class="btn" data-action="reports-tab" data-tab="financial-statement" style="font-size:12px;padding:5px 10px;">💰 Financial Statement</button>
 <button class="btn" data-action="reports-tab" data-tab="daily-activity" style="font-size:12px;padding:5px 10px;">📅 Daily Activity</button>
+<button class="btn${state.reportsTab==='income'?' btn-primary':''}" data-action="reports-tab" data-tab="income" style="font-size:12px;padding:5px 10px;">💷 Income Statement</button>
 </div>
 </div>
 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;">
@@ -10169,6 +10271,108 @@ if(action==='remove-rpt-student'){
   }).catch(function(){toast('Failed to remove','danger');});
   return;
 }
+if(action==='load-income-report'){
+  var fromEl=document.querySelector('[data-bind="incRptFrom"]');
+  var toEl=document.querySelector('[data-bind="incRptTo"]');
+  var stEl=document.querySelector('[data-bind="incRptStatus"]');
+  state.incRptFilter={date_from:fromEl?fromEl.value:'',date_to:toEl?toEl.value:''};
+  state.incRptStatus=stEl?stEl.value:'paid';
+  var params=Object.assign({},branch_scope_param(),state.incRptFilter,{status:state.incRptStatus});
+  state.incRptLoaded=false;
+  render();
+  API.get('/api/income-report',params).then(function(d){
+    state.data.income_report=d;
+    state.incRptLoaded=true;
+    render();
+  }).catch(function(e){toast('Error loading income report: '+e,'error');});
+  return;
+}
+
+if(action==='print-income-report'){
+  var incRpt=state.data.income_report||[];
+  var incF=state.incRptFilter||{};
+  var incStatus=state.incRptStatus||'paid';
+  var feeLabels={'monthly_fee':'Monthly Fee','admission_fee':'Admission Fee','book_fee':'Book Fee','past_papers_fee':'Past Papers Fee','opening_balance':'Opening Balance','miscellaneous':'Miscellaneous'};
+  function _fl(k){return feeLabels[k]||k;}
+  var catMap={};
+  incRpt.forEach(function(r){var k=r.fee_type;if(!catMap[k])catMap[k]={label:_fl(k),count:0,total:0,paid:0};catMap[k].count++;catMap[k].total+=parseFloat(r.amount)||0;catMap[k].paid+=parseFloat(r.amount_paid)||0;});
+  var grandTotal=incRpt.reduce(function(s,r){return s+(parseFloat(r.amount)||0);},0);
+  var grandPaid=incRpt.reduce(function(s,r){return s+(parseFloat(r.amount_paid)||0);},0);
+  var catOrder=['monthly_fee','admission_fee','book_fee','past_papers_fee','opening_balance','miscellaneous'];
+  var catKeys=catOrder.filter(function(k){return catMap[k];}).concat(Object.keys(catMap).filter(function(k){return!catOrder.includes(k);}));
+  var period=(incF.date_from||'')+(incF.date_to&&incF.date_to!==incF.date_from?' – '+incF.date_to:'');
+
+  var pw=window.open('','_blank','width=1000,height=750');
+  pw.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Income Statement</title><style>');
+  pw.document.write('*{box-sizing:border-box;}body{font-family:Arial,sans-serif;font-size:11px;color:#111;margin:18px;background:#fff;}');
+  pw.document.write('h1{font-size:20px;font-weight:800;margin:0 0 2px;}.meta{font-size:11px;color:#555;margin-bottom:12px;}');
+  pw.document.write('.summary{display:flex;gap:14px;margin:10px 0 18px;flex-wrap:wrap;}');
+  pw.document.write('.sum-card{background:#f3f4f6;border-radius:6px;padding:8px 18px;text-align:center;min-width:110px;}');
+  pw.document.write('.sum-val{font-size:22px;font-weight:800;}.sum-lbl{font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.04em;}');
+  pw.document.write('.cat-hdr{background:#1e3a5f;color:#fff;padding:8px 14px;border-radius:6px 6px 0 0;font-size:13px;font-weight:700;margin-top:18px;}');
+  pw.document.write('table{width:100%;border-collapse:collapse;border:1px solid #cbd5e1;border-top:none;}');
+  pw.document.write('thead tr{background:#f1f5f9;}th{padding:6px 10px;font-size:10px;text-align:left;color:#555;font-weight:600;border-bottom:1px solid #e2e8f0;}');
+  pw.document.write('td{padding:5px 10px;font-size:10px;border-bottom:1px solid #f1f5f9;}tr:nth-child(even)td{background:#f9fafb;}');
+  pw.document.write('.sum-table{border:1px solid #1e3a5f;border-radius:6px;overflow:hidden;margin-bottom:20px;}');
+  pw.document.write('.sum-table table{border:none;}.sum-table thead tr{background:#1e3a5f;}.sum-table th{color:#fff;border-bottom:none;}');
+  pw.document.write('.tot-row td{background:#1e3a5f!important;color:#fff;font-weight:700;}');
+  pw.document.write('@media print{body{margin:8px;}.cat-hdr{-webkit-print-color-adjust:exact;print-color-adjust:exact;}.tot-row td,.sum-table thead tr{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}');
+  pw.document.write('</style></head><body>');
+  pw.document.write('<h1>FTH — Income Statement</h1>');
+  pw.document.write('<div class="meta">Period: '+(period||'All')+'&nbsp;|&nbsp;Includes: '+(incStatus==='paid'?'Paid invoices only':'All invoices')+'&nbsp;|&nbsp;Printed: '+new Date().toLocaleDateString('en-GB')+'</div>');
+  pw.document.write('<div class="summary">');
+  pw.document.write('<div class="sum-card"><div class="sum-val">£'+grandTotal.toFixed(2)+'</div><div class="sum-lbl">Total Invoiced</div></div>');
+  pw.document.write('<div class="sum-card"><div class="sum-val" style="color:#16a34a;">£'+grandPaid.toFixed(2)+'</div><div class="sum-lbl">Total Received</div></div>');
+  pw.document.write('<div class="sum-card"><div class="sum-val" style="color:#dc2626;">£'+(grandTotal-grandPaid).toFixed(2)+'</div><div class="sum-lbl">Outstanding</div></div>');
+  pw.document.write('<div class="sum-card"><div class="sum-val">'+incRpt.length+'</div><div class="sum-lbl">Records</div></div>');
+  pw.document.write('</div>');
+  // Summary breakdown table
+  pw.document.write('<div class="sum-table"><table><thead><tr><th>Category</th><th style="text-align:right;">Records</th><th style="text-align:right;">Invoiced</th><th style="text-align:right;">Received</th><th style="text-align:right;">Outstanding</th></tr></thead><tbody>');
+  catKeys.forEach(function(k,i){var cat=catMap[k];var out=cat.total-cat.paid;pw.document.write('<tr><td style="font-weight:600;">'+cat.label+'</td><td style="text-align:right;">'+cat.count+'</td><td style="text-align:right;">£'+cat.total.toFixed(2)+'</td><td style="text-align:right;color:#16a34a;font-weight:600;">£'+cat.paid.toFixed(2)+'</td><td style="text-align:right;color:'+(out>0?'#dc2626':'#16a34a')+';font-weight:600;">£'+out.toFixed(2)+'</td></tr>');});
+  pw.document.write('<tr class="tot-row"><td>TOTAL</td><td style="text-align:right;">'+incRpt.length+'</td><td style="text-align:right;">£'+grandTotal.toFixed(2)+'</td><td style="text-align:right;">£'+grandPaid.toFixed(2)+'</td><td style="text-align:right;">£'+(grandTotal-grandPaid).toFixed(2)+'</td></tr>');
+  pw.document.write('</tbody></table></div>');
+  // Detail per category
+  catKeys.forEach(function(k){
+    var rows=incRpt.filter(function(r){return r.fee_type===k;}).sort(function(a,b){return(a.paid_date||a.issued||'')>(b.paid_date||b.issued||'')?1:-1;});
+    if(!rows.length)return;
+    pw.document.write('<div class="cat-hdr">'+_fl(k)+' <span style="font-weight:400;font-size:11px;opacity:.85;">('+rows.length+' records)</span></div>');
+    pw.document.write('<table><thead><tr><th>Date</th><th>Adm No</th><th>Student</th><th>Year</th><th>Description</th><th style="text-align:right;">Amount</th><th style="text-align:right;">Received</th><th style="text-align:center;">Status</th></tr></thead><tbody>');
+    rows.forEach(function(r){
+      var dt=r.paid_date||r.issued||'';var dtFmt=dt?new Date(dt+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'—';
+      var sc=r.status==='paid'?'#16a34a':r.status==='partial'?'#d97706':'#dc2626';
+      pw.document.write('<tr><td>'+dtFmt+'</td><td>'+r.admission_id+'</td><td>'+r.student_name+'</td><td>'+(r.year_group||'—')+'</td><td>'+(r.description||r.month||'—')+'</td><td style="text-align:right;">£'+(parseFloat(r.amount)||0).toFixed(2)+'</td><td style="text-align:right;color:#16a34a;font-weight:600;">£'+(parseFloat(r.amount_paid)||0).toFixed(2)+'</td><td style="text-align:center;font-weight:700;color:'+sc+';">'+r.status+'</td></tr>');
+    });
+    pw.document.write('</tbody></table>');
+  });
+  pw.document.write('</body></html>');
+  pw.document.close();pw.focus();setTimeout(function(){pw.print();},600);
+  return;
+}
+
+if(action==='export-income-report'){
+  var incRpt=state.data.income_report||[];
+  var incF=state.incRptFilter||{};
+  var feeLabels={'monthly_fee':'Monthly Fee','admission_fee':'Admission Fee','book_fee':'Book Fee','past_papers_fee':'Past Papers Fee','opening_balance':'Opening Balance','miscellaneous':'Miscellaneous'};
+  // Sheet 1: summary
+  var catMap2={};
+  incRpt.forEach(function(r){var k=r.fee_type;if(!catMap2[k])catMap2[k]={label:feeLabels[k]||k,count:0,total:0,paid:0};catMap2[k].count++;catMap2[k].total+=parseFloat(r.amount)||0;catMap2[k].paid+=parseFloat(r.amount_paid)||0;});
+  var sumRows=[['Category','Records','Invoiced (£)','Received (£)','Outstanding (£)']];
+  ['monthly_fee','admission_fee','book_fee','past_papers_fee','opening_balance','miscellaneous'].filter(function(k){return catMap2[k];}).concat(Object.keys(catMap2).filter(function(k){return!['monthly_fee','admission_fee','book_fee','past_papers_fee','opening_balance','miscellaneous'].includes(k);})).forEach(function(k){var c=catMap2[k];sumRows.push([c.label,c.count,+c.total.toFixed(2),+c.paid.toFixed(2),+(c.total-c.paid).toFixed(2)]);});
+  var gt=incRpt.reduce(function(s,r){return s+(parseFloat(r.amount)||0);},0);
+  var gp=incRpt.reduce(function(s,r){return s+(parseFloat(r.amount_paid)||0);},0);
+  sumRows.push(['TOTAL',incRpt.length,+gt.toFixed(2),+gp.toFixed(2),+(gt-gp).toFixed(2)]);
+  // Sheet 2: detail
+  var detRows=[['Date','Adm No','Student','Year Group','Category','Description','Amount (£)','Received (£)','Status','Notes']];
+  incRpt.slice().sort(function(a,b){var da=a.paid_date||a.issued||'';var db=b.paid_date||b.issued||'';return da>db?1:-1;}).forEach(function(r){
+    var dt=r.paid_date||r.issued||'';var dtFmt=dt?new Date(dt+'T00:00:00').toLocaleDateString('en-GB'):'';
+    detRows.push([dtFmt,r.admission_id,r.student_name,r.year_group||'',feeLabels[r.fee_type]||r.fee_type,r.description||r.month||'',+(parseFloat(r.amount)||0).toFixed(2),+(parseFloat(r.amount_paid)||0).toFixed(2),r.status,r.notes||'']);
+  });
+  var label='Income'+(incF.date_from?'_'+incF.date_from:'')+(incF.date_to?'_to_'+incF.date_to:'');
+  try{var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sumRows),'Summary');XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(detRows),'Detail');XLSX.writeFile(wb,label+'.xlsx');}
+  catch(e){exportXLSX(detRows,label+'.xlsx','Income');}
+  toast('Exported');return;
+}
+
 if(action==='analytics-range'){
   state.analyticsRange=el.dataset.range;
   delete state.data.summary;

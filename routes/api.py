@@ -6317,3 +6317,70 @@ def get_attendance_by_date_slot():
     except Exception as e:
         cur.close(); conn.close()
         return jsonify({'error': str(e)}), 400
+
+
+# ════════════════════════════════════════════
+#  INCOME STATEMENT REPORT
+# ════════════════════════════════════════════
+@api_bp.route('/api/income-report', methods=['GET'])
+@require_auth
+def income_report():
+    """Income statement grouped by fee_type.
+    Params: branch_id, date_from, date_to, status (paid|all)"""
+    b          = branch_scope()
+    branch_id  = request.args.get('branch_id', type=int) or b
+    date_from  = request.args.get('date_from') or '2020-01-01'
+    date_to    = request.args.get('date_to')   or '2099-12-31'
+    inc_status = request.args.get('status', 'paid')   # 'paid' or 'all'
+
+    conn = get_db(); cur = conn.cursor(cursor_factory=RealDictCursor)
+    try:
+        bw = 'AND i.branch_id=%s' if branch_id else ''
+        bp = (branch_id,) if branch_id else ()
+
+        # Use paid_date for paid invoices, issued date as fallback
+        date_col = "COALESCE(i.paid_date, i.issued)"
+        if inc_status == 'paid':
+            status_filter = "AND i.status='paid'"
+        else:
+            status_filter = ''
+
+        cur.execute(f"""
+            SELECT
+                i.id,
+                i.student_id,
+                s.name        AS student_name,
+                s.admission_id,
+                s.year_group,
+                COALESCE(i.fee_type,'monthly_fee') AS fee_type,
+                i.description,
+                i.amount,
+                COALESCE(i.amount_paid,0)          AS amount_paid,
+                i.status,
+                i.month,
+                i.issued,
+                i.paid_date,
+                i.notes,
+                br.name AS branch_name
+            FROM invoices i
+            JOIN students s  ON s.id = i.student_id
+            LEFT JOIN branches br ON br.id = i.branch_id
+            WHERE {date_col} BETWEEN %s AND %s
+              {status_filter}
+              {bw}
+            ORDER BY {date_col}, i.fee_type, s.name
+        """, (date_from, date_to) + bp)
+
+        rows = []
+        for r in cur.fetchall():
+            d = dict(r)
+            for fld in ('issued','paid_date'):
+                if d.get(fld): d[fld] = str(d[fld])
+            rows.append(d)
+
+        cur.close(); conn.close()
+        return jsonify(rows)
+    except Exception as e:
+        cur.close(); conn.close()
+        print('income_report error:', e)
+        return jsonify({'error': str(e)}), 400
