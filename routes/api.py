@@ -6032,6 +6032,7 @@ def attendance_report():
     day_type   = request.args.get('day_type')   # saturday/sunday/weekday
     subject    = request.args.get('subject')
     status     = request.args.get('status')     # present/absent
+    session_time = request.args.get('session_time')  # am / pm / specific slot string
 
     conn = get_conn(); cur = conn.cursor()
     try:
@@ -6053,6 +6054,14 @@ def attendance_report():
                 conditions.append("EXTRACT(DOW FROM sess.date) = 0")
             else:
                 conditions.append("EXTRACT(DOW FROM sess.date) BETWEEN 1 AND 5")
+        if session_time == 'am':
+            # Slots containing start hour < 14:00, e.g. "(09:00-" or "(11:15-"
+            conditions.append("CAST(NULLIF(substring(sess.slot FROM '\((\d+):'), '') AS int) < 14")
+        elif session_time == 'pm':
+            conditions.append("CAST(NULLIF(substring(sess.slot FROM '\((\d+):'), '') AS int) >= 14")
+        elif session_time:
+            # Specific slot string fragment e.g. "09:00" or "11:15"
+            conditions.append("sess.slot ILIKE %s"); params.append(f'%{session_time}%')
 
         where = ' AND '.join(conditions)
         cur2 = conn.cursor(cursor_factory=RealDictCursor)

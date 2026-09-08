@@ -5027,6 +5027,7 @@ function renderReports(){
     const filterStatus=attRptFilter.status||'';
     const filterDayType=attRptFilter.day_type||'';
     const filterSubject=attRptFilter.subject||'';
+    const filterSession=attRptFilter.session_time||'';
     const students=state.data.students||[];
 
     // Summary stats
@@ -5063,6 +5064,17 @@ function renderReports(){
     [{v:'weekday',l:'Weekday'},{v:'saturday',l:'Saturday'},{v:'sunday',l:'Sunday'}].forEach(function(o){html+='<option value="'+o.v+'" '+(filterDayType===o.v?'selected':'')+'>'+o.l+'</option>';});
     html+='</select></div>';
     html+='<div class="field" style="margin:0;"><label>Status</label><select id="att-rpt-status"><option value="">All</option><option value="present" '+(filterStatus==='present'?'selected':'')+'>Present</option><option value="absent" '+(filterStatus==='absent'?'selected':'')+'>Absent</option></select></div>';
+    html+='<div class="field" style="margin:0;"><label>Session</label><select id="att-rpt-session">';
+    html+='<option value="" '+(filterSession===''?'selected':'')+'>All sessions</option>';
+    html+='<option value="am" '+(filterSession==='am'?'selected':'')+'>AM (before 14:00)</option>';
+    html+='<option value="pm" '+(filterSession==='pm'?'selected':'')+'>PM (14:00+)</option>';
+    html+='<option value="09:00" '+(filterSession==='09:00'?'selected':'')+'>09:00 – 11:00</option>';
+    html+='<option value="11:15" '+(filterSession==='11:15'?'selected':'')+'>11:15 – 13:15</option>';
+    html+='<option value="14:00" '+(filterSession==='14:00'?'selected':'')+'>14:00 – 16:00</option>';
+    html+='<option value="16:15" '+(filterSession==='16:15'?'selected':'')+'>16:15 – 18:15</option>';
+    html+='<option value="17:00" '+(filterSession==='17:00'?'selected':'')+'>17:00 – 19:00</option>';
+    html+='<option value="19:00" '+(filterSession==='19:00'?'selected':'')+'>19:00 – 21:00</option>';
+    html+='</select></div>';
     html+='<div style="margin:0;padding-top:18px;display:flex;gap:8px;flex-wrap:wrap;">';
     html+='<button class="btn btn-primary" data-action="load-att-report">🔍 Run Report</button>';
     if(state.attRptLoaded&&attRpt.length>0){
@@ -10610,12 +10622,14 @@ if(action==='load-att-report'){
   const stuVal=document.getElementById('att-rpt-student');
   const dayVal=document.getElementById('att-rpt-day');
   const statusVal=document.getElementById('att-rpt-status');
+  const sessionVal=document.getElementById('att-rpt-session');
   state.attRptFilter={
     date_from: fromVal?fromVal.value:'',
     date_to:   toVal?toVal.value:'',
     student_id: stuVal?stuVal.value:'',
     day_type:   dayVal?dayVal.value:'',
-    status:     statusVal?statusVal.value:''
+    status:     statusVal?statusVal.value:'',
+    session_time: sessionVal?sessionVal.value:''
   };
   const params=new URLSearchParams();
   if(state.attRptFilter.date_from) params.set('date_from',state.attRptFilter.date_from);
@@ -10623,6 +10637,7 @@ if(action==='load-att-report'){
   if(state.attRptFilter.student_id)params.set('student_id',state.attRptFilter.student_id);
   if(state.attRptFilter.day_type)  params.set('day_type', state.attRptFilter.day_type);
   if(state.attRptFilter.status)    params.set('status',   state.attRptFilter.status);
+  if(state.attRptFilter.session_time) params.set('session_time',state.attRptFilter.session_time);
   if(state.currentBranch) params.set('branch_id',state.currentBranch);
   delete state.data.att_report;
   const attApiParams={};
@@ -10631,6 +10646,7 @@ if(action==='load-att-report'){
   if(state.attRptFilter.student_id)attApiParams.student_id=state.attRptFilter.student_id;
   if(state.attRptFilter.day_type)  attApiParams.day_type=state.attRptFilter.day_type;
   if(state.attRptFilter.status)    attApiParams.status=state.attRptFilter.status;
+  if(state.attRptFilter.session_time) attApiParams.session_time=state.attRptFilter.session_time;
   if(state.currentBranch)          attApiParams.branch_id=state.currentBranch;
   await loadData('att_report','/api/attendance/report',attApiParams);
   state.attRptLoaded=true;
