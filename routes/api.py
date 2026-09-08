@@ -2348,9 +2348,9 @@ def get_student_timetable():
                     seen[tk] = len(seen) + 1
                 n = seen[tk]
                 slot_labels[bs['id']] = f"{dt_display[dt]} Session {n} ({tk})"
-        # Students already covered by student_timetable
-        tt_student_ids = set(r['student_id'] for r in data)
-        # Fetch agreed_slots for students NOT in student_timetable
+        # Students already covered by student_timetable — deduplicate by (student_id, slot)
+        tt_student_slot_pairs = set((r['student_id'], r.get('slot','')) for r in data)
+        # Fetch agreed_slots and add entries not already present for that exact slot
         as_where = ["s.status='active'"]
         as_params = []
         if b: as_where.append("s.branch_id=%s"); as_params.append(b)
@@ -2370,8 +2370,9 @@ def get_student_timetable():
             bs_id = a['branch_schedule_id']
             if bs_id not in slot_labels:
                 continue
-            if a['student_id'] in tt_student_ids:
-                continue  # student_timetable takes precedence
+            slot_lbl = slot_labels[bs_id]
+            if (a['student_id'], slot_lbl) in tt_student_slot_pairs:
+                continue  # already in student_timetable for this exact slot
             dow = a['day_of_week']
             dt = 'saturday' if dow=='saturday' else 'sunday' if dow=='sunday' else 'weekday'
             data.append({
@@ -2382,7 +2383,7 @@ def get_student_timetable():
                 'year_group': a['year_group'],
                 'branch_id': a['branch_id'],
                 'day_type': dt,
-                'slot': slot_labels[bs_id],
+                'slot': slot_lbl,
                 'subject': a['subject'],
                 'slot_start': str(a['slot_start'])[:5],
                 'slot_end': str(a['slot_end'])[:5],
