@@ -6333,7 +6333,7 @@ def income_report():
     date_to    = request.args.get('date_to')   or '2099-12-31'
     inc_status = request.args.get('status', 'paid')   # 'paid' or 'all'
 
-    conn = get_db(); cur = conn.cursor(cursor_factory=RealDictCursor)
+    conn = get_conn(); cur = conn.cursor(cursor_factory=RealDictCursor)
     try:
         bw = 'AND i.branch_id=%s' if branch_id else ''
         bp = (branch_id,) if branch_id else ()

@@ -10284,7 +10284,7 @@ if(action==='load-income-report'){
     state.data.income_report=d;
     state.incRptLoaded=true;
     render();
-  }).catch(function(e){toast('Error loading income report: '+e,'error');});
+  }).catch(function(e){toast('Income report error: '+(e&&e.error?e.error:JSON.stringify(e)),'error');});
   return;
 }
 
