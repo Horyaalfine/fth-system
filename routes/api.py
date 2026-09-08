@@ -2327,9 +2327,9 @@ def get_student_timetable():
     # This ensures weekday/Sunday students appear in the Student Register
     try:
         from collections import defaultdict
-        bs_where = ["bs.status='active'"]
+        bs_where = ["status='active'"]
         bs_params = []
-        if b: bs_where.append("bs.branch_id=%s"); bs_params.append(b)
+        if b: bs_where.append("branch_id=%s"); bs_params.append(b)
         cur.execute("SELECT id, day_of_week, slot_start, slot_end, branch_id FROM branch_schedule WHERE " + " AND ".join(bs_where) + " ORDER BY slot_start", bs_params)
         bs_rows_raw = cur.fetchall() or []
         # Compute slot labels per branch_schedule id
