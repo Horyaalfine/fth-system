@@ -10526,20 +10526,7 @@ if(action==='print-att-report'){
   pw.document.write('<div class="sum-card"><div class="sum-val">'+stuRows.length+'</div><div class="sum-lbl">Students</div></div>');
   pw.document.write('</div>');
 
-  // Per-student summary table
-  pw.document.write('<h2>Student Summary</h2>');
-  pw.document.write('<table class="sum-tbl"><thead><tr><th>Adm No</th><th>Name</th><th>Year</th><th>Present</th><th>Absent</th><th>Total</th><th>Rate</th></tr></thead><tbody>');
-  stuRows.forEach(function(r){
-    var rt=r.total?Math.round(r.present/r.total*100):0;
-    var col=rt===100?'#16a34a':rt>=75?'#d97706':'#dc2626';
-    pw.document.write('<tr><td>'+r.admission_id+'</td><td>'+r.name+'</td><td>'+(r.year_group||'—')+'</td>');
-    pw.document.write('<td class="present">'+r.present+'</td><td class="absent">'+r.absent+'</td><td>'+r.total+'</td>');
-    pw.document.write('<td style="font-weight:700;color:'+col+'">'+rt+'%</td></tr>');
-  });
-  pw.document.write('</tbody></table>');
-
   // Session / Table grouped view
-  pw.document.write('<h2>Session Detail — by Table</h2>');
   var dates=Object.keys(byDate).sort();
   dates.forEach(function(dk){
     var dateLabel=new Date(dk+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
