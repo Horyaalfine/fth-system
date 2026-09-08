@@ -6059,36 +6059,26 @@ def attendance_report():
         cur2.execute(f"""
             SELECT
                 a.student_id,
-                s.name                                         AS student_name,
+                s.name        AS student_name,
                 s.admission_id,
                 s.year_group,
                 s.branch_id,
-                br.name                                        AS branch_name,
-                sess.id                                        AS session_id,
+                br.name       AS branch_name,
+                sess.id       AS session_id,
                 sess.date,
                 sess.slot,
-                COALESCE(plan.table_no, sess.table_no)         AS table_no,
-                COALESCE(plan.subject,  sess.subject)          AS subject,
-                COALESCE(plan.staff_name, '')                  AS staff_name,
+                sess.table_no,
+                sess.subject,
+                COALESCE(st.name, '') AS staff_name,
                 a.status,
                 a.notes
             FROM attendance a
             JOIN students s    ON s.id    = a.student_id
             JOIN sessions sess ON sess.id = a.session_id
             JOIN branches br   ON br.id   = sess.branch_id
-            LEFT JOIN LATERAL (
-                SELECT sp.table_no, ta.subject, tst.name AS staff_name
-                FROM table_allocation_students tas
-                JOIN table_allocations ta ON ta.id = tas.allocation_id
-                JOIN sessions sp          ON sp.id  = ta.session_id
-                LEFT JOIN staff tst       ON tst.id = ta.teacher_id
-                WHERE tas.student_id  = a.student_id
-                  AND sp.branch_id    = sess.branch_id
-                ORDER BY sp.date DESC NULLS LAST
-                LIMIT 1
-            ) plan ON true
+            LEFT JOIN staff st ON st.id   = sess.staff_id
             WHERE {where}
-            ORDER BY sess.date DESC, sess.slot, COALESCE(plan.table_no, sess.table_no), s.admission_id
+            ORDER BY sess.date DESC, sess.slot, sess.table_no, s.admission_id
         """, params)
         result = cur2.fetchall()
         data = []
