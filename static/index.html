@@ -3598,7 +3598,7 @@ function renderSessionPlan(){
   html+='<div class="tab-bar" style="margin-bottom:16px;">';
   html+='<button class="tab '+(planTab==='register'?'active':'')+'" data-action="plan-tab" data-tab="register">👥 Student Register</button>';
   html+='<button class="tab '+(planTab==='lesson'?'active':'')+'" data-action="plan-tab" data-tab="lesson">📋 Lesson Plan</button>';
-  html+='<button class="tab '+(planTab==='report'?'active':'')+'" data-action="plan-tab" data-tab="report">📊 Lesson Plan Report</button>';
+  html+='<button class="tab '+(planTab==='report'?'active':'')+'" data-action="plan-tab" data-tab="report">📊 Day Overview</button>';
   html+='<button class="tab '+(planTab==='teacher'?'active':'')+'" data-action="plan-tab" data-tab="teacher">👩‍🏫 Teacher Planner</button>';
   html+='</div>';
 
@@ -3837,8 +3837,8 @@ function renderSessionPlan(){
     var _schedForDay=(state.data.branch_schedule||[]).filter(function(s){return s.status==='active'&&s.day_of_week===_dow;});
     if(existingForDate.length===0&&_schedForDay.length>0){
       html+='<div style="margin-top:10px;padding:12px 14px;background:rgba(37,99,235,0.08);border-radius:var(--radius);border-left:3px solid var(--accent);display:flex;align-items:center;justify-content:space-between;gap:12px;">';
-      html+='<span style="font-size:13px;color:var(--text1);"><strong>'+_schedForDay.length+' session slot'+((_schedForDay.length>1)?'s':'')+' found</strong> for '+_dow.charAt(0).toUpperCase()+_dow.slice(1)+' in branch schedule. No sessions created yet for '+lpDate+'.</span>';
-      html+='<button class="btn btn-primary btn-sm" data-action="lp-auto-create-sessions" data-date="'+lpDate+'">⚡ Create sessions from schedule</button>';html+=' <button class="btn btn-sm" style="background:var(--danger);color:#fff;border-color:var(--danger);" data-action="lp-dedup-sessions" data-date="'+lpDate+'">🔧 Fix duplicates</button>';
+      html+='<span style="font-size:13px;color:var(--text1);"><strong>'+_schedForDay.length+' session slot'+((_schedForDay.length>1)?'s':'')+' found</strong> for '+_dow.charAt(0).toUpperCase()+_dow.slice(1)+'. Sessions will be created automatically when you click Auto-Generate Plan.</span>';
+      html+='<button class="btn btn-sm" style="background:var(--danger);color:#fff;border-color:var(--danger);" data-action="lp-dedup-sessions" data-date="'+lpDate+'">🔧 Fix duplicates</button>';
       html+='</div>';
     }
     // Duplicate warnings
@@ -4019,7 +4019,7 @@ function renderSessionPlan(){
 
       // Print header
       html+='<div style="margin-bottom:16px;">';
-      html+='<div style="font-size:20px;font-weight:800;">Lesson Plan Report</div>';
+      html+='<div style="font-size:20px;font-weight:800;">Day Overview</div>';
       html+='<div style="font-size:14px;color:var(--text3);margin-top:2px;">'+dateLabel+'</div>';
       html+='</div>';
 
@@ -8953,6 +8953,21 @@ if(action==='lp-auto-create-sessions'){
   return;
 }
 if(action==='lp-generate'){
+  // Auto-create sessions from schedule first if none exist for this date
+  var _lgDate=state.lpDate||new Date().toISOString().slice(0,10);
+  var _lgBranch=state.currentBranch;
+  var _lgExisting=(state.data.sessions||[]).filter(function(s){return s.date===_lgDate;});
+  if(_lgBranch&&_lgExisting.length===0){
+    try{
+      var _lgRes=await API.post('/api/sessions/auto-create',{branch_id:_lgBranch,date:_lgDate});
+      if(_lgRes.created>0){
+        await loadData('sessions','/api/sessions',branchParam());
+        toast(_lgRes.created+' session'+((_lgRes.created>1)?'s':'')+' created for '+_lgDate,'info');
+      }
+    }catch(e){/* proceed even if auto-create fails */}
+  }
+  // ── original generate logic below ──
+// auto-create done, proceed:
   var lpDate=state.lpDate||new Date().toISOString().slice(0,10);
   var maxPer=state.lpMaxPer||5;
   function getDT(d){var w=new Date(d+'T00:00:00').getDay();return w===6?'saturday':w===0?'sunday':'weekday';}
