@@ -2316,6 +2316,13 @@ def get_student_timetable():
     if b: where.append("st.branch_id=%s"); params.append(b)
     if student_id: where.append("st.student_id=%s"); params.append(student_id)
     wc = ("WHERE " + " AND ".join(where)) if where else ""
+    # Always filter to active students and active timetable entries
+    if where:
+        where.append("s.status='active'")
+        where.append("st.active=TRUE")
+    else:
+        where = ["s.status='active'", "st.active=TRUE"]
+    wc = "WHERE " + " AND ".join(where)
     cur.execute(f"""
         SELECT st.*, s.name as student_name, s.admission_id, s.year_group
         FROM student_timetable st
