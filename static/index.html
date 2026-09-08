@@ -840,7 +840,30 @@ var _sRTimer=null;function scheduleRender(){if(_sRTimer)clearTimeout(_sRTimer);_
       else if(pg==='attendance'){var _qaD=state.qaDate||new Date().toISOString().slice(0,10);if(!state.qaDate)state.qaDate=_qaD;if(state.qaDate&&state.qaSlot){var _mqk='qa_'+state.qaDate+'_'+state.qaSlot;delete state.qaRecords[_mqk];if(state.qaDbRecords)delete state.qaDbRecords[_mqk];}var _attLoads=[loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('all_timetables','/api/student-timetable',b)];if(state.currentBranch){_attLoads.push(loadData('plan_students_'+_qaD,'/api/session-plan-students',Object.assign({date:_qaD},b)));}Promise.all(_attLoads).then(function(){state.loading=false;render();});}
       else if(pg==='finance') Promise.all([loadData('invoices','/api/invoices',b),loadData('students','/api/students',b)]).then(function(){state.loading=false;render();});
       else if(pg==='staff') loadData('staff','/api/staff',b).then(function(){state.loading=false;render();});
-      else if(pg==='session_plan'){var _spInitDate=state.lpDate||new Date().toISOString().slice(0,10);var _spLoads=[loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('staff','/api/staff',b),loadData('branch_schedule','/api/branch-schedule',b),loadData('all_timetables','/api/student-timetable',b)];if(state.currentBranch){_spLoads.push(loadData('plan_students_'+_spInitDate,'/api/session-plan-students',Object.assign({date:_spInitDate},b)));}Promise.all(_spLoads).then(function(){state.loading=false;render();});}
+      else if(pg==='session_plan'){var _spInitDate=state.lpDate||new Date().toISOString().slice(0,10);var _spLoads=[loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('staff','/api/staff',b),loadData('branch_schedule','/api/branch-schedule',b),loadData('all_timetables','/api/student-timetable',b)];if(state.currentBranch){_spLoads.push(loadData('plan_students_'+_spInitDate,'/api/session-plan-students',Object.assign({date:_spInitDate},b)));}Promise.all(_spLoads).then(function(){
+          state.loading=false;
+          // If no lpDate was set (first visit), auto-advance to next scheduled day for this branch
+          if(!state.lpDate){
+            var _dowNames=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+            var _sched=(state.data.branch_schedule||[]).filter(function(s){return s.status==='active';});
+            var _schedDays=new Set(_sched.map(function(s){return s.day_of_week;}));
+            if(_schedDays.size>0){
+              var _today=new Date();
+              for(var _di=0;_di<7;_di++){
+                var _d=new Date(_today);_d.setDate(_today.getDate()+_di);
+                if(_schedDays.has(_dowNames[_d.getDay()])){
+                  state.lpDate=_d.toISOString().slice(0,10);
+                  break;
+                }
+              }
+            }
+            if(state.lpDate&&state.lpDate!==_spInitDate){
+              loadData('plan_students_'+state.lpDate,'/api/session-plan-students',Object.assign({date:state.lpDate},b)).then(function(){render();});
+              return;
+            }
+          }
+          render();
+        });}
       else if(pg==='invoices') Promise.all([loadData('invoices','/api/invoices',b),loadData('students','/api/students',b)]).then(function(){state.loading=false;render();});
       else if(pg==='reports') loadData('summary','/api/reports/summary',Object.assign({},b,_analyticsDateParams())).then(function(){state.loading=false;render();});
       else if(pg==='session_reports') Promise.all([loadData('sessions','/api/sessions',b),loadData('staff','/api/staff',b)]).then(function(){state.loading=false;render();});
