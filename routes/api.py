@@ -6057,29 +6057,38 @@ def attendance_report():
         where = ' AND '.join(conditions)
         cur2 = conn.cursor(cursor_factory=RealDictCursor)
         cur2.execute(f"""
-            SELECT
+            SELECT DISTINCT ON (a.student_id, a.session_id)
                 a.student_id,
-                s.name        AS student_name,
+                s.name                                   AS student_name,
                 s.admission_id,
                 s.year_group,
                 s.branch_id,
-                br.name       AS branch_name,
-                sess.id       AS session_id,
+                br.name                                  AS branch_name,
+                sess.id                                  AS session_id,
                 sess.date,
                 sess.slot,
-                sess.table_no,
-                sess.subject,
-                sess.staff_id,
-                COALESCE(st.name, '') AS staff_name,
+                COALESCE(ta.table_no, sess.table_no)     AS table_no,
+                COALESCE(ta.subject,  sess.subject)      AS subject,
+                COALESCE(tst.name, '') AS staff_name,
                 a.status,
                 a.notes
             FROM attendance a
             JOIN students s    ON s.id    = a.student_id
             JOIN sessions sess ON sess.id = a.session_id
             JOIN branches br   ON br.id   = sess.branch_id
-            LEFT JOIN staff st ON st.id   = sess.staff_id
+            LEFT JOIN table_allocation_students tas
+                   ON tas.student_id = a.student_id
+            LEFT JOIN table_allocations ta
+                   ON ta.id = tas.allocation_id
+                  AND ta.session_id IN (
+                          SELECT id FROM sessions s2
+                          WHERE  s2.date      = sess.date
+                            AND  s2.slot      = sess.slot
+                            AND  s2.branch_id = sess.branch_id
+                      )
+            LEFT JOIN staff tst ON tst.id = ta.teacher_id
             WHERE {where}
-            ORDER BY sess.date DESC, sess.slot, sess.table_no, s.admission_id
+            ORDER BY a.student_id, a.session_id, ta.id NULLS LAST
         """, params)
         result = cur2.fetchall()
         data = []
