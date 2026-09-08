@@ -10277,7 +10277,7 @@ if(action==='load-income-report'){
   var stEl=document.querySelector('[data-bind="incRptStatus"]');
   state.incRptFilter={date_from:fromEl?fromEl.value:'',date_to:toEl?toEl.value:''};
   state.incRptStatus=stEl?stEl.value:'paid';
-  var params=Object.assign({},branch_scope_param(),state.incRptFilter,{status:state.incRptStatus});
+  var params=Object.assign({},branchParam(),state.incRptFilter,{status:state.incRptStatus});
   state.incRptLoaded=false;
   render();
   API.get('/api/income-report',params).then(function(d){
