@@ -6056,20 +6056,33 @@ def attendance_report():
 
         where = ' AND '.join(conditions)
         cur.execute(f"""
+            WITH student_plan AS (
+                SELECT DISTINCT ON (tas.student_id, s2.date, s2.slot, s2.branch_id)
+                    tas.student_id,
+                    s2.date        AS sess_date,
+                    s2.slot        AS sess_slot,
+                    s2.branch_id   AS sess_branch,
+                    ta.table_no    AS plan_table_no,
+                    ta.subject     AS plan_subject,
+                    ta.teacher_id  AS plan_teacher_id
+                FROM table_allocation_students tas
+                JOIN table_allocations ta ON ta.id  = tas.allocation_id
+                JOIN sessions s2          ON s2.id  = ta.session_id
+                ORDER BY tas.student_id, s2.date, s2.slot, s2.branch_id, ta.table_no
+            )
             SELECT
                 a.student_id,
-                s.name AS student_name,
+                s.name        AS student_name,
                 s.admission_id,
                 s.year_group,
                 s.branch_id,
-                br.name AS branch_name,
-                sess.id  AS session_id,
+                br.name       AS branch_name,
+                sess.id       AS session_id,
                 sess.date,
                 sess.slot,
-                -- Use lesson-plan table allocation if available, else session's own table_no
-                COALESCE(ta_plan.table_no, sess.table_no)    AS table_no,
-                COALESCE(ta_plan.subject,  sess.subject)     AS subject,
-                COALESCE(plan_staff.name, COALESCE(st.name,'')) AS staff_name,
+                COALESCE(sp.plan_table_no, sess.table_no)       AS table_no,
+                COALESCE(sp.plan_subject,  sess.subject)        AS subject,
+                COALESCE(pst.name, COALESCE(st.name,''))        AS staff_name,
                 a.status,
                 a.notes
             FROM attendance a
@@ -6077,20 +6090,16 @@ def attendance_report():
             JOIN sessions sess ON sess.id = a.session_id
             JOIN branches br   ON br.id   = sess.branch_id
             LEFT JOIN staff st ON st.id   = sess.staff_id
-            -- Look up correct table from lesson plan for this student on same date+slot
-            LEFT JOIN table_allocation_students tas_lp
-                   ON tas_lp.student_id = a.student_id
-            LEFT JOIN table_allocations ta_plan
-                   ON ta_plan.id = tas_lp.allocation_id
-                  AND ta_plan.session_id IN (
-                          SELECT id FROM sessions s2
-                          WHERE s2.date = sess.date
-                            AND s2.slot = sess.slot
-                            AND s2.branch_id = sess.branch_id
-                      )
-            LEFT JOIN staff plan_staff ON plan_staff.id = ta_plan.teacher_id
+            LEFT JOIN student_plan sp
+                   ON sp.student_id   = a.student_id
+                  AND sp.sess_date    = sess.date
+                  AND sp.sess_slot    = sess.slot
+                  AND sp.sess_branch  = sess.branch_id
+            LEFT JOIN staff pst ON pst.id = sp.plan_teacher_id
             WHERE {where}
-            ORDER BY sess.date DESC, sess.slot, COALESCE(ta_plan.table_no, sess.table_no), s.admission_id
+            ORDER BY sess.date DESC, sess.slot,
+                     COALESCE(sp.plan_table_no, sess.table_no),
+                     s.admission_id
         """, params)
         result = cur.fetchall()
         data = []
