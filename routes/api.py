@@ -632,14 +632,14 @@ def get_sessions():
             (SELECT COUNT(*) FROM attendance a WHERE a.session_id=ss.id) as total_count
             FROM sessions ss JOIN branches b ON b.id=ss.branch_id
             LEFT JOIN staff st ON st.id=ss.staff_id
-            WHERE ss.branch_id=%s ORDER BY ss.date DESC, ss.slot""", (b,))
+            WHERE ss.branch_id=%s ORDER BY ss.date DESC, ss.slot, ss.table_no""", (b,))
     else:
         cur.execute("""SELECT ss.*, b.name as branch_name, st.name as staff_name,
             (SELECT COUNT(*) FROM attendance a WHERE a.session_id=ss.id AND a.status='present') as present_count,
             (SELECT COUNT(*) FROM attendance a WHERE a.session_id=ss.id) as total_count
             FROM sessions ss JOIN branches b ON b.id=ss.branch_id
             LEFT JOIN staff st ON st.id=ss.staff_id
-            ORDER BY ss.date DESC, ss.slot""")
+            ORDER BY ss.date DESC, ss.slot, ss.table_no""")
     data = rows(cur); cur.close(); conn.close()
     # Convert date objects to strings
     for d in data:

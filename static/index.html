@@ -437,7 +437,7 @@ function printLessonPlanReport(){
   var html='<h2 style="margin:0 0 4px 0;font-size:20px;">Lesson Plan Report'+viewLabel+'</h2>';
   html+='<div style="font-size:13px;color:#555;margin-bottom:20px;">'+dateLabel+'</div>';
   rptSlots.forEach(function(slot,si){
-    var slotTables=bySlot[slot];
+    var slotTables=bySlot[slot].slice().sort(function(a,b){return (a.table_no||0)-(b.table_no||0);});
     html+='<div style="margin-bottom:20px;page-break-inside:avoid;">';
     html+='<div style="background:#1e3a8a;color:#fff;padding:8px 14px;font-size:14px;font-weight:700;border-radius:4px 4px 0 0;">Session '+(si+1)+': '+slot+'</div>';
     html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0;border:2px solid #1e3a8a;border-top:none;border-radius:0 0 4px 4px;overflow:hidden;">';
@@ -4033,7 +4033,7 @@ function renderSessionPlan(){
 
       // Per session
       rptSlots.forEach(function(slot,si){
-        var slotTables=bySlot[slot];
+        var slotTables=bySlot[slot].slice().sort(function(a,b){return (a.table_no||0)-(b.table_no||0);});
         // Build merged att map for this slot (Quick Att may save all to fallback session)
         var _slotAM={};
         slotTables.forEach(function(t){(state.data['rpt_att_'+t.id]||[]).forEach(function(a){if(a.status&&!_slotAM[a.student_id])_slotAM[a.student_id]={status:a.status};});});
