@@ -6085,7 +6085,7 @@ def attendance_report():
                 WHERE tas.student_id  = a.student_id
                   AND sp.slot         = sess.slot
                   AND sp.branch_id    = sess.branch_id
-                ORDER BY ABS(EXTRACT(EPOCH FROM (sp.date - sess.date))) ASC NULLS LAST
+                ORDER BY sp.date DESC NULLS LAST
                 LIMIT 1
             ) plan ON true
             WHERE {where}
