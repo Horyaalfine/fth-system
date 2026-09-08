@@ -6055,52 +6055,67 @@ def attendance_report():
                 conditions.append("EXTRACT(DOW FROM sess.date) BETWEEN 1 AND 5")
 
         where = ' AND '.join(conditions)
+        # Build plan-first query: start from table allocations, join attendance
+        plan_conditions = ["sess.date BETWEEN %s AND %s"]
+        plan_params = [date_from, date_to]
+        if branch_id:
+            plan_conditions.append("sess.branch_id = %s")
+            plan_params.append(branch_id)
+        if subject:
+            plan_conditions.append("ta.subject ILIKE %s")
+            plan_params.append(f'%{subject}%')
+        plan_where = ' AND '.join(plan_conditions)
+
+        # Attendance join: match by student + same date + same slot
+        att_extra = []
+        att_extra_params = []
+        if student_id:
+            att_extra.append("AND st.id = %s"); att_extra_params.append(student_id)
+        if status:
+            att_extra.append("AND a.status = %s"); att_extra_params.append(status)
+        if day_type:
+            if day_type == 'saturday':
+                plan_conditions.append("EXTRACT(DOW FROM sess.date) = 6"); plan_params.append(None); plan_params.pop()
+                plan_where += " AND EXTRACT(DOW FROM sess.date) = 6"
+            elif day_type == 'sunday':
+                plan_where += " AND EXTRACT(DOW FROM sess.date) = 0"
+            else:
+                plan_where += " AND EXTRACT(DOW FROM sess.date) BETWEEN 1 AND 5"
+        att_extra_sql = ' '.join(att_extra)
+
         cur.execute(f"""
-            WITH student_plan AS (
-                SELECT DISTINCT ON (tas.student_id, s2.date, s2.slot, s2.branch_id)
-                    tas.student_id,
-                    s2.date        AS sess_date,
-                    s2.slot        AS sess_slot,
-                    s2.branch_id   AS sess_branch,
-                    ta.table_no    AS plan_table_no,
-                    ta.subject     AS plan_subject,
-                    ta.teacher_id  AS plan_teacher_id
-                FROM table_allocation_students tas
-                JOIN table_allocations ta ON ta.id  = tas.allocation_id
-                JOIN sessions s2          ON s2.id  = ta.session_id
-                ORDER BY tas.student_id, s2.date, s2.slot, s2.branch_id, ta.table_no
-            )
-            SELECT
-                a.student_id,
-                s.name        AS student_name,
-                s.admission_id,
-                s.year_group,
-                s.branch_id,
-                br.name       AS branch_name,
-                sess.id       AS session_id,
+            SELECT DISTINCT ON (sess.date, sess.slot, ta.table_no, st.id)
+                st.id          AS student_id,
+                st.name        AS student_name,
+                st.admission_id,
+                st.year_group,
+                sess.branch_id,
+                br.name        AS branch_name,
+                sess.id        AS session_id,
                 sess.date,
                 sess.slot,
-                COALESCE(sp.plan_table_no, sess.table_no)       AS table_no,
-                COALESCE(sp.plan_subject,  sess.subject)        AS subject,
-                COALESCE(pst.name, COALESCE(st.name,''))        AS staff_name,
-                a.status,
+                ta.table_no,
+                COALESCE(ta.subject, sess.subject)  AS subject,
+                COALESCE(tst.name, '')              AS staff_name,
+                COALESCE(a.status, 'absent')        AS status,
                 a.notes
-            FROM attendance a
-            JOIN students s    ON s.id    = a.student_id
-            JOIN sessions sess ON sess.id = a.session_id
-            JOIN branches br   ON br.id   = sess.branch_id
-            LEFT JOIN staff st ON st.id   = sess.staff_id
-            LEFT JOIN student_plan sp
-                   ON sp.student_id   = a.student_id
-                  AND sp.sess_date    = sess.date
-                  AND sp.sess_slot    = sess.slot
-                  AND sp.sess_branch  = sess.branch_id
-            LEFT JOIN staff pst ON pst.id = sp.plan_teacher_id
-            WHERE {where}
-            ORDER BY sess.date DESC, sess.slot,
-                     COALESCE(sp.plan_table_no, sess.table_no),
-                     s.admission_id
-        """, params)
+            FROM table_allocation_students tas
+            JOIN table_allocations ta  ON ta.id   = tas.allocation_id
+            JOIN sessions sess         ON sess.id = ta.session_id
+            JOIN students st           ON st.id   = tas.student_id
+            JOIN branches br           ON br.id   = sess.branch_id
+            LEFT JOIN staff tst        ON tst.id  = ta.teacher_id
+            LEFT JOIN attendance a     ON a.student_id = st.id
+                                     AND a.session_id IN (
+                                             SELECT id FROM sessions s2
+                                             WHERE s2.date     = sess.date
+                                               AND s2.slot     = sess.slot
+                                               AND s2.branch_id= sess.branch_id
+                                         )
+                                     {att_extra_sql}
+            WHERE {plan_where}
+            ORDER BY sess.date, sess.slot, ta.table_no, st.id
+        """, plan_params + att_extra_params)
         result = cur.fetchall()
         data = []
         for r in result:
