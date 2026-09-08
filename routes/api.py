@@ -6066,19 +6066,31 @@ def attendance_report():
                 sess.id  AS session_id,
                 sess.date,
                 sess.slot,
-                sess.subject,
-                sess.table_no,
-                sess.staff_id,
-                COALESCE(st.name, '') AS staff_name,
+                -- Use lesson-plan table allocation if available, else session's own table_no
+                COALESCE(ta_plan.table_no, sess.table_no)    AS table_no,
+                COALESCE(ta_plan.subject,  sess.subject)     AS subject,
+                COALESCE(plan_staff.name, COALESCE(st.name,'')) AS staff_name,
                 a.status,
                 a.notes
             FROM attendance a
-            JOIN students s   ON s.id   = a.student_id
+            JOIN students s    ON s.id    = a.student_id
             JOIN sessions sess ON sess.id = a.session_id
-            JOIN branches br  ON br.id  = sess.branch_id
-            LEFT JOIN staff st ON st.id = sess.staff_id
+            JOIN branches br   ON br.id   = sess.branch_id
+            LEFT JOIN staff st ON st.id   = sess.staff_id
+            -- Look up correct table from lesson plan for this student on same date+slot
+            LEFT JOIN table_allocation_students tas_lp
+                   ON tas_lp.student_id = a.student_id
+            LEFT JOIN table_allocations ta_plan
+                   ON ta_plan.id = tas_lp.allocation_id
+                  AND ta_plan.session_id IN (
+                          SELECT id FROM sessions s2
+                          WHERE s2.date = sess.date
+                            AND s2.slot = sess.slot
+                            AND s2.branch_id = sess.branch_id
+                      )
+            LEFT JOIN staff plan_staff ON plan_staff.id = ta_plan.teacher_id
             WHERE {where}
-            ORDER BY sess.date DESC, sess.slot, s.admission_id
+            ORDER BY sess.date DESC, sess.slot, COALESCE(ta_plan.table_no, sess.table_no), s.admission_id
         """, params)
         result = cur.fetchall()
         data = []
