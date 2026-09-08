@@ -9968,28 +9968,30 @@ if(action==='save-quick-att'){
       if(!stuSessionMap[st.student_id])stuSessionMap[st.student_id]=sess.id;
     });
   });
-  // Do NOT fall back to a default session — unassigned students must be skipped
-  // to prevent them from polluting the first table session's records
+  // For multi-table slots: use stuSessionMap. Students not in any table fall back to first session.
+  // If only one session exists, all go there (single-table day).
+  var fallbackSessionId=daySessions[0].id;
+  var _unassignedNames=[];
   // Group records by session
   var sessionRecords={};
   var _skippedCount=0;
-  var _unassignedNames=[];
   Object.keys(localAtt).forEach(function(stuId){
     if(!localAtt[stuId])return;
     var sid=stuSessionMap[parseInt(stuId)]||null;
     if(!sid){
-      _skippedCount++;
-      // Find name for warning
-      var _pl=state.data['plan_students_'+qDate]||[];
-      var _found=_pl.find(function(p){return String(p.student_id)===String(stuId);});
-      if(_found)_unassignedNames.push(_found.admission_id||_found.student_name||stuId);
-      return;
+      if(daySessions.length>1){
+        // Multi-table: warn but still use fallback so record is not lost
+        var _pl=state.data['plan_students_'+qDate]||[];
+        var _found=_pl.find(function(p){return String(p.student_id)===String(stuId);});
+        if(_found)_unassignedNames.push(_found.admission_id||_found.student_name||stuId);
+      }
+      sid=fallbackSessionId;
     }
     if(!sessionRecords[sid])sessionRecords[sid]=[];
     sessionRecords[sid].push({student_id:parseInt(stuId),status:localAtt[stuId],notes:''});
   });
-  if(_skippedCount>0){
-    toast(_skippedCount+' student(s) not assigned to a table session — skipped: '+_unassignedNames.join(', '),'warning');
+  if(_unassignedNames.length>0){
+    toast('Warning: '+_unassignedNames.length+' student(s) not in a table — saved to default session: '+_unassignedNames.join(', '),'warning');
   }
   // Compute which students were previously saved but are now unmarked → delete them
   var _dbRecs=state.qaDbRecords&&state.qaDbRecords[key]?state.qaDbRecords[key]:{};
@@ -9997,7 +9999,7 @@ if(action==='save-quick-att'){
   // Map previously-marked students back to their session
   var deleteBySession={};
   Object.keys(_dbRecs).forEach(function(stuId){
-    var sid2=stuSessionMap[parseInt(stuId)]||null;
+    var sid2=stuSessionMap[parseInt(stuId)]||fallbackSessionId||null;
     if(sid2&&!_nowMarked.has(parseInt(stuId))){
       if(!deleteBySession[sid2])deleteBySession[sid2]=[];
       deleteBySession[sid2].push(parseInt(stuId));
