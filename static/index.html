@@ -5263,9 +5263,9 @@ function renderReports(){
     } else {
       // Summary cards
       html+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">';
-      html+='<div class="metric-card" style="text-align:center;"><div class="metric-value">£'+grandTotal.toFixed(2)+'</div><div class="metric-label">Total Invoiced</div></div>';
-      html+='<div class="metric-card" style="text-align:center;"><div class="metric-value" style="color:#16a34a;">£'+grandPaid.toFixed(2)+'</div><div class="metric-label">Total Received</div></div>';
-      html+='<div class="metric-card" style="text-align:center;"><div class="metric-value" style="color:#dc2626;">£'+(grandTotal-grandPaid).toFixed(2)+'</div><div class="metric-label">Outstanding</div></div>';
+      html+='<div class="metric-card" style="text-align:center;border-top:4px solid var(--accent);"><div class="metric-value" style="color:var(--accent);">£'+grandTotal.toFixed(2)+'</div><div class="metric-label">Total Invoiced</div></div>';
+      html+='<div class="metric-card" style="text-align:center;border-top:4px solid #16a34a;"><div class="metric-value" style="color:#16a34a;">£'+grandPaid.toFixed(2)+'</div><div class="metric-label">Total Received</div></div>';
+      html+='<div class="metric-card" style="text-align:center;border-top:4px solid #dc2626;"><div class="metric-value" style="color:#dc2626;">£'+(grandTotal-grandPaid).toFixed(2)+'</div><div class="metric-label">Outstanding</div></div>';
       html+='</div>';
 
       // Category breakdown table
