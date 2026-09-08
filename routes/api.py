@@ -6068,12 +6068,15 @@ def attendance_report():
                 sess.slot,
                 sess.subject,
                 sess.table_no,
+                sess.staff_id,
+                COALESCE(st.name, '') AS staff_name,
                 a.status,
                 a.notes
             FROM attendance a
             JOIN students s   ON s.id   = a.student_id
             JOIN sessions sess ON sess.id = a.session_id
             JOIN branches br  ON br.id  = sess.branch_id
+            LEFT JOIN staff st ON st.id = sess.staff_id
             WHERE {where}
             ORDER BY sess.date DESC, sess.slot, s.admission_id
         """, params)

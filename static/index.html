@@ -10195,25 +10195,52 @@ if(action==='reports-tab'){
 if(action==='export-att-report'){
   const attRpt=state.data.att_report||[];
   const f=state.attRptFilter||{};
-  const rows=[
-    ['Date','Day','Slot','Adm No','Student','Year Group','Subject','Status','Notes'],
-    ...attRpt.map(function(r){
-      var d=new Date(r.date+'T00:00:00');
-      return[
-        d.toLocaleDateString('en-GB'),
-        d.toLocaleDateString('en-GB',{weekday:'long'}),
-        r.slot||'',
-        r.admission_id||'',
-        r.student_name||'',
-        r.year_group||'',
-        r.subject||'',
-        r.status||'',
-        r.notes||''
-      ];
-    })
-  ];
+  // Sheet 1: Student Summary
+  const stuMap2={};
+  attRpt.forEach(function(r){
+    if(!stuMap2[r.student_id])stuMap2[r.student_id]={name:r.student_name,admission_id:r.admission_id,year_group:r.year_group,present:0,absent:0,total:0};
+    stuMap2[r.student_id].total++;
+    if(r.status==='present')stuMap2[r.student_id].present++;
+    else stuMap2[r.student_id].absent++;
+  });
+  const summaryRows=[['Adm No','Name','Year Group','Present','Absent','Total','Rate %']];
+  Object.values(stuMap2).sort(function(a,b){return a.admission_id>b.admission_id?1:-1;}).forEach(function(r){
+    summaryRows.push([r.admission_id,r.name,r.year_group||'',r.present,r.absent,r.total,r.total?Math.round(r.present/r.total*100):0]);
+  });
+  // Sheet 2: Grouped detail (Date, Slot, Table, Teacher, Subject, Adm No, Name, Year, Status, Notes)
+  const detailRows=[['Date','Day','Slot','Table No','Teacher','Subject','Adm No','Student','Year Group','Status','Notes']];
+  const sorted=[].concat(attRpt).sort(function(a,b){
+    if(a.date!==b.date)return a.date>b.date?1:-1;
+    if((a.slot||'')!==(b.slot||''))return (a.slot||'')>(b.slot||'')?1:-1;
+    if((a.table_no||0)!==(b.table_no||0))return (a.table_no||0)-(b.table_no||0);
+    return a.admission_id>b.admission_id?1:-1;
+  });
+  sorted.forEach(function(r){
+    var d=new Date(r.date+'T00:00:00');
+    detailRows.push([
+      d.toLocaleDateString('en-GB'),
+      d.toLocaleDateString('en-GB',{weekday:'long'}),
+      r.slot||'',
+      r.table_no||'',
+      r.staff_name||'',
+      r.subject||'',
+      r.admission_id||'',
+      r.student_name||'',
+      r.year_group||'',
+      r.status||'',
+      r.notes||''
+    ]);
+  });
   var label='Attendance'+(f.date_from?'_'+f.date_from:'')+(f.date_to?'_to_'+f.date_to:'');
-  exportXLSX(rows,label+'.xlsx','Attendance');
+  // Export two sheets using SheetJS
+  try{
+    var wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(summaryRows),'Student Summary');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(detailRows),'Detail by Table');
+    XLSX.writeFile(wb,label+'.xlsx');
+  }catch(e){
+    exportXLSX(detailRows,label+'.xlsx','Attendance');
+  }
   toast('Exported');return;
 }
 
@@ -10224,6 +10251,9 @@ if(action==='print-att-report'){
   const present=attRpt.filter(function(r){return r.status==='present';}).length;
   const absent=attRpt.filter(function(r){return r.status==='absent';}).length;
   const rate=total?Math.round(present/total*100):0;
+  var period=(f.date_from||'')+(f.date_to&&f.date_to!==f.date_from?' – '+f.date_to:'');
+  var branchName=(state.data.branches||[]).find(function(b){return b.id===state.currentBranch;});
+  branchName=branchName?branchName.name:'';
 
   // Per-student summary
   const stuMap={};
@@ -10235,48 +10265,109 @@ if(action==='print-att-report'){
   });
   const stuRows=Object.values(stuMap).sort(function(a,b){return a.admission_id>b.admission_id?1:-1;});
 
-  var period=(f.date_from||'')+(f.date_to?' – '+f.date_to:'');
-  var pw=window.open('','_blank','width=900,height=700');
-  pw.document.write('<!DOCTYPE html><html><head><title>Attendance Report</title><style>');
-  pw.document.write('body{font-family:Arial,sans-serif;font-size:12px;color:#111;margin:20px;}');
-  pw.document.write('h1{font-size:18px;margin-bottom:2px;}h2{font-size:13px;margin:16px 0 6px;color:#333;}');
-  pw.document.write('.summary{display:flex;gap:20px;margin:10px 0 16px;}');
-  pw.document.write('.sum-card{background:#f3f4f6;border-radius:6px;padding:8px 16px;text-align:center;}');
-  pw.document.write('.sum-val{font-size:22px;font-weight:700;}.sum-lbl{font-size:10px;color:#666;}');
-  pw.document.write('table{width:100%;border-collapse:collapse;margin-bottom:20px;}');
-  pw.document.write('th{background:#1e3a5f;color:#fff;padding:6px 8px;text-align:left;font-size:11px;}');
-  pw.document.write('td{padding:5px 8px;border-bottom:1px solid #e5e7eb;font-size:11px;}');
-  pw.document.write('tr:nth-child(even)td{background:#f9fafb;}');
-  pw.document.write('.present{color:#16a34a;font-weight:600;}.absent{color:#dc2626;font-weight:600;}');
-  pw.document.write('@media print{body{margin:10px;}}');
+  // Group by date → slot → table_no (like Day Overview)
+  // byDate[date] = { slot: [ sessions ] } where session has table_no, staff_name, subject, students[]
+  var byDate={};
+  attRpt.forEach(function(r){
+    var dk=r.date;
+    if(!byDate[dk])byDate[dk]={};
+    var sk=r.slot||'';
+    if(!byDate[dk][sk])byDate[dk][sk]={};
+    var tk=String(r.table_no||'?');
+    if(!byDate[dk][sk][tk])byDate[dk][sk][tk]={table_no:r.table_no,staff_name:r.staff_name||'',subject:r.subject||'',students:[]};
+    byDate[dk][sk][tk].students.push(r);
+  });
+
+  function _getKS(yg){var m=(yg||'').match(/\d+/);var y=m?parseInt(m[0]):0;return y<=6?'KS1/2':y<=9?'KS3':'KS4';}
+
+  var pw=window.open('','_blank','width=1000,height=750');
+  pw.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Attendance Report</title><style>');
+  pw.document.write('*{box-sizing:border-box;}body{font-family:Arial,sans-serif;font-size:11px;color:#111;margin:16px;background:#fff;}');
+  pw.document.write('h1{font-size:20px;font-weight:800;margin:0 0 2px;}');
+  pw.document.write('.meta{font-size:11px;color:#555;margin-bottom:12px;}');
+  pw.document.write('.summary{display:flex;gap:12px;margin:10px 0 18px;flex-wrap:wrap;}');
+  pw.document.write('.sum-card{background:#f3f4f6;border-radius:6px;padding:8px 18px;text-align:center;min-width:70px;}');
+  pw.document.write('.sum-val{font-size:24px;font-weight:800;}.sum-lbl{font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.04em;}');
+  pw.document.write('h2{font-size:12px;font-weight:700;margin:20px 0 6px;color:#333;border-bottom:1px solid #e5e7eb;padding-bottom:4px;}');
+  pw.document.write('.session-hdr{background:#1e3a5f;color:#fff;padding:8px 14px;border-radius:6px 6px 0 0;font-size:13px;font-weight:700;display:flex;justify-content:space-between;align-items:center;margin-top:18px;}');
+  pw.document.write('.session-hdr .right{font-size:11px;font-weight:400;opacity:.85;}');
+  pw.document.write('.tables-grid{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid #1e3a5f;border-top:none;border-radius:0 0 6px 6px;margin-bottom:0;overflow:hidden;}');
+  pw.document.write('.tbl-card{padding:10px 12px;border-right:1px solid #e2e8f0;border-top:1px solid #e2e8f0;}');
+  pw.document.write('.tbl-card:nth-child(3n){border-right:none;}');
+  pw.document.write('.tbl-title{font-size:12px;font-weight:700;margin-bottom:2px;}');
+  pw.document.write('.tbl-sub{font-size:10px;color:#555;margin-bottom:6px;}');
+  pw.document.write('.badge{display:inline-block;background:#e5e7eb;border-radius:3px;padding:1px 5px;font-size:9px;font-weight:600;margin-right:3px;}');
+  pw.document.write('.badge-blue{background:#dbeafe;color:#1e40af;}');
+  pw.document.write('table.stu{width:100%;border-collapse:collapse;}');
+  pw.document.write('table.stu th{font-size:9px;color:#888;text-transform:uppercase;padding:2px 4px;border-bottom:1px solid #e5e7eb;text-align:left;font-weight:600;}');
+  pw.document.write('table.stu td{font-size:10px;padding:3px 4px;border-bottom:1px solid #f3f4f6;}');
+  pw.document.write('.present{color:#16a34a;font-weight:700;}.absent{color:#dc2626;font-weight:700;}');
+  pw.document.write('table.sum-tbl{width:100%;border-collapse:collapse;margin-bottom:16px;}');
+  pw.document.write('table.sum-tbl th{background:#1e3a5f;color:#fff;padding:5px 8px;font-size:10px;text-align:left;}');
+  pw.document.write('table.sum-tbl td{padding:4px 8px;border-bottom:1px solid #e5e7eb;font-size:10px;}');
+  pw.document.write('table.sum-tbl tr:nth-child(even)td{background:#f9fafb;}');
+  pw.document.write('.date-label{font-size:14px;font-weight:700;color:#1e3a5f;margin:22px 0 4px;border-bottom:2px solid #1e3a5f;padding-bottom:4px;}');
+  pw.document.write('@media print{body{margin:8px;}.session-hdr{-webkit-print-color-adjust:exact;print-color-adjust:exact;}table.sum-tbl th{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}');
   pw.document.write('</style></head><body>');
+
   pw.document.write('<h1>FTH — Attendance Report</h1>');
-  pw.document.write('<div style="font-size:12px;color:#555;margin-bottom:8px;">Period: '+period+'&nbsp;&nbsp;|&nbsp;&nbsp;Branch: Harlesden&nbsp;&nbsp;|&nbsp;&nbsp;Printed: '+new Date().toLocaleDateString("en-GB")+'</div>');
+  pw.document.write('<div class="meta">Period: '+period+(branchName?'&nbsp;|&nbsp;Branch: '+branchName:'')+'&nbsp;|&nbsp;Printed: '+new Date().toLocaleDateString('en-GB')+'</div>');
+
+  // Summary cards
   pw.document.write('<div class="summary">');
-  pw.document.write('<div class="sum-card"><div class="sum-val">'+total+'</div><div class="sum-lbl">RECORDS</div></div>');
-  pw.document.write('<div class="sum-card"><div class="sum-val" style="color:#16a34a">'+present+'</div><div class="sum-lbl">PRESENT</div></div>');
-  pw.document.write('<div class="sum-card"><div class="sum-val" style="color:#dc2626">'+absent+'</div><div class="sum-lbl">ABSENT</div></div>');
-  pw.document.write('<div class="sum-card"><div class="sum-val" style="color:'+(rate>=75?'#16a34a':rate>=50?'#d97706':'#dc2626')+'">'+rate+'%</div><div class="sum-lbl">RATE</div></div>');
+  pw.document.write('<div class="sum-card"><div class="sum-val">'+total+'</div><div class="sum-lbl">Records</div></div>');
+  pw.document.write('<div class="sum-card"><div class="sum-val" style="color:#16a34a">'+present+'</div><div class="sum-lbl">Present</div></div>');
+  pw.document.write('<div class="sum-card"><div class="sum-val" style="color:#dc2626">'+absent+'</div><div class="sum-lbl">Absent</div></div>');
+  pw.document.write('<div class="sum-card"><div class="sum-val" style="color:'+(rate>=75?'#16a34a':rate>=50?'#d97706':'#dc2626')+'">'+rate+'%</div><div class="sum-lbl">Rate</div></div>');
+  pw.document.write('<div class="sum-card"><div class="sum-val">'+stuRows.length+'</div><div class="sum-lbl">Students</div></div>');
   pw.document.write('</div>');
 
+  // Per-student summary table
   pw.document.write('<h2>Student Summary</h2>');
-  pw.document.write('<table><thead><tr><th>Adm No</th><th>Name</th><th>Year</th><th>Present</th><th>Absent</th><th>Total</th><th>Rate</th></tr></thead><tbody>');
+  pw.document.write('<table class="sum-tbl"><thead><tr><th>Adm No</th><th>Name</th><th>Year</th><th>Present</th><th>Absent</th><th>Total</th><th>Rate</th></tr></thead><tbody>');
   stuRows.forEach(function(r){
     var rt=r.total?Math.round(r.present/r.total*100):0;
+    var col=rt===100?'#16a34a':rt>=75?'#d97706':'#dc2626';
     pw.document.write('<tr><td>'+r.admission_id+'</td><td>'+r.name+'</td><td>'+(r.year_group||'—')+'</td>');
-    pw.document.write('<td class="present">'+r.present+'</td><td class="absent">'+r.absent+'</td><td>'+r.total+'</td><td>'+rt+'%</td></tr>');
+    pw.document.write('<td class="present">'+r.present+'</td><td class="absent">'+r.absent+'</td><td>'+r.total+'</td>');
+    pw.document.write('<td style="font-weight:700;color:'+col+'">'+rt+'%</td></tr>');
   });
   pw.document.write('</tbody></table>');
 
-  pw.document.write('<h2>Detailed Records</h2>');
-  pw.document.write('<table><thead><tr><th>Date</th><th>Slot</th><th>Student</th><th>Year</th><th>Subject</th><th>Status</th><th>Notes</th></tr></thead><tbody>');
-  attRpt.forEach(function(r){
-    var d=new Date(r.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
-    pw.document.write('<tr><td>'+d+'</td><td>'+( r.slot||'')+'</td><td>'+r.student_name+' ('+r.admission_id+')</td>');
-    pw.document.write('<td>'+(r.year_group||'—')+'</td><td>'+(r.subject||'—')+'</td>');
-    pw.document.write('<td class="'+(r.status==='present'?'present':'absent')+'">'+r.status+'</td><td>'+(r.notes||'')+'</td></tr>');
+  // Session / Table grouped view
+  pw.document.write('<h2>Session Detail — by Table</h2>');
+  var dates=Object.keys(byDate).sort();
+  dates.forEach(function(dk){
+    var dateLabel=new Date(dk+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+    pw.document.write('<div class="date-label">'+dateLabel+'</div>');
+    var slots=Object.keys(byDate[dk]).sort();
+    slots.forEach(function(sk,si){
+      var tables=Object.values(byDate[dk][sk]).sort(function(a,b){return (a.table_no||0)-(b.table_no||0);});
+      var slotPresent=0,slotTotal=0;
+      tables.forEach(function(t){t.students.forEach(function(s){slotTotal++;if(s.status==='present')slotPresent++;});});
+      pw.document.write('<div class="session-hdr"><span>Session '+(si+1)+': '+sk+'</span><span class="right">'+tables.length+' tables &middot; '+slotPresent+'/'+slotTotal+' present</span></div>');
+      pw.document.write('<div class="tables-grid">');
+      tables.forEach(function(tbl){
+        var studs=tbl.students.sort(function(a,b){return a.admission_id>b.admission_id?1:-1;});
+        var ks=studs.length>0?_getKS(studs[0].year_group):'';
+        pw.document.write('<div class="tbl-card">');
+        pw.document.write('<div class="tbl-title">Table '+tbl.table_no+'</div>');
+        pw.document.write('<div class="tbl-sub">');
+        if(tbl.subject)pw.document.write('<span class="badge">'+tbl.subject+'</span>');
+        if(ks)pw.document.write('<span class="badge badge-blue">'+ks+'</span>');
+        pw.document.write((tbl.staff_name?'Teacher: '+tbl.staff_name:'No teacher'));
+        pw.document.write('</div>');
+        pw.document.write('<table class="stu"><thead><tr><th>Ad No</th><th>Name</th><th>Yr</th><th>Att.</th></tr></thead><tbody>');
+        studs.forEach(function(s){
+          pw.document.write('<tr><td>'+s.admission_id+'</td><td>'+s.student_name+'</td><td>'+(s.year_group||'—')+'</td>');
+          pw.document.write('<td class="'+(s.status==='present'?'present':'absent')+'">'+s.status+'</td></tr>');
+        });
+        pw.document.write('</tbody></table></div>');
+      });
+      pw.document.write('</div>');
+    });
   });
-  pw.document.write('</tbody></table>');
+
   pw.document.write('</body></html>');
   pw.document.close();
   pw.focus();
