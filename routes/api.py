@@ -6055,35 +6055,31 @@ def attendance_report():
                 conditions.append("EXTRACT(DOW FROM sess.date) BETWEEN 1 AND 5")
 
         where = ' AND '.join(conditions)
-        # Build plan-first query: start from table allocations, join attendance
-        plan_conditions = ["sess.date BETWEEN %s AND %s"]
+        # Plan-first: start from lesson plan allocations, join attendance status
+        plan_conds = ["sess.date BETWEEN %s AND %s"]
         plan_params = [date_from, date_to]
         if branch_id:
-            plan_conditions.append("sess.branch_id = %s")
-            plan_params.append(branch_id)
+            plan_conds.append("sess.branch_id = %s"); plan_params.append(branch_id)
         if subject:
-            plan_conditions.append("ta.subject ILIKE %s")
-            plan_params.append(f'%{subject}%')
-        plan_where = ' AND '.join(plan_conditions)
-
-        # Attendance join: match by student + same date + same slot
-        att_extra = []
-        att_extra_params = []
+            plan_conds.append("ta.subject ILIKE %s"); plan_params.append(f'%{subject}%')
         if student_id:
-            att_extra.append("AND st.id = %s"); att_extra_params.append(student_id)
-        if status:
-            att_extra.append("AND a.status = %s"); att_extra_params.append(status)
-        if day_type:
-            if day_type == 'saturday':
-                plan_conditions.append("EXTRACT(DOW FROM sess.date) = 6"); plan_params.append(None); plan_params.pop()
-                plan_where += " AND EXTRACT(DOW FROM sess.date) = 6"
-            elif day_type == 'sunday':
-                plan_where += " AND EXTRACT(DOW FROM sess.date) = 0"
-            else:
-                plan_where += " AND EXTRACT(DOW FROM sess.date) BETWEEN 1 AND 5"
-        att_extra_sql = ' '.join(att_extra)
+            plan_conds.append("st.id = %s"); plan_params.append(student_id)
+        if day_type == 'saturday':
+            plan_conds.append("EXTRACT(DOW FROM sess.date) = 6")
+        elif day_type == 'sunday':
+            plan_conds.append("EXTRACT(DOW FROM sess.date) = 0")
+        elif day_type == 'weekday':
+            plan_conds.append("EXTRACT(DOW FROM sess.date) BETWEEN 1 AND 5")
+        plan_where = ' AND '.join(plan_conds)
 
-        cur.execute(f"""
+        # Status filter applied as outer WHERE after COALESCE
+        status_having = ""
+        if status:
+            status_having = f"AND COALESCE(a.status,'absent') = %s"
+            plan_params.append(status)
+
+        cur2 = conn.cursor(cursor_factory=RealDictCursor)
+        cur2.execute(f"""
             SELECT DISTINCT ON (sess.date, sess.slot, ta.table_no, st.id)
                 st.id          AS student_id,
                 st.name        AS student_name,
@@ -6095,35 +6091,35 @@ def attendance_report():
                 sess.date,
                 sess.slot,
                 ta.table_no,
-                COALESCE(ta.subject, sess.subject)  AS subject,
-                COALESCE(tst.name, '')              AS staff_name,
-                COALESCE(a.status, 'absent')        AS status,
+                COALESCE(ta.subject, sess.subject)   AS subject,
+                COALESCE(tst.name, '')               AS staff_name,
+                COALESCE(a.status, 'absent')         AS status,
                 a.notes
             FROM table_allocation_students tas
-            JOIN table_allocations ta  ON ta.id   = tas.allocation_id
-            JOIN sessions sess         ON sess.id = ta.session_id
-            JOIN students st           ON st.id   = tas.student_id
-            JOIN branches br           ON br.id   = sess.branch_id
-            LEFT JOIN staff tst        ON tst.id  = ta.teacher_id
-            LEFT JOIN attendance a     ON a.student_id = st.id
-                                     AND a.session_id IN (
-                                             SELECT id FROM sessions s2
-                                             WHERE s2.date     = sess.date
-                                               AND s2.slot     = sess.slot
-                                               AND s2.branch_id= sess.branch_id
-                                         )
-                                     {att_extra_sql}
+            JOIN table_allocations ta ON ta.id    = tas.allocation_id
+            JOIN sessions sess        ON sess.id  = ta.session_id
+            JOIN students st          ON st.id    = tas.student_id
+            JOIN branches br          ON br.id    = sess.branch_id
+            LEFT JOIN staff tst       ON tst.id   = ta.teacher_id
+            LEFT JOIN attendance a    ON a.student_id = st.id
+                                    AND a.session_id IN (
+                                        SELECT id FROM sessions s2
+                                        WHERE s2.date      = sess.date
+                                          AND s2.slot      = sess.slot
+                                          AND s2.branch_id = sess.branch_id
+                                    )
             WHERE {plan_where}
+              {status_having}
             ORDER BY sess.date, sess.slot, ta.table_no, st.id
-        """, plan_params + att_extra_params)
-        result = cur.fetchall()
+        """, plan_params)
+        result = cur2.fetchall()
         data = []
         for r in result:
             row = dict(r)
             for k, v in row.items():
                 if hasattr(v, 'isoformat'): row[k] = str(v)
             data.append(row)
-        cur.close(); conn.close()
+        cur.close(); cur2.close(); conn.close()
         return jsonify(data)
     except Exception as e:
         cur.close(); conn.close()
