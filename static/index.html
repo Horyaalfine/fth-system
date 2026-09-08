@@ -10477,8 +10477,8 @@ if(action==='print-att-report'){
     if(!byDate[dk])byDate[dk]={};
     var sk=r.slot||'';
     if(!byDate[dk][sk])byDate[dk][sk]={};
-    var tk=String(r.table_no||'?');
-    if(!byDate[dk][sk][tk])byDate[dk][sk][tk]={table_no:r.table_no,staff_name:r.staff_name||'',subject:r.subject||'',students:[]};
+    var tk=String(r.session_id||r.table_no||'?');
+    if(!byDate[dk][sk][tk])byDate[dk][sk][tk]={table_no:r.table_no,session_id:r.session_id,staff_name:r.staff_name||'',subject:r.subject||'',students:[]};
     byDate[dk][sk][tk].students.push(r);
   });
 
