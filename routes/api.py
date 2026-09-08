@@ -2322,7 +2322,77 @@ def get_student_timetable():
         JOIN students s ON s.id=st.student_id
         {wc} ORDER BY s.admission_id, st.day_type, st.slot
     """, params)
-    data = rows(cur); cur.close(); conn.close()
+    data = rows(cur)
+    # Also include students from agreed_slots who have no student_timetable entry
+    # This ensures weekday/Sunday students appear in the Student Register
+    try:
+        from collections import defaultdict
+        bs_where = ["bs.status='active'"]
+        bs_params = []
+        if b: bs_where.append("bs.branch_id=%s"); bs_params.append(b)
+        cur.execute("SELECT id, day_of_week, slot_start, slot_end, branch_id FROM branch_schedule WHERE " + " AND ".join(bs_where) + " ORDER BY slot_start", bs_params)
+        bs_rows_raw = cur.fetchall() or []
+        # Compute slot labels per branch_schedule id
+        bs_by_dt = defaultdict(list)
+        for bs in bs_rows_raw:
+            dow = bs['day_of_week']
+            dt = 'saturday' if dow=='saturday' else 'sunday' if dow=='sunday' else 'weekday'
+            bs_by_dt[dt].append(bs)
+        slot_labels = {}
+        dt_display = {'saturday':'Saturday','sunday':'Sunday','weekday':'Weekday'}
+        for dt, bss in bs_by_dt.items():
+            seen = {}
+            for bs in sorted(bss, key=lambda x: str(x['slot_start'])):
+                tk = str(bs['slot_start'])[:5] + '-' + str(bs['slot_end'])[:5]
+                if tk not in seen:
+                    seen[tk] = len(seen) + 1
+                n = seen[tk]
+                slot_labels[bs['id']] = f"{dt_display[dt]} Session {n} ({tk})"
+        # Students already covered by student_timetable
+        tt_student_ids = set(r['student_id'] for r in data)
+        # Fetch agreed_slots for students NOT in student_timetable
+        as_where = ["s.status='active'"]
+        as_params = []
+        if b: as_where.append("s.branch_id=%s"); as_params.append(b)
+        if student_id: as_where.append("sas.student_id=%s"); as_params.append(student_id)
+        cur.execute("""
+            SELECT sas.student_id, sas.branch_schedule_id, COALESCE(sas.subject,'') as subject,
+                   s.name as student_name, s.admission_id, s.year_group,
+                   bs.day_of_week, bs.slot_start, bs.slot_end, bs.branch_id
+            FROM student_agreed_slots sas
+            JOIN students s ON s.id=sas.student_id
+            JOIN branch_schedule bs ON bs.id=sas.branch_schedule_id
+            WHERE """ + " AND ".join(as_where) + """
+            ORDER BY s.admission_id, bs.slot_start
+        """, as_params)
+        agreed = cur.fetchall() or []
+        for a in agreed:
+            bs_id = a['branch_schedule_id']
+            if bs_id not in slot_labels:
+                continue
+            if a['student_id'] in tt_student_ids:
+                continue  # student_timetable takes precedence
+            dow = a['day_of_week']
+            dt = 'saturday' if dow=='saturday' else 'sunday' if dow=='sunday' else 'weekday'
+            data.append({
+                'id': None,
+                'student_id': a['student_id'],
+                'student_name': a['student_name'],
+                'admission_id': a['admission_id'],
+                'year_group': a['year_group'],
+                'branch_id': a['branch_id'],
+                'day_type': dt,
+                'slot': slot_labels[bs_id],
+                'subject': a['subject'],
+                'slot_start': str(a['slot_start'])[:5],
+                'slot_end': str(a['slot_end'])[:5],
+                'branch_schedule_id': bs_id,
+                'active': True,
+                'source': 'agreed'
+            })
+    except Exception as e:
+        print(f"[student-timetable] agreed_slots merge error: {e}")
+    cur.close(); conn.close()
     return jsonify(data)
 
 @api_bp.route('/api/student-timetable', methods=['POST'])

@@ -3608,12 +3608,13 @@ function renderSessionPlan(){
     var regDay=state.regDay||'';
     var regSlot=state.regSlot||'';
     var regSubject=state.regSubject||'';
-    // Build filter options
-    var dayTypes=[...new Set(allTT.map(function(t){return t.day_type;}))].sort();
-    var allSlots=[...new Set(allTT.filter(function(t){return !regDay||t.day_type===regDay;}).map(function(t){return t.slot;}))].sort();
-    var allSubjects=[...new Set(allTT.filter(function(t){return (!regDay||t.day_type===regDay)&&(!regSlot||t.slot===regSlot);}).map(function(t){return t.subject;}))].sort();
+    // Build filter options — use all_timetables directly (includes agreed_slots for all days)
+    var _regTT=state.data.all_timetables||[];
+    var dayTypes=[...new Set(_regTT.map(function(t){return t.day_type;}))].sort();
+    var allSlots=[...new Set(_regTT.filter(function(t){return !regDay||t.day_type===regDay;}).map(function(t){return t.slot;}))].sort();
+    var allSubjects=[...new Set(_regTT.filter(function(t){return (!regDay||t.day_type===regDay)&&(!regSlot||t.slot===regSlot);}).map(function(t){return t.subject;}))].sort();
     // Filter
-    var filtered=allTT.filter(function(t){
+    var filtered=_regTT.filter(function(t){
       return (!regDay||t.day_type===regDay)&&(!regSlot||t.slot===regSlot)&&(!regSubject||t.subject===regSubject);
     });
     // Summary — count distinct students per subject, not rows
@@ -3680,7 +3681,7 @@ function renderSessionPlan(){
       html+='</div></div>';
       if(setupSlot&&setupSubject){
         // Get already-enrolled students for this slot+subject
-        var enrolled=allTT.filter(function(t){return t.slot===setupSlot&&t.subject===setupSubject;}).map(function(t){return t.student_id;});
+        var enrolled=_regTT.filter(function(t){return t.slot===setupSlot&&t.subject===setupSubject;}).map(function(t){return t.student_id;});
         html+='<div class="card" style="padding:0;overflow:hidden;">';
         html+='<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--surface2);border-bottom:1px solid var(--border);">';
         html+='<span style="font-size:13px;font-weight:700;">'+allStudents.length+' active students · <span style="color:var(--success);">'+enrolled.length+' already in this session</span></span>';
@@ -3721,7 +3722,7 @@ function renderSessionPlan(){
         html+='<td>'+t.day_type.charAt(0).toUpperCase()+t.day_type.slice(1)+'</td>';
         html+='<td style="font-size:12px;">'+t.slot+'</td>';
         html+='<td><span class="badge badge-gray">'+t.subject+'</span></td>';
-        var _stuE=allTT.filter(function(x){return x.student_id===t.student_id;});
+        var _stuE=_regTT.filter(function(x){return x.student_id===t.student_id;});
         var _canSwap=_stuE.length>=2&&new Set(_stuE.map(function(x){return x.subject;})).size>1;
         if(_canSwap){var _isSw=_swaps[t.student_id];html+='<td><button class="btn btn-sm" data-action="lp-swap-student" data-id="'+t.student_id+'" style="font-size:10px;padding:2px 5px;'+(_isSw?'background:var(--warning);color:#fff;':'')+'">⇄ Swap</button></td>';}else{html+='<td></td>';}
         html+='</tr>';
@@ -3741,7 +3742,7 @@ function renderSessionPlan(){
     var draft=state.planDraft||null;
     function getDayType(d){var wd=new Date(d+'T00:00:00').getDay();return wd===6?'saturday':wd===0?'sunday':'weekday';}
     var dayType=getDayType(lpDate);
-    var allExpected=allTT.filter(function(t){return t.day_type===dayType;});
+    var allExpected=_regTT.filter(function(t){return t.day_type===dayType;});
     function slotIsAM2(slot){var m=(slot||'').match(/\((\d+):/);if(!m)return false;var h=parseInt(m[1]);return h>=14?/Session 1\b/i.test(slot||''):h<12;}
     var expected=lpMode==='am'?allExpected.filter(function(t){return slotIsAM2(t.slot);}):lpMode==='pm'?allExpected.filter(function(t){return !slotIsAM2(t.slot);}):lpMode==='single'&&lpSlot&&lpSubject?allExpected.filter(function(t){return t.slot===lpSlot&&t.subject===lpSubject;}):allExpected;
     var subjSlotCounts={};
