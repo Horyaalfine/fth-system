@@ -5957,6 +5957,7 @@ def get_session_plan_students():
                 FROM student_timetable st
                 JOIN students s ON s.id = st.student_id
                 WHERE st.branch_id = %s AND st.day_type = %s AND s.status = 'active'
+                  AND st.active = TRUE
                   AND s.id NOT IN %s
             """, (branch_id, day_type, tuple(agreed_ids)))
         else:
@@ -5966,6 +5967,7 @@ def get_session_plan_students():
                 FROM student_timetable st
                 JOIN students s ON s.id = st.student_id
                 WHERE st.branch_id = %s AND st.day_type = %s AND s.status = 'active'
+                  AND st.active = TRUE
             """, (branch_id, day_type))
         for tr in cur.fetchall():
             result.append({
