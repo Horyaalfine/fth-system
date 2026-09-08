@@ -9334,7 +9334,22 @@ if(action==='lp-add-student'){
   if(!draft||!draft.tables[idx]){return;}
   var allTT=state.data.all_timetables||[];
   var st=allTT.find(function(t){return t.admission_id===admId;});
-  if(!st){toast('Student not found','danger');return;}
+  if(!st){
+    // Also try plan_students
+    var _ps=state.data['plan_students_'+(state.lpDate||'')]||[];
+    var _pst=_ps.find(function(p){return p.admission_id===admId;});
+    if(_pst)st=_pst;
+    else{toast('Student not found','danger');return;}
+  }
+  // Check for duplicate: same student already in another table of this slot
+  var _dupSlot=draft.tables[idx].slot||'';
+  var _sameTables=draft.tables.filter(function(t,ti){return ti!==idx&&(t.slot||'')=== _dupSlot;});
+  var _alreadyIn=_sameTables.find(function(t){return t.students&&t.students.find(function(s){return s.admission_id===admId||s.student_id===st.student_id;});});
+  if(_alreadyIn){toast('⚠ '+admId+' is already in Table '+(_alreadyIn.table_no||(_sameTables.indexOf(_alreadyIn)+1))+' for this session — cannot add to two tables in the same slot','warning');el.value='';return;}
+  // Also check within the same table
+  if(draft.tables[idx].students&&draft.tables[idx].students.find(function(s){return s.admission_id===admId;})){
+    toast(admId+' is already in this table','warning');el.value='';return;
+  }
   draft.tables[idx].students.push(st);
   el.value='';
   render();return;
@@ -9370,6 +9385,21 @@ if(action==='rpt-add-student'){
   var sessId=parseInt(el.dataset.id);
   var studentId=parseInt(el.value);if(!studentId){return;}
   el.value='';
+  // Duplicate check: is this student already in another table of the same slot?
+  var _thisSess=(state.data.sessions||[]).find(function(s){return s.id===sessId;});
+  if(_thisSess){
+    var _sameSlotSessions=(state.data.sessions||[]).filter(function(s){return s.date===_thisSess.date&&s.slot===_thisSess.slot&&s.id!==sessId;});
+    var _dupTable=_sameSlotSessions.find(function(s){return (state.data['sess_students_'+s.id]||[]).find(function(st){return st.student_id===studentId||st.id===studentId;});});
+    if(_dupTable){
+      var _dupStu=(state.data['sess_students_'+_dupTable.id]||[]).find(function(st){return st.student_id===studentId||st.id===studentId;});
+      toast('⚠ '+(_dupStu&&(_dupStu.admission_id||_dupStu.name)||'Student')+' is already in Table '+(_dupTable.table_no||'?')+' for this session — cannot be in two tables at the same time','warning');
+      return;
+    }
+    // Also check same table
+    if((state.data['sess_students_'+sessId]||[]).find(function(st){return st.student_id===studentId||st.id===studentId;})){
+      toast('Student is already in this table','warning');return;
+    }
+  }
   try{
     await API.post('/api/sessions/'+sessId+'/add-student',{student_id:studentId});
     var studs=await API.get('/api/sessions/'+sessId+'/students');
