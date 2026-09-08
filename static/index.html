@@ -3610,8 +3610,31 @@ function renderSessionPlan(){
     var regSubject=state.regSubject||'';
     // Build filter options — use all_timetables directly (includes agreed_slots for all days)
     var _regTT=state.data.all_timetables||[];
-    var dayTypes=[...new Set(_regTT.map(function(t){return t.day_type;}))].sort();
-    var allSlots=[...new Set(_regTT.filter(function(t){return !regDay||t.day_type===regDay;}).map(function(t){return t.slot;}))].sort();
+    // Also include branch_schedule sessions so all configured days/slots appear even with 0 students
+    var _regBsSlots=[];
+    var _regBsByDt={};
+    (state.data.branch_schedule||[]).filter(function(s){return s.status==='active';}).forEach(function(s){
+      var dt=s.day_of_week==='saturday'?'saturday':s.day_of_week==='sunday'?'sunday':'weekday';
+      _regBsByDt[dt]=_regBsByDt[dt]||[];
+      _regBsByDt[dt].push(s);
+    });
+    var _regDtDisplay={saturday:'Saturday',sunday:'Sunday',weekday:'Weekday'};
+    Object.keys(_regBsByDt).forEach(function(dt){
+      var seen={};
+      _regBsByDt[dt].slice().sort(function(a,b){return String(a.slot_start).localeCompare(String(b.slot_start));}).forEach(function(s){
+        var tk=String(s.slot_start).slice(0,5)+'-'+String(s.slot_end).slice(0,5);
+        if(!seen[tk]){seen[tk]=Object.keys(seen).length+1;}
+        var lbl=_regDtDisplay[dt]+' Session '+seen[tk]+' ('+tk+')';
+        if(_regBsSlots.findIndex(function(x){return x.day_type===dt&&x.slot===lbl;})<0)
+          _regBsSlots.push({day_type:dt,slot:lbl});
+      });
+    });
+    var _regTTDayTypes=new Set(_regTT.map(function(t){return t.day_type;}));
+    var _regTTSlotSet=new Set(_regTT.map(function(t){return t.slot;}));
+    _regBsSlots.forEach(function(b){_regTTDayTypes.add(b.day_type);});
+    var dayTypes=[..._regTTDayTypes].sort();
+    var _bsSlotsForFilter=_regBsSlots.filter(function(b){return (!regDay||b.day_type===regDay)&&!_regTTSlotSet.has(b.slot);}).map(function(b){return b.slot;});
+    var allSlots=[...new Set(_regTT.filter(function(t){return !regDay||t.day_type===regDay;}).map(function(t){return t.slot;}))].concat(_bsSlotsForFilter).sort();
     var allSubjects=[...new Set(_regTT.filter(function(t){return (!regDay||t.day_type===regDay)&&(!regSlot||t.slot===regSlot);}).map(function(t){return t.subject;}))].sort();
     // Filter
     var filtered=_regTT.filter(function(t){
