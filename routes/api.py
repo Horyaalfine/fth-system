@@ -6057,38 +6057,39 @@ def attendance_report():
         where = ' AND '.join(conditions)
         cur2 = conn.cursor(cursor_factory=RealDictCursor)
         cur2.execute(f"""
-            SELECT DISTINCT ON (a.student_id, a.session_id)
+            SELECT
                 a.student_id,
-                s.name                                   AS student_name,
+                s.name                                         AS student_name,
                 s.admission_id,
                 s.year_group,
                 s.branch_id,
-                br.name                                  AS branch_name,
-                sess.id                                  AS session_id,
+                br.name                                        AS branch_name,
+                sess.id                                        AS session_id,
                 sess.date,
                 sess.slot,
-                COALESCE(ta.table_no, sess.table_no)     AS table_no,
-                COALESCE(ta.subject,  sess.subject)      AS subject,
-                COALESCE(tst.name, '') AS staff_name,
+                COALESCE(plan.table_no, sess.table_no)         AS table_no,
+                COALESCE(plan.subject,  sess.subject)          AS subject,
+                COALESCE(plan.staff_name, '')                  AS staff_name,
                 a.status,
                 a.notes
             FROM attendance a
             JOIN students s    ON s.id    = a.student_id
             JOIN sessions sess ON sess.id = a.session_id
             JOIN branches br   ON br.id   = sess.branch_id
-            LEFT JOIN table_allocation_students tas
-                   ON tas.student_id = a.student_id
-            LEFT JOIN table_allocations ta
-                   ON ta.id = tas.allocation_id
-                  AND ta.session_id IN (
-                          SELECT id FROM sessions s2
-                          WHERE  s2.date      = sess.date
-                            AND  s2.slot      = sess.slot
-                            AND  s2.branch_id = sess.branch_id
-                      )
-            LEFT JOIN staff tst ON tst.id = ta.teacher_id
+            LEFT JOIN LATERAL (
+                SELECT ta.table_no, ta.subject, tst.name AS staff_name
+                FROM table_allocation_students tas
+                JOIN table_allocations ta ON ta.id = tas.allocation_id
+                JOIN sessions sp          ON sp.id  = ta.session_id
+                LEFT JOIN staff tst       ON tst.id = ta.teacher_id
+                WHERE tas.student_id  = a.student_id
+                  AND sp.slot         = sess.slot
+                  AND sp.branch_id    = sess.branch_id
+                ORDER BY ABS(EXTRACT(EPOCH FROM (sp.date - sess.date))) ASC NULLS LAST
+                LIMIT 1
+            ) plan ON true
             WHERE {where}
-            ORDER BY a.student_id, a.session_id, ta.id NULLS LAST
+            ORDER BY sess.date DESC, sess.slot, COALESCE(plan.table_no, sess.table_no), s.admission_id
         """, params)
         result = cur2.fetchall()
         data = []
