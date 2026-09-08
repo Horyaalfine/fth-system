@@ -3765,7 +3765,11 @@ function renderSessionPlan(){
     var draft=state.planDraft||null;
     function getDayType(d){var wd=new Date(d+'T00:00:00').getDay();return wd===6?'saturday':wd===0?'sunday':'weekday';}
     var dayType=getDayType(lpDate);
-    var allExpected=allTT.filter(function(t){return t.day_type===dayType;});
+    var _dow=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][new Date(lpDate+'T00:00:00').getDay()];
+    var _schedForDay=(state.data.branch_schedule||[]).filter(function(s){return s.status==='active'&&s.day_of_week===_dow;});
+    var _existingForDate=(state.data.sessions||[]).filter(function(s){return s.date===lpDate&&(!state.currentBranch||s.branch_id===state.currentBranch);});
+    var _noScheduleForDay=_schedForDay.length===0&&_existingForDate.length===0;
+    var allExpected=_noScheduleForDay?[]:allTT.filter(function(t){return t.day_type===dayType;});
     function slotIsAM2(slot){var m=(slot||'').match(/\((\d+):/);if(!m)return false;var h=parseInt(m[1]);return h>=14?/Session 1\b/i.test(slot||''):h<12;}
     var expected=lpMode==='am'?allExpected.filter(function(t){return slotIsAM2(t.slot);}):lpMode==='pm'?allExpected.filter(function(t){return !slotIsAM2(t.slot);}):lpMode==='single'&&lpSlot&&lpSubject?allExpected.filter(function(t){return t.slot===lpSlot&&t.subject===lpSubject;}):allExpected;
     var subjSlotCounts={};
@@ -3780,12 +3784,20 @@ function renderSessionPlan(){
       if(!_seenSlotSubjStu[_sk]){_seenSlotSubjStu[_sk]=true;subjSlotCounts[k]++;}
     });
     // Duplicate check
-    var existingForDate=(state.data.sessions||[]).filter(function(s){return s.date===lpDate&&(!state.currentBranch||s.branch_id===state.currentBranch);});
+    var existingForDate=_existingForDate;
     var duplicateSlotSubj=lpMode==='single'&&lpSlot&&lpSubject?existingForDate.filter(function(s){return s.slot===lpSlot&&s.subject===lpSubject;}):[];
     var hasAMDuplicate=lpMode==='am'&&existingForDate.some(function(s){return slotIsAM2(s.slot);});
     var hasPMDuplicate=lpMode==='pm'&&existingForDate.some(function(s){return !slotIsAM2(s.slot);});
     var hasFullDayDuplicate=lpMode==='full'&&existingForDate.length>0;
     html+='<div class="card" style="margin-bottom:14px;">';
+    if(_noScheduleForDay){
+      var _dayLabel=_dow.charAt(0).toUpperCase()+_dow.slice(1);
+      html+='<div style="padding:12px 14px;background:rgba(234,179,8,0.1);border-left:4px solid #ca8a04;border-radius:var(--radius);color:var(--text1);font-size:13px;">';
+      html+='<strong style="color:#92400e;">No sessions scheduled for '+_dayLabel+'s at this branch.</strong> ';
+      html+='Check <em>Branch Operation</em> → Schedule to add sessions for this day.';
+      html+='</div></div>';
+      return html;
+    }
     // Mode selector — AM/PM for weekends, Session 1/2 for weekdays
     var isWeekday=dayType==='weekday';
     html+='<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">';
@@ -3833,9 +3845,7 @@ function renderSessionPlan(){
     }
     html+='</div>';
     // Auto-create sessions from branch schedule if none exist
-    var _dow=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][new Date(lpDate+'T00:00:00').getDay()];
-    var _schedForDay=(state.data.branch_schedule||[]).filter(function(s){return s.status==='active'&&s.day_of_week===_dow;});
-    if(existingForDate.length===0&&_schedForDay.length>0){
+    if(_existingForDate.length===0&&_schedForDay.length>0){
       html+='<div style="margin-top:10px;padding:12px 14px;background:rgba(37,99,235,0.08);border-radius:var(--radius);border-left:3px solid var(--accent);display:flex;align-items:center;justify-content:space-between;gap:12px;">';
       html+='<span style="font-size:13px;color:var(--text1);"><strong>'+_schedForDay.length+' session slot'+((_schedForDay.length>1)?'s':'')+' found</strong> for '+_dow.charAt(0).toUpperCase()+_dow.slice(1)+'. Sessions will be created automatically when you click Auto-Generate Plan.</span>';
       html+='<button class="btn btn-sm" style="background:var(--danger);color:#fff;border-color:var(--danger);" data-action="lp-dedup-sessions" data-date="'+lpDate+'">🔧 Fix duplicates</button>';
@@ -3913,9 +3923,13 @@ function renderSessionPlan(){
             html+='</td>';
             html+='</tr>';
           });
-          // Add student to draft table
+          // Add student to draft table — exclude anyone already in ANY table of this slot
           var alreadyIn=tbl.students.map(function(s){return s.admission_id;});
-          var addable=allTT.filter(function(t){return t.slot===tbl.slot&&alreadyIn.indexOf(t.admission_id)<0;});
+          var _assignedInSlot=new Set();
+          draft.tables.filter(function(t){return t.slot===tbl.slot;}).forEach(function(t){
+            (t.students||[]).forEach(function(s){_assignedInSlot.add(s.admission_id);});
+          });
+          var addable=allTT.filter(function(t){return t.slot===tbl.slot&&!_assignedInSlot.has(t.admission_id);});
           if(addable.length>0){
             html+='<tr><td colspan="4" style="padding-top:4px;">';
             html+='<select data-action="lp-add-student" data-idx="'+tblIdx+'" style="width:100%;font-size:11px;padding:2px 4px;">';

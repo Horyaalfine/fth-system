@@ -5856,6 +5856,14 @@ def get_session_plan_students():
         base_rows = rows(cur)
         print(f"[session-plan-students] base_rows_count={len(base_rows)}")
         if not base_rows:
+            # If the branch has no active schedule for this day, return empty — don't fall back to all weekday students
+            cur.execute("SELECT COUNT(*) AS cnt FROM branch_schedule WHERE branch_id=%s AND day_of_week=%s AND status='active'", (branch_id, day_of_week))
+            branch_has_schedule = cur.fetchone()['cnt'] > 0
+            if not branch_has_schedule:
+                print(f"[session-plan-students] no branch schedule for {day_of_week} — returning empty")
+                cur.close(); conn.close()
+                return jsonify([])
+        if not base_rows:
             def _safe_row(r, dt):
                 return {
                     'student_id': int(r['student_id']) if r.get('student_id') else None,
@@ -5927,7 +5935,8 @@ def get_session_plan_students():
                     tt_map[sid][start].append(subj)
         # Build result: one row per student per slot per subject
         result = []
-        day_cap = day_of_week.capitalize()
+        # Use 'Weekday' for Mon-Fri to match student_timetable.slot format
+        day_cap = day_of_week.capitalize() if day_of_week in ('saturday', 'sunday') else 'Weekday'
         for r2 in base_rows:
             sid = r2['student_id']
             raw_start = r2['slot_start']
