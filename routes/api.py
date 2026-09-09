@@ -5935,8 +5935,7 @@ def get_session_plan_students():
                     tt_map[sid][start].append(subj)
         # Build result: one row per student per slot per subject
         result = []
-        # Use 'Weekday' for Mon-Fri to match student_timetable.slot format
-        day_cap = day_of_week.capitalize() if day_of_week in ('saturday', 'sunday') else 'Weekday'
+        day_cap = day_of_week.capitalize()
         for r2 in base_rows:
             sid = r2['student_id']
             raw_start = r2['slot_start']

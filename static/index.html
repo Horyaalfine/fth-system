@@ -3950,12 +3950,15 @@ function renderSessionPlan(){
             html+='</tr>';
           });
           // Add student to draft table — exclude anyone already in ANY table of this slot
+          // Use time-range slot matching to handle format differences (e.g. "Wednesday Session 1" vs "Weekday Session 1")
+          function _slotTimeRange(s){var m=(s||'').match(/\((\d{2}:\d{2})[–\-](\d{2}:\d{2})\)/);return m?m[1]+'-'+m[2]:s;}
+          var _tblTimeRange=_slotTimeRange(tbl.slot);
           var alreadyIn=tbl.students.map(function(s){return s.admission_id;});
           var _assignedInSlot=new Set();
-          draft.tables.filter(function(t){return t.slot===tbl.slot;}).forEach(function(t){
+          draft.tables.filter(function(t){return _slotTimeRange(t.slot)===_tblTimeRange;}).forEach(function(t){
             (t.students||[]).forEach(function(s){_assignedInSlot.add(s.admission_id);});
           });
-          var addable=allTT.filter(function(t){return t.slot===tbl.slot&&!_assignedInSlot.has(t.admission_id);});
+          var addable=allTT.filter(function(t){return _slotTimeRange(t.slot)===_tblTimeRange&&!_assignedInSlot.has(t.admission_id);});
           if(addable.length>0){
             html+='<tr><td colspan="4" style="padding-top:4px;">';
             html+='<select data-action="lp-add-student" data-idx="'+tblIdx+'" style="width:100%;font-size:11px;padding:2px 4px;">';
