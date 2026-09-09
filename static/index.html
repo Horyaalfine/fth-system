@@ -4048,16 +4048,23 @@ function renderSessionPlan(){
       daySessions.forEach(function(s){
         (state.data['rpt_att_'+s.id]||[]).forEach(function(a){if(a.status&&!_dayAttMap[a.student_id])_dayAttMap[a.student_id]={status:a.status};});
       });
-      var _dayStudentIds=new Set();
       var allTeachers=new Set();
+      daySessions.forEach(function(s){if(s.staff_name)allTeachers.add(s.staff_name);});
+      // Count total student-session assignments (a student in 2 sessions counts twice)
+      var totalStudents=0;
       daySessions.forEach(function(s){
-        (state.data['sess_students_'+s.id]||[]).forEach(function(st){_dayStudentIds.add(st.student_id||st.id);});
-        if(s.staff_name)allTeachers.add(s.staff_name);
+        var studs=state.data['sess_students_'+s.id]||[];
+        totalStudents+=studs.length||s.total_count||0;
       });
-      // Also include students who have att records but aren't assigned to a table (quick att fallback)
-      daySessions.forEach(function(s){(state.data['rpt_att_'+s.id]||[]).forEach(function(a){if(a.status)_dayStudentIds.add(a.student_id);});});
-      var totalStudents=_dayStudentIds.size||daySessions.reduce(function(s,x){return s+(x.total_count||0);},0);
-      var totalPresent=0;_dayStudentIds.forEach(function(sid){if((_dayAttMap[sid]||{}).status==='present')totalPresent++;});
+      if(!totalStudents)totalStudents=daySessions.reduce(function(s,x){return s+(x.total_count||0);},0);
+      // Present: count per-session (student present in 2 sessions = 2 present)
+      var totalPresent=0;
+      daySessions.forEach(function(s){
+        var studs=state.data['sess_students_'+s.id]||[];
+        var sessAtt=state.data['rpt_att_'+s.id]||[];
+        var sessAttMap={};sessAtt.forEach(function(a){if(a.status)sessAttMap[a.student_id]={status:a.status};});
+        studs.forEach(function(st){if((sessAttMap[st.student_id||st.id]||{}).status==='present')totalPresent++;});
+      });
       var dateLabel=new Date(rptDate+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 
       // Print header
