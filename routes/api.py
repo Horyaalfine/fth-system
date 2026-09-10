@@ -1021,17 +1021,13 @@ def save_attendance():
     present_ids = [rec['student_id'] for rec in records if rec.get('status') == 'present']
     if present_ids:
         ph = ','.join(['%s'] * len(present_ids))
-        # Match catch-up by: same-day session (any table) OR scheduled_date matches session date
+        # Complete any scheduled catch-up for these students on the same date as this session
         cur.execute(
             "UPDATE catchup_lessons cl SET status='completed', completed_date=CURRENT_DATE "
             "WHERE cl.student_id IN (" + ph + ") AND cl.status='scheduled' "
             "AND ("
-            "  cl.catchup_session_id IN ("
-            "    SELECT s2.id FROM sessions s2 "
-            "    JOIN sessions s1 ON s1.id=%s "
-            "    WHERE s2.date=s1.date AND s2.branch_id=s1.branch_id"
-            "  ) OR "
-            "  cl.scheduled_date=(SELECT date FROM sessions WHERE id=%s)"
+            "  cl.catchup_session_id IN (SELECT id FROM sessions WHERE date=(SELECT date FROM sessions WHERE id=%s)) "
+            "  OR cl.scheduled_date=(SELECT date FROM sessions WHERE id=%s)"
             ")",
             present_ids + [session_id, session_id])
     conn.commit(); cur.close(); conn.close()
