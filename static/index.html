@@ -1598,16 +1598,28 @@ function renderQuickAttendance(){
   var _normQSlot=function(s){return (s||'').replace(/–/g,'-').replace(/—/g,'-');};
   const daySessions=sessions.filter(function(s){var _ns=_normQSlot(s.slot);return s.date===qDate&&(_normQSlot(qSlot)===_ns||_normQSlot(qSlot).indexOf(_ns)>=0);});
 
-  // Inject catch-up students scheduled for this date+slot
+  // Inject extra students: catch-up students added to tables but not on regular timetable
   if(qSlot){
-    var _cuSched=state.data.catchup_scheduled||[];
     var _stuListIds=new Set(stuList.map(function(s){return s.id;}));
+    // 1) From sess_students already in state for daySessions
+    daySessions.forEach(function(sess){
+      var _sessStus=state.data['sess_students_'+sess.id]||[];
+      _sessStus.forEach(function(st){
+        var _stuId=st.student_id||st.id;
+        if(_stuId&&!_stuListIds.has(_stuId)){
+          // Check if this student has a catch-up record for this session
+          var _cuRec=(state.data.catchup_scheduled||[]).find(function(c){return c.student_id===_stuId;});
+          stuList.push({id:_stuId,name:st.student_name||st.name,admission_id:st.admission_id,subjects:_cuRec?[_cuRec.subject||'']:[],source:'catchup'});
+          _stuListIds.add(_stuId);
+        }
+      });
+    });
+    // 2) From catchup_scheduled by date+slot match (covers case where sess_students not yet loaded)
+    var _cuSched=state.data.catchup_scheduled||[];
     _cuSched.forEach(function(c){
-      // Match by date (catchup_date_actual from joined session, or scheduled_date) and slot
       var _cDate=c.catchup_date_actual||c.scheduled_date||'';
       var _cSlot=c.catchup_slot||'';
       var _slotMatch=!_cSlot||_normQSlot(_cSlot)===_normQSlot(qSlot)||_normQSlot(qSlot).indexOf(_normQSlot(_cSlot))>=0||_normQSlot(_cSlot).indexOf(_normQSlot(qSlot))>=0;
-      // Also match by session ID as fallback
       var _sessIdMatch=daySessions.some(function(s){return s.id===c.catchup_session_id;});
       if((_cDate===qDate&&_slotMatch)||_sessIdMatch){
         if(!_stuListIds.has(c.student_id)){
@@ -8366,10 +8378,19 @@ document.addEventListener('change',function(e){
   }
   if(e.target.id==='qa-slot'){
     state.qaSlot=e.target.value;
-    // Just update state and render — the auto-trigger in renderQuickAttendance
-    // handles the by-date-slot fetch when needed (undefined or null sentinel).
-    // Having a second fetch here caused a race condition that stomped results.
     render();
+    // Load sess_students for sessions on this date+slot so catch-up students (added to tables) are visible
+    if(state.qaDate&&state.qaSlot){
+      var _normS2=function(s){return (s||'').replace(/–/g,'-').replace(/—/g,'-').replace(/–/g,'-').replace(/–/g,'-').replace(/—/g,'-');};
+      var _qNorm=_normS2(state.qaSlot);
+      var _slotSess=(state.data.sessions||[]).filter(function(s){
+        var ns=_normS2(s.slot);
+        return s.date===state.qaDate&&(ns===_qNorm||_qNorm.indexOf(ns)>=0||ns.indexOf(_qNorm)>=0);
+      });
+      if(_slotSess.length){
+        Promise.all(_slotSess.map(function(s){return loadData('sess_students_'+s.id,'/api/sessions/'+s.id+'/students');})).then(function(){render();});
+      }
+    }
     return;
   }
   if(e.target.id==='rpt-date-select'){
