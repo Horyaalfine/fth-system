@@ -874,7 +874,7 @@ var _sRTimer=null;function scheduleRender(){if(_sRTimer)clearTimeout(_sRTimer);_
         loadData('mgmt_yearly','/api/reports/management/yearly',b2m)
       ]).then(function(){state.loading=false;render();});}
       else if(pg==='notes')Promise.all([loadData('meeting_notes','/api/meeting-notes',b),loadData('students','/api/students',b),loadData('branches','/api/branches')]).then(function(){state.loading=false;render();});else if(pg==='test_records') Promise.all([loadData('students','/api/students',b),loadData('test_records','/api/test-records',b),loadData('branches','/api/branches')]).then(function(){state.loading=false;render();});
-      else if(pg==='catchup') Promise.all([loadData('students','/api/students',b),loadData('catchup','/api/catchup',b)]).then(function(){state.loading=false;render();});
+      else if(pg==='catchup'){var _b2=b||{};Promise.all([loadData('students','/api/students',b),loadData('catchup_owed','/api/catchup',{..._b2,status:'owed'}),loadData('catchup_scheduled','/api/catchup',{..._b2,status:'scheduled'}),loadData('catchup_completed','/api/catchup',{..._b2,status:'completed'})]).then(function(){state.loading=false;render();});}
       else Promise.all([loadData('branches','/api/branches'),loadData('summary','/api/reports/summary',Object.assign({},b,_analyticsDateParams()))]).then(function(){state.loading=false;render();});
       return false;
     };
