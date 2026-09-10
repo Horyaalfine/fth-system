@@ -837,7 +837,7 @@ var _sRTimer=null;function scheduleRender(){if(_sRTimer)clearTimeout(_sRTimer);_
       var b=branchParam();
       if(pg==='students') loadData('students','/api/students',{...b,q:state.studentSearch||''}).then(function(){state.loading=false;render();});
       else if(pg==='sessions') loadData('sessions','/api/sessions',b).then(function(){state.loading=false;render();});
-      else if(pg==='attendance'){var _qaD=state.qaDate||new Date().toISOString().slice(0,10);if(!state.qaDate)state.qaDate=_qaD;if(state.qaDate&&state.qaSlot){var _mqk='qa_'+state.qaDate+'_'+state.qaSlot;delete state.qaRecords[_mqk];if(state.qaDbRecords)delete state.qaDbRecords[_mqk];}var _attLoads=[loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('all_timetables','/api/student-timetable',b)];if(state.currentBranch){_attLoads.push(loadData('plan_students_'+_qaD,'/api/session-plan-students',Object.assign({date:_qaD},b)));}Promise.all(_attLoads).then(function(){state.loading=false;render();});}
+      else if(pg==='attendance'){var _qaD=state.qaDate||new Date().toISOString().slice(0,10);if(!state.qaDate)state.qaDate=_qaD;if(state.qaDate&&state.qaSlot){var _mqk='qa_'+state.qaDate+'_'+state.qaSlot;delete state.qaRecords[_mqk];if(state.qaDbRecords)delete state.qaDbRecords[_mqk];}var _attLoads=[loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('all_timetables','/api/student-timetable',b),loadData('catchup_scheduled','/api/catchup',Object.assign({status:'scheduled'},state.currentBranch?{branch_id:state.currentBranch}:{}))];if(state.currentBranch){_attLoads.push(loadData('plan_students_'+_qaD,'/api/session-plan-students',Object.assign({date:_qaD},b)));}Promise.all(_attLoads).then(function(){state.loading=false;render();});}
       else if(pg==='finance') Promise.all([loadData('invoices','/api/invoices',b),loadData('students','/api/students',b)]).then(function(){state.loading=false;render();});
       else if(pg==='staff') loadData('staff','/api/staff',b).then(function(){state.loading=false;render();});
       else if(pg==='session_plan'){var _spInitDate=state.lpDate||new Date().toISOString().slice(0,10);var _spLoads=[loadData('sessions','/api/sessions',b),loadData('students','/api/students',b),loadData('staff','/api/staff',b),loadData('branch_schedule','/api/branch-schedule',b),loadData('all_timetables','/api/student-timetable',b)];if(state.currentBranch){_spLoads.push(loadData('plan_students_'+_spInitDate,'/api/session-plan-students',Object.assign({date:_spInitDate},b)));}Promise.all(_spLoads).then(function(){
@@ -1955,6 +1955,18 @@ function renderAttendance(){
     }
   }
 
+  // Also include catch-up students scheduled for this session (not already in sessionStudents)
+  if(selSess){
+    var _cuForAtt=(state.data.catchup_scheduled||[]).filter(function(c){return c.catchup_session_id===selId;});
+    var _existingIds=new Set(sessionStudents.map(function(s){return s.id;}));
+    _cuForAtt.forEach(function(c){
+      var stuId=c.student_id;
+      if(!_existingIds.has(stuId)){
+        sessionStudents.push({id:stuId,name:c.student_name,admission_id:c.admission_id,source:'catchup',catchup_subject:c.subject});
+        _existingIds.add(stuId);
+      }
+    });
+  }
   const presentCount=Object.values(localAtt).filter(function(a){return a.status==='present';}).length;
   const absentCount=Object.values(localAtt).filter(function(a){return a.status==='absent';}).length;
   const unmarkedCount=sessionStudents.length-presentCount-absentCount;
@@ -2123,8 +2135,8 @@ function renderAttendance(){
       var rec=localAtt[st.id];
       html+='<div class="att-cell '+(rec?rec.status:'')+'" data-action="toggle-att" data-student="'+st.id+'" data-session="'+selId+'">';
       html+='<button class="att-remove" data-action="att-remove-student" data-student="'+st.id+'" data-session="'+selId+'" title="Remove from this session">✕</button>';
-      html+='<div class="att-name">'+st.name+'</div>';
-      html+='<div class="att-id">'+st.admission_id+(st.table_no?' · T'+st.table_no:'')+'</div>';
+      html+='<div class="att-name">'+st.name+(st.source==='catchup'?' <span style="font-size:9px;background:#f59e0b;color:#fff;border-radius:3px;padding:1px 4px;vertical-align:middle;">CATCH-UP</span>':'')+'</div>';
+      html+='<div class="att-id">'+st.admission_id+(st.table_no?' · T'+st.table_no:'')+(st.catchup_subject?' · '+st.catchup_subject:'')+'</div>';
       html+='<div class="att-status" style="color:'+(rec?(rec.status==='present'?'var(--success-text)':'var(--danger-text)'):'var(--text3)')+'">'+( rec?rec.status.toUpperCase():'—')+'</div>';
       html+='</div>';
     });
@@ -4236,11 +4248,19 @@ function renderSessionPlan(){
           html+='<div style="font-size:12px;font-weight:600;color:#92400e;margin-bottom:6px;">🔄 Catch-up students in this session ('+_cuForSlot.length+')</div>';
           html+='<div style="display:flex;flex-wrap:wrap;gap:6px;">';
           _cuForSlot.forEach(function(c){
-            var _sessForCu=slotTables.find(function(t){return t.id===c.catchup_session_id;});
-            html+='<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:4px 10px;font-size:12px;">';
+            html+='<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:6px 10px;font-size:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
             html+='<strong>'+c.student_name+'</strong> <span style="color:var(--text3);">('+c.admission_id+')</span>';
             if(c.subject)html+=' <span class="badge badge-gray" style="font-size:10px;">'+c.subject+'</span>';
-            if(_sessForCu)html+=' → Table '+_sessForCu.table_no;
+            // Check if already assigned to a table in this slot
+            var _cuAssigned=slotTables.find(function(t){return (state.data['sess_students_'+t.id]||[]).some(function(s){return (s.student_id||s.id)===c.student_id;});});
+            if(_cuAssigned){
+              html+=' <span style="color:#065f46;font-size:11px;">✓ Table '+_cuAssigned.table_no+'</span>';
+            } else {
+              html+='<select data-action="assign-catchup-to-table" data-student="'+c.student_id+'" style="font-size:11px;padding:2px 4px;border:1px solid #f59e0b;border-radius:4px;background:#fff;">';
+              html+='<option value="">Assign to table...</option>';
+              slotTables.forEach(function(t){html+='<option value="'+t.id+'">Table '+t.table_no+(t.subject?' · '+t.subject:'')+(t.staff_name?' · '+t.staff_name:'')+'</option>';});
+              html+='</select>';
+            }
             html+='</div>';
           });
           html+='</div></div>';
@@ -9490,6 +9510,18 @@ if(action==='rpt-add-table'){
 }
 
 // Report: add student to a saved table
+if(action==='assign-catchup-to-table'){
+  var _cuSessId=parseInt(el.value);var _cuStuId=parseInt(el.dataset.student);
+  if(!_cuSessId||!_cuStuId){return;}
+  el.value='';
+  try{
+    await API.post('/api/sessions/'+_cuSessId+'/add-student',{student_id:_cuStuId});
+    var _cuStuds=await API.get('/api/sessions/'+_cuSessId+'/students');
+    state.data['sess_students_'+_cuSessId]=_cuStuds||[];
+    toast('Catch-up student assigned to table ✓','success');render();
+  }catch(err){toast('Error: '+(err.message||err),'danger');}
+  return;
+}
 if(action==='rpt-add-student'){
   var sessId=parseInt(el.dataset.id);
   var studentId=parseInt(el.value);if(!studentId){return;}
