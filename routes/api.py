@@ -1021,6 +1021,13 @@ def save_attendance():
     present_ids = [rec['student_id'] for rec in records if rec.get('status') == 'present']
     if present_ids:
         ph = ','.join(['%s'] * len(present_ids))
+        # Debug: check what catch-up records exist for these students
+        cur.execute("SELECT id, student_id, status, catchup_session_id, scheduled_date FROM catchup_lessons WHERE student_id IN (" + ph + ") AND status='scheduled'", present_ids)
+        debug_rows = cur.fetchall()
+        print(f"[catchup-autocomplete] session={session_id} present_ids={present_ids} scheduled_catchups={debug_rows}", flush=True)
+        cur.execute("SELECT date FROM sessions WHERE id=%s", (session_id,))
+        sess_date_row = cur.fetchone()
+        print(f"[catchup-autocomplete] session_date={sess_date_row}", flush=True)
         # Complete any scheduled catch-up for these students on the same date as this session
         cur.execute(
             "UPDATE catchup_lessons cl SET status='completed', completed_date=CURRENT_DATE "
@@ -1030,6 +1037,7 @@ def save_attendance():
             "  OR cl.scheduled_date=(SELECT date FROM sessions WHERE id=%s)"
             ")",
             present_ids + [session_id, session_id])
+        print(f"[catchup-autocomplete] rows_updated={cur.rowcount}", flush=True)
     conn.commit(); cur.close(); conn.close()
     log_action('edit', 'attendance', session_id)
     return jsonify({'ok': True})
