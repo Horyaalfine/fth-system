@@ -1017,6 +1017,14 @@ def save_attendance():
             ON CONFLICT (session_id, student_id)
             DO UPDATE SET status=EXCLUDED.status, notes=EXCLUDED.notes
         """, (session_id, rec['student_id'], rec['status'], rec.get('notes','')))
+    # Auto-complete scheduled catch-up lessons for students marked present in this session
+    present_ids = [rec['student_id'] for rec in records if rec.get('status') == 'present']
+    if present_ids:
+        ph = ','.join(['%s'] * len(present_ids))
+        cur.execute(
+            "UPDATE catchup_lessons SET status='completed', completed_date=CURRENT_DATE "
+            "WHERE catchup_session_id=%s AND student_id IN (" + ph + ") AND status='scheduled'",
+            [session_id] + present_ids)
     conn.commit(); cur.close(); conn.close()
     log_action('edit', 'attendance', session_id)
     return jsonify({'ok': True})
