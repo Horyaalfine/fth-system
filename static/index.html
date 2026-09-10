@@ -1598,6 +1598,18 @@ function renderQuickAttendance(){
   var _normQSlot=function(s){return (s||'').replace(/–/g,'-').replace(/—/g,'-');};
   const daySessions=sessions.filter(function(s){var _ns=_normQSlot(s.slot);return s.date===qDate&&(_normQSlot(qSlot)===_ns||_normQSlot(qSlot).indexOf(_ns)>=0);});
 
+  // Inject catch-up students scheduled for any session in this date+slot
+  if(qSlot){
+    var _cuSched=state.data.catchup_scheduled||[];
+    var _daySessionIds=new Set(daySessions.map(function(s){return s.id;}));
+    var _stuListIds=new Set(stuList.map(function(s){return s.id;}));
+    _cuSched.forEach(function(c){
+      if(_daySessionIds.has(c.catchup_session_id)&&!_stuListIds.has(c.student_id)){
+        stuList.push({id:c.student_id,name:c.student_name,admission_id:c.admission_id,subjects:[c.subject||''],source:'catchup'});
+        _stuListIds.add(c.student_id);
+      }
+    });
+  }
 
   // Local attendance state key
   const qaKey='qa_'+qDate+'_'+qSlot;
@@ -1735,7 +1747,8 @@ function renderQuickAttendance(){
       var _multiSlot=_otherSlotStudents.has(st.id);
       var _isSaved=state.qaSaved&&state.qaSaved[qaKey]&&state.qaSaved[qaKey].has(st.id);
       html+='<div class="att-cell '+status+'" data-action="qa-toggle" data-student="'+st.id+'">';
-      html+='<div class="att-name">'+st.name+(_multiSlot?'<span title="Also in another slot today" style="margin-left:4px;font-size:10px;color:var(--warning-text,#b45309);font-weight:600;">2-slot</span>':'')+(_isSaved&&status==='present'?'<span title="Saved to database" style="margin-left:4px;color:var(--success-text);font-size:11px;font-weight:700;">✓</span>':'')+'</div>';
+      var _cuBadge=st.source==='catchup'?' <span style="font-size:9px;background:#f59e0b;color:#fff;border-radius:3px;padding:1px 4px;vertical-align:middle;">CATCH-UP</span>':'';
+      html+='<div class="att-name">'+st.name+_cuBadge+(_multiSlot?'<span title="Also in another slot today" style="margin-left:4px;font-size:10px;color:var(--warning-text,#b45309);font-weight:600;">2-slot</span>':'')+(_isSaved&&status==='present'?'<span title="Saved to database" style="margin-left:4px;color:var(--success-text);font-size:11px;font-weight:700;">✓</span>':'')+'</div>';
       html+='<div class="att-id">'+st.admission_id+(st.subjects.length?' · '+st.subjects.join(', '):'')+'</div>';
       html+='<div class="att-status" style="color:'+color+';">'+(status?status.toUpperCase():'—')+'</div>';
       html+='</div>';
