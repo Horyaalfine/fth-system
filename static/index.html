@@ -1598,15 +1598,22 @@ function renderQuickAttendance(){
   var _normQSlot=function(s){return (s||'').replace(/–/g,'-').replace(/—/g,'-');};
   const daySessions=sessions.filter(function(s){var _ns=_normQSlot(s.slot);return s.date===qDate&&(_normQSlot(qSlot)===_ns||_normQSlot(qSlot).indexOf(_ns)>=0);});
 
-  // Inject catch-up students scheduled for any session in this date+slot
+  // Inject catch-up students scheduled for this date+slot
   if(qSlot){
     var _cuSched=state.data.catchup_scheduled||[];
-    var _daySessionIds=new Set(daySessions.map(function(s){return s.id;}));
     var _stuListIds=new Set(stuList.map(function(s){return s.id;}));
     _cuSched.forEach(function(c){
-      if(_daySessionIds.has(c.catchup_session_id)&&!_stuListIds.has(c.student_id)){
-        stuList.push({id:c.student_id,name:c.student_name,admission_id:c.admission_id,subjects:[c.subject||''],source:'catchup'});
-        _stuListIds.add(c.student_id);
+      // Match by date (catchup_date_actual from joined session, or scheduled_date) and slot
+      var _cDate=c.catchup_date_actual||c.scheduled_date||'';
+      var _cSlot=c.catchup_slot||'';
+      var _slotMatch=!_cSlot||_normQSlot(_cSlot)===_normQSlot(qSlot)||_normQSlot(qSlot).indexOf(_normQSlot(_cSlot))>=0||_normQSlot(_cSlot).indexOf(_normQSlot(qSlot))>=0;
+      // Also match by session ID as fallback
+      var _sessIdMatch=daySessions.some(function(s){return s.id===c.catchup_session_id;});
+      if((_cDate===qDate&&_slotMatch)||_sessIdMatch){
+        if(!_stuListIds.has(c.student_id)){
+          stuList.push({id:c.student_id,name:c.student_name,admission_id:c.admission_id,subjects:[c.subject||''],source:'catchup'});
+          _stuListIds.add(c.student_id);
+        }
       }
     });
   }
