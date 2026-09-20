@@ -5456,6 +5456,32 @@ function renderReports(){
       html+='<div class="metric-card" style="text-align:center;border-top:4px solid #dc2626;"><div class="metric-value" style="color:#dc2626;">£'+(grandTotal-grandPaid).toFixed(2)+'</div><div class="metric-label">Outstanding</div></div>';
       html+='</div>';
 
+      // Reconciliation banner
+      var _rec=state.data.income_reconcile||null;
+      if(_rec&&!_rec.error){
+        var _gap=parseFloat(_rec.gap||0);
+        var _absGap=Math.abs(_gap);
+        var _ok=_absGap<0.01;
+        var _col=_ok?'#16a34a':_absGap<50?'#d97706':'#dc2626';
+        var _bg=_ok?'#f0fdf4':_absGap<50?'#fffbeb':'#fff5f5';
+        var _icon=_ok?'✅':_absGap<50?'⚠️':'🚨';
+        html+='<div style="margin-bottom:16px;border:1px solid '+_col+';border-radius:8px;padding:14px 16px;background:'+_bg+';">';
+        html+='<div style="font-weight:700;color:'+_col+';font-size:13px;margin-bottom:6px;">'+_icon+' Reconciliation check</div>';
+        html+='<div style="display:grid;grid-template-columns:repeat(3,auto);gap:6px 24px;font-size:12px;">';
+        html+='<span style="color:var(--text3);">Payments table (cash in)</span><span style="font-weight:600;">£'+parseFloat(_rec.payments_total).toFixed(2)+'</span><span style="color:var(--text3);">('+_rec.payments_count+' records)</span>';
+        html+='<span style="color:var(--text3);">Invoice amount_paid (invoices)</span><span style="font-weight:600;">£'+parseFloat(_rec.invoices_paid_total).toFixed(2)+'</span><span style="color:var(--text3);">('+_rec.invoices_count+' invoices)</span>';
+        if(!_ok){
+          html+='<span style="color:'+_col+';font-weight:600;">Gap</span><span style="color:'+_col+';font-weight:700;">£'+_absGap.toFixed(2)+(_gap>0?' (payments higher)':' (invoices higher)')+'</span><span></span>';
+          if(_rec.unlinked_payments&&_rec.unlinked_payments.count>0)
+            html+='<span style="color:var(--text3);">↳ Payments with no invoice</span><span>£'+parseFloat(_rec.unlinked_payments.total).toFixed(2)+'</span><span style="color:var(--text3);">('+_rec.unlinked_payments.count+' payments)</span>';
+          if(_rec.timing_diff&&_rec.timing_diff.count>0)
+            html+='<span style="color:var(--text3);">↳ Paid in period but invoice outside period</span><span>£'+parseFloat(_rec.timing_diff.total).toFixed(2)+'</span><span style="color:var(--text3);">('+_rec.timing_diff.count+' payments)</span>';
+        } else {
+          html+='<span style="color:#16a34a;font-weight:600;">Gap</span><span style="color:#16a34a;font-weight:700;">£0.00 — fully reconciled</span><span></span>';
+        }
+        html+='</div></div>';
+      }
+
       // Category breakdown table
       html+='<div style="margin-bottom:24px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">';
       html+='<table style="width:100%;border-collapse:collapse;">';
@@ -10549,8 +10575,13 @@ if(action==='load-income-report'){
   var params=Object.assign({},branchParam(),state.incRptFilter,{status:state.incRptStatus});
   state.incRptLoaded=false;
   render();
-  API.get('/api/income-report',params).then(function(d){
-    state.data.income_report=d;
+  state.data.income_reconcile=null;
+  Promise.all([
+    API.get('/api/income-report',params),
+    API.get('/api/income-reconcile',Object.assign({},branchParam(),state.incRptFilter))
+  ]).then(function(results){
+    state.data.income_report=results[0];
+    state.data.income_reconcile=results[1];
     state.incRptLoaded=true;
     render();
   }).catch(function(e){toast('Income report error: '+(e&&e.error?e.error:JSON.stringify(e)),'error');});
