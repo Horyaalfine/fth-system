@@ -7349,6 +7349,8 @@ function _autoInvStatus(){
 }
 function modalInvoice(){const inv=state.editTarget||{};
 const feeLabels={monthly_fee:'Monthly fee',opening_balance:'Opening balance',admission_fee:'Admission fee',book_fee:'Book fee',past_papers_fee:'Past papers fee',miscellaneous:'Miscellaneous'};
+// Auto-correct status badge after DOM renders
+setTimeout(function(){_autoInvStatus();},0);
 return mWrap('Edit invoice',`
 <div style="margin-bottom:16px;padding:12px;background:var(--surface2);border-radius:var(--radius);font-size:13px;color:var(--text2);">
   Student: <strong style="color:var(--text);">${inv.student_name}</strong> <span class="id-code">${inv.admission_id}</span> — ${inv.month}
