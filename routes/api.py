@@ -6479,7 +6479,7 @@ def income_reconcile_detail():
             WHERE p.payment_date BETWEEN %s AND %s {bw_p}
             GROUP BY p.student_id, s.name, s.admission_id
         """, (date_from, date_to) + bp)
-        pay_map = {{r['student_id']: dict(r) for r in cur.fetchall()}}
+        pay_map = {r['student_id']: dict(r) for r in cur.fetchall()}
 
         # Invoice amount_paid per student in period
         cur.execute(f"""
@@ -6494,7 +6494,7 @@ def income_reconcile_detail():
               {bw_i}
             GROUP BY i.student_id, s.name, s.admission_id
         """, (date_from, date_to) + bp)
-        inv_map = {{r['student_id']: dict(r) for r in cur.fetchall()}}
+        inv_map = {r['student_id']: dict(r) for r in cur.fetchall()}
 
         # Merge all student IDs from both sides
         all_ids = set(pay_map.keys()) | set(inv_map.keys())
@@ -6506,7 +6506,7 @@ def income_reconcile_detail():
             inv_total = float(i.get('inv_paid_total', 0))
             diff = round(pay_total - inv_total, 2)
             if abs(diff) >= 0.01:  # only show mismatches
-                rows.append({{
+                rows.append({
                     'student_id':     sid,
                     'student_name':   p.get('student_name') or i.get('student_name',''),
                     'admission_id':   p.get('admission_id') or i.get('admission_id',''),
@@ -6517,13 +6517,13 @@ def income_reconcile_detail():
                     'invoice_count':  i.get('invoice_count', 0),
                     'invoice_detail': i.get('invoice_detail','—'),
                     'diff':           diff,
-                }})
+                })
 
         rows.sort(key=lambda r: abs(r['diff']), reverse=True)
         return jsonify(rows)
     except Exception as e:
         print('income_reconcile_detail error:', e)
-        return jsonify({{'error': str(e)}}), 400
+        return jsonify({'error': str(e)}), 400
     finally:
         cur.close(); conn.close()
 
