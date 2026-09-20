@@ -799,6 +799,16 @@ def init_db():
         "ALTER TABLE students ADD COLUMN IF NOT EXISTS status_changed_date DATE",
         "ALTER TABLE students ADD COLUMN IF NOT EXISTS leaving_reason TEXT",
         "ALTER TABLE students ADD COLUMN IF NOT EXISTS leaving_notes TEXT",
+        """CREATE TABLE IF NOT EXISTS student_fee_history (
+            id            SERIAL PRIMARY KEY,
+            student_id    INT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+            monthly_fee   NUMERIC(10,2) NOT NULL,
+            effective_from DATE NOT NULL,
+            notes         TEXT,
+            recorded_by   INT REFERENCES users(id) ON DELETE SET NULL,
+            created_at    TIMESTAMP DEFAULT NOW()
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_fee_history_student ON student_fee_history(student_id, effective_from DESC)",
     ]
     conn2 = get_conn(); cur2 = conn2.cursor()
     for stmt in extra_migrations:

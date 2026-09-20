@@ -973,6 +973,17 @@ const u=state.currentUser;
     '</select></div>':'';
   return mobileBranchBar+`<div class="topbar"><button class="hamburger" id="hamburger-btn"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><div class="page-title">${titles[state.page]||''}</div><div class="topbar-right"><button id="mobile-logout-btn" style="display:none;background:#0f2557;color:#fff;border:1px solid #2a4d9c;border-radius:var(--radius);padding:6px 12px;font-size:13px;cursor:pointer;font-family:var(--font);">Sign out</button><button id="global-refresh-btn" title="Refresh data" style="background:none;border:1px solid var(--border);border-radius:var(--radius);padding:5px 10px;cursor:pointer;font-size:16px;color:var(--text2);line-height:1;" onclick="state.data={};refreshPage();">&#x21BB;</button>${b?`<span class="badge badge-accent">${b.name}</span>`:`<span class="badge badge-purple">${(state.currentUser.role==='super_admin'||state.currentUser.role==='head_of_branches')?'All branches':''}</span>`}<div class="user-chip" style="padding:6px 10px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border);"><div class="avatar ${avatarClass(state.currentUser.role)}" style="width:26px;height:26px;font-size:10px;">${avatarInitials(state.currentUser.name)}</div><span style="font-size:13px;color:var(--text2);margin-left:6px;">${state.currentUser.name}</span></div></div></div>`;}
 
+function _toggleFeeFields(){
+  // Show effective-from + notes fields when the fee field is changed
+  var feeEl=document.getElementById('f-monthly-fee');
+  var wrapE=document.getElementById('f-fee-effective-wrap');
+  var wrapN=document.getElementById('f-fee-notes-wrap');
+  var effEl=document.getElementById('f-fee-effective-from');
+  if(wrapE)wrapE.style.display='';
+  if(wrapN)wrapN.style.display='';
+  // Default effective-from to today if blank
+  if(effEl&&!effEl.value){var t=new Date();effEl.value=t.toISOString().slice(0,10);}
+}
 function toggleLeavingFields(val){
   var showAll=val==='paused'||val==='inactive';
   var el;
@@ -1190,6 +1201,29 @@ function renderStudentProfile(){
     html+='</div></div>';
     html+='</div>';
     if(s.notes)html+='<div class="card" style="margin-bottom:16px;"><div class="card-title" style="margin-bottom:8px;">Comments</div><div style="font-size:13px;">'+s.notes+'</div></div>';
+    // Fee history card
+    var _feeHist=state.data['fee_history_'+s.id]||[];
+    html+='<div class="card" style="margin-bottom:16px;">';
+    html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">';
+    html+='<div class="card-title">Fee history</div>';
+    html+='</div>';
+    if(_feeHist.length===0){
+      html+='<div style="font-size:12px;color:var(--text3);">No fee changes recorded yet. Changes will appear here when the monthly fee is updated.</div>';
+    } else {
+      html+='<table style="width:100%;border-collapse:collapse;">';
+      html+='<thead><tr style="background:var(--surface2);"><th style="padding:6px 10px;font-size:11px;text-align:left;color:var(--text3);">Fee</th><th style="padding:6px 10px;font-size:11px;text-align:left;color:var(--text3);">Effective from</th><th style="padding:6px 10px;font-size:11px;text-align:left;color:var(--text3);">Reason</th><th style="padding:6px 10px;font-size:11px;text-align:left;color:var(--text3);">Recorded by</th></tr></thead><tbody>';
+      _feeHist.forEach(function(h,i){
+        var ef=h.effective_from?new Date(h.effective_from+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'—';
+        html+='<tr style="'+(i%2?'background:var(--surface2);':'')+'">';
+        html+='<td style="padding:6px 10px;font-size:13px;font-weight:700;color:var(--accent);">£'+parseFloat(h.monthly_fee).toFixed(0)+'</td>';
+        html+='<td style="padding:6px 10px;font-size:12px;">'+ef+'</td>';
+        html+='<td style="padding:6px 10px;font-size:12px;color:var(--text3);">'+(h.notes||'—')+'</td>';
+        html+='<td style="padding:6px 10px;font-size:12px;color:var(--text3);">'+(h.recorded_by_name||'—')+'</td>';
+        html+='</tr>';
+      });
+      html+='</tbody></table>';
+    }
+    html+='</div>';
     html+='<div class="card"><div class="card-title" style="margin-bottom:12px;">Quick actions</div><div style="display:flex;gap:10px;flex-wrap:wrap;">';
     html+='<button class="btn btn-primary" data-action="edit-student" data-id="'+s.id+'">✏ Edit profile</button>';
     if(s.monthly_fee)html+='<button class="btn" data-action="profile-gen-invoice" style="background:var(--success);color:#fff;border-color:var(--success);">⚡ Generate this monthly invoice (£'+parseFloat(s.monthly_fee).toFixed(0)+')</button>';
@@ -6630,7 +6664,9 @@ function modalStudent(){
       <div class="field" id="f-leaving-reason-wrap" style="${s.status==='paused'||s.status==='inactive'?'':'display:none;'}"><label>Reason for leaving / pausing</label><select id="f-leaving-reason"><option value="">— select reason —</option><option value="Price" ${s.leaving_reason==="Price"?"selected":""}>Price</option><option value="Timetable" ${s.leaving_reason==="Timetable"?"selected":""}>Timetable</option><option value="Location" ${s.leaving_reason==="Location"?"selected":""}>Location</option><option value="School change" ${s.leaving_reason==="School change"?"selected":""}>School change</option><option value="Exam completed" ${s.leaving_reason==="Exam completed"?"selected":""}>Exam completed</option><option value="Child no longer interested" ${s.leaving_reason==="Child no longer interested"?"selected":""}>Child no longer interested</option><option value="Academic improvement" ${s.leaving_reason==="Academic improvement"?"selected":""}>Academic improvement</option><option value="Dissatisfied" ${s.leaving_reason==="Dissatisfied"?"selected":""}>Dissatisfied</option><option value="Teacher issue" ${s.leaving_reason==="Teacher issue"?"selected":""}>Teacher issue</option><option value="Moving house" ${s.leaving_reason==="Moving house"?"selected":""}>Moving house</option><option value="Family circumstances" ${s.leaving_reason==="Family circumstances"?"selected":""}>Family circumstances</option><option value="Competitor" ${s.leaving_reason==="Competitor"?"selected":""}>Competitor</option><option value="Unknown" ${s.leaving_reason==="Unknown"?"selected":""}>Unknown</option><option value="Other" ${s.leaving_reason==="Other"?"selected":""}>Other</option></select></div>
       <div class="field" id="f-leaving-notes-wrap" style="grid-column:1/-1;${s.status==='paused'||s.status==='inactive'?'':'display:none;'}"><label>Notes (leaving / pausing)</label><textarea id="f-leaving-notes" rows="2" style="width:100%;resize:vertical;">${s.leaving_notes||''}</textarea></div>
       <div class="field"><label>Hours per week</label><input type="text" id="f-hours-per-week" value="${s.hours_per_week||''}" placeholder="e.g. 4"><div style="font-size:11px;color:var(--text3);margin-top:3px;">Total hours attended per week</div></div>
-      <div class="field"><label>Agreed monthly fee (£)</label><input type="number" id="f-monthly-fee" value="${s.monthly_fee||''}" placeholder="e.g. 130" step="0.01" min="0"><div style="font-size:11px;color:var(--text3);margin-top:3px;">Used for bulk monthly invoice generation</div></div>
+      <div class="field"><label>Agreed monthly fee (£)</label><input type="number" id="f-monthly-fee" value="${s.monthly_fee||''}" placeholder="e.g. 130" step="0.01" min="0" oninput="_toggleFeeFields()"><div style="font-size:11px;color:var(--text3);margin-top:3px;">Used for bulk monthly invoice generation</div></div>
+      <div class="field" id="f-fee-effective-wrap" style="${s.id?'':'display:none;'}"><label>Fee effective from</label><input type="date" id="f-fee-effective-from" value=""><div style="font-size:11px;color:var(--text3);margin-top:3px;">Date the new fee applies from</div></div>
+      <div class="field" id="f-fee-notes-wrap" style="${s.id?'':'display:none;'}"><label>Reason for fee change</label><input type="text" id="f-fee-change-notes" value="" placeholder="e.g. sibling discount, rate review…"></div>
       <div class="field" style="grid-column:1/-1;"><label>Comments (if any)</label><textarea id="f-comments" rows="2" style="width:100%;resize:vertical;">${s.notes||''}</textarea></div>
     </div>
 
@@ -7873,6 +7909,8 @@ if(m==='add-student'||m==='edit-student'){
     assess_science_pct:v('f-assess-science-pct'),assess_science_book:v('f-assess-science-book'),
     hours_per_week:v('f-hours-per-week')?parseFloat(v('f-hours-per-week'))||null:null,
     monthly_fee:v('f-monthly-fee')?parseFloat(v('f-monthly-fee'))||null:null,
+    fee_effective_from:v('f-fee-effective-from')||null,
+    fee_change_notes:v('f-fee-change-notes')||'',
     gcse_maths_board:v('f-gcse-maths-board'),gcse_maths_paper:v('f-gcse-maths-paper'),
     gcse_maths_exam_date:v('f-gcse-maths-date'),gcse_maths_current_grade:v('f-gcse-maths-current'),
     gcse_maths_predicted_grade:v('f-gcse-maths-predicted'),
@@ -8847,7 +8885,7 @@ if(action==='add-student'){
 if(action==='view-student-profile'){
   const vs=(state.data.students||[]).find(function(s){return s.id===parseInt(el.dataset.id);});
   if(vs){state.profileStudent=vs;state.profileTab='overview';state.page='student_profile';
-    await Promise.all([loadData('profile_invoices_'+vs.id,'/api/invoices',{student_id:vs.id}),loadData('timetable_'+vs.id,'/api/student-timetable',{student_id:vs.id}),loadData('agreed_slots_'+vs.id,'/api/students/'+vs.id+'/agreed-slots'),loadData('branch_schedule','/api/branch-schedule',{branch_id:vs.branch_id})]);
+    await Promise.all([loadData('profile_invoices_'+vs.id,'/api/invoices',{student_id:vs.id}),loadData('timetable_'+vs.id,'/api/student-timetable',{student_id:vs.id}),loadData('agreed_slots_'+vs.id,'/api/students/'+vs.id+'/agreed-slots'),loadData('branch_schedule','/api/branch-schedule',{branch_id:vs.branch_id}),loadData('fee_history_'+vs.id,'/api/students/'+vs.id+'/fee-history')]);
     render();}return;}
 if(action==='close-student-profile'){state.page='students';state.profileStudent=null;render();return;}
 if(action==='profile-tab'){state.profileTab=el.dataset.tab;render();return;}

@@ -520,18 +520,38 @@ def add_student():
 @api_bp.route('/api/students/<int:sid>', methods=['PUT'])
 @require_auth
 def update_student(sid):
+    import datetime as _dt
     d = request.json
     conn = get_conn(); cur = conn.cursor()
     try:
         fields = get_student_fields(d)
-        # Auto-set status_changed_date when moving to paused/inactive
+        # Auto-set status_changed_date on any status change
         new_status = fields.get('status','active')
         if not fields.get('status_changed_date'):
-            cur.execute("SELECT status FROM students WHERE id=%s", (sid,))
+            cur.execute("SELECT status, monthly_fee FROM students WHERE id=%s", (sid,))
             old_row = cur.fetchone()
             if old_row and old_row.get('status') != new_status:
-                import datetime
-                fields['status_changed_date'] = datetime.date.today()
+                fields['status_changed_date'] = _dt.date.today()
+        else:
+            cur.execute("SELECT monthly_fee FROM students WHERE id=%s", (sid,))
+            old_row = cur.fetchone()
+
+        # Record fee change in history if monthly_fee changed
+        new_fee = fields.get('monthly_fee')
+        old_fee = float(old_row.get('monthly_fee') or 0) if old_row and old_row.get('monthly_fee') is not None else None
+        fee_effective_from = d.get('fee_effective_from') or str(_dt.date.today())
+        fee_notes = d.get('fee_change_notes') or ''
+        if new_fee is not None and old_fee != float(new_fee):
+            try:
+                cur.execute(
+                    "INSERT INTO student_fee_history (student_id, monthly_fee, effective_from, notes, recorded_by) "
+                    "VALUES (%s, %s, %s, %s, %s)",
+                    (sid, float(new_fee), fee_effective_from, fee_notes, session.get('user_id'))
+                )
+            except Exception as _fe:
+                print(f"Fee history insert warning: {_fe}")
+                conn.rollback()
+
         set_clause = ','.join([f"{k}=%s" for k in fields.keys()])
         vals = list(fields.values()) + [sid]
         cur.execute(f"UPDATE students SET {set_clause} WHERE id=%s RETURNING *", vals)
@@ -544,6 +564,34 @@ def update_student(sid):
     except Exception as e:
         conn.rollback(); cur.close(); conn.close()
         return jsonify({'error': str(e)}), 400
+
+@api_bp.route('/api/students/<int:sid>/fee-history', methods=['GET'])
+@require_auth
+def get_fee_history(sid):
+    conn = get_conn(); cur = conn.cursor(cursor_factory=RealDictCursor)
+    try:
+        cur.execute(
+            "SELECT sfh.id, sfh.monthly_fee, sfh.effective_from, sfh.notes, "
+            "       u.name as recorded_by_name, sfh.created_at "
+            "FROM student_fee_history sfh "
+            "LEFT JOIN users u ON u.id = sfh.recorded_by "
+            "WHERE sfh.student_id = %s "
+            "ORDER BY sfh.effective_from DESC",
+            (sid,))
+        rows_out = []
+        for r in cur.fetchall():
+            d = dict(r)
+            if d.get('effective_from'): d['effective_from'] = str(d['effective_from'])
+            if d.get('created_at'):     d['created_at']     = str(d['created_at'])
+            if d.get('monthly_fee') is not None: d['monthly_fee'] = float(d['monthly_fee'])
+            rows_out.append(d)
+        return jsonify(rows_out)
+    except Exception as e:
+        print(f"fee_history error: {e}")
+        return jsonify([])   # safe fallback — never crash the UI
+    finally:
+        cur.close(); conn.close()
+
 
 @api_bp.route('/api/students/<int:sid>/opening-balance', methods=['PUT'])
 @require_auth
