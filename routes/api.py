@@ -1146,13 +1146,28 @@ def update_invoice(iid):
     d = request.json
     conn = get_conn(); cur = conn.cursor()
     try:
+        import datetime as _dt
+        _amount     = float(d.get('amount') or 0)
+        _amount_paid = float(d.get('amount_paid') or 0)
+        # Auto-compute status — never trust the frontend value when amounts tell the truth
+        _requested_status = d.get('status', 'due')
+        if _amount > 0 and _amount_paid >= _amount:
+            _status   = 'paid'
+            _paid_date = d.get('paid_date') or str(_dt.date.today())
+        elif _amount_paid > 0:
+            _status   = 'partial'
+            _paid_date = d.get('paid_date') or None
+        else:
+            # Keep the requested status (due / overdue etc.) when nothing has been paid
+            _status   = _requested_status if _requested_status in ('due','overdue','cancelled','waived') else 'due'
+            _paid_date = None
         cur.execute("""
             UPDATE invoices SET amount=%s, amount_paid=%s, status=%s, month=%s,
                 fee_type=%s, due_date=%s, paid_date=%s, notes=%s, description=%s
             WHERE id=%s RETURNING *
-        """, (d.get('amount',0), d.get('amount_paid',0), d.get('status','due'), d.get('month'),
+        """, (_amount, _amount_paid, _status, d.get('month'),
                 d.get('fee_type','monthly_fee'),
-                d.get('due_date') or None, d.get('paid_date') or None,
+                d.get('due_date') or None, _paid_date,
                 d.get('notes',''), d.get('description',''), iid))
         r = row(cur); conn.commit()
     except Exception as e:

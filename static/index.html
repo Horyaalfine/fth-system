@@ -7334,6 +7334,19 @@ function modalMarkPaid(){
     '</div>',footer);
 }
 
+function _autoInvStatus(){
+  var amt=parseFloat(document.getElementById('f-amount')?document.getElementById('f-amount').value:0)||0;
+  var paid=parseFloat(document.getElementById('f-amount-paid')?document.getElementById('f-amount-paid').value:0)||0;
+  var st=paid<=0?'due':paid>=amt&&amt>0?'paid':'partial';
+  var hidden=document.getElementById('f-inv-status');
+  var badge=document.getElementById('f-inv-status-badge');
+  if(hidden)hidden.value=st;
+  if(badge){
+    badge.textContent=st;
+    badge.style.background=st==='paid'?'#dcfce7':st==='partial'?'#fef9c3':'#dbeafe';
+    badge.style.color=st==='paid'?'#16a34a':st==='partial'?'#b45309':'#1d4ed8';
+  }
+}
 function modalInvoice(){const inv=state.editTarget||{};
 const feeLabels={monthly_fee:'Monthly fee',opening_balance:'Opening balance',admission_fee:'Admission fee',book_fee:'Book fee',past_papers_fee:'Past papers fee',miscellaneous:'Miscellaneous'};
 return mWrap('Edit invoice',`
@@ -7351,17 +7364,13 @@ return mWrap('Edit invoice',`
       <option value="miscellaneous" ${inv.fee_type==='miscellaneous'?'selected':''}>Miscellaneous</option>
     </select>
   </div>
-  <div class="field"><label>Amount (£)</label><input type="number" id="f-amount" value="${inv.amount||0}" step="0.01" min="0"></div>
+  <div class="field"><label>Amount (£)</label><input type="number" id="f-amount" value="${inv.amount||0}" step="0.01" min="0" oninput="_autoInvStatus()"></div>
   <div class="field"><label>Month</label><input type="month" id="f-month" value="${inv.month||''}"></div>
-  <div class="field"><label>Status</label>
-    <select id="f-inv-status">
-      <option value="due" ${inv.status==='due'?'selected':''}>Due</option>
-      <option value="partial" ${inv.status==='partial'?'selected':''}>Partial</option>
-      <option value="paid" ${inv.status==='paid'?'selected':''}>Paid</option>
-      <option value="overdue" ${inv.status==='overdue'?'selected':''}>Overdue</option>
-    </select>
+  <div class="field"><label>Status <span id="f-inv-status-badge" style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;margin-left:6px;background:${inv.status==='paid'?'#dcfce7':inv.status==='partial'?'#fef9c3':inv.status==='overdue'?'#fee2e2':'#dbeafe'};color:${inv.status==='paid'?'#16a34a':inv.status==='partial'?'#b45309':inv.status==='overdue'?'#dc2626':'#1d4ed8'};">${inv.status||'due'}</span></label>
+    <input type="hidden" id="f-inv-status" value="${inv.status||'due'}">
+    <div style="font-size:11px;color:var(--text3);margin-top:3px;">Auto-set from amounts — paid when amount paid ≥ amount</div>
   </div>
-  <div class="field"><label>Amount paid (£)</label><input type="number" id="f-amount-paid" value="${inv.amount_paid||0}" step="0.01" min="0"></div>
+  <div class="field"><label>Amount paid (£)</label><input type="number" id="f-amount-paid" value="${inv.amount_paid||0}" step="0.01" min="0" oninput="_autoInvStatus()"></div>
   <div class="field"><label>Due date</label><input type="date" id="f-due-date" value="${inv.due_date||''}"></div>
   <div class="field"><label>Paid date</label><input type="date" id="f-paid-date" value="${inv.paid_date||''}"></div>
   <div class="field" style="grid-column:1/-1;"><label>Description / notes</label><input type="text" id="f-notes" value="${inv.notes||inv.description||''}" placeholder="e.g. Sibling rate, pro-rata, KS3 Maths book…"></div>
