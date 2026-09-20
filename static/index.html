@@ -5477,6 +5477,37 @@ function renderReports(){
           if(_rec.timing_diff&&_rec.timing_diff.count>0)
             html+='<span style="color:var(--text3);">↳ Issued this period but paid outside period</span><span>£'+parseFloat(_rec.timing_diff.total).toFixed(2)+'</span><span style="color:var(--text3);">('+_rec.timing_diff.count+' invoices)</span>';
           html+='<span style="color:var(--text3);font-style:italic;" style="grid-column:1/-1;">Note: payments log and invoice records are separate — gaps may reflect cash received not yet invoiced, or invoices settled via adjustments.</span><span></span><span></span>';
+        html+='</div>';
+        html+='<button class="btn btn-primary" data-action="load-reconcile-detail" style="margin-top:10px;font-size:12px;padding:5px 14px;">🔍 Investigate per student</button>';
+        // Drill-down detail table
+        var _det=state.data.income_reconcile_detail||null;
+        if(_det&&!_det.error){
+          if(_det.length===0){
+            html+='<div style="margin-top:10px;font-size:12px;color:#16a34a;font-weight:600;">✅ No per-student mismatches found.</div>';
+          } else {
+            html+='<div style="margin-top:12px;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">';
+            html+='<table style="width:100%;border-collapse:collapse;">';
+            html+='<thead><tr style="background:#1e3a5f;color:#fff;">';
+            html+='<th style="padding:7px 10px;font-size:11px;text-align:left;">Student</th>';
+            html+='<th style="padding:7px 10px;font-size:11px;text-align:right;">Payments log</th>';
+            html+='<th style="padding:7px 10px;font-size:11px;text-align:right;">Invoice paid</th>';
+            html+='<th style="padding:7px 10px;font-size:11px;text-align:right;">Diff</th>';
+            html+='<th style="padding:7px 10px;font-size:11px;text-align:left;">Detail</th>';
+            html+='</tr></thead><tbody>';
+            _det.forEach(function(r,i){
+              var diffCol=r.diff>0?'#d97706':r.diff<0?'#dc2626':'#16a34a';
+              var diffLabel=(r.diff>0?'+':'')+'£'+Math.abs(r.diff).toFixed(2)+(r.diff>0?' (cash higher)':' (invoice higher)');
+              html+='<tr style="'+(i%2?'background:#f9fafb;':'')+'">';
+              html+='<td style="padding:7px 10px;font-size:11px;font-weight:600;">'+r.admission_id+' '+r.student_name+'</td>';
+              html+='<td style="padding:7px 10px;font-size:11px;text-align:right;">£'+r.payments_total.toFixed(2)+' <span style="color:var(--text3);">('+r.payment_count+')</span></td>';
+              html+='<td style="padding:7px 10px;font-size:11px;text-align:right;">£'+r.inv_paid_total.toFixed(2)+' <span style="color:var(--text3);">('+r.invoice_count+')</span></td>';
+              html+='<td style="padding:7px 10px;font-size:11px;text-align:right;font-weight:700;color:'+diffCol+';">'+diffLabel+'</td>';
+              html+='<td style="padding:7px 10px;font-size:11px;color:var(--text3);max-width:300px;word-break:break-word;">'+(r.payment_detail!=='—'?'Cash: '+r.payment_detail+'<br>':'')+'Invoice: '+(r.invoice_detail||'—')+'</td>';
+              html+='</tr>';
+            });
+            html+='</tbody></table></div>';
+          }
+        }
         } else {
           html+='<span style="color:#16a34a;font-weight:600;">Gap</span><span style="color:#16a34a;font-weight:700;">£0.00 — fully reconciled</span><span></span>';
         }
@@ -10589,6 +10620,16 @@ if(action==='load-income-report'){
   return;
 }
 
+if(action==='load-reconcile-detail'){
+  var _rParams=Object.assign({},branchParam(),state.incRptFilter);
+  state.data.income_reconcile_detail=null;
+  render();
+  API.get('/api/income-reconcile-detail',_rParams).then(function(d){
+    state.data.income_reconcile_detail=d;
+    render();
+  }).catch(function(e){toast('Reconcile detail error: '+(e&&e.error?e.error:JSON.stringify(e)),'error');});
+  return;
+}
 if(action==='print-income-report'){
   var incRpt=state.data.income_report||[];
   var incF=state.incRptFilter||{};

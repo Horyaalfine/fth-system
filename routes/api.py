@@ -6452,6 +6452,82 @@ def income_reconcile():
         cur.close(); conn.close()
 
 
+@api_bp.route('/api/income-reconcile-detail', methods=['GET'])
+@require_auth
+def income_reconcile_detail():
+    """Per-student breakdown: payments log vs invoice amount_paid.
+    Returns students where the two totals differ."""
+    b         = branch_scope()
+    branch_id = request.args.get('branch_id', type=int) or b
+    date_from = request.args.get('date_from') or '2020-01-01'
+    date_to   = request.args.get('date_to')   or '2099-12-31'
+
+    conn = get_conn(); cur = conn.cursor(cursor_factory=RealDictCursor)
+    try:
+        bw_p = 'AND p.branch_id=%s' if branch_id else ''
+        bw_i = 'AND i.branch_id=%s' if branch_id else ''
+        bp   = (branch_id,) if branch_id else ()
+
+        # Payments per student in period
+        cur.execute(f"""
+            SELECT p.student_id, s.name as student_name, s.admission_id,
+                   COALESCE(SUM(p.amount),0) as payments_total,
+                   COUNT(p.id) as payment_count,
+                   STRING_AGG(p.amount::text || ' on ' || p.payment_date::text, ', ' ORDER BY p.payment_date) as payment_detail
+            FROM payments p
+            JOIN students s ON s.id=p.student_id
+            WHERE p.payment_date BETWEEN %s AND %s {bw_p}
+            GROUP BY p.student_id, s.name, s.admission_id
+        """, (date_from, date_to) + bp)
+        pay_map = {{r['student_id']: dict(r) for r in cur.fetchall()}}
+
+        # Invoice amount_paid per student in period
+        cur.execute(f"""
+            SELECT i.student_id, s.name as student_name, s.admission_id,
+                   COALESCE(SUM(i.amount_paid),0) as inv_paid_total,
+                   COUNT(i.id) as invoice_count,
+                   STRING_AGG(i.description || ' £' || i.amount_paid::text || ' (' || i.status || ')', ', ' ORDER BY COALESCE(i.paid_date,i.issued)) as invoice_detail
+            FROM invoices i
+            JOIN students s ON s.id=i.student_id
+            WHERE COALESCE(i.paid_date, i.issued) BETWEEN %s AND %s
+              AND i.amount_paid > 0
+              {bw_i}
+            GROUP BY i.student_id, s.name, s.admission_id
+        """, (date_from, date_to) + bp)
+        inv_map = {{r['student_id']: dict(r) for r in cur.fetchall()}}
+
+        # Merge all student IDs from both sides
+        all_ids = set(pay_map.keys()) | set(inv_map.keys())
+        rows = []
+        for sid in all_ids:
+            p = pay_map.get(sid, {})
+            i = inv_map.get(sid, {})
+            pay_total = float(p.get('payments_total', 0))
+            inv_total = float(i.get('inv_paid_total', 0))
+            diff = round(pay_total - inv_total, 2)
+            if abs(diff) >= 0.01:  # only show mismatches
+                rows.append({{
+                    'student_id':     sid,
+                    'student_name':   p.get('student_name') or i.get('student_name',''),
+                    'admission_id':   p.get('admission_id') or i.get('admission_id',''),
+                    'payments_total': pay_total,
+                    'payment_count':  p.get('payment_count', 0),
+                    'payment_detail': p.get('payment_detail','—'),
+                    'inv_paid_total': inv_total,
+                    'invoice_count':  i.get('invoice_count', 0),
+                    'invoice_detail': i.get('invoice_detail','—'),
+                    'diff':           diff,
+                }})
+
+        rows.sort(key=lambda r: abs(r['diff']), reverse=True)
+        return jsonify(rows)
+    except Exception as e:
+        print('income_reconcile_detail error:', e)
+        return jsonify({{'error': str(e)}}), 400
+    finally:
+        cur.close(); conn.close()
+
+
 @api_bp.route('/api/income-report', methods=['GET'])
 @require_auth
 def income_report():
