@@ -793,14 +793,27 @@ def init_db():
             err = str(e).lower()
             if 'already exists' not in err and 'does not exist' not in err:
                 print(f"Schema warning: {e}")
+    # Stage 1 extra columns — run after main schema loop
+    extra_migrations = [
+        "ALTER TABLE students ADD COLUMN IF NOT EXISTS enrolment_date DATE",
+        "ALTER TABLE students ADD COLUMN IF NOT EXISTS status_changed_date DATE",
+        "ALTER TABLE students ADD COLUMN IF NOT EXISTS leaving_reason TEXT",
+        "ALTER TABLE students ADD COLUMN IF NOT EXISTS leaving_notes TEXT",
+    ]
+    conn2 = get_conn(); cur2 = conn2.cursor()
+    for stmt in extra_migrations:
+        try:
+            cur2.execute(stmt); conn2.commit()
+        except Exception as e:
+            conn2.rollback()
+            if 'already exists' not in str(e).lower():
+                print(f"Migration warning: {e}")
+    cur2.close(); conn2.close()
+
     cur.close()
     conn.close()
     print(f"Database initialised successfully ({ok}/{len(statements)} statements OK).")
 
-ALTER TABLE students ADD COLUMN IF NOT EXISTS enrolment_date DATE;
-ALTER TABLE students ADD COLUMN IF NOT EXISTS status_changed_date DATE;
-ALTER TABLE students ADD COLUMN IF NOT EXISTS leaving_reason TEXT;
-ALTER TABLE students ADD COLUMN IF NOT EXISTS leaving_notes TEXT;
     # Only migrate if student_agreed_slots is empty (skip on every-restart runs)
     try:
         _conn = get_conn(); _cur = _conn.cursor()
