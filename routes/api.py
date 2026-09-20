@@ -407,7 +407,11 @@ def get_student_fields(d):
         'hours_per_week': d.get('hours_per_week',''),
         'monthly_fee': d.get('monthly_fee') if d.get('monthly_fee') not in (None,'','0') else None,
         'parent_contact': d.get('carer1_mobile') or d.get('parent_contact',''),
-        'status': d.get('status','active'), 'notes': d.get('notes','')
+        'status': d.get('status','active'), 'notes': d.get('notes',''),
+        'enrolment_date': d.get('enrolment_date') or None,
+        'leaving_reason': d.get('leaving_reason') or None,
+        'leaving_notes': d.get('leaving_notes') or None,
+        'status_changed_date': d.get('status_changed_date') or None,
     }
 
 
@@ -501,8 +505,8 @@ def add_student():
         cur.execute(f"INSERT INTO students ({cols}) VALUES ({placeholders}) RETURNING *", list(fields.values()))
         r = row(cur); conn.commit()
         if r:
-            if r.get('date_of_birth'): r['date_of_birth'] = str(r['date_of_birth'])
-            if r.get('created_at'): r['created_at'] = str(r['created_at'])
+            for _df in ['date_of_birth','created_at','enrolment_date','status_changed_date']:
+                if r.get(_df): r[_df] = str(r[_df])
         cur.close(); conn.close()
         log_action('add','students',r['id'])
         return jsonify(r), 201
@@ -520,13 +524,21 @@ def update_student(sid):
     conn = get_conn(); cur = conn.cursor()
     try:
         fields = get_student_fields(d)
+        # Auto-set status_changed_date when moving to paused/inactive
+        new_status = fields.get('status','active')
+        if new_status in ('paused','inactive') and not fields.get('status_changed_date'):
+            cur.execute("SELECT status FROM students WHERE id=%s", (sid,))
+            old_row = cur.fetchone()
+            if old_row and old_row.get('status') != new_status:
+                import datetime
+                fields['status_changed_date'] = datetime.date.today()
         set_clause = ','.join([f"{k}=%s" for k in fields.keys()])
         vals = list(fields.values()) + [sid]
         cur.execute(f"UPDATE students SET {set_clause} WHERE id=%s RETURNING *", vals)
         r = row(cur); conn.commit(); cur.close(); conn.close()
         if r:
-            if r.get('date_of_birth'): r['date_of_birth'] = str(r['date_of_birth'])
-            if r.get('created_at'): r['created_at'] = str(r['created_at'])
+            for _df in ['date_of_birth','created_at','enrolment_date','status_changed_date']:
+                if r.get(_df): r[_df] = str(r[_df])
         log_action('edit','students',sid)
         return jsonify(r)
     except Exception as e:

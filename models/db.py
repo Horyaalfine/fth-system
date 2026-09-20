@@ -796,6 +796,11 @@ def init_db():
     cur.close()
     conn.close()
     print(f"Database initialised successfully ({ok}/{len(statements)} statements OK).")
+
+ALTER TABLE students ADD COLUMN IF NOT EXISTS enrolment_date DATE;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS status_changed_date DATE;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS leaving_reason TEXT;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS leaving_notes TEXT;
     # Only migrate if student_agreed_slots is empty (skip on every-restart runs)
     try:
         _conn = get_conn(); _cur = _conn.cursor()
@@ -812,3 +817,5 @@ def init_db():
 if __name__ == '__main__':
     init_db()
 
+
+# ── Stage 1: Enrolment date + status change tracking ──

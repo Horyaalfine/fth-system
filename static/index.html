@@ -973,6 +973,12 @@ const u=state.currentUser;
     '</select></div>':'';
   return mobileBranchBar+`<div class="topbar"><button class="hamburger" id="hamburger-btn"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><div class="page-title">${titles[state.page]||''}</div><div class="topbar-right"><button id="mobile-logout-btn" style="display:none;background:#0f2557;color:#fff;border:1px solid #2a4d9c;border-radius:var(--radius);padding:6px 12px;font-size:13px;cursor:pointer;font-family:var(--font);">Sign out</button><button id="global-refresh-btn" title="Refresh data" style="background:none;border:1px solid var(--border);border-radius:var(--radius);padding:5px 10px;cursor:pointer;font-size:16px;color:var(--text2);line-height:1;" onclick="state.data={};refreshPage();">&#x21BB;</button>${b?`<span class="badge badge-accent">${b.name}</span>`:`<span class="badge badge-purple">${(state.currentUser.role==='super_admin'||state.currentUser.role==='head_of_branches')?'All branches':''}</span>`}<div class="user-chip" style="padding:6px 10px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border);"><div class="avatar ${avatarClass(state.currentUser.role)}" style="width:26px;height:26px;font-size:10px;">${avatarInitials(state.currentUser.name)}</div><span style="font-size:13px;color:var(--text2);margin-left:6px;">${state.currentUser.name}</span></div></div></div>`;}
 
+function toggleLeavingFields(val){
+  var show=val==='paused'||val==='inactive';
+  ['f-status-date-wrap','f-leaving-reason-wrap','f-leaving-notes-wrap'].forEach(function(id){
+    var el=document.getElementById(id);if(el)el.style.display=show?'':'none';
+  });
+}
 function renderPage(){const map={dashboard:renderDashboard,student_profile:renderStudentProfile,students:renderStudents,staff:renderStaff,branch_operation:renderBranchOperation,sessions:renderSessions,attendance:renderAttendance,invoices:renderInvoices,session_reports:renderSessionReports,staff_timesheets:renderStaffTimesheets,lesson_reports:renderLessonReports,test_records:renderTestRecords,student_progress:renderStudentProgress,catchup:renderCatchup,session_plan:renderSessionPlan,mgmt_reports:renderMgmtReports,att_report_page:renderAttendanceReportPage,system_guide:renderSystemGuide,finance:renderFinance,reports:renderReports,users:renderUsers,branches:renderBranches,parent_portal:renderParentPortalAdmin,notes:renderNotes,announcements:renderAnnouncements,credit_control:renderCreditControl,teacher_schedule:renderTeacherSchedule,audit:renderAudit};return(map[state.page]||renderDashboard)();}
 
 function renderDashboard(){const s=state.data.summary||{};const bs=s.branch_stats||[];const audit=(state.data.audit||[]).slice(0,5);
@@ -1103,7 +1109,7 @@ function renderStudentDatabase(students){
   var html='<div style="font-size:13px;color:var(--text3);margin-bottom:12px;">'+students.length+' students · Read-only · Click a row to view full profile</div>';
   if(!students.length)return html+'<div class="empty-state">No students found.</div>';
   html+='<div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>';
-  html+='<thead><tr><th>ID</th><th>Name</th><th>Year</th><th>DOB</th><th>Address</th><th>Parent/Guardian</th><th>Mobile</th><th>Email</th><th>Fee/mo</th><th>Hrs/wk</th><th>Notes</th></tr></thead><tbody>';
+  html+='<thead><tr><th>ID</th><th>Name</th><th>Year</th><th>DOB</th><th>Address</th><th>Parent/Guardian</th><th>Mobile</th><th>Email</th><th>Enrolled</th><th>Leave Reason</th><th>Fee/mo</th><th>Hrs/wk</th><th>Notes</th></tr></thead><tbody>';
   students.forEach(function(s){
     var dob=s.date_of_birth?new Date(s.date_of_birth+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'—';
     var parentName=[(s.carer1_first_name||''),(s.carer1_last_name||'')].filter(Boolean).join(' ')||'—';
@@ -1117,6 +1123,8 @@ function renderStudentDatabase(students){
       '<td>'+parentName+'</td>'+
       '<td style="font-size:12px;">'+(s.carer1_mobile||s.carer1_telephone||'—')+'</td>'+
       '<td style="font-size:12px;">'+(s.carer1_email||'—')+'</td>'+
+      '<td style="font-size:12px;color:var(--text3);">'+(s.enrolment_date?new Date(s.enrolment_date+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'—')+'</td>'+
+      '<td style="font-size:12px;">'+(s.leaving_reason&&(s.status==='paused'||s.status==='inactive')?'<span class="badge badge-gray">'+s.leaving_reason+'</span>':'—')+'</td>'+
       '<td style="font-weight:600;color:var(--accent);">'+(s.monthly_fee?'£'+parseFloat(s.monthly_fee).toFixed(0):'—')+'</td>'+
       '<td>'+(s.hours_per_week?s.hours_per_week+'h':'—')+'</td>'+
       '<td style="font-size:12px;color:var(--text3);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(s.notes||'—')+'</td>'+
@@ -1164,6 +1172,10 @@ function renderStudentProfile(){
     html+='<span style="color:var(--text3);">School</span><span>'+(s.current_school||'—')+'</span>';
     html+='<span style="color:var(--text3);">Hours/wk</span><span>'+(s.hours_per_week||'—')+'</span>';
     html+='<span style="color:var(--text3);">Status</span><span>'+(s.status||'—')+'</span>';
+    if(s.enrolment_date)html+='<span style="color:var(--text3);">Enrolled</span><span>'+new Date(s.enrolment_date+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})+'</span>';
+    if(s.status_changed_date&&(s.status==='paused'||s.status==='inactive'))html+='<span style="color:var(--text3);">'+(s.status==='paused'?'Paused':'Left')+'</span><span>'+new Date(s.status_changed_date+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})+'</span>';
+    if(s.leaving_reason&&(s.status==='paused'||s.status==='inactive'))html+='<span style="color:var(--text3);">Reason</span><span>'+s.leaving_reason+'</span>';
+    if(s.leaving_notes&&(s.status==='paused'||s.status==='inactive'))html+='<span style="color:var(--text3);">Notes</span><span>'+s.leaving_notes+'</span>';
     html+='</div></div>';
     var parentName=[(s.carer1_first_name||''),(s.carer1_last_name||'')].filter(Boolean).join(' ')||'—';
     html+='<div class="card"><div class="card-title" style="margin-bottom:10px;">Parent / Guardian</div><div style="font-size:13px;display:grid;grid-template-columns:auto 1fr;gap:5px 12px;">';
@@ -6440,6 +6452,7 @@ function modalStudent(){
         <span class="hint">Enter manually or click Auto-generate. Add a/b suffix for siblings (e.g. H110a)</span></div>
       <div class="field"><label>Branch</label><select id="f-branch" onchange="onBranchChange(this.value)">${branches.map(b=>`<option value="${b.id}" ${(s.branch_id||defBranch)==b.id?'selected':''}>${b.name}</option>`).join('')}</select></div>
       <div class="field"><label>Date of birth</label><input type="date" id="f-dob" value="${(s.date_of_birth||'').slice(0,10)}"></div>
+      <div class="field"><label>Enrolment date</label><input type="date" id="f-enrolment-date" value="${(s.enrolment_date||'').slice(0,10)}"><div style="font-size:11px;color:var(--text3);margin-top:3px;">Date student officially enrolled</div></div>
       <div class="field"><label>Gender</label><select id="f-gender">
         <option value="">— select —</option>
         <option value="Male" ${s.gender==='Male'?'selected':''}>Male</option>
@@ -6550,7 +6563,10 @@ function modalStudent(){
     <div class="form-grid">
       <div class="field"><label>Referred by (name)</label><input type="text" id="f-ref-by" value="${s.referred_by||''}" placeholder="Who referred this family?"></div>
       <div class="field"><label>Referral admission number</label><input type="text" id="f-ref-admid" value="${s.referral_admission||''}" placeholder="e.g. H100"></div>
-      <div class="field"><label>Status</label><select id="f-status"><option value="active" ${!s.status||s.status==='active'?'selected':''}>Active</option><option value="paused" ${s.status==='paused'?'selected':''}>Paused</option><option value="inactive" ${s.status==='inactive'?'selected':''}>Inactive</option></select></div>
+      <div class="field"><label>Status</label><select id="f-status" onchange="toggleLeavingFields(this.value)"><option value="active" ${!s.status||s.status==='active'?'selected':''}>Active</option><option value="paused" ${s.status==='paused'?'selected':''}>Paused</option><option value="inactive" ${s.status==='inactive'?'selected':''}>Inactive</option></select></div>
+      <div class="field" id="f-status-date-wrap" style="${s.status==='paused'||s.status==='inactive'?'':'display:none;'}"><label>Date paused / left</label><input type="date" id="f-status-changed-date" value="${(s.status_changed_date||'').slice(0,10)}"><div style="font-size:11px;color:var(--text3);margin-top:3px;">Auto-set on first status change</div></div>
+      <div class="field" id="f-leaving-reason-wrap" style="${s.status==='paused'||s.status==='inactive'?'':'display:none;'}"><label>Reason for leaving / pausing</label><select id="f-leaving-reason"><option value="">— select reason —</option><option value="Price" ${s.leaving_reason==="Price"?"selected":""}>Price</option><option value="Timetable" ${s.leaving_reason==="Timetable"?"selected":""}>Timetable</option><option value="Location" ${s.leaving_reason==="Location"?"selected":""}>Location</option><option value="School change" ${s.leaving_reason==="School change"?"selected":""}>School change</option><option value="Exam completed" ${s.leaving_reason==="Exam completed"?"selected":""}>Exam completed</option><option value="Child no longer interested" ${s.leaving_reason==="Child no longer interested"?"selected":""}>Child no longer interested</option><option value="Academic improvement" ${s.leaving_reason==="Academic improvement"?"selected":""}>Academic improvement</option><option value="Dissatisfied" ${s.leaving_reason==="Dissatisfied"?"selected":""}>Dissatisfied</option><option value="Teacher issue" ${s.leaving_reason==="Teacher issue"?"selected":""}>Teacher issue</option><option value="Moving house" ${s.leaving_reason==="Moving house"?"selected":""}>Moving house</option><option value="Family circumstances" ${s.leaving_reason==="Family circumstances"?"selected":""}>Family circumstances</option><option value="Competitor" ${s.leaving_reason==="Competitor"?"selected":""}>Competitor</option><option value="Unknown" ${s.leaving_reason==="Unknown"?"selected":""}>Unknown</option><option value="Other" ${s.leaving_reason==="Other"?"selected":""}>Other</option></select></div>
+      <div class="field" id="f-leaving-notes-wrap" style="grid-column:1/-1;${s.status==='paused'||s.status==='inactive'?'':'display:none;'}"><label>Notes (leaving / pausing)</label><textarea id="f-leaving-notes" rows="2" style="width:100%;resize:vertical;">${s.leaving_notes||''}</textarea></div>
       <div class="field"><label>Hours per week</label><input type="text" id="f-hours-per-week" value="${s.hours_per_week||''}" placeholder="e.g. 4"><div style="font-size:11px;color:var(--text3);margin-top:3px;">Total hours attended per week</div></div>
       <div class="field"><label>Agreed monthly fee (£)</label><input type="number" id="f-monthly-fee" value="${s.monthly_fee||''}" placeholder="e.g. 130" step="0.01" min="0"><div style="font-size:11px;color:var(--text3);margin-top:3px;">Used for bulk monthly invoice generation</div></div>
       <div class="field" style="grid-column:1/-1;"><label>Comments (if any)</label><textarea id="f-comments" rows="2" style="width:100%;resize:vertical;">${s.notes||''}</textarea></div>
@@ -7793,7 +7809,11 @@ if(m==='add-student'||m==='edit-student'){
     gcse_science_board:v('f-gcse-science-board'),gcse_science_paper:v('f-gcse-science-paper'),
     gcse_science_exam_date:v('f-gcse-science-date'),gcse_science_current_grade:v('f-gcse-science-current'),
     gcse_science_predicted_grade:v('f-gcse-science-predicted'),
-    parent_contact:v('f-c1-mobile'),status:v('f-status'),notes:v('f-comments')||v('f-notes')||''
+    parent_contact:v('f-c1-mobile'),status:v('f-status'),notes:v('f-comments')||v('f-notes')||'',
+    enrolment_date:v('f-enrolment-date')||null,
+    leaving_reason:v('f-leaving-reason')||null,
+    leaving_notes:v('f-leaving-notes')||null,
+    status_changed_date:v('f-status-changed-date')||null
   };
   // Step 1: Save core student profile
   try{
