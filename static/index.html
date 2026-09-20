@@ -5472,10 +5472,11 @@ function renderReports(){
         html+='<span style="color:var(--text3);">Invoice amount_paid (invoices)</span><span style="font-weight:600;">£'+parseFloat(_rec.invoices_paid_total).toFixed(2)+'</span><span style="color:var(--text3);">('+_rec.invoices_count+' invoices)</span>';
         if(!_ok){
           html+='<span style="color:'+_col+';font-weight:600;">Gap</span><span style="color:'+_col+';font-weight:700;">£'+_absGap.toFixed(2)+(_gap>0?' (payments higher)':' (invoices higher)')+'</span><span></span>';
-          if(_rec.unlinked_payments&&_rec.unlinked_payments.count>0)
-            html+='<span style="color:var(--text3);">↳ Payments with no invoice</span><span>£'+parseFloat(_rec.unlinked_payments.total).toFixed(2)+'</span><span style="color:var(--text3);">('+_rec.unlinked_payments.count+' payments)</span>';
+          if(_rec.partial_payments&&_rec.partial_payments.count>0)
+            html+='<span style="color:var(--text3);">↳ Partial payments (invoice not fully settled)</span><span>£'+parseFloat(_rec.partial_payments.total).toFixed(2)+'</span><span style="color:var(--text3);">('+_rec.partial_payments.count+' invoices)</span>';
           if(_rec.timing_diff&&_rec.timing_diff.count>0)
-            html+='<span style="color:var(--text3);">↳ Paid in period but invoice outside period</span><span>£'+parseFloat(_rec.timing_diff.total).toFixed(2)+'</span><span style="color:var(--text3);">('+_rec.timing_diff.count+' payments)</span>';
+            html+='<span style="color:var(--text3);">↳ Issued this period but paid outside period</span><span>£'+parseFloat(_rec.timing_diff.total).toFixed(2)+'</span><span style="color:var(--text3);">('+_rec.timing_diff.count+' invoices)</span>';
+          html+='<span style="color:var(--text3);font-style:italic;" style="grid-column:1/-1;">Note: payments log and invoice records are separate — gaps may reflect cash received not yet invoiced, or invoices settled via adjustments.</span><span></span><span></span>';
         } else {
           html+='<span style="color:#16a34a;font-weight:600;">Gap</span><span style="color:#16a34a;font-weight:700;">£0.00 — fully reconciled</span><span></span>';
         }

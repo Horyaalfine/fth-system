@@ -6377,8 +6377,7 @@ def get_attendance_by_date_slot():
 @api_bp.route('/api/income-reconcile', methods=['GET'])
 @require_auth
 def income_reconcile():
-    """Compare payments table total vs invoices.amount_paid for a period.
-    Returns both totals, the difference, and any unlinked payments."""
+    """Compare payments table total vs invoices.amount_paid for a period."""
     b         = branch_scope()
     branch_id = request.args.get('branch_id', type=int) or b
     date_from = request.args.get('date_from') or '2020-01-01'
@@ -6409,40 +6408,42 @@ def income_reconcile():
         invoices_paid_total = float(inv_row['total'])
         invoices_count      = int(inv_row['count'])
 
-        # 3. Payments not linked to any invoice (invoice_id IS NULL)
+        # 3. Invoices paid outside the period that were issued in the period
+        #    (issued in range but paid_date outside range — timing shift)
         cur.execute(
-            f"SELECT COALESCE(SUM(amount),0) as total, COUNT(*) as count "
-            f"FROM payments WHERE payment_date BETWEEN %s AND %s "
-            f"AND (invoice_id IS NULL) {bw_p}",
-            (date_from, date_to) + bp)
-        unlinked_row = cur.fetchone()
-        unlinked_total = float(unlinked_row['total'])
-        unlinked_count = int(unlinked_row['count'])
-
-        # 4. Payments outside the invoice date window (paid in period but invoice dated outside)
-        cur.execute(
-            f"SELECT COALESCE(SUM(p.amount),0) as total, COUNT(*) as count "
-            f"FROM payments p "
-            f"LEFT JOIN invoices i ON i.id=p.invoice_id "
-            f"WHERE p.payment_date BETWEEN %s AND %s "
-            f"AND i.id IS NOT NULL "
-            f"AND COALESCE(i.paid_date, i.issued) NOT BETWEEN %s AND %s "
-            f"{bw_p}",
+            f"SELECT COALESCE(SUM(i.amount_paid),0) as total, COUNT(*) as count "
+            f"FROM invoices i "
+            f"WHERE i.issued BETWEEN %s AND %s "
+            f"AND i.status='paid' "
+            f"AND (i.paid_date IS NULL OR i.paid_date NOT BETWEEN %s AND %s) "
+            f"{bw_i}",
             (date_from, date_to, date_from, date_to) + bp)
         timing_row = cur.fetchone()
         timing_diff_total = float(timing_row['total'])
         timing_diff_count = int(timing_row['count'])
 
+        # 4. Invoices with partial payments (amount_paid > 0 but status != paid)
+        cur.execute(
+            f"SELECT COALESCE(SUM(i.amount_paid),0) as total, COUNT(*) as count "
+            f"FROM invoices i "
+            f"WHERE COALESCE(i.paid_date, i.issued) BETWEEN %s AND %s "
+            f"AND i.amount_paid > 0 AND i.status != 'paid' "
+            f"{bw_i}",
+            (date_from, date_to) + bp)
+        partial_row = cur.fetchone()
+        partial_total = float(partial_row['total'])
+        partial_count = int(partial_row['count'])
+
         gap = round(payments_total - invoices_paid_total, 2)
 
         return jsonify({
-            'payments_total':       payments_total,
-            'payments_count':       payments_count,
-            'invoices_paid_total':  invoices_paid_total,
-            'invoices_count':       invoices_count,
-            'gap':                  gap,
-            'unlinked_payments':    {'total': unlinked_total, 'count': unlinked_count},
-            'timing_diff':          {'total': timing_diff_total, 'count': timing_diff_count},
+            'payments_total':      payments_total,
+            'payments_count':      payments_count,
+            'invoices_paid_total': invoices_paid_total,
+            'invoices_count':      invoices_count,
+            'gap':                 gap,
+            'timing_diff':         {'total': timing_diff_total, 'count': timing_diff_count},
+            'partial_payments':    {'total': partial_total,     'count': partial_count},
         })
     except Exception as e:
         print('income_reconcile error:', e)
