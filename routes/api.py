@@ -526,7 +526,7 @@ def update_student(sid):
         fields = get_student_fields(d)
         # Auto-set status_changed_date when moving to paused/inactive
         new_status = fields.get('status','active')
-        if new_status in ('paused','inactive') and not fields.get('status_changed_date'):
+        if not fields.get('status_changed_date'):
             cur.execute("SELECT status FROM students WHERE id=%s", (sid,))
             old_row = cur.fetchone()
             if old_row and old_row.get('status') != new_status:
