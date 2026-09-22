@@ -324,28 +324,36 @@ def get_students():
     conn = get_conn(); cur = conn.cursor()
     b = branch_scope()
     q = request.args.get('q','')
+    _hours_sq = """(
+        SELECT ROUND(COALESCE(SUM(
+            EXTRACT(EPOCH FROM (bs.slot_end::time - bs.slot_start::time))/3600
+        ),0)::numeric,1)
+        FROM student_agreed_slots sas
+        JOIN branch_schedule bs ON bs.id = sas.branch_schedule_id
+        WHERE sas.student_id = s.id AND bs.status='active'
+    ) AS auto_hours"""
     if b:
         if q:
-            cur.execute("""SELECT s.*, b.name as branch_name,
-                s.monthly_fee
+            cur.execute(f"""SELECT s.*, b.name as branch_name,
+                s.monthly_fee, {_hours_sq}
                 FROM students s JOIN branches b ON b.id=s.branch_id
                 WHERE s.branch_id=%s AND (s.name ILIKE %s OR s.admission_id ILIKE %s)
                 ORDER BY s.admission_id""", (b, f'%{q}%', f'%{q}%'))
         else:
-            cur.execute("""SELECT s.*, b.name as branch_name,
-                s.monthly_fee
+            cur.execute(f"""SELECT s.*, b.name as branch_name,
+                s.monthly_fee, {_hours_sq}
                 FROM students s JOIN branches b ON b.id=s.branch_id
                 WHERE s.branch_id=%s ORDER BY s.admission_id""", (b,))
     else:
         if q:
-            cur.execute("""SELECT s.*, b.name as branch_name,
-                s.monthly_fee
+            cur.execute(f"""SELECT s.*, b.name as branch_name,
+                s.monthly_fee, {_hours_sq}
                 FROM students s JOIN branches b ON b.id=s.branch_id
                 WHERE s.name ILIKE %s OR s.admission_id ILIKE %s
                 ORDER BY s.admission_id""", (f'%{q}%', f'%{q}%'))
         else:
-            cur.execute("""SELECT s.*, b.name as branch_name,
-                s.monthly_fee
+            cur.execute(f"""SELECT s.*, b.name as branch_name,
+                s.monthly_fee, {_hours_sq}
                 FROM students s JOIN branches b ON b.id=s.branch_id ORDER BY s.admission_id""")
     data = rows(cur); cur.close(); conn.close()
     return jsonify(data)

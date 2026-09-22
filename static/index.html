@@ -1114,7 +1114,7 @@ return`
 <td><strong>${s.name}</strong></td><td><span class="badge badge-gray">${s.year_group}</span></td>
 <td><span class="badge badge-accent">${s.branch_name||'?'}</span></td>
 <td style="font-weight:600;color:var(--accent);">${s.monthly_fee?'£'+parseFloat(s.monthly_fee).toFixed(0):'—'}</td>
-<td style="color:var(--text3);">${s.hours_per_week?s.hours_per_week+'h':'—'}</td>
+<td style="color:var(--text3);">${(s.auto_hours||s.hours_per_week)?(s.auto_hours||s.hours_per_week)+'h':'—'}</td>
 <td>${statusDot(s.status)}</td>
 <td><div class="row-actions"><button class="btn btn-sm" data-action="edit-student" data-id="${s.id}">Edit</button><button class="btn btn-sm" data-action="reg-form" data-id="${s.id}" title="Contract Form">📄 Contract</button><button class="btn btn-sm" data-action="admission-slip" data-id="${s.id}" title="Admission Slip">📋 Adm Slip</button><button class="btn btn-sm btn-danger" data-action="del-student" data-id="${s.id}">Del</button></div></td>
 </tr>`).join(''):`<tr><td colspan="8"><div class="empty-state">No students found</div></td></tr>`}</tbody>
@@ -1141,7 +1141,7 @@ function renderStudentDatabase(students){
       '<td style="font-size:12px;color:var(--text3);">'+(s.enrolment_date?new Date(s.enrolment_date+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'—')+'</td>'+
       '<td style="font-size:12px;">'+(s.leaving_reason&&(s.status==='paused'||s.status==='inactive')?'<span class="badge badge-gray">'+s.leaving_reason+'</span>':'—')+'</td>'+
       '<td style="font-weight:600;color:var(--accent);">'+(s.monthly_fee?'£'+parseFloat(s.monthly_fee).toFixed(0):'—')+'</td>'+
-      '<td>'+(s.hours_per_week?s.hours_per_week+'h':'—')+'</td>'+
+      '<td>'+((s.auto_hours||s.hours_per_week)?(s.auto_hours||s.hours_per_week)+'h':'—')+'</td>'+
       '<td style="font-size:12px;color:var(--text3);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(s.notes||'—')+'</td>'+
       '</tr>';
   });
@@ -1185,7 +1185,7 @@ function renderStudentProfile(){
     html+='<span style="color:var(--text3);">DOB</span><span>'+dob+'</span>';
     html+='<span style="color:var(--text3);">Gender</span><span>'+(s.gender||'—')+'</span>';
     html+='<span style="color:var(--text3);">School</span><span>'+(s.current_school||'—')+'</span>';
-    html+='<span style="color:var(--text3);">Hours/wk</span><span>'+(s.hours_per_week||'—')+'</span>';
+    html+='<span style="color:var(--text3);">Hours/wk</span><span>'+((s.auto_hours||s.hours_per_week)||'—')+'</span>';
     html+='<span style="color:var(--text3);">Status</span><span>'+(s.status||'—')+'</span>';
     if(s.enrolment_date)html+='<span style="color:var(--text3);">Enrolled</span><span>'+new Date(s.enrolment_date+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})+'</span>';
     if(s.status_changed_date)html+='<span style="color:var(--text3);">'+(s.status==='paused'?'Paused':s.status==='inactive'?'Left':'Reactivated')+'</span><span>'+new Date(s.status_changed_date+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})+'</span>';
