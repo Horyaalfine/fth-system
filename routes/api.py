@@ -2944,12 +2944,20 @@ def get_catchup():
 def add_catchup():
     d = request.json
     conn = get_conn(); cur = conn.cursor()
+    branch_id = d.get('branch_id') or None
+    if not branch_id and d.get('student_id'):
+        cur.execute("SELECT branch_id FROM students WHERE id=%s", (d['student_id'],))
+        sr = cur.fetchone()
+        if sr: branch_id = sr.get('branch_id')
+    if not branch_id:
+        cur.close(); conn.close()
+        return jsonify({'error': 'branch_id is required'}), 400
     cur.execute("""
         INSERT INTO catchup_lessons
             (student_id, branch_id, missed_session_id, missed_date, subject,
              notified_in_advance, notification_notes, status, notes, created_by)
         VALUES (%s,%s,%s,%s,%s,%s,%s,'owed',%s,%s) RETURNING *
-    """, (d['student_id'], d['branch_id'],
+    """, (d['student_id'], branch_id,
           d.get('missed_session_id') or None,
           d['missed_date'], d.get('subject',''),
           d.get('notified_in_advance', False),

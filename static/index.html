@@ -8361,7 +8361,7 @@ if(m==='set-cover-teacher'){
   toast('Cover teacher updated');
 }
 if(m==='add-catchup'){
-  const body={student_id:parseInt(v('f-student-id')),branch_id:parseInt(v('f-branch')),subject:v('f-subject'),missed_date:v('f-missed-date'),missed_session_id:v('f-missed-session')||null,notified_in_advance:v('f-notified')==='true',notification_notes:v('f-notes')};
+  const body={student_id:parseInt(v('f-student-id')),branch_id:parseInt(v('f-branch'))||parseInt(state.currentBranch)||null,subject:v('f-subject'),missed_date:v('f-missed-date'),missed_session_id:v('f-missed-session')||null,notified_in_advance:v('f-notified')==='true',notification_notes:v('f-notes')};
   if(!body.student_id||!body.missed_date){toast('Student and missed date required','error');return;}
   await API.post('/api/catchup',body);
   toast('Catch-up logged');
