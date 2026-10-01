@@ -2369,7 +2369,7 @@ function renderInvoices(){
 
   // Apply all filters
   let filtered=invs;
-  if(f==='unpaid') filtered=filtered.filter(i=>i.status!=='paid'); else if(f==='unpaid') filtered=filtered.filter(i=>i.status!=='paid'); else if(f!=='all') filtered=filtered.filter(i=>i.status===f);
+  if(f==='unpaid') filtered=filtered.filter(i=>i.status!=='paid'); else if(f==='overdue') filtered=filtered.filter(i=>i.status==='overdue'||(i.status!=='paid'&&i.due_date&&new Date(i.due_date)<new Date())); else if(f!=='all') filtered=filtered.filter(i=>i.status===f);
   if(feeFilter!=='all') filtered=filtered.filter(i=>(i.fee_type||'monthly_fee')===feeFilter);
   if(monthFilter) filtered=filtered.filter(i=>i.month===monthFilter);
   if(searchTerm) filtered=filtered.filter(i=>
