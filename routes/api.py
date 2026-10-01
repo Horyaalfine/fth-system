@@ -6441,10 +6441,10 @@ def report_daily_activity():
 
         # Invoices issued
         cur.execute(f"""
-            SELECT i.invoice_date, s.name as student_name, s.admission_id,
+            SELECT i.issued as invoice_date, s.name as student_name, s.admission_id,
                    i.amount, i.status, i.month
             FROM invoices i JOIN students s ON s.id=i.student_id
-            WHERE i.invoice_date=%s{' AND i.branch_id=%s' if b else ''}
+            WHERE i.issued=%s{' AND i.branch_id=%s' if b else ''}
             ORDER BY s.name
         """, (report_date,)+(b,) if b else (report_date,))
         invoices = [dict(r) for r in cur.fetchall()]
