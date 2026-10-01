@@ -909,7 +909,7 @@ else if(page==='student_progress'){
     ]);
   }
 }
-else if(page==='staff_timesheets'){await Promise.all([loadData('sessions','/api/sessions',b),loadData('staff','/api/staff',b),loadData('staff_att_summary','/api/staff-attendance/summary',{...b,month:state.staffAttMonth||new Date().toISOString().slice(0,7)}),loadData('staff_att','/api/staff-attendance',{...b,month:state.staffAttMonth||new Date().toISOString().slice(0,7)})]);}else if(page==='finance'){const mp=state.finMonth?{month:state.finMonth}:{};await Promise.all([loadData('students','/api/students',b),loadData('invoices','/api/invoices',b),loadData('adjustments','/api/adjustments',b),loadData('payments','/api/payments',{...b,...mp}),loadData('instalment_plans','/api/instalment-plans',b),loadData('payment_summary','/api/payments/summary',{...b,...mp}),
+else if(page==='staff_timesheets'){await Promise.all([loadData('sessions','/api/sessions',b),loadData('staff','/api/staff',b),loadData('staff_att_summary','/api/staff-attendance/summary',{...b,month:state.staffAttMonth||new Date().toISOString().slice(0,7)}),loadData('staff_att','/api/staff-attendance',{...b,month:state.staffAttMonth||new Date().toISOString().slice(0,7)})]);}else if(page==='finance'){const mp=state.finMonth?{month:state.finMonth}:{};const _r=state.currentUser?.role;const _isNet=!state.currentBranch&&(_r==='super_admin'||_r==='head_of_branches');const _netLoads=_isNet?[loadData('fin_network','/api/finance/network-summary',mp)]:[];await Promise.all([loadData('students','/api/students',b),loadData('invoices','/api/invoices',b),loadData('adjustments','/api/adjustments',b),loadData('payments','/api/payments',{...b,...mp}),loadData('instalment_plans','/api/instalment-plans',b),loadData('payment_summary','/api/payments/summary',{...b,...mp}),..._netLoads,
     loadData('hq_transfers','/api/hq-transfers',b),
     loadData('hq_summary','/api/hq-transfers/summary')]);if(state.finStudentId)state.data['statement_'+state.finStudentId]=await API.get('/api/statement/'+state.finStudentId).catch(()=>null);}else if(page==='reports'||page==='att_report_page'){
     var _rngParams=Object.assign({},b,_analyticsDateParams());
@@ -3163,6 +3163,7 @@ function renderFinance(){
       <div class="tab ${tab==='instalments'?'active':''}" data-action="fin-tab" data-tab="instalments">Instalment plans</div>
       <div class="tab ${tab==='hq'?'active':''}" data-action="fin-tab" data-tab="hq">HQ Transfers</div>
       <div class="tab ${tab==='adjustments'?'active':''}" data-action="fin-tab" data-tab="adjustments">Adjustments</div>
+      ${(!state.currentBranch&&(state.currentUser?.role==='super_admin'||state.currentUser?.role==='head_of_branches'))?`<div class="tab ${tab==='network'?'active':''}" data-action="fin-tab" data-tab="network" style="color:var(--accent);">🌐 Network Overview</div>`:''}
     </div>
     <div style="display:flex;gap:8px;align-items:center;">
       <input type="month" id="fin-month-filter" value="${state.finMonth||''}" style="border:1px solid var(--border2);border-radius:var(--radius);padding:7px 10px;font-family:var(--font);font-size:13px;background:var(--surface2);color:var(--text);outline:none;">
@@ -3334,6 +3335,60 @@ function renderFinance(){
   </table></div></div>
   <div style="margin-top:8px;font-size:11px;color:var(--text3);">Discounts/corrections/write-offs increase the amount owed reduction; Credits reduce the balance (shown with -£). Use Discount for reduced fees, Credit for goodwill credit, Correction to fix errors, Write-off for bad debt.</div>
   `:''}
+
+
+  ${tab==='network'?(()=>{
+    const net=state.data.fin_network||{};
+    const brs=net.branches||[];
+    const tot=net.totals||{};
+    const m=state.finMonth||'';
+    const fmt=n=>'£'+(n||0).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const collRate=tot.total_invoiced?Math.round(tot.cash_received/tot.total_invoiced*100):0;
+    if(!brs.length)return'<div class="empty-state" style="padding:40px;">Loading network data…</div>';
+    return`
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;">
+  <div class="metric-card"><div class="metric-label">Total invoiced</div><div class="metric-value" style="color:var(--accent);">${fmt(tot.total_invoiced)}</div><div class="metric-sub">All branches · charges raised</div></div>
+  <div class="metric-card"><div class="metric-label">Cash received</div><div class="metric-value" style="color:var(--success-text);">${fmt(tot.cash_received)}</div><div class="metric-sub">Payments entered across all branches</div></div>
+  <div class="metric-card"><div class="metric-label">Outstanding</div><div class="metric-value" style="color:var(--danger-text);">${fmt(tot.outstanding)}</div><div class="metric-sub">Unpaid invoice balances · network total</div></div>
+  <div class="metric-card"><div class="metric-label">Collection rate</div><div class="metric-value" style="color:${collRate>=80?'var(--success-text)':collRate>=60?'var(--amber-text)':'var(--danger-text)'};">${collRate}%</div><div class="metric-sub">Cash received ÷ invoiced · network</div></div>
+</div>
+<div class="card" style="padding:0;overflow:hidden;">
+  <div style="padding:14px 18px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+    <div style="font-weight:700;font-size:14px;color:var(--text);">Branch breakdown${m?' — '+m:' — all time'}</div>
+    <div style="font-size:12px;color:var(--text3);">${tot.active_students||0} active students · ${tot.invoice_count||0} invoices</div>
+  </div>
+  <div class="table-wrap"><table class="data-table">
+    <thead><tr>
+      <th>Branch</th><th>Students</th><th>Invoiced</th><th>Received</th><th>Outstanding</th><th>Invoices</th><th>Collection %</th>
+    </tr></thead>
+    <tbody>
+      ${brs.map(br=>{
+        const cr=br.total_invoiced?Math.round(br.cash_received/br.total_invoiced*100):0;
+        return'<tr>'+
+          '<td><strong>'+br.branch_name+'</strong></td>'+
+          '<td>'+br.active_students+'</td>'+
+          '<td>'+fmt(br.total_invoiced)+'</td>'+
+          '<td style="color:var(--success-text);font-weight:500;">'+fmt(br.cash_received)+'</td>'+
+          '<td style="color:'+(br.outstanding>0?'var(--danger-text)':'var(--text3)')+';font-weight:500;">'+fmt(br.outstanding)+'</td>'+
+          '<td style="color:var(--text2);">'+br.paid_count+' paid · '+br.unpaid_count+' unpaid</td>'+
+          '<td><div style="display:flex;align-items:center;gap:8px;"><div class="bar-bg" style="width:70px;"><div class="bar-fill" style="width:'+cr+'%;background:'+(cr>=80?'var(--success)':cr>=60?'var(--amber)':'var(--danger)')+'"></div></div><span style="font-size:12px;font-weight:600;color:'+(cr>=80?'var(--success-text)':cr>=60?'var(--amber-text)':'var(--danger-text)')+';">'+cr+'%</span></div></td>'+
+        '</tr>';
+      }).join('')}
+      <tr style="background:var(--surface2);font-weight:700;border-top:2px solid var(--border);">
+        <td>TOTAL</td>
+        <td>${tot.active_students||0}</td>
+        <td>${fmt(tot.total_invoiced)}</td>
+        <td style="color:var(--success-text);">${fmt(tot.cash_received)}</td>
+        <td style="color:var(--danger-text);">${fmt(tot.outstanding)}</td>
+        <td>${tot.paid_count||0} paid · ${tot.unpaid_count||0} unpaid</td>
+        <td style="color:${collRate>=80?'var(--success-text)':collRate>=60?'var(--amber-text)':'var(--danger-text)'};">${collRate}%</td>
+      </tr>
+    </tbody>
+  </table></div>
+</div>
+<div style="margin-top:10px;font-size:12px;color:var(--text3);">🔒 Network overview — visible to super_admin and head_of_branches only · not shown when a specific branch is selected</div>
+`;
+  })():''}
 
   ${tab==='instalments'?`
   <div class="card" style="padding:0;overflow:hidden;"><div class="table-wrap"><table>

@@ -6900,3 +6900,68 @@ def delete_safeguarding(cid):
     cur.execute("DELETE FROM safeguarding_concerns WHERE id=%s", (cid,))
     conn.commit(); cur.close(); conn.close()
     return jsonify({'ok': True})
+
+# ── Network Finance Summary (super_admin / head_of_branches, all-branches only) ──
+@api_bp.route('/api/finance/network-summary', methods=['GET'])
+@require_roles('super_admin', 'head_of_branches')
+def finance_network_summary():
+    """Cross-branch finance P&L — never branch-scoped."""
+    month = request.args.get('month', '')  # optional YYYY-MM filter
+    conn = get_conn(); cur = conn.cursor()
+
+    mw = " AND TO_CHAR(i.issued,'YYYY-MM')=%s" if month else ""
+    pw = " AND TO_CHAR(p.payment_date,'YYYY-MM')=%s" if month else ""
+    mp = (month,) if month else ()
+
+    cur.execute(f"""
+        SELECT
+            br.id                                                   AS branch_id,
+            br.name                                                 AS branch_name,
+            COALESCE(SUM(i.amount), 0)                             AS total_invoiced,
+            COALESCE(SUM(i.amount_paid), 0)                        AS total_received_inv,
+            COALESCE(SUM(CASE WHEN i.status!='paid'
+                THEN i.amount - COALESCE(i.amount_paid,0) ELSE 0 END), 0) AS outstanding,
+            COUNT(i.id)                                             AS invoice_count,
+            COUNT(CASE WHEN i.status='paid' THEN 1 END)            AS paid_count,
+            COUNT(CASE WHEN i.status!='paid' THEN 1 END)           AS unpaid_count
+        FROM branches br
+        LEFT JOIN invoices i ON i.branch_id=br.id{mw}
+        WHERE br.status='active'
+        GROUP BY br.id, br.name
+        ORDER BY br.name
+    """, mp)
+    branches = [dict(r) for r in cur.fetchall()]
+
+    # Payments received (cash-in) per branch
+    cur.execute(f"""
+        SELECT p.branch_id, COALESCE(SUM(p.amount),0) as cash_received,
+               COUNT(*) as payment_count
+        FROM payments p{pw.replace(' AND ','  WHERE ')}
+        GROUP BY p.branch_id
+    """, mp)
+    pay_map = {r['branch_id']: {'cash_received': float(r['cash_received']), 'payment_count': r['payment_count']} for r in cur.fetchall()}
+
+    # Active student count per branch
+    cur.execute("SELECT branch_id, COUNT(*) as c FROM students WHERE status='active' GROUP BY branch_id")
+    stu_map = {r['branch_id']: r['c'] for r in cur.fetchall()}
+
+    for b in branches:
+        for k in ('total_invoiced','total_received_inv','outstanding'):
+            b[k] = float(b[k])
+        pm = pay_map.get(b['branch_id'], {})
+        b['cash_received']  = pm.get('cash_received', 0.0)
+        b['payment_count']  = pm.get('payment_count', 0)
+        b['active_students']= stu_map.get(b['branch_id'], 0)
+
+    totals = {
+        'total_invoiced':  sum(b['total_invoiced']  for b in branches),
+        'cash_received':   sum(b['cash_received']   for b in branches),
+        'outstanding':     sum(b['outstanding']     for b in branches),
+        'invoice_count':   sum(b['invoice_count']   for b in branches),
+        'paid_count':      sum(b['paid_count']      for b in branches),
+        'unpaid_count':    sum(b['unpaid_count']    for b in branches),
+        'active_students': sum(b['active_students'] for b in branches),
+    }
+
+    cur.close(); conn.close()
+    return jsonify({'branches': branches, 'totals': totals, 'month': month})
