@@ -2487,6 +2487,7 @@ def get_student_timetable():
                 'year_group': a['year_group'],
                 'branch_id': a['branch_id'],
                 'day_type': dt,
+                'day_of_week': dow,
                 'slot': slot_lbl,
                 'subject': a['subject'],
                 'slot_start': str(a['slot_start'])[:5],

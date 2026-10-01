@@ -3727,35 +3727,24 @@ function renderSessionPlan(){
     var regSubject=state.regSubject||'';
     // Build filter options — use all_timetables directly (includes agreed_slots for all days)
     var _regTT=state.data.all_timetables||[];
-    // Also include branch_schedule sessions so all configured days/slots appear even with 0 students
-    var _regBsSlots=[];
-    var _regBsByDt={};
+    // Build day options from actual branch_schedule day_of_week (not generic weekday/saturday grouping)
+    var _DOW_ORDER=['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+    var _DOW_LABEL={monday:'Monday',tuesday:'Tuesday',wednesday:'Wednesday',thursday:'Thursday',friday:'Friday',saturday:'Saturday',sunday:'Sunday'};
+    var _regBsByDow={};
     (state.data.branch_schedule||[]).filter(function(s){return s.status==='active';}).forEach(function(s){
-      var dt=s.day_of_week==='saturday'?'saturday':s.day_of_week==='sunday'?'sunday':'weekday';
-      _regBsByDt[dt]=_regBsByDt[dt]||[];
-      _regBsByDt[dt].push(s);
+      _regBsByDow[s.day_of_week]=_regBsByDow[s.day_of_week]||[];
+      _regBsByDow[s.day_of_week].push(s);
     });
-    var _regDtDisplay={saturday:'Saturday',sunday:'Sunday',weekday:'Weekday'};
-    Object.keys(_regBsByDt).forEach(function(dt){
-      var seen={};
-      _regBsByDt[dt].slice().sort(function(a,b){return String(a.slot_start).localeCompare(String(b.slot_start));}).forEach(function(s){
-        var tk=String(s.slot_start).slice(0,5)+'-'+String(s.slot_end).slice(0,5);
-        if(!seen[tk]){seen[tk]=Object.keys(seen).length+1;}
-        var lbl=_regDtDisplay[dt]+' Session '+seen[tk]+' ('+tk+')';
-        if(_regBsSlots.findIndex(function(x){return x.day_type===dt&&x.slot===lbl;})<0)
-          _regBsSlots.push({day_type:dt,slot:lbl});
-      });
-    });
-    var _regTTDayTypes=new Set(_regTT.map(function(t){return t.day_type;}));
-    var _regTTSlotSet=new Set(_regTT.map(function(t){return t.slot;}));
-    _regBsSlots.forEach(function(b){_regTTDayTypes.add(b.day_type);});
-    var dayTypes=[..._regTTDayTypes].sort();
-    var _bsSlotsForFilter=_regBsSlots.filter(function(b){return (!regDay||b.day_type===regDay)&&!_regTTSlotSet.has(b.slot);}).map(function(b){return b.slot;});
-    var allSlots=[...new Set(_regTT.filter(function(t){return !regDay||t.day_type===regDay;}).map(function(t){return t.slot;}))].concat(_bsSlotsForFilter).sort();
-    var allSubjects=[...new Set(_regTT.filter(function(t){return (!regDay||t.day_type===regDay)&&(!regSlot||t.slot===regSlot);}).map(function(t){return t.subject;}))].sort();
+    // Active days in calendar order (only days that have branch_schedule slots)
+    var activeDays=_DOW_ORDER.filter(function(d){return _regBsByDow[d]&&_regBsByDow[d].length>0;});
+    // Helper: get effective day-of-week for a timetable row
+    var _getDow=function(t){return t.day_of_week||t.day_type;};
+    // Sessions available for selected day (from timetable data)
+    var allSlots=[...new Set(_regTT.filter(function(t){return !regDay||_getDow(t)===regDay;}).map(function(t){return t.slot;}))].sort();
+    var allSubjects=[...new Set(_regTT.filter(function(t){return (!regDay||_getDow(t)===regDay)&&(!regSlot||t.slot===regSlot);}).map(function(t){return t.subject;}))].sort();
     // Filter
     var filtered=_regTT.filter(function(t){
-      return (!regDay||t.day_type===regDay)&&(!regSlot||t.slot===regSlot)&&(!regSubject||t.subject===regSubject);
+      return (!regDay||_getDow(t)===regDay)&&(!regSlot||t.slot===regSlot)&&(!regSubject||t.subject===regSubject);
     });
     // Summary — count distinct students per subject, not rows
     var subjCounts={};
@@ -3767,8 +3756,8 @@ function renderSessionPlan(){
     var _filteredDistinct=new Set(filtered.map(function(t){return t.student_id;})).size;
     html+='<div class="card" style="margin-bottom:14px;">';
     html+='<div class="form-grid">';
-    html+='<div class="field"><label>Day type</label><select id="reg-day-filter"><option value="">All days</option>';
-    dayTypes.forEach(function(d){html+='<option value="'+d+'" '+(d===regDay?'selected':'')+'>'+d.charAt(0).toUpperCase()+d.slice(1)+'</option>';});
+    html+='<div class="field"><label>Day</label><select id="reg-day-filter"><option value="">All days</option>';
+    activeDays.forEach(function(d){html+='<option value="'+d+'" '+(d===regDay?'selected':'')+'>'+(_DOW_LABEL[d]||d.charAt(0).toUpperCase()+d.slice(1))+'</option>';});
     html+='</select></div>';
     html+='<div class="field"><label>Session</label><select id="reg-slot-filter"><option value="">All sessions</option>';
     allSlots.forEach(function(s){html+='<option value="'+s+'" '+(s===regSlot?'selected':'')+'>'+s+'</option>';});
@@ -3859,7 +3848,7 @@ function renderSessionPlan(){
         html+='<td style="font-size:12px;color:var(--text3);">'+(t.admission_id||'—')+'</td>';
         html+='<td style="font-weight:500;">'+(t.student_name||'—')+'</td>';
         html+='<td>'+(t.year_group||'—')+'</td>';
-        html+='<td>'+t.day_type.charAt(0).toUpperCase()+t.day_type.slice(1)+'</td>';
+        var _tdow=t.day_of_week||t.day_type;html+='<td>'+(_DOW_LABEL[_tdow]||_tdow.charAt(0).toUpperCase()+_tdow.slice(1))+'</td>';
         html+='<td style="font-size:12px;">'+t.slot+'</td>';
         html+='<td><span class="badge badge-gray">'+t.subject+'</span></td>';
         var _stuE=_regTT.filter(function(x){return x.student_id===t.student_id;});
