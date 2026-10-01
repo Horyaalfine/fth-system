@@ -417,7 +417,7 @@ function exportXLSX(rows, filename, sheetName){
   }
 }
 
-let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',invTab:'list',invFeeFilter:'all',invMonthFilter:'',tsFilterStaff:'',tsFilterRole:'',tsFilterStatus:'',tsFilterDate:'',tsWorkedOnly:false,lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',sessionMonth:'',sessionDate:'',sessionSlot:'',sessionTeacher:'',sessionSubject:'',attTab:'quick',attDateFilter:'',attSlotFilter:'',qaDate:'',qaSlot:'',qaStatusFilter:'all',qaRecords:{},wpWeek:'',attAllSessions:'',attTeacherFilter:'',attStatusFilter:'all',planSessionId:null,planMonth:'',planTab:'allocate',timetableStudentId:null,mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:'',reportsTab:'analytics',analyticsRange:'year'};
+let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',invTab:'list',invFeeFilter:'all',invMonthFilter:'',tsFilterStaff:'',tsFilterRole:'',tsFilterStatus:'',tsFilterDate:'',tsWorkedOnly:false,lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',sessionMonth:'',sessionDate:'',sessionSlot:'',sessionTeacher:'',sessionSubject:'',sessionPage:0,attTab:'quick',attDateFilter:'',attSlotFilter:'',qaDate:'',qaSlot:'',qaStatusFilter:'all',qaRecords:{},wpWeek:'',attAllSessions:'',attTeacherFilter:'',attStatusFilter:'all',planSessionId:null,planMonth:'',planTab:'allocate',timetableStudentId:null,mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:'',reportsTab:'analytics',analyticsRange:'year'};
 
 function printStudentRegister(){
   var _regTT=state.data.all_timetables||[];
@@ -746,6 +746,34 @@ function roleBadge(role){const m={super_admin:['badge-purple','Super admin'],bra
 function statusDot(s){return s==='active'?`<span class="dot dot-green"></span><span style="color:var(--success-text)">Active</span>`:`<span class="dot dot-red"></span><span style="color:var(--danger-text)">Inactive</span>`;}
 function avatarInitials(name){return(name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();}
 function _genPw(fieldId){var chars='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';var pw=Array.from(crypto.getRandomValues(new Uint8Array(12))).map(function(b){return chars[b%chars.length];}).join('');var el=document.getElementById(fieldId);el.value=pw;el.type='text';}
+function _initSearchSelects(){
+  document.querySelectorAll('select').forEach(function(sel){
+    if(sel.options.length<16)return;
+    if(sel.dataset.noSearch)return;
+    if(sel.parentElement&&sel.parentElement.classList.contains('srch-sel-wrap'))return;
+    var wrap=document.createElement('div');
+    wrap.className='srch-sel-wrap';
+    wrap.style.cssText='position:relative;';
+    sel.parentNode.insertBefore(wrap,sel);
+    var inp=document.createElement('input');
+    inp.type='text';
+    inp.placeholder='Type to search...';
+    inp.className='form-control';
+    inp.style.cssText='font-size:12px;padding:5px 10px;margin-bottom:4px;';
+    inp.setAttribute('autocomplete','off');
+    inp.oninput=function(){
+      var q=this.value.toLowerCase().trim();
+      var first=true;
+      Array.from(sel.options).forEach(function(o){
+        var show=!q||o.text.toLowerCase().includes(q);
+        o.hidden=!show;
+        if(show&&first&&q){sel.value=o.value;first=false;}
+      });
+    };
+    wrap.appendChild(inp);
+    wrap.appendChild(sel);
+  });
+}
 function isSuperAdmin(){return state.currentUser&&(state.currentUser.role==='super_admin'||state.currentUser.role==='reports_viewer');}
 function branchField(branches,defBranch){if(!isSuperAdmin())return'';const brOpts=branches.map(function(b){return'<option value="'+b.id+'" '+(defBranch==b.id?'selected':'')+'>'+b.name+'</option>';}).join('');return'<div class="field"><label>Branch</label><select id="f-branch">'+brOpts+'</select></div>';}
 function getBranchId(branches,defBranch){if(!isSuperAdmin())return defBranch;return parseInt(document.getElementById('f-branch')?.value)||defBranch;}
@@ -1532,6 +1560,11 @@ function renderSessions(){
   const activeFilters=[sessMonth,sessDate,sessSlot,sessTeacher,sessSubject].filter(Boolean).length;
 
   var html='';
+  var _SZ=10;
+  var _pg=state.sessionPage||0;
+  var _totPg=Math.max(1,Math.ceil(groupedDates.length/_SZ));
+  if(_pg>=_totPg)_pg=_totPg-1;
+  var _pageDates=groupedDates.slice(_pg*_SZ,(_pg+1)*_SZ);
   html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">';
   html+='<div><div class="section-title">Sessions</div>';
   const uniqueSlots=[...new Set(filtered.map(function(s){return s.date+'|'+s.slot;}))];
@@ -1589,7 +1622,7 @@ function renderSessions(){
     html+='<div class="empty-state" style="padding:40px;">No sessions match these filters.</div>';
   }
 
-  groupedDates.forEach(function(date){
+  _pageDates.forEach(function(date){
     const daySessions=byDate[date];
     const dayLabel=new Date(date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
     const dayPresent=daySessions.reduce(function(s,x){return s+(x.present_count||0);},0);
@@ -1674,6 +1707,14 @@ function renderSessions(){
     html+='</div></div>';
   });
 
+  // Pagination controls
+  if(_totPg>1){
+    html+='<div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:20px;padding:12px;border-top:1px solid var(--border);">';
+    html+='<button class="btn btn-sm" data-action="sess-page-prev"'+((_pg===0)?' disabled':'')+' style="'+(_pg===0?'opacity:0.4;':'')+'">← Prev</button>';
+    html+='<span style="font-size:13px;color:var(--text2);">Page '+(_pg+1)+' of '+_totPg+' <span style="color:var(--text3);font-size:11px;">('+groupedDates.length+' dates total)</span></span>';
+    html+='<button class="btn btn-sm" data-action="sess-page-next"'+((_pg>=_totPg-1)?' disabled':'')+' style="'+(_pg>=_totPg-1?'opacity:0.4;':'')+'">Next →</button>';
+    html+='</div>';
+  }
   // Also fix the count in the sub-header to show slot count not table count
   // (already done above via slotKeys.length)
   return html;
@@ -8501,7 +8542,7 @@ function bindAll(){bindNav();document.querySelectorAll('[data-action]').forEach(
 // Clear any validation highlights when modal first opens
 document.querySelectorAll('.modal-body input, .modal-body select, .modal-body textarea').forEach(el=>{
   el.addEventListener('focus',()=>{el.style.border='';el.style.boxShadow='';});
-});document.getElementById('modal-backdrop')?.addEventListener('click',e=>{if(e.target.id==='modal-backdrop')closeModal();});document.getElementById('modal-save')?.addEventListener('click',doSave);
+});document.getElementById('modal-backdrop')?.addEventListener('click',e=>{if(e.target.id==='modal-backdrop')closeModal();});document.getElementById('modal-save')?.addEventListener('click',doSave);_initSearchSelects();
 document.getElementById('modal-delete')?.addEventListener('click',async function(){
   if(!state.editTarget?.id) return;
   if(state.modal==='edit-adjustment'){
@@ -8651,14 +8692,14 @@ document.getElementById('f-first-name')?.addEventListener('input',()=>{
   document.getElementById('f-first-name').style.boxShadow='';
 });
 document.getElementById('fin-month-filter')?.addEventListener('change',e=>{state.finMonth=e.target.value||'';refreshPage();});
-document.getElementById('session-month-filter')?.addEventListener('change',function(e){state.sessionMonth=e.target.value;state.sessionDate='';state.sessionSlot='';state.sessionTeacher='';state.sessionSubject='';render();});
-document.getElementById('session-date-filter')?.addEventListener('change',function(e){state.sessionDate=e.target.value;state.sessionSlot='';state.sessionTeacher='';state.sessionSubject='';render();});
-document.getElementById('session-slot-filter')?.addEventListener('change',function(e){state.sessionSlot=e.target.value;state.sessionTeacher='';state.sessionSubject='';render();});
-document.getElementById('session-teacher-filter')?.addEventListener('change',function(e){state.sessionTeacher=e.target.value;state.sessionSubject='';render();});
-document.getElementById('session-subject-filter')?.addEventListener('change',function(e){state.sessionSubject=e.target.value;render();});
-document.getElementById('session-slot-filter')?.addEventListener('change',function(e){state.sessionSlot=e.target.value;state.sessionTeacher='';state.sessionSubject='';render();});
-document.getElementById('session-teacher-filter')?.addEventListener('change',function(e){state.sessionTeacher=e.target.value;state.sessionSubject='';render();});
-document.getElementById('session-subject-filter')?.addEventListener('change',function(e){state.sessionSubject=e.target.value;render();});
+document.getElementById('session-month-filter')?.addEventListener('change',function(e){state.sessionMonth=e.target.value;state.sessionDate='';state.sessionSlot='';state.sessionTeacher='';state.sessionSubject='';state.sessionPage=0;render();});
+document.getElementById('session-date-filter')?.addEventListener('change',function(e){state.sessionDate=e.target.value;state.sessionSlot='';state.sessionTeacher='';state.sessionSubject='';state.sessionPage=0;render();});
+document.getElementById('session-slot-filter')?.addEventListener('change',function(e){state.sessionSlot=e.target.value;state.sessionTeacher='';state.sessionSubject='';state.sessionPage=0;render();});
+document.getElementById('session-teacher-filter')?.addEventListener('change',function(e){state.sessionTeacher=e.target.value;state.sessionSubject='';state.sessionPage=0;render();});
+document.getElementById('session-subject-filter')?.addEventListener('change',function(e){state.sessionSubject=e.target.value;state.sessionPage=0;render();});
+document.getElementById('session-slot-filter')?.addEventListener('change',function(e){state.sessionSlot=e.target.value;state.sessionTeacher='';state.sessionSubject='';state.sessionPage=0;render();});
+document.getElementById('session-teacher-filter')?.addEventListener('change',function(e){state.sessionTeacher=e.target.value;state.sessionSubject='';state.sessionPage=0;render();});
+document.getElementById('session-subject-filter')?.addEventListener('change',function(e){state.sessionSubject=e.target.value;state.sessionPage=0;render();});
 document.getElementById('fin-student-select')?.addEventListener('change',async e=>{
   state.finStudentId=e.target.value?parseInt(e.target.value):null;
   if(state.finStudentId){state.data['statement_'+state.finStudentId]=await API.get('/api/statement/'+state.finStudentId).catch(()=>null);}
@@ -10173,7 +10214,9 @@ if(action==='reset-user-pw'){state.modal='reset-user-pw';state.editTarget=(state
 if(action==='change-password'){state.modal='change-password';state.editTarget=null;render();return;}
 if(action==='add-hq-transfer'){state.modal='add-hq-transfer';state.editTarget=null;render();return;}
 if(action==='del-hq-transfer'){if(!confirm('Delete this transfer record?'))return;await API.delete('/api/hq-transfers/'+id);toast('Transfer deleted');refreshPage();return;}
-if(action==='session-clear-filters'){state.sessionMonth='';state.sessionDate='';state.sessionSlot='';state.sessionTeacher='';state.sessionSubject='';render();return;}
+if(action==='session-clear-filters'){state.sessionMonth='';state.sessionDate='';state.sessionSlot='';state.sessionTeacher='';state.sessionSubject='';state.sessionPage=0;render();return;}
+if(action==='sess-page-prev'){if((state.sessionPage||0)>0){state.sessionPage=(state.sessionPage||0)-1;render();}return;}
+if(action==='sess-page-next'){state.sessionPage=(state.sessionPage||0)+1;render();return;}
 if(action==='fin-tab'){state.finTab=el.dataset.tab;render();return;}
 if(action==='fin-method-filter'){state.finMethod=el.dataset.method||null;state.finTab='accounts';render();return;}
 if(action==='fin-clear-month'){state.finMonth='';refreshPage();return;}
