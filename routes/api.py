@@ -5808,6 +5808,53 @@ def dashboard_action_items():
             'nav': 'test_records',
         })
 
+    # 6. Active students with no agreed sessions
+    cur.execute(f"""
+        SELECT COUNT(*) as c FROM students s
+        LEFT JOIN student_agreed_slots sas ON sas.student_id = s.id
+        WHERE s.status='active' {bw2}
+        GROUP BY () HAVING COUNT(sas.id)=0
+    """, p)
+    # Use a simpler approach
+    cur.execute(f"""
+        SELECT COUNT(*) as c FROM students s
+        WHERE s.status='active' {bw2}
+        AND NOT EXISTS (
+            SELECT 1 FROM student_agreed_slots sas WHERE sas.student_id=s.id
+        )
+    """, p)
+    no_sess = cur.fetchone()
+    if no_sess and no_sess['c']:
+        items.append({
+            'type': 'no_sessions',
+            'severity': 'high' if no_sess['c'] > 5 else 'medium',
+            'title': f"{no_sess['c']} active student{'s' if no_sess['c']>1 else ''} with no timetable",
+            'detail': "No agreed sessions set — won't appear in lesson plan or registers",
+            'nav': 'branch_operation',
+        })
+
+    # 7. Active students missing parent contact (no mobile and no email)
+    cur.execute(f"""
+        SELECT COUNT(*) as c FROM students
+        WHERE status='active' {bw2}
+        AND (carer1_mobile IS NULL OR carer1_mobile='')
+        AND (carer1_telephone IS NULL OR carer1_telephone='')
+        AND (carer1_email IS NULL OR carer1_email='')
+    """, p)
+    no_contact = cur.fetchone()
+    if no_contact and no_contact['c']:
+        items.append({
+            'type': 'data_quality',
+            'severity': 'medium',
+            'title': f"{no_contact['c']} student{'s' if no_contact['c']>1 else ''} with no parent contact",
+            'detail': "No mobile or email on record — can't reach parents",
+            'nav': 'students',
+        })
+
+    # Sort: high severity first, then medium, then low
+    sev_order = {'high': 0, 'medium': 1, 'low': 2}
+    items.sort(key=lambda x: sev_order.get(x.get('severity','low'), 2))
+
     cur.close(); conn.close()
     return jsonify({'items': items, 'count': len(items)})
 

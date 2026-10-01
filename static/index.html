@@ -1163,21 +1163,26 @@ ${bs.map((b,i)=>{const pct=b.att_total?Math.round(b.present/b.att_total*100):0;c
 ${(()=>{
   const ai=state.data.action_items||{};
   const items=ai.items||[];
-  if(!items.length) return '<div class="card" style="margin-top:20px;padding:16px;"><div class="card-title" style="margin-bottom:8px;">✅ Action Required</div><div style="color:var(--text3);font-size:13px;padding:10px 0;">All clear — no outstanding actions.</div></div>';
+  if(!items.length) return '<div class="card" style="margin-bottom:16px;padding:12px 16px;display:flex;align-items:center;gap:10px;"><span style="font-size:18px;">✅</span><div><div style="font-size:13px;font-weight:600;color:var(--success-text);">Work Queue — all clear</div><div style="font-size:12px;color:var(--text3);">No outstanding actions</div></div></div>';
   const sevColor={high:'var(--danger)',medium:'var(--amber)',low:'var(--accent)'};
   const sevBg={high:'var(--danger-bg)',medium:'var(--amber-bg)',low:'var(--accent-bg)'};
   const sevLabel={high:'Urgent',medium:'Attention',low:'Info'};
-  const icons={invoices:'💰',catchup:'📅',attendance:'📊',lesson_reports:'📋',test_scores:'📝'};
-  return '<div class="card" style="margin-top:20px;padding:0;overflow:hidden;"><div style="background:var(--danger);padding:12px 16px;display:flex;align-items:center;gap:8px;"><span style="color:#fff;font-weight:700;font-size:14px;">⚠ Action Required</span><span style="background:rgba(255,255,255,0.25);color:#fff;border-radius:12px;padding:2px 8px;font-size:12px;font-weight:700;">'+items.length+'</span></div>'+
-  items.map(item=>'<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;" onclick="if(item.type===\'invoices\')state.invoiceFilter=\'unpaid\';state.page=\''+item.nav+'\';refreshPage();">'+
-    '<span style="font-size:20px;">'+icons[item.type]+'</span>'+
-    '<div style="flex:1;">'+
-      '<div style="font-size:13px;font-weight:600;color:var(--text);">'+item.title+'</div>'+
-      '<div style="font-size:12px;color:var(--text3);margin-top:2px;">'+item.detail+'</div>'+
-    '</div>'+
-    '<span style="font-size:10px;font-weight:700;text-transform:uppercase;padding:3px 8px;border-radius:10px;background:'+sevBg[item.severity]+';color:'+sevColor[item.severity]+';">'+sevLabel[item.severity]+'</span>'+
-    '<span style="color:var(--text3);font-size:16px;">›</span>'+
-  '</div>').join('')+'</div>';
+  const icons={invoices:'💰',catchup:'📅',attendance:'📊',lesson_reports:'📋',test_scores:'📝',no_sessions:'🗓',data_quality:'👤'};
+  var _wqHtml='<div class="card" style="margin-bottom:16px;padding:0;overflow:hidden;"><div style="background:var(--danger);padding:12px 16px;display:flex;align-items:center;gap:8px;"><span style="color:#fff;font-weight:700;font-size:14px;">⚠ Work Queue</span><span style="background:rgba(255,255,255,0.25);color:#fff;border-radius:12px;padding:2px 8px;font-size:12px;font-weight:700;">'+items.length+'</span></div>';
+  items.forEach(function(item){
+    var _navClick="state.page='"+item.nav+"';"+(item.type==='invoices'?"state.invoiceFilter='unpaid';":'')+(item.type==='no_sessions'?"state.branchTab='timetable';":'')+"refreshPage();";
+    _wqHtml+='<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;" onclick="'+_navClick+'">'+
+      '<span style="font-size:20px;">'+(icons[item.type]||'📌')+'</span>'+
+      '<div style="flex:1;">'+
+        '<div style="font-size:13px;font-weight:600;color:var(--text);">'+item.title+'</div>'+
+        '<div style="font-size:12px;color:var(--text3);margin-top:2px;">'+item.detail+'</div>'+
+      '</div>'+
+      '<span style="font-size:10px;font-weight:700;text-transform:uppercase;padding:3px 8px;border-radius:10px;background:'+sevBg[item.severity]+';color:'+sevColor[item.severity]+';">'+sevLabel[item.severity]+'</span>'+
+      '<span style="color:var(--text3);font-size:16px;">›</span>'+
+    '</div>';
+  });
+  _wqHtml+='</div>';
+  return _wqHtml;
 })()}
 `;}
 
