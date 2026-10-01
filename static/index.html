@@ -419,6 +419,84 @@ function exportXLSX(rows, filename, sheetName){
 
 let state={currentUser:null,parentUser:null,currentBranch:null,page:'dashboard',modal:null,editTarget:null,data:{},loading:false,attRecords:{},attSessionId:null,sessionReportId:null,invoiceFilter:'all',studentSearch:'',regTab:'students',staffAttMonth:new Date().toISOString().slice(0,7),staffAttTab:'summary',invTab:'list',invFeeFilter:'all',invMonthFilter:'',tsFilterStaff:'',tsFilterRole:'',tsFilterStatus:'',tsFilterDate:'',tsWorkedOnly:false,lrSessionId:null,lrTab:'report',srTab:'daily',srDate:'',srMonth:'',catchupTab:'owed',sessionMonth:'',sessionDate:'',sessionSlot:'',sessionTeacher:'',sessionSubject:'',attTab:'quick',attDateFilter:'',attSlotFilter:'',qaDate:'',qaSlot:'',qaStatusFilter:'all',qaRecords:{},wpWeek:'',attAllSessions:'',attTeacherFilter:'',attStatusFilter:'all',planSessionId:null,planMonth:'',planTab:'allocate',timetableStudentId:null,mgmtTab:'summary',mgmtDate:new Date().toISOString().slice(0,10),mgmtMonth:new Date().toISOString().slice(0,7),mgmtYear:'',trStudentId:null,trTab:'records',finStudentId:null,finTab:'statement',finMethod:null,finMonth:'',reportsTab:'analytics',analyticsRange:'year'};
 
+function printStudentRegister(){
+  var _regTT=state.data.all_timetables||[];
+  var regDay=state.regDay||'';
+  var regSlot=state.regSlot||'';
+  var regSubject=state.regSubject||'';
+  var _DOW_LABEL={monday:'Monday',tuesday:'Tuesday',wednesday:'Wednesday',thursday:'Thursday',friday:'Friday',saturday:'Saturday',sunday:'Sunday'};
+  var _getDow=function(t){return t.day_of_week||t.day_type;};
+  var filtered=_regTT.filter(function(t){
+    return (!regDay||_getDow(t)===regDay)&&(!regSlot||t.slot===regSlot)&&(!regSubject||t.subject===regSubject);
+  }).sort(function(a,b){return (a.admission_id||'').localeCompare(b.admission_id||'');});
+  var branchName=(state.data.branches||[]).find(function(b){return b.id===state.currentBranch;});
+  branchName=branchName?branchName.name:'';
+  var filterDesc='';
+  if(regDay)filterDesc+=(_DOW_LABEL[regDay]||regDay);
+  if(regSlot)filterDesc+=(filterDesc?' · ':'')+regSlot;
+  if(regSubject)filterDesc+=(filterDesc?' · ':'')+regSubject;
+  var title='Student Register'+(branchName?' — '+branchName:'')+(filterDesc?' ('+filterDesc+')':'');
+  var rows='';
+  filtered.forEach(function(t,i){
+    var dow=t.day_of_week||t.day_type;
+    rows+='<tr style="background:'+(i%2===0?'#f9f9f9':'#fff')+'">'
+      +'<td>'+(i+1)+'</td>'
+      +'<td>'+(t.admission_id||'—')+'</td>'
+      +'<td style="font-weight:600;">'+(t.student_name||'—')+'</td>'
+      +'<td>'+(t.year_group||'—')+'</td>'
+      +'<td>'+(_DOW_LABEL[dow]||dow.charAt(0).toUpperCase()+dow.slice(1))+'</td>'
+      +'<td style="font-size:12px;">'+(t.slot||'—')+'</td>'
+      +'<td>'+(t.subject||'—')+'</td>'
+      +'</tr>';
+  });
+  var distinctStudents=new Set(filtered.map(function(t){return t.student_id;})).size;
+  var html='<h2 style="margin:0 0 4px;">'+title+'</h2>'
+    +'<div style="font-size:12px;color:#666;margin-bottom:12px;">Printed '+new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})+' · '+distinctStudents+' student'+(distinctStudents!==1?'s':'')+' · '+filtered.length+' session entries</div>'
+    +'<table style="width:100%;border-collapse:collapse;font-size:13px;">'
+    +'<thead><tr style="background:#1e40af;color:#fff;">'
+    +'<th style="padding:7px 10px;text-align:left;width:30px;">#</th>'
+    +'<th style="padding:7px 10px;text-align:left;">Ad No.</th>'
+    +'<th style="padding:7px 10px;text-align:left;">Name</th>'
+    +'<th style="padding:7px 10px;text-align:left;">Year</th>'
+    +'<th style="padding:7px 10px;text-align:left;">Day</th>'
+    +'<th style="padding:7px 10px;text-align:left;">Session</th>'
+    +'<th style="padding:7px 10px;text-align:left;">Subject</th>'
+    +'</tr></thead><tbody>'+rows+'</tbody></table>';
+  var win=window.open('','_blank','width=900,height=700');
+  win.document.write('<html><head><title>'+title+'</title><style>body{font-family:Arial,sans-serif;margin:20px;color:#000;}@media print{body{margin:10px;}}</style></head><body>'+html+'</body></html>');
+  win.document.close();setTimeout(function(){win.print();},400);
+}
+
+function exportStudentRegisterCSV(){
+  var _regTT=state.data.all_timetables||[];
+  var regDay=state.regDay||'';
+  var regSlot=state.regSlot||'';
+  var regSubject=state.regSubject||'';
+  var _DOW_LABEL={monday:'Monday',tuesday:'Tuesday',wednesday:'Wednesday',thursday:'Thursday',friday:'Friday',saturday:'Saturday',sunday:'Sunday'};
+  var _getDow=function(t){return t.day_of_week||t.day_type;};
+  var filtered=_regTT.filter(function(t){
+    return (!regDay||_getDow(t)===regDay)&&(!regSlot||t.slot===regSlot)&&(!regSubject||t.subject===regSubject);
+  }).sort(function(a,b){return (a.admission_id||'').localeCompare(b.admission_id||'');});
+  var lines=[['Ad No.','Name','Year','Day','Session','Subject']];
+  filtered.forEach(function(t){
+    var dow=t.day_of_week||t.day_type;
+    lines.push([
+      t.admission_id||'',
+      t.student_name||'',
+      t.year_group||'',
+      _DOW_LABEL[dow]||dow.charAt(0).toUpperCase()+dow.slice(1),
+      t.slot||'',
+      t.subject||''
+    ]);
+  });
+  var csv=lines.map(function(r){return r.map(function(c){return '"'+String(c).replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+  var blob=new Blob([csv],{type:'text/csv'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='student-register'+(regDay?'-'+regDay:'')+(regSubject?'-'+regSubject.toLowerCase():'')+'.csv';
+  a.click();
+}
+
 function printLessonPlanReport(){
   var rptDate=state.rptDate;
   if(!rptDate){alert('No report loaded.');return;}
@@ -3774,9 +3852,15 @@ function renderSessionPlan(){
     html+='</div></div>';
     // Table
     // Mode toggle
-    html+='<div style="display:flex;gap:8px;margin-bottom:12px;">';
+    html+='<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">';
     html+='<button class="btn '+(regMode==='view'?'btn-primary':'')+'" data-action="reg-mode" data-mode="view">📋 View Register</button>';
     html+='<button class="btn '+(regMode==='setup'?'btn-primary':'')+'" data-action="reg-mode" data-mode="setup">⚙ Bulk Timetable Setup</button>';
+    if(regMode==='view'){
+      html+='<div style="margin-left:auto;display:flex;gap:6px;">';
+      html+='<button class="btn no-print" data-action="print-student-register" title="Print register">🖨 Print</button>';
+      html+='<button class="btn no-print" data-action="export-student-register-csv" title="Export to CSV">⬇ CSV</button>';
+      html+='</div>';
+    }
     html+='</div>';
 
     if(regMode==='setup'){
@@ -9610,6 +9694,8 @@ if(action==='lp-add-table-confirm'){
 }
 
 // Draft: add student from select to draft table
+if(action==='print-student-register'){printStudentRegister();return;}
+if(action==='export-student-register-csv'){exportStudentRegisterCSV();return;}
 if(action==='lp-swap-student'){
   if(!state.subjectSwaps)state.subjectSwaps={};
   if(state.subjectSwaps[id])delete state.subjectSwaps[id];
