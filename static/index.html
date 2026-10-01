@@ -1199,7 +1199,7 @@ ${renderStudentDatabase(dbStudents)}`;
 }
 return`
 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
-<div><div class="section-title">Students</div><div class="section-sub">${(function(){var _ac=allStudents.filter(s=>s.status==='active').length;var _brLabel=state.currentBranch?' · '+((state.data.branches||[]).find(b=>b.id===state.currentBranch)||{}).name:'  across all branches';return(sf==='all'?students.length+' total ('+_ac+' active)':sf==='paused'?students.length+' paused':sf==='inactive'?students.length+' inactive':students.length+' active')+_brLabel;})()} </div></div>
+<div><div class="section-title">Students</div><div class="section-sub">${(function(){var _ac=allStudents.filter(s=>s.status==='active').length;var _brLabel=state.currentBranch?' · '+((state.data.branches||[]).find(b=>b.id===state.currentBranch)||{}).name:'  across all branches';var _gaps=allStudents.filter(function(s){return s.status==='active'&&((!s.auto_hours&&!s.hours_per_week)||(!s.carer1_mobile&&!s.carer1_telephone&&!s.carer1_email)||!s.enrolment_date||!s.monthly_fee);}).length;return(sf==='all'?students.length+' total ('+_ac+' active)':sf==='paused'?students.length+' paused':sf==='inactive'?students.length+' inactive':students.length+' active')+_brLabel+(_gaps&&(sf==='active'||sf==='all')?' · <span style="color:#d97706;font-weight:600;">'+_gaps+' with gaps</span>':'');})()} </div></div>
 <button class="btn btn-primary" data-action="add-student">+ Enrol student</button>
 <button class="btn" data-action="import-students" style="margin-left:8px;" title="Bulk import inactive students from Excel/CSV">⬆ Import Inactive</button>
 <button class="btn" data-action="export-students" style="margin-left:8px;">⬇ Export Excel</button>
@@ -1218,7 +1218,7 @@ return`
 <thead><tr><th>Admission ID</th><th>Name</th><th>Year</th><th>Branch</th><th>Monthly fee</th><th>Hours/wk</th><th>Status</th><th></th></tr></thead>
 <tbody>${students.length?students.map(s=>`<tr>
 <td><span class="id-code">${s.admission_id}</span>${s.notes?.includes('Sibling')?` <span class="sibling-badge">sibling</span>`:''}</td>
-<td><strong>${s.name}</strong></td><td><span class="badge badge-gray">${s.year_group}</span></td>
+<td><strong>${s.name}</strong>${s.status==='active'&&((!s.auto_hours&&!s.hours_per_week)||(!s.carer1_mobile&&!s.carer1_telephone&&!s.carer1_email)||!s.enrolment_date||!s.monthly_fee)?'<span title="Missing data — click to view" style="color:#d97706;font-size:11px;margin-left:5px;cursor:help;">⚠</span>':''}</td><td><span class="badge badge-gray">${s.year_group}</span></td>
 <td><span class="badge badge-accent">${s.branch_name||'?'}</span></td>
 <td style="font-weight:600;color:var(--accent);">${s.monthly_fee?'£'+parseFloat(s.monthly_fee).toFixed(0):'—'}</td>
 <td style="color:var(--text3);">${(s.auto_hours||s.hours_per_week)?(s.auto_hours||s.hours_per_week)+'h':'—'}</td>
@@ -1286,6 +1286,27 @@ function renderStudentProfile(){
 
   html+='</div>';
   if(profileTab==='overview'){
+    // Data quality nudges
+    var _dqFlags=[];
+    if(!s.enrolment_date)_dqFlags.push({label:'No enrolment date',hint:'Add the date this student joined',icon:'📅'});
+    if(!s.monthly_fee)_dqFlags.push({label:'No monthly fee set',hint:'Set the monthly fee on their profile',icon:'£'});
+    if(!s.auto_hours&&!s.hours_per_week)_dqFlags.push({label:'No agreed sessions',hint:'Assign timetable slots under Branch Operation → Agreed Sessions',icon:'📋'});
+    if(!s.carer1_mobile&&!s.carer1_telephone&&!s.carer1_email)_dqFlags.push({label:'No parent contact info',hint:'Add a mobile number or email for the parent/guardian',icon:'📞'});
+    if(s.status==='active'&&_dqFlags.length){
+      html+='<div style="margin-bottom:16px;border:1px solid #d97706;border-radius:8px;padding:14px 16px;background:#fffbeb;">';
+      html+='<div style="font-weight:700;color:#92400e;font-size:13px;margin-bottom:8px;">⚠ Record incomplete — '+_dqFlags.length+' item'+(  _dqFlags.length!==1?'s':'')+' to fix</div>';
+      html+='<div style="display:flex;flex-direction:column;gap:6px;">';
+      _dqFlags.forEach(function(f){
+        html+='<div style="display:flex;align-items:center;gap:8px;font-size:12px;">';
+        html+='<span style="font-size:14px;">'+f.icon+'</span>';
+        html+='<span style="font-weight:600;color:#92400e;">'+f.label+'</span>';
+        html+='<span style="color:#b45309;"> — '+f.hint+'</span>';
+        html+='</div>';
+      });
+      html+='</div>';
+      html+='<button class="btn btn-sm" data-action="edit-student" data-id="'+s.id+'" style="margin-top:10px;background:#d97706;color:#fff;border-color:#d97706;">✏ Fix now</button>';
+      html+='</div>';
+    }
     html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">';
     var dob=s.date_of_birth?new Date(s.date_of_birth+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}):'—';
     html+='<div class="card"><div class="card-title" style="margin-bottom:10px;">Personal details</div><div style="font-size:13px;display:grid;grid-template-columns:auto 1fr;gap:5px 12px;">';
