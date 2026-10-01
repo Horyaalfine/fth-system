@@ -5769,13 +5769,10 @@ return`
 <td style="font-size:12px;color:var(--text3);">${pu.email}</td>
 <td style="font-size:12px;">${children||'—'}</td>
 <td>${statusDot(pu.status)}</td>
-<td><div class="row-actions"><button class="btn btn-sm" data-action="edit-parent-user" data-id="${pu.id}">Edit</button><button class="btn btn-sm btn-danger" data-action="del-parent-user" data-id="${pu.id}">Del</button></div></td>
+<td><div class="row-actions"><button class="btn btn-sm" data-action="edit-parent-user" data-id="${pu.id}">Edit</button><button class="btn btn-sm btn-outline" data-action="reset-parent-pw" data-id="${pu.id}" title="Generate new password for this parent">🔑 Reset PW</button><button class="btn btn-sm btn-danger" data-action="del-parent-user" data-id="${pu.id}">Del</button></div></td>
 </tr>`;}).join('')}</tbody>
 </table></div></div>
-<div class="highlight-card">
-<div style="font-size:13px;font-weight:600;color:var(--accent-text);margin-bottom:8px;">Parent portal demo logins</div>
-<div style="font-size:12px;color:var(--text3);line-height:2;">parent.h100@ftharlesden.co.uk / parent123 &nbsp;·&nbsp; parent.h110@ftharlesden.co.uk / parent123 (3 siblings)</div>
-</div>`;}
+`;}
 
 function renderAudit(){const audit=state.data.audit||[];
 return`
@@ -7537,7 +7534,7 @@ function modalParentUser(){
     '</select></div>'+
     '<div class="field"><label>Parent / guardian name</label><input type="text" id="f-name" placeholder="Auto-filled on student select"></div>'+
     '<div class="field"><label>Email address</label><input type="email" id="f-email" placeholder="Auto-filled on student select"></div>'+
-    '<div class="field"><label>Password</label><input type="password" id="f-password" placeholder="Set a password for the parent"></div>'+
+    '<div class="field"><label>Password</label><div style="display:flex;gap:6px;"><input type="text" id="f-password" placeholder="Set a password" style="flex:1;font-family:monospace;"><button type="button" class="btn btn-sm btn-outline" onclick="var pw=Array.from(crypto.getRandomValues(new Uint8Array(12))).map(b=>'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'[b%56]).join('');document.getElementById('f-password').value=pw;document.getElementById('f-password').type='text';" style="white-space:nowrap;flex-shrink:0;">Generate ⚙</button></div></div>'+
     '<div class="field"><label>Status</label><select id="f-status"><option value="active" selected>Active</option><option value="inactive">Inactive</option></select></div>'+
     '<div class="field" style="grid-column:1/-1;"><label>Linked students <span style="font-size:11px;color:var(--text3);font-weight:400;">(siblings auto-selected)</span></label>'+
     '<div id="f-students-list" style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;">'+
@@ -9012,6 +9009,19 @@ if(action==='del-branch'){if(!confirm('Delete branch?'))return;await API.delete(
 if(action==='add-parent-user'){state.modal='add-parent-user';state.editTarget=null;render();return;}
 if(action==='edit-parent-user'){state.modal='edit-parent-user';state.editTarget=(state.data.parent_users||[]).find(p=>p.id===id);render();return;}
 if(action==='del-parent-user'){if(!confirm('Delete?'))return;await API.delete('/api/parent-users/'+id);toast('Account deleted');refreshPage();return;}
+if(action==='reset-parent-pw'){
+  const pu=(state.data.parent_users||[]).find(p=>p.id===id);
+  if(!pu)return;
+  if(!confirm('Generate a new password for '+pu.name+'? The current password will stop working immediately.'))return;
+  try{
+    const r=await API.post('/api/parent-users/'+id+'/reset-password',{});
+    // Show the temp password in a modal — displayed once only
+    const msg='New temporary password for '+r.name+':\n\n'+r.temp_password+'\n\nShare this with the parent by phone or in person. It will not be shown again.';
+    alert(msg);
+    toast('Password reset for '+r.name+' — share the new password with them');
+  }catch(e){toast(e.error||'Reset failed','error');}
+  return;
+}
 if(action==='confirm-smart-payment'||action==='sp-create-and-pay'){await doSave(action);return;}
 if(action==='add-payment'){state.modal={name:'smart-payment',studentId:state.finStudentId||null,invoices:state.finStudentId?null:null,showCreate:false,lineCount:1};render();if(state.finStudentId)smartPaymentLoadStudent(state.finStudentId);return;}
 if(action==='edit-payment'){state.modal='edit-payment';state.editTarget=(state.data.payments||[]).find(p=>p.id===id);render();return;}

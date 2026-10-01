@@ -1493,6 +1493,24 @@ def delete_parent_user(pid):
     log_action('delete', 'parent_users', pid)
     return jsonify({'ok': True})
 
+@api_bp.route('/api/parent-users/<int:pid>/reset-password', methods=['POST'])
+@require_roles('super_admin','branch_manager','head_of_centre','head_of_branches')
+def reset_parent_password(pid):
+    import secrets, string
+    alphabet = string.ascii_letters + string.digits
+    temp_pw = ''.join(secrets.choice(alphabet) for _ in range(12))
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("UPDATE parent_users SET password_hash=%s WHERE id=%s RETURNING id,name,email",
+        (generate_password_hash(temp_pw), pid))
+    pu = row(cur)
+    if not pu:
+        cur.close(); conn.close()
+        return jsonify({'error': 'Parent account not found'}), 404
+    conn.commit(); cur.close(); conn.close()
+    log_action('edit', 'parent_users', pid)
+    # Return the temp password once — it is NOT stored anywhere in plain text
+    return jsonify({'ok': True, 'temp_password': temp_pw, 'name': pu['name'], 'email': pu['email']})
+
 @api_bp.route('/api/students/<int:sid>/attendance-summary', methods=['GET'])
 @require_auth
 def student_attendance_summary(sid):
