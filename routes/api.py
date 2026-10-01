@@ -5851,6 +5851,27 @@ def dashboard_action_items():
             'nav': 'students',
         })
 
+    # 8. Open safeguarding concerns
+    try:
+        cur.execute(f"""
+            SELECT COUNT(*) as c,
+                   SUM(CASE WHEN severity IN ('critical','high') THEN 1 ELSE 0 END) as urgent
+            FROM safeguarding_concerns
+            WHERE status='open' {bw2}
+        """, p)
+        sg = cur.fetchone()
+        if sg and sg['c']:
+            sev = 'high' if (sg['urgent'] or 0) > 0 else 'medium'
+            items.append({
+                'type': 'safeguarding',
+                'severity': sev,
+                'title': f"{sg['c']} open safeguarding concern{'s' if sg['c']>1 else ''}",
+                'detail': f"{sg['urgent'] or 0} high/critical" if (sg['urgent'] or 0) else "All medium/low severity",
+                'nav': 'safeguarding',
+            })
+    except Exception:
+        pass  # table may not exist yet on older deploys
+
     # Sort: high severity first, then medium, then low
     sev_order = {'high': 0, 'medium': 1, 'low': 2}
     items.sort(key=lambda x: sev_order.get(x.get('severity','low'), 2))
@@ -6735,3 +6756,147 @@ def income_report():
         cur.close(); conn.close()
         print('income_report error:', e)
         return jsonify({'error': str(e)}), 400
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SAFEGUARDING MODULE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _ensure_safeguarding_table():
+    """Create safeguarding_concerns table if it doesn't exist."""
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS safeguarding_concerns (
+            id              SERIAL PRIMARY KEY,
+            student_id      INTEGER REFERENCES students(id) ON DELETE SET NULL,
+            branch_id       INTEGER REFERENCES branches(id) ON DELETE SET NULL,
+            reported_by     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            category        VARCHAR(60) NOT NULL DEFAULT 'other',
+            severity        VARCHAR(20) NOT NULL DEFAULT 'medium',
+            description     TEXT NOT NULL,
+            action_taken    TEXT,
+            status          VARCHAR(20) NOT NULL DEFAULT 'open',
+            referred_to     VARCHAR(120),
+            dsl_notified    BOOLEAN NOT NULL DEFAULT FALSE,
+            dsl_notified_at TIMESTAMP,
+            closed_at       TIMESTAMP,
+            created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+            updated_at      TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+    """)
+    conn.commit(); cur.close(); conn.close()
+
+_ensure_safeguarding_table()
+
+def _sg_roles_ok():
+    role = session.get('role','')
+    return role in ('super_admin','head_of_branches','head_of_centre','branch_manager')
+
+@api_bp.route('/api/safeguarding', methods=['GET'])
+@require_auth
+def get_safeguarding():
+    if not _sg_roles_ok():
+        return jsonify({'error':'Forbidden'}), 403
+    b = branch_scope()
+    bw = "AND sc.branch_id=%s" if b else ""
+    p = (b,) if b else ()
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute(f"""
+        SELECT sc.*,
+               s.name  AS student_name, s.admission_id,
+               u.name  AS reporter_name
+        FROM safeguarding_concerns sc
+        LEFT JOIN students s ON s.id=sc.student_id
+        LEFT JOIN users    u ON u.id=sc.reported_by
+        WHERE 1=1 {bw}
+        ORDER BY
+            CASE sc.severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
+            sc.created_at DESC
+    """, p)
+    rows = []
+    for r in cur.fetchall():
+        d = dict(r)
+        for fld in ('created_at','updated_at','dsl_notified_at','closed_at'):
+            if d.get(fld): d[fld] = str(d[fld])
+        rows.append(d)
+    cur.close(); conn.close()
+    return jsonify(rows)
+
+@api_bp.route('/api/safeguarding', methods=['POST'])
+@require_auth
+def add_safeguarding():
+    if not _sg_roles_ok():
+        return jsonify({'error':'Forbidden'}), 403
+    data = request.json or {}
+    user_id = session.get('user_id')
+    b = branch_scope()
+    # if no branch from scope, use student's branch
+    branch_id = b
+    if not branch_id and data.get('student_id'):
+        conn2 = get_conn(); c2 = conn2.cursor()
+        c2.execute("SELECT branch_id FROM students WHERE id=%s", (data['student_id'],))
+        row = c2.fetchone()
+        if row: branch_id = row['branch_id']
+        c2.close(); conn2.close()
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO safeguarding_concerns
+            (student_id, branch_id, reported_by, category, severity, description, action_taken, status, referred_to, dsl_notified)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        RETURNING id
+    """, (
+        data.get('student_id') or None,
+        branch_id,
+        user_id,
+        data.get('category','other'),
+        data.get('severity','medium'),
+        data.get('description',''),
+        data.get('action_taken','') or None,
+        data.get('status','open'),
+        data.get('referred_to','') or None,
+        bool(data.get('dsl_notified',False)),
+    ))
+    new_id = cur.fetchone()['id']
+    conn.commit(); cur.close(); conn.close()
+    return jsonify({'id': new_id})
+
+@api_bp.route('/api/safeguarding/<int:cid>', methods=['PUT'])
+@require_auth
+def update_safeguarding(cid):
+    if not _sg_roles_ok():
+        return jsonify({'error':'Forbidden'}), 403
+    data = request.json or {}
+    closed_at = 'NOW()' if data.get('status') == 'closed' else 'NULL'
+    dsl_at = 'NOW()' if data.get('dsl_notified') else 'NULL'
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute(f"""
+        UPDATE safeguarding_concerns SET
+            category=%s, severity=%s, description=%s, action_taken=%s,
+            status=%s, referred_to=%s, dsl_notified=%s,
+            dsl_notified_at=CASE WHEN %s THEN NOW() ELSE dsl_notified_at END,
+            closed_at=CASE WHEN %s='closed' THEN COALESCE(closed_at,NOW()) ELSE NULL END,
+            updated_at=NOW()
+        WHERE id=%s
+    """, (
+        data.get('category','other'),
+        data.get('severity','medium'),
+        data.get('description',''),
+        data.get('action_taken','') or None,
+        data.get('status','open'),
+        data.get('referred_to','') or None,
+        bool(data.get('dsl_notified',False)),
+        bool(data.get('dsl_notified',False)),
+        data.get('status','open'),
+        cid,
+    ))
+    conn.commit(); cur.close(); conn.close()
+    return jsonify({'ok': True})
+
+@api_bp.route('/api/safeguarding/<int:cid>', methods=['DELETE'])
+@require_auth
+def delete_safeguarding(cid):
+    if not _sg_roles_ok():
+        return jsonify({'error':'Forbidden'}), 403
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("DELETE FROM safeguarding_concerns WHERE id=%s", (cid,))
+    conn.commit(); cur.close(); conn.close()
+    return jsonify({'ok': True})
