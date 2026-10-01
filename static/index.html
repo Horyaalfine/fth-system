@@ -1098,7 +1098,7 @@ return '<div style="margin-bottom:12px;"><div class=\"section-title\" style=\"ma
 '<div class=\"metric-card\" style=\"border-top:3px solid var(--success);\">' +
   '<div class=\"metric-label\">Revenue this month</div>' +
   '<div class=\"metric-value\">£'+((t.month_revenue||0).toLocaleString())+'</div>' +
-  '<div class=\"metric-sub\">'+(t.new_enrolments||0)+' new enrolment'+(t.new_enrolments===1?'':'s')+' this month</div></div>'+
+  '<div class=\"metric-sub\">'Cash received this month · payments log</div></div>'+
 '<div class=\"metric-card\" style=\"border-top:3px solid '+feeTop+';\">' +
   '<div class=\"metric-label\">Outstanding fees</div>' +
   '<div class=\"metric-value\" style=\"color:'+feeColor+';">£'+(outstanding.toLocaleString())+'</div>' +
@@ -1118,7 +1118,7 @@ ${bs.map((b,i)=>{const pct=b.att_total?Math.round(b.present/b.att_total*100):0;c
 <div class="highlight-card" style="margin-bottom:16px;">
 <div style="font-size:13px;font-weight:600;color:var(--accent-text);margin-bottom:6px;">Outstanding fees</div>
 <div style="font-size:32px;font-weight:700;color:var(--text);">£${(s.outstanding_fees||0).toLocaleString()}</div>
-<div style="font-size:12px;color:var(--text3);margin-top:4px;">${state.currentBranch?'This branch only':'Across all branches'}</div>
+<div style="font-size:12px;color:var(--text3);margin-top:4px;">${state.currentBranch?'This branch only':'Across all branches'} · unpaid invoice balances</div>
 </div>
 <div class="card">
 <div class="card-title" style="margin-bottom:12px;">Quick actions</div>
@@ -1170,7 +1170,7 @@ ${renderStudentDatabase(dbStudents)}`;
 }
 return`
 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
-<div><div class="section-title">Students</div><div class="section-sub">${students.length} enrolled${state.currentBranch?' · '+(state.data.branches||[]).find(b=>b.id===state.currentBranch)?.name||'':' across all branches'}</div></div>
+<div><div class="section-title">Students</div><div class="section-sub">${(function(){var _ac=allStudents.filter(s=>s.status==='active').length;var _brLabel=state.currentBranch?' · '+((state.data.branches||[]).find(b=>b.id===state.currentBranch)||{}).name:'  across all branches';return(sf==='all'?students.length+' total ('+_ac+' active)':sf==='paused'?students.length+' paused':sf==='inactive'?students.length+' inactive':students.length+' active')+_brLabel;})()} </div></div>
 <button class="btn btn-primary" data-action="add-student">+ Enrol student</button>
 <button class="btn" data-action="import-students" style="margin-left:8px;" title="Bulk import inactive students from Excel/CSV">⬆ Import Inactive</button>
 <button class="btn" data-action="export-students" style="margin-left:8px;">⬇ Export Excel</button>
@@ -2403,7 +2403,7 @@ function renderInvoices(){
 
   // Metric cards
   html+='<div class="metrics-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px;">';
-  html+='<div class="metric-card" style="border-top:3px solid var(--accent);"><div class="metric-label">Total invoiced</div><div class="metric-value">£'+total.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div></div>';
+  html+='<div class="metric-card" style="border-top:3px solid var(--accent);"><div class="metric-label">Total invoiced</div><div class="metric-value">£'+total.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div><div class="metric-sub">Charges raised · invoice records</div></div>';
   html+='<div class="metric-card" style="border-top:3px solid var(--success);"><div class="metric-label">Collected</div><div class="metric-value" style="color:var(--success-text);">£'+paid.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div><div class="metric-sub">'+(total?Math.round(paid/total*100):0)+'% of total</div></div>';
   html+='<div class="metric-card" style="border-top:3px solid var(--danger);"><div class="metric-label">Outstanding</div><div class="metric-value" style="color:var(--danger-text);">£'+out.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div><div class="metric-sub">'+(total?Math.round(out/total*100):0)+'% of total · '+invs.filter(i=>i.status!=='paid').length+' invoices</div></div>';
   html+='<div class="metric-card" style="border-top:3px solid var(--danger);"><div class="metric-label">Overdue</div><div class="metric-value" style="color:var(--danger-text);">'+(function(){var c=invs.filter(i=>i.status==='overdue'||(i.status!=='paid'&&i.due_date&&new Date(i.due_date)<new Date())).length;return c+' invoice'+(c!==1?'s':'');})()+'</div><div class="metric-sub">£'+invs.filter(i=>i.status==='overdue'||(i.status!=='paid'&&i.due_date&&new Date(i.due_date)<new Date())).reduce((s,i)=>s+parseFloat(i.amount||0)-parseFloat(i.amount_paid||0),0).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})+' outstanding</div></div>';
@@ -3082,7 +3082,7 @@ function renderFinance(){
   </div>
 
   <div class="metrics-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px;">
-    <div class="metric-card"><div class="metric-icon" style="background:var(--success-bg);">${icoPound(18)}</div><div class="metric-label">Total received</div><div class="metric-value" style="color:var(--success-text);">£${totalReceived.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})}</div><div class="metric-sub">${payments.length} payments</div></div>
+    <div class="metric-card"><div class="metric-icon" style="background:var(--success-bg);">${icoPound(18)}</div><div class="metric-label">Total received</div><div class="metric-value" style="color:var(--success-text);">£${totalReceived.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})}</div><div class="metric-sub">Cash entered by staff · payments log</div></div>
     <div class="metric-card"><div class="metric-icon" style="background:var(--accent-bg);">${icoFinance(18)}</div><div class="metric-label">Instalment plans</div><div class="metric-value" style="color:var(--accent-text);">${plans.filter(p=>p.status==='active').length}</div><div class="metric-sub">Active plans</div></div>
     <div class="metric-card"><div class="metric-icon" style="background:var(--amber-bg);">${icoClipboard(18)}</div><div class="metric-label">Students with plans</div><div class="metric-value" style="color:var(--amber-text);">${new Set(plans.filter(p=>p.status==='active').map(p=>p.student_id)).size}</div><div class="metric-sub">On instalments</div></div>
   </div>
@@ -5558,9 +5558,9 @@ function renderReports(){
     } else {
       // Summary cards
       html+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">';
-      html+='<div class="metric-card" style="text-align:center;border-top:4px solid var(--accent);"><div class="metric-value" style="color:var(--accent);">£'+grandTotal.toFixed(2)+'</div><div class="metric-label">Total Invoiced</div></div>';
-      html+='<div class="metric-card" style="text-align:center;border-top:4px solid #16a34a;"><div class="metric-value" style="color:#16a34a;">£'+grandPaid.toFixed(2)+'</div><div class="metric-label">Total Received</div></div>';
-      html+='<div class="metric-card" style="text-align:center;border-top:4px solid #dc2626;"><div class="metric-value" style="color:#dc2626;">£'+(grandTotal-grandPaid).toFixed(2)+'</div><div class="metric-label">Outstanding</div></div>';
+      html+='<div class="metric-card" style="text-align:center;border-top:4px solid var(--accent);"><div class="metric-value" style="color:var(--accent);">£'+grandTotal.toFixed(2)+'</div><div class="metric-label">Total Invoiced</div><div class="metric-sub" style="font-size:10px;color:var(--text3);margin-top:4px;">Charges raised on invoices</div></div>';
+      html+='<div class="metric-card" style="text-align:center;border-top:4px solid #16a34a;"><div class="metric-value" style="color:#16a34a;">£'+grandPaid.toFixed(2)+'</div><div class="metric-label">Total Received</div><div class="metric-sub" style="font-size:10px;color:var(--text3);margin-top:4px;">Amount paid recorded on invoices</div></div>';
+      html+='<div class="metric-card" style="text-align:center;border-top:4px solid #dc2626;"><div class="metric-value" style="color:#dc2626;">£'+(grandTotal-grandPaid).toFixed(2)+'</div><div class="metric-label">Outstanding</div><div class="metric-sub" style="font-size:10px;color:var(--text3);margin-top:4px;">Unpaid invoice balances</div></div>';
       html+='</div>';
 
       // Reconciliation banner
