@@ -5228,99 +5228,179 @@ function renderTestRecords(){
 }
 
 function renderSystemGuide(){
-  const guideTab=state.guideTab||'lesson_plan';
+  const guideTab=state.guideTab||'whats_new';
+
   const guides={
+
+    whats_new:{
+      title:"What's New — Recent Improvements",
+      icon:'✨',
+      color:'var(--accent)',
+      intro:'This system has recently been updated across 8 stages. Here is a summary of everything that has changed.',
+      steps:[
+        {n:'🔒',title:'Stage 1 — Security',desc:'Parent portal no longer displays plaintext passwords. All parent accounts were secured and passwords hashed to the same standard as staff accounts.',tip:'If a parent cannot log in, use the User Management page to reset their password.'},
+        {n:'📊',title:'Stage 2 — Finance Labels',desc:'Key finance figures now show a sub-label explaining exactly what they include (e.g. "Cash entered by staff · payments log"). The Finance page also states that all figures are derived — nothing is manually typed over.',tip:''},
+        {n:'📄',title:'Stage 3 — Pagination & Search',desc:'Sessions, Lesson Reports, and all large student dropdowns (Notes, Announcements, Payments) now paginate and support search-as-you-type. Long lists no longer load all at once.',tip:'Type any part of a name in a student dropdown to filter instantly.'},
+        {n:'⚠',title:'Stage 4 — Data Quality Flags',desc:'Active students with missing data (no agreed sessions, no parent contact, no enrolment date, no monthly fee) show a ⚠ warning icon on the Students list and a yellow banner inside their profile.',tip:'Use the Work Queue on the dashboard to see all students with gaps at a glance.'},
+        {n:'📋',title:'Stage 5 — Work Queue',desc:'The dashboard now has a Work Queue panel showing critical items: overdue invoices, students without sessions, students without parent contact. Click any item to go straight to the relevant page.',tip:'The queue auto-updates each time you load the dashboard.'},
+        {n:'🛡',title:'Stage 6 — Safeguarding Module',desc:'A dedicated Safeguarding page is now available in the Admin section (managers and above only). Log concerns with category, severity, DSL notification, and action taken. Open concerns appear in the Work Queue.',tip:'If there is immediate danger, call 999 first — the system is for recording, not responding.'},
+        {n:'✅',title:'Stage 7 — Data Trust',desc:'Student pickers in Notes and Announcements now show active students first (inactive students are still accessible below a divider). Invoice rows with a status mismatch (e.g. marked paid but no payment logged) show a ⚠ flag.',tip:''},
+        {n:'🌐',title:'Stage 8 — Network Finance View',desc:'Super admin and head of branches can now see a cross-branch P&L table under Finance → Network Overview. This tab only appears when All Branches is selected — it is never shown when scoped to a specific branch.',tip:'Use the month filter at the top of Finance to narrow the network view to a specific month.'}
+      ]
+    },
+
+    dashboard:{
+      title:'Dashboard & Work Queue',
+      icon:'🏠',
+      color:'var(--accent)',
+      intro:'The dashboard is your daily control panel. It shows today\'s sessions, key finance metrics, and a Work Queue of items that need attention.',
+      steps:[
+        {n:'1',title:'Read the headline metrics',desc:'The top row shows: <strong>Sessions today</strong> · <strong>Outstanding fees</strong> · <strong>Revenue this month</strong> · <strong>Students</strong>. Each figure is scoped to your current branch (or all branches for admin views).',tip:'Switch branch using the selector in the top bar to see figures for a different branch.'},
+        {n:'2',title:'Check the Work Queue',desc:'The Work Queue lists urgent action items pulled from the live database. Items are colour-coded: <span style="color:#dc2626;font-weight:600;">URGENT</span> (high severity) and <span style="color:#d97706;font-weight:600;">ATTENTION</span> (medium). Click any item to jump directly to the relevant page.',tip:'The queue covers: overdue invoices, students with no agreed sessions, students without parent contact, and open safeguarding concerns.'},
+        {n:'3',title:'Review today\'s sessions',desc:'The centre of the dashboard shows the sessions scheduled for today, pulled from the branch timetable. This is a projection — actual session records are in Lesson Plan.',tip:'If today\'s count looks wrong, check that the branch schedule has the correct recurring slots set up under Branch Operation.'},
+        {n:'4',title:'Use the Quick Actions',desc:'The four quick-action buttons (Enrol student, Add session, Mark attendance, Generate invoice) take you directly to the relevant action. Use these for common daily tasks without navigating through the sidebar.',tip:''}
+      ]
+    },
+
     lesson_plan:{
       title:'Lesson Plan — Full Process',
       icon:'📋',
-      color:'var(--accent)',
+      color:'var(--purple)',
+      intro:'The lesson plan workflow links the branch schedule → student agreed sessions → daily session tables → attendance. Follow these steps in order the first time you set up a new branch or term.',
       steps:[
-        {n:'1',title:'Set up Branch Schedule',desc:'Go to <strong>Branch Operation</strong> → add the recurring weekly time slots (e.g. Saturday Session 1: 09:00–11:00). These are the building blocks for everything else.',tip:'Do this once per branch. Only active slots appear in lesson plans.'},
-        {n:'2',title:'Set Agreed Sessions per Student',desc:'Open each student\'s profile → <strong>Edit</strong> → scroll to <strong>Agreed Sessions</strong>. Tick the slots they attend each week and select their subject (Maths, English, etc.).',tip:'This is what links students to specific sessions. Without agreed sessions, students won\'t appear in the lesson plan.'},
-        {n:'3',title:'Migrate Old Timetable Data (one-time)',desc:'If students had subjects set in the old timetable grid, go to <strong>Admin → Migrate Timetable</strong> or this is done automatically on first load. Subjects migrate into agreed sessions.',tip:'Only needed once if you were using the old system.'},
-        {n:'4',title:'Create Sessions (⚡ Auto-Create)',desc:'In <strong>Lesson Plan</strong>, select a date and click <strong>⚡ Create sessions from schedule</strong>. This generates session slots for that date based on the branch schedule.',tip:'You only need to do this once per date. Sessions are then reused each time you generate the plan.'},
-        {n:'5',title:'Generate Lesson Plan',desc:'Click <strong>Auto Generate Plan</strong>. The system pulls students with agreed sessions for that day\'s slot and populates the tables.',tip:'Students are assigned to tables automatically. You can drag/move them between tables after.'},
-        {n:'6',title:'Assign Teachers',desc:'For each session/table, assign a teacher from the dropdown. You can also set a subject and table number.',tip:'Teachers only appear if they are set up in Staff.'},
-        {n:'7',title:'Save Plan',desc:'Click <strong>Save Plan</strong>. This locks the student-to-session allocations into the database.',tip:'After saving, the plan appears in Session Reports and Attendance.'},
-        {n:'8',title:'Mark Attendance',desc:'Go to <strong>Attendance → Quick Attendance</strong>. Select the date and slot — students from the saved lesson plan appear. Mark each as present or absent and click <strong>Save attendance</strong>.',tip:'Attendance is saved per session. View results in <strong>Attendance Report</strong> under Reports.'},
-        {n:'9',title:'View Reports',desc:'Go to <strong>Session Reports</strong> to see per-session breakdowns, or <strong>Attendance Report</strong> for filtered attendance data across a date range.',tip:'Export to Excel or Print from the Attendance Report page.'}
+        {n:'1',title:'Set up the Branch Schedule',desc:'Go to <strong>Branch Operation</strong> → add the recurring weekly time slots (e.g. Saturday Session 1: 09:00–11:00). These are the building blocks for everything else.',tip:'Do this once per branch. Only active slots appear in lesson plans.'},
+        {n:'2',title:'Set Agreed Sessions per Student',desc:'Open each student\'s profile → <strong>Edit</strong> → scroll to <strong>Agreed Sessions</strong>. Tick the slots they attend each week and select their subject.',tip:'Students without agreed sessions will not appear in the lesson plan and will trigger a ⚠ data quality warning on the Students list.'},
+        {n:'3',title:'Create Sessions for the Date (⚡ Auto-Create)',desc:'In <strong>Lesson Plan</strong>, select a date and click <strong>⚡ Create sessions from schedule</strong>. This generates session records for that date based on the branch schedule.',tip:'You only need to do this once per date. Sessions are then reused each time you generate the plan.'},
+        {n:'4',title:'Auto-Generate the Lesson Plan',desc:'Click <strong>Auto Generate Plan</strong>. The system reads each student\'s agreed sessions for that slot and populates the teaching tables automatically.',tip:'You can move students between tables after generation. Use the drag handles or the "Move to table" dropdown next to each name.'},
+        {n:'5',title:'Assign Teachers',desc:'For each session/table, assign a teacher from the dropdown. You can also set a subject and table number.',tip:'Teachers only appear in the dropdown if they are set up in Staff.'},
+        {n:'6',title:'Save the Plan',desc:'Click <strong>Save Plan</strong>. This locks the student-to-session allocations into the database.',tip:'After saving, the plan feeds into Attendance and Session Reports.'},
+        {n:'7',title:'Mark Attendance',desc:'Go to <strong>Attendance → ⚡ Quick mark</strong>. Select the date and slot — students from the saved plan appear. Mark each as present/absent and click <strong>Save attendance</strong>.',tip:'Use "Mark all present" then flip the exceptions — much faster than clicking each student individually.'},
+        {n:'8',title:'Write Lesson Reports',desc:'After marking attendance, go to <strong>Lesson Reports</strong>. Select the session and fill in homework set, work covered, and teacher rating per student.',tip:''},
+        {n:'9',title:'View Reports',desc:'Go to <strong>Session Reports</strong> for per-session breakdowns, or <strong>Reports → Attendance Report</strong> for filtered attendance data across a date range. Export to Excel or print from there.',tip:''}
       ]
     },
+
     student_reg:{
       title:'Student Registration',
       icon:'👤',
       color:'var(--teal)',
+      intro:'Enroling a student correctly the first time avoids data quality warnings later. Complete all sections below when registering a new student.',
       steps:[
         {n:'1',title:'Click + Enrol Student',desc:'From the <strong>Students</strong> page, click <strong>+ Enrol student</strong>. The admission ID is auto-generated for your branch.',tip:'You can manually edit the ID or add a/b suffix for siblings (e.g. H110a).'},
-        {n:'2',title:'Fill Student Details',desc:'Enter name, date of birth, gender, year group, school, and any medical/SEN notes.',tip:'Year group is important — it appears in lesson plans and reports.'},
-        {n:'3',title:'Fill Parent / Guardian Details',desc:'Enter carer name, address, telephone, mobile, and email. This is used for communications and the parent portal.',tip:''},
-        {n:'4',title:'Set Agreed Sessions',desc:'In the same form, scroll to <strong>Agreed Sessions</strong>. Tick which weekly sessions the student attends and select their subject.',tip:'Branch schedule must be set up first under Branch Operation.'},
+        {n:'2',title:'Fill Student Details',desc:'Enter name, date of birth, gender, year group, school, and any medical or SEN notes. Set the <strong>Enrolment date</strong> and <strong>Agreed monthly fee</strong>.',tip:'Missing enrolment date or monthly fee will trigger a ⚠ data quality warning on the Students list.'},
+        {n:'3',title:'Fill Parent / Guardian Details',desc:'Enter carer name, address, at least one contact number (mobile or telephone), and email. These are used for communications and the parent portal.',tip:'Students with no parent contact on record appear in the Work Queue on the dashboard.'},
+        {n:'4',title:'Set Agreed Sessions',desc:'Scroll to <strong>Agreed Sessions</strong>. Tick which weekly sessions the student attends and select their subject (Maths, English, etc.).',tip:'Branch schedule must be set up first under Branch Operation. Without agreed sessions, the student will not appear in lesson plans.'},
         {n:'5',title:'Set Monthly Fee',desc:'Enter the <strong>Agreed Monthly Fee</strong>. This is used for bulk invoice generation each month.',tip:''},
-        {n:'6',title:'Save & Enrol',desc:'Click <strong>Enrol Student</strong>. The student is added to the system and will appear in future lesson plans for their agreed slots.',tip:''}
+        {n:'6',title:'Save & Enrol',desc:'Click <strong>Enrol Student</strong>. The student is added and will appear in future lesson plans for their agreed slots.',tip:'After enrolment, the student\'s profile has tabs for Overview, Finance, Attendance, Test Records, Catch-up Lessons, and Notes.'},
+        {n:'7',title:'Check Data Quality',desc:'After saving, return to the <strong>Students</strong> list. If a ⚠ appears next to the student\'s name, click their row to see which fields are missing.',tip:'The dashboard Work Queue also groups all students with missing data under "students with no parent contact" or "students with no agreed sessions".'}
       ]
     },
+
     attendance:{
       title:'Attendance Marking',
       icon:'✓',
       color:'var(--green)',
+      intro:'Attendance is saved per session. Sessions must exist for the date before attendance can be recorded.',
       steps:[
-        {n:'1',title:'Ensure Sessions Exist',desc:'Sessions must exist for the date (created via Lesson Plan → Auto-Create). Without sessions, attendance cannot be saved.',tip:''},
-        {n:'2',title:'Go to Quick Attendance',desc:'Navigate to <strong>Attendance</strong> → <strong>⚡ Quick mark</strong> tab. Select the date — slots load automatically from agreed sessions.',tip:''},
-        {n:'3',title:'Select a Slot',desc:'Pick the time slot (e.g. Saturday Session 1). Students with agreed sessions for that slot appear.',tip:''},
-        {n:'4',title:'Mark Present / Absent',desc:'Tap each student card to cycle: unmarked → present → absent. Or use <strong>Mark all present</strong> then adjust exceptions.',tip:''},
-        {n:'5',title:'Save',desc:'Click <strong>Save attendance</strong>. Records are saved per session. You can return and update later.',tip:''},
-        {n:'6',title:'View Report',desc:'Go to <strong>Reports → Attendance Report</strong>. Filter by date range, student, day type, or status. Export to Excel or print.',tip:''}
+        {n:'1',title:'Make sure sessions exist for the date',desc:'Sessions are created in <strong>Lesson Plan → ⚡ Create sessions from schedule</strong>. Without them, Quick Attendance will show no slots.',tip:''},
+        {n:'2',title:'Go to Quick Attendance',desc:'Navigate to <strong>Attendance → ⚡ Quick mark</strong>. Select the date — available slots load automatically.',tip:'If no slots appear, either sessions don\'t exist for that date or students don\'t have agreed sessions set.'},
+        {n:'3',title:'Select a Slot',desc:'Pick the time slot (e.g. Saturday Session 1). Students with agreed sessions for that slot appear as cards.',tip:''},
+        {n:'4',title:'Mark Present / Absent',desc:'Tap each student card to cycle: unmarked → present → absent → late. Or use <strong>Mark all present</strong> and adjust exceptions.',tip:'Catch-up students in this session appear highlighted in amber at the bottom of the list.'},
+        {n:'5',title:'Save',desc:'Click <strong>Save attendance</strong>. Records are saved per session. You can return and update later the same day.',tip:''},
+        {n:'6',title:'View the Report',desc:'Go to <strong>Reports → Attendance Report</strong>. Filter by date range, student, day type, subject, or session time. Export to Excel or print.',tip:'The attendance rate per student appears in the student\'s profile under the Overview tab.'}
       ]
     },
+
     invoicing:{
-      title:'Invoicing & Fees',
-      icon:'£',
+      title:'Invoicing & Finance',
+      icon:'💷',
       color:'var(--amber)',
+      intro:'FTApp tracks invoices (what is owed) separately from payments (what has been received). All figures are derived from records — nothing is manually edited over the top.',
       steps:[
-        {n:'1',title:'Set Monthly Fee per Student',desc:'Each student\'s profile has an <strong>Agreed Monthly Fee</strong>. Make sure this is set before generating invoices.',tip:''},
-        {n:'2',title:'Generate Monthly Invoices',desc:'Go to <strong>Invoices & Fees</strong> → click <strong>Generate Monthly Invoices</strong>. Select the month and confirm.',tip:'This creates one invoice per active student based on their monthly fee.'},
-        {n:'3',title:'Record Payments',desc:'When a parent pays, open the student\'s invoice and click <strong>Mark Paid</strong> or record a partial payment.',tip:''},
-        {n:'4',title:'Credit Control',desc:'Go to <strong>Credit Control</strong> to see a list of overdue students. Send reminders as needed.',tip:''},
-        {n:'5',title:'View Statement',desc:'Open a student\'s profile → <strong>Finance</strong> tab to see full statement of charges and payments.',tip:''}
+        {n:'1',title:'Make sure monthly fees are set',desc:'Each student\'s profile must have an <strong>Agreed Monthly Fee</strong> before bulk invoices can be generated.',tip:'Students without a monthly fee show a ⚠ data quality warning on the Students list.'},
+        {n:'2',title:'Generate Monthly Invoices',desc:'Go to <strong>Invoices & Fees</strong> → click <strong>⚡ Generate monthly fees</strong>. Select the month and confirm. One invoice is created per active student.',tip:'Run this once per month. The system skips students who already have an invoice for that month.'},
+        {n:'3',title:'Watch for ⚠ flags',desc:'Invoice rows with a mismatch — marked "paid" but no payment logged, or "partial" with no payment recorded — show a ⚠ icon. Investigate and correct these promptly.',tip:''},
+        {n:'4',title:'Record Payments',desc:'When a parent pays, find their invoice and click <strong>Mark paid</strong> (or <strong>Add payment</strong> for a partial amount). Enter the amount, method (cash/bank transfer/card), and reference.',tip:'You can also record payments from Finance → Payment log → + Record payment.'},
+        {n:'5',title:'Chase Overdue Accounts',desc:'Go to <strong>Credit Control</strong>. This lists outstanding balances with aging buckets (1–30 days, 31–60 days). Use the Remind button to log a reminder sent.',tip:'Overdue invoices also appear in the dashboard Work Queue as URGENT items.'},
+        {n:'6',title:'View a Student Statement',desc:'Go to <strong>Finance → Statement of account</strong>. Select a student to see their full history of charges, payments, and running balance.',tip:''},
+        {n:'7',title:'Network Overview (admin only)',desc:'If you are super_admin or head_of_branches with <strong>All Branches</strong> selected, go to <strong>Finance → Network Overview</strong>. This shows invoiced, received, outstanding and collection rate per branch with a totals row.',tip:'This tab only appears in all-branches view — never when a specific branch is selected.'}
+      ]
+    },
+
+    safeguarding:{
+      title:'Safeguarding',
+      icon:'🛡',
+      color:'var(--danger)',
+      intro:'<strong style="color:var(--danger-text);">⚠ If there is immediate danger to a child, call 999 first.</strong> Use this module to record and track concerns — not to respond to emergencies.',
+      steps:[
+        {n:'1',title:'Who can access this page',desc:'Safeguarding is visible to <strong>super_admin, head_of_branches, head_of_centre</strong>, and <strong>branch_manager</strong> only. It does not appear for supervisors, admins, or staff.',tip:'Access is controlled by role, not branch. A branch manager can only see concerns for their own branch.'},
+        {n:'2',title:'Log a new concern',desc:'Go to <strong>Safeguarding</strong> in the sidebar (Admin section). Click <strong>+ Log Concern</strong>. Fill in: student (optional), category, severity, description, action taken, and who it was referred to.',tip:'Be as specific as possible in the description. Record what was observed, heard, or reported — not your interpretation.'},
+        {n:'3',title:'Set the correct severity',desc:'Choose from: <span style="color:#dc2626;font-weight:600;">Critical</span> (immediate risk), <span style="color:#ea580c;font-weight:600;">High</span> (serious, needs prompt action), <span style="color:#d97706;font-weight:600;">Medium</span> (concern, monitor closely), <span style="color:#16a34a;font-weight:600;">Low</span> (minor, noted for records).',tip:'Critical and High severity concerns appear in the dashboard Work Queue as URGENT items.'},
+        {n:'4',title:'Mark DSL notified',desc:'Tick <strong>DSL notified</strong> once the Designated Safeguarding Lead has been informed. The date and time are recorded automatically.',tip:''},
+        {n:'5',title:'Update and close concerns',desc:'Click <strong>Edit</strong> on any concern to update it — add further action taken, change status, or mark it as closed once resolved.',tip:'Closed concerns remain on record. Use the Open / Closed filter tabs to switch between active and historic concerns.'},
+        {n:'6',title:'Monitor via the Work Queue',desc:'Open safeguarding concerns appear in the dashboard Work Queue. High/critical concerns are flagged as URGENT. Click the item to go directly to the Safeguarding page.',tip:''}
+      ]
+    },
+
+    notes_comms:{
+      title:'Notes & Announcements',
+      icon:'📝',
+      color:'var(--teal)',
+      intro:'Notes are private staff records against a student. Announcements are messages sent to parents via the portal or email.',
+      steps:[
+        {n:'1',title:'Add a note',desc:'Go to <strong>Notes</strong>. Use the left panel to select a student, pick a category (Progress, Behaviour, Fees, Attendance, Parent meeting, Safeguarding), write the note, and click Save.',tip:'Student dropdowns show active students first. Inactive students are available below the divider.'},
+        {n:'2',title:'Share a note with a parent',desc:'Tick <strong>Share with parent</strong> before saving. The note will appear in the parent\'s portal view for that student.',tip:'Notes shared with parents are highlighted with a green border in the notes list.'},
+        {n:'3',title:'Filter notes',desc:'Use the student and category dropdowns above the notes list to filter. The count at the top updates to show how many notes match.',tip:''},
+        {n:'4',title:'Send an announcement',desc:'Go to <strong>Announcements → + Add announcement</strong>. Set the target: All active parents, Re-engagement (inactive/paused), or a Specific student. Choose the channel: portal, email, or both.',tip:''},
+        {n:'5',title:'Preview before sending',desc:'Click <strong>Preview</strong> on any announcement to see how it will appear to parents before it goes live.',tip:''}
       ]
     }
+
   };
 
   const tabs=[
-    {k:'lesson_plan',label:'📋 Lesson Plan'},
-    {k:'student_reg',label:'👤 Registration'},
-    {k:'attendance',label:'✓ Attendance'},
-    {k:'invoicing',label:'£ Invoicing'}
+    {k:'whats_new',   label:"✨ What's New"},
+    {k:'dashboard',   label:'🏠 Dashboard'},
+    {k:'lesson_plan', label:'📋 Lesson Plan'},
+    {k:'student_reg', label:'👤 Registration'},
+    {k:'attendance',  label:'✓ Attendance'},
+    {k:'invoicing',   label:'💷 Finance'},
+    {k:'safeguarding',label:'🛡 Safeguarding'},
+    {k:'notes_comms', label:'📝 Notes & Comms'}
   ];
 
   const guide=guides[guideTab];
-
   var html='';
   html+='<div style="margin-bottom:20px;"><div class="section-title">System Guide</div>';
-  html+='<div class="section-sub">Step-by-step workflows for key processes</div></div>';
+  html+='<div class="section-sub">Step-by-step guides for every key workflow · updated October 2026</div></div>';
 
-  // Tab bar
-  html+='<div class="tab-bar" style="margin-bottom:20px;">';
-  tabs.forEach(function(t){html+='<div class="tab '+(guideTab===t.k?'active':'')+'" data-action="guide-tab" data-tab="'+t.k+'">'+t.label+'</div>';});
+  // Tab bar — wrapping row
+  html+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:24px;">';
+  tabs.forEach(function(t){
+    var active=guideTab===t.k;
+    html+='<button style="padding:7px 14px;border-radius:20px;border:1px solid '+(active?'var(--accent)':'var(--border2)')+';background:'+(active?'var(--accent)':'var(--surface2)')+';color:'+(active?'#fff':'var(--text2)')+';font-size:13px;font-weight:600;cursor:pointer;" data-action="guide-tab" data-tab="'+t.k+'">'+t.label+'</button>';
+  });
   html+='</div>';
 
   if(!guide){return html+'<div class="empty-state">Select a guide above.</div>';}
 
   // Guide header
   html+='<div style="padding:16px 20px;background:var(--surface2);border-radius:var(--radius);border-left:4px solid '+guide.color+';margin-bottom:20px;">';
-  html+='<div style="font-size:18px;font-weight:700;color:var(--text1);">'+guide.icon+' '+guide.title+'</div>';
+  html+='<div style="font-size:18px;font-weight:700;color:var(--text1);margin-bottom:'+(guide.intro?'8px':'0')+';">'+guide.icon+' '+guide.title+'</div>';
+  if(guide.intro)html+='<div style="font-size:13px;color:var(--text2);line-height:1.6;">'+guide.intro+'</div>';
   html+='</div>';
 
   // Steps
   guide.steps.forEach(function(step){
-    html+='<div style="display:flex;gap:16px;margin-bottom:16px;padding:16px;background:var(--surface2);border-radius:var(--radius);">';
-    html+='<div style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:'+guide.color+';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">'+step.n+'</div>';
+    html+='<div style="display:flex;gap:16px;margin-bottom:14px;padding:16px;background:var(--surface2);border-radius:var(--radius);">';
+    html+='<div style="flex-shrink:0;min-width:32px;height:32px;border-radius:50%;background:'+guide.color+';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">'+step.n+'</div>';
     html+='<div style="flex:1;">';
     html+='<div style="font-weight:700;font-size:14px;color:var(--text1);margin-bottom:4px;">'+step.title+'</div>';
     html+='<div style="font-size:13px;color:var(--text2);line-height:1.6;">'+step.desc+'</div>';
-    if(step.tip){html+='<div style="margin-top:8px;font-size:12px;color:var(--text3);background:var(--surface3);padding:6px 10px;border-radius:6px;">💡 '+step.tip+'</div>';}
+    if(step.tip)html+='<div style="margin-top:8px;font-size:12px;color:var(--text3);background:var(--surface3);padding:6px 10px;border-radius:6px;">💡 '+step.tip+'</div>';
     html+='</div></div>';
   });
+
   return html;
 }
 
